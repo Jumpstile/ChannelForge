@@ -1,0 +1,114 @@
+{
+  "locals": {
+    "WCBS": [
+      "WCBS",
+      "WCBS CBS New York",
+      "CBS New York"
+    ],
+    "WNBC": [
+      "WNBC",
+      "WNBC NBC New York",
+      "NBC New York"
+    ],
+    "WNYW": [
+      "WNYW",
+      "WNYW FOX New York",
+      "FOX New York"
+    ],
+    "WABC": [
+      "WABC",
+      "WABC ABC New York",
+      "ABC New York"
+    ],
+    "WWOR": [
+      "WWOR",
+      "WWOR MyNetworkTV New York",
+      "MyNetworkTV New York"
+    ],
+    "WPIX": [
+      "WPIX",
+      "WPIX CW New York",
+      "CW New York"
+    ],
+    "WNET": [
+      "WNET",
+      "WNET PBS New York",
+      "PBS New York"
+    ],
+    "WNEP": [
+      "WNEP",
+      "WNEP ABC Scranton/Wilkes-Barre",
+      "ABC Scranton/Wilkes-Barre"
+    ],
+    "WYOU": [
+      "WYOU",
+      "WYOU CBS Scranton/Wilkes-Barre",
+      "CBS Scranton/Wilkes-Barre"
+    ],
+    "WBRE": [
+      "WBRE",
+      "WBRE NBC Scranton/Wilkes-Barre",
+      "NBC Scranton/Wilkes-Barre"
+    ],
+    "WSWB": [
+      "WSWB",
+      "WSWB CW Scranton/Wilkes-Barre",
+      "CW Scranton/Wilkes-Barre"
+    ],
+    "WVIA": [
+      "WVIA",
+      "WVIA PBS Scranton/Wilkes-Barre",
+      "PBS Scranton/Wilkes-Barre"
+    ],
+    "WQMY": [
+      "WQMY",
+      "WQMY MyNetworkTV Scranton/Wilkes-Barre",
+      "MyNetworkTV Scranton/Wilkes-Barre"
+    ],
+    "WOLF": [
+      "WOLF",
+      "WOLF FOX Scranton/Wilkes-Barre",
+      "FOX Scranton/Wilkes-Barre"
+    ]
+  },
+  "sports_keywords": [
+    "ESPN",
+    "FS1",
+    "FS2",
+    "YES",
+    "SNY",
+    "MSG",
+    "BTN",
+    "Big Ten",
+    "SEC",
+    "ACC",
+    "RSN",
+    "SportsNet"
+  ],
+  "movie_keywords": [
+    "HBO",
+    "Showtime",
+    "STARZ",
+    "Cinemax",
+    "MGM",
+    "Movie",
+    "Movies"
+  ],
+  "news_keywords": [
+    "CNN",
+    "MSNBC",
+    "FOX News",
+    "BBC",
+    "CNBC",
+    "NewsNation",
+    "Weather"
+  ],
+  "kids_keywords": [
+    "Disney",
+    "Nick",
+    "Nickelodeon",
+    "Cartoon",
+    "Boomerang",
+    "PBS Kids"
+  ]
+}

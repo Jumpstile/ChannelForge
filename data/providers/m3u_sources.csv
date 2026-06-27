@@ -1,0 +1,17 @@
+name,group,url,enabled
+Sports,Sports,https://example.invalid/REDACTED,True
+MLB,MLB,https://example.invalid/REDACTED,True
+NFL,NFL,https://example.invalid/REDACTED,True
+NHL,NHL,https://example.invalid/REDACTED,True
+NBA,NBA,https://example.invalid/REDACTED,True
+XXX,XXX,https://example.invalid/REDACTED,True
+NBC,NBC,https://example.invalid/REDACTED,True
+CBS,CBS,https://example.invalid/REDACTED,True
+ABC,ABC,https://example.invalid/REDACTED,True
+FOX,FOX,https://example.invalid/REDACTED,True
+MY,MY,https://example.invalid/REDACTED,True
+CW,CW,https://example.invalid/REDACTED,True
+Movies,Movies,https://example.invalid/REDACTED,True
+Entertainment,Entertainment,https://example.invalid/REDACTED,True
+PBS,PBS,https://example.invalid/REDACTED,True
+PPV,PPV,https://example.invalid/REDACTED,True

@@ -1,0 +1,14 @@
+start,end,category,notes
+2,49,Locals & Networks,"NY locals first, then PA locals by real channel number"
+100,199,PPV & Events,PPV block
+200,249,NFL,NFL teams and alternates
+250,299,NBA,NBA teams and alternates
+300,349,MLB,MLB teams and alternates
+350,399,NHL,NHL teams and alternates
+400,449,General Sports,"ESPN, FS1, RSNs, BTN, SEC, etc."
+450,499,Sports Overflow,Special/future sports feeds
+500,599,Movies,"HBO, Showtime, Starz, Cinemax, movie channels"
+600,699,Entertainment,"USA, TNT, FX, AMC, A&E, etc."
+700,749,News,"CNN, FOX News, MSNBC, BBC, etc."
+800,849,Kids & Family,"Disney, Nickelodeon, Cartoon Network, family channels"
+900,999,Adult,XXX isolated at bottom

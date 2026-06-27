@@ -1,0 +1,102 @@
+{
+  "provider": "mybunny/tv123",
+  "base_url": "https://example.invalid/REDACTED",
+  "sources": [
+    {
+      "name": "Sports",
+      "group": "Sports",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "MLB",
+      "group": "MLB",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "NFL",
+      "group": "NFL",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "NHL",
+      "group": "NHL",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "NBA",
+      "group": "NBA",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "XXX",
+      "group": "XXX",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "NBC",
+      "group": "NBC",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "CBS",
+      "group": "CBS",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "ABC",
+      "group": "ABC",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "FOX",
+      "group": "FOX",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "MY",
+      "group": "MY",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "CW",
+      "group": "CW",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "Movies",
+      "group": "Movies",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "Entertainment",
+      "group": "Entertainment",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "PBS",
+      "group": "PBS",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    },
+    {
+      "name": "PPV",
+      "group": "PPV",
+      "url": "https://example.invalid/REDACTED",
+      "enabled": true
+    }
+  ]
+}
