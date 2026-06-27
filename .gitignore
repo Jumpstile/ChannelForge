@@ -13,3 +13,8 @@ data/*secret*
 *.mv.db
 *.lock.db
 *.h2.zip
+
+# local secrets
+config/provider.local.json
+data/providers/provider.local.json
+*.local.json
