@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot)
 )
 
@@ -59,10 +59,11 @@ foreach ($l in ($locals.locals | Sort-Object number)) {
 $md += ""
 $md += "## Numbering Blocks"
 foreach ($b in $blocks.blocks) {
-    $md += "- $($b.start)-$($b.end): $($b.category) — $($b.notes)"
+    $md += "- $($b.start)-$($b.end): $($b.category) - $($b.notes)"
 }
 
 $md -join "`n" | Set-Content -LiteralPath (Join-Path $reportDir "lineup-plan.md") -Encoding UTF8
 
 Write-Host "ChannelForge source-of-truth build completed." -ForegroundColor Green
 Write-Host "Report: $(Join-Path $reportDir 'lineup-plan.md')"
+
