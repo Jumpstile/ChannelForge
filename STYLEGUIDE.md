@@ -10,7 +10,47 @@ One source. Many outputs. Zero guesswork.
 
 
 
-\## Design principles
+\## Commenting standards
+
+
+
+\- Code must be commented for intent, not noise.
+
+\- Every public function must explain what it does.
+
+\- Any non-obvious logic must include a short comment explaining why it exists.
+
+\- Any code that touches production files must clearly document what it changes.
+
+\- Avoid clever one-liners when a clear multi-line version is easier to understand.
+
+\- Comments should help a future maintainer understand the decision, not restate the command.
+
+
+
+\## Documentation standards
+
+
+
+\- Documentation must be written for beginners.
+
+\- Do not assume the reader knows Docker, Git, PowerShell, IPTV, XMLTV, M3U, IPTVBoss, Dispatcharr, or Plex.
+
+\- Every procedure must include:
+
+&#x20; - what the step does
+
+&#x20; - where to click or what command to run
+
+&#x20; - what success looks like
+
+&#x20; - what to do if it fails
+
+\- Prefer exact commands over vague descriptions.
+
+\- Avoid unexplained acronyms.
+
+\- Keep instructions clear, direct, and sequential.## Design principles
 
 
 
@@ -62,7 +102,7 @@ One source. Many outputs. Zero guesswork.
 
 \- Prefer explicit parameters.
 
-\- Use `\[CmdletBinding()]` for public functions.
+\- Use `\\\[CmdletBinding()]` for public functions.
 
 \- Validate required file paths before reading.
 
@@ -106,7 +146,7 @@ One source. Many outputs. Zero guesswork.
 
 \- Do not commit tokenized provider URLs to public repositories.
 
-\- Keep local secrets in ignored `\*.local.json` files.
+\- Keep local secrets in ignored `\\\*.local.json` files.
 
 \- Do not commit generated playlists, XMLTV files, H2 databases, or backups.
 
