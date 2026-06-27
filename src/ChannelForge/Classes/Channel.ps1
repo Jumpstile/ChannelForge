@@ -1,42 +1,53 @@
-BeforeAll {
-    $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
-}
+class Channel {
+    [string]$Provider
+    [string]$Playlist
+    [string]$OriginalName
+    [string]$NormalizedName
+    [string]$DisplayName
+    [string]$TvgId
+    [string]$TvgName
+    [string]$Logo
+    [string]$Group
+    [string]$Category
+    [string]$League
+    [string]$Sport
+    [string]$Network
+    [string]$Region
+    [string]$Language
+    [nullable[int]]$PreferredNumber
+    [nullable[int]]$AssignedNumber
+    [int]$Priority
+    [bool]$IsLocal
+    [bool]$IsAdult
+    [bool]$IsRegionalSports
+    [bool]$IsDuplicate
+    [int]$Confidence
+    [System.Collections.ArrayList]$Warnings
 
-Describe 'New-ChannelForgeChannel' {
-    It 'creates a channel with basic identity fields' {
-        $channel = New-ChannelForgeChannel `
-            -Provider 'mybunny' `
-            -Playlist 'Sports' `
-            -OriginalName 'ESPN HD' `
-            -TvgId 'espn.us' `
-            -Group 'Sports'
-
-        $channel.Provider | Should -Be 'mybunny'
-        $channel.Playlist | Should -Be 'Sports'
-        $channel.OriginalName | Should -Be 'ESPN HD'
-        $channel.NormalizedName | Should -Be 'ESPN HD'
-        $channel.DisplayName | Should -Be 'ESPN HD'
-        $channel.TvgId | Should -Be 'espn.us'
-        $channel.Group | Should -Be 'Sports'
-    }
-
-    It 'uses DisplayName when provided' {
-        $channel = New-ChannelForgeChannel `
-            -OriginalName 'WABC HD' `
-            -DisplayName 'WABC ABC New York'
-
-        $channel.DisplayName | Should -Be 'WABC ABC New York'
-    }
-
-    It 'initializes classification and flags safely' {
-        $channel = New-ChannelForgeChannel -OriginalName 'Test Channel'
-
-        $channel.Category | Should -Be ''
-        $channel.IsLocal | Should -BeFalse
-        $channel.IsAdult | Should -BeFalse
-        $channel.IsDuplicate | Should -BeFalse
-        $channel.Confidence | Should -Be 0
-        $channel.Warnings.Count | Should -Be 0
+    Channel() {
+        $this.Provider = ''
+        $this.Playlist = ''
+        $this.OriginalName = ''
+        $this.NormalizedName = ''
+        $this.DisplayName = ''
+        $this.TvgId = ''
+        $this.TvgName = ''
+        $this.Logo = ''
+        $this.Group = ''
+        $this.Category = ''
+        $this.League = ''
+        $this.Sport = ''
+        $this.Network = ''
+        $this.Region = ''
+        $this.Language = ''
+        $this.PreferredNumber = $null
+        $this.AssignedNumber = $null
+        $this.Priority = 0
+        $this.IsLocal = $false
+        $this.IsAdult = $false
+        $this.IsRegionalSports = $false
+        $this.IsDuplicate = $false
+        $this.Confidence = 0
+        $this.Warnings = [System.Collections.ArrayList]::new()
     }
 }
