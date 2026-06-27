@@ -1,136 +1,186 @@
-# @'
+\# ChannelForge
 
-# \# ChannelForge
 
-# 
 
-# > \*\*An evidence-driven television knowledge engine.\*\*
+<p align="center">
 
-# 
+&#x20; <strong>One source. Many outputs. Zero guesswork.</strong>
 
-# ChannelForge is an open-source PowerShell project that transforms provider playlists into accurate, trustworthy, and deterministic television lineups.
+</p>
 
-# 
 
-# Unlike traditional playlist editors, ChannelForge is built around \*\*verification\*\*, \*\*evidence\*\*, and \*\*recoverability\*\*.
 
-# 
+<p align="center">
 
-# \## Project Status
+&#x20; An evidence-driven television knowledge engine for building accurate, trustworthy, deterministic channel lineups.
 
-# 
+</p>
 
-# \*\*Early Alpha\*\*
 
-# 
 
-# Current capabilities:
+<p align="center">
 
-# 
+&#x20; <img alt="Status" src="https://img.shields.io/badge/status-early%20alpha-orange">
 
-# \- Modular PowerShell architecture
+&#x20; <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7%2B-blue">
 
-# \- GitHub Actions CI
+&#x20; <img alt="Tests" src="https://img.shields.io/badge/tests-Pester%205.7.1-purple">
 
-# \- Pester unit tests
+</p>
 
-# \- Provider configuration parsing
 
-# \- EPG source parsing
 
-# \- M3U playlist parsing
+\---
 
-# \- Channel domain model
 
-# \- BuildContext domain model
 
-# \- Channel normalization
+\## What is ChannelForge?
 
-# \- Engineering documentation
 
-# \- Architecture Decision Records
 
-# 
+ChannelForge is a PowerShell project that turns provider playlists, guide data, local rules, and reference knowledge into clean television lineups.
 
-# \## Vision
 
-# 
 
-# > \*\*Never guess when you can verify.\*\*
+It started as tooling for IPTVBoss, Dispatcharr, and Plex, but the bigger goal is this:
 
-# 
 
-# ChannelForge is designed to detect provider drift, resolve channel identity, classify channels, maintain numbering plans, monitor feed quality, and generate trusted outputs for IPTVBoss, Dispatcharr, Plex, Jellyfin, and future platforms.
 
-# 
+> \*\*Establish confidence in television metadata.\*\*
 
-# \## Five Pillars
 
-# 
 
-# \- \*\*Truth\*\* — Facts should be supported by evidence.
+ChannelForge does not blindly trust playlist names.  
 
-# \- \*\*Trust\*\* — Automated decisions should be explainable.
+It verifies, explains, repairs safely, and preserves user intent.
 
-# \- \*\*Recoverability\*\* — Changes should be reversible.
 
-# \- \*\*Determinism\*\* — Same input, same output.
 
-# \- \*\*Self-Healing\*\* — Safe repairs are automated; uncertain repairs require review.
+\---
 
-# 
 
-# \## Documentation
 
-# 
+\## Why it exists
 
-# | Document | Purpose |
 
-# |---|---|
 
-# | docs/architecture/PROJECT\_CHARTER.md | Mission and direction |
+Television metadata changes constantly.
 
-# | docs/architecture/MANIFESTO.md | Project philosophy |
 
-# | docs/architecture/CHANNEL\_IDENTITY\_MODEL.md | Channel identity model |
 
-# | docs/user/QUICK\_START.md | Beginner first steps |
+Providers rename channels.  
 
-# | docs/reference/INSTALL.md | Setup requirements |
+EPG IDs drift.  
 
-# | docs/developer/DEVELOPER\_GUIDE.md | Developer workflow |
+Logos change.  
 
-# | docs/engineering/ENGINEERING\_PRINCIPLES.md | Engineering standards |
+Duplicate streams appear.  
 
-# | docs/reference/SECURITY.md | Security practices |
+Feeds go down.  
 
-# | docs/developer/STYLEGUIDE.md | Coding conventions |
+Lineups get messy.
 
-# | docs/developer/CONTRIBUTING.md | Contribution process |
 
-# 
 
-# \## Development
+ChannelForge is designed to detect that drift, explain what changed, and eventually repair safe issues automatically.
 
-# 
 
-# Use:
 
-# 
+\---
 
-# \- PowerShell 7+
 
-# \- Pester 5.7.1
 
-# \- GitHub Actions
+\## Five pillars
 
-# 
 
-# Run tests:
 
-# 
+| Pillar | Meaning |
 
-# ```powershell
+|---|---|
 
-# Invoke-Pester .\\tests\\unit
+| \*\*Truth\*\* | Important facts should be supported by evidence. |
+
+| \*\*Trust\*\* | Automated decisions should be explainable. |
+
+| \*\*Recoverability\*\* | Changes should be reversible. |
+
+| \*\*Determinism\*\* | Same input, same output. |
+
+| \*\*Self-Healing\*\* | Safe repairs are automated; uncertain repairs require review. |
+
+
+
+\---
+
+
+
+\## Current status
+
+
+
+> \*\*Early Alpha — not production-ready yet\*\*
+
+
+
+Working today:
+
+
+
+\- PowerShell module layout
+
+\- GitHub Actions CI
+
+\- Pester 5.7.1 tests
+
+\- Provider config import
+
+\- EPG source import
+
+\- M3U playlist parsing
+
+\- `BuildContext` domain object
+
+\- `Channel` domain object
+
+\- Channel normalization
+
+\- Architecture Decision Records
+
+\- Documentation architecture
+
+
+
+\---
+
+
+
+\## Repository map
+
+
+
+```text
+
+ChannelForge/
+
+├── data/                  Source data and rules
+
+├── docs/                  Project documentation
+
+│   ├── adr/               Architecture Decision Records
+
+│   ├── architecture/      System design and project identity
+
+│   ├── developer/         Contributor and coding docs
+
+│   ├── engineering/       Engineering standards
+
+│   ├── reference/         Install, security, and reference docs
+
+│   └── user/              Beginner-facing docs
+
+├── src/ChannelForge/      PowerShell module
+
+├── tests/                 Pester tests and fixtures
+
+└── README.md
 
