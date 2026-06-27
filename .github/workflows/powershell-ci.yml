@@ -11,13 +11,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Pester
+      - name: Install Pester 5.7.1
         shell: pwsh
         run: |
-          Install-Module Pester -Force -Scope CurrentUser
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+              Register-PSRepository -Default
+          }
+
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+          Install-Module Pester `
+              -RequiredVersion 5.7.1 `
+              -Repository PSGallery `
+              -Force `
+              -Scope CurrentUser `
+              -SkipPublisherCheck
 
       - name: Run Pester tests
         shell: pwsh
