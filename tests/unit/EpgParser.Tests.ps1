@@ -1,6 +1,6 @@
 BeforeAll {
     $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    Import-Module (Join-Path $RepoRoot 'src\ChannelForge\EpgParser.psm1') -Force
+    Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
 }
 
 Describe 'Read-ChannelForgeEpgSource' {
