@@ -1,0 +1,82 @@
+{
+  "blocks": [
+    {
+      "start": 2,
+      "end": 49,
+      "category": "Locals & Networks",
+      "notes": "NY locals first, then PA locals by real channel number"
+    },
+    {
+      "start": 100,
+      "end": 199,
+      "category": "PPV & Events",
+      "notes": "PPV block"
+    },
+    {
+      "start": 200,
+      "end": 249,
+      "category": "NFL",
+      "notes": "NFL teams and alternates"
+    },
+    {
+      "start": 250,
+      "end": 299,
+      "category": "NBA",
+      "notes": "NBA teams and alternates"
+    },
+    {
+      "start": 300,
+      "end": 349,
+      "category": "MLB",
+      "notes": "MLB teams and alternates"
+    },
+    {
+      "start": 350,
+      "end": 399,
+      "category": "NHL",
+      "notes": "NHL teams and alternates"
+    },
+    {
+      "start": 400,
+      "end": 449,
+      "category": "General Sports",
+      "notes": "ESPN, FS1, RSNs, BTN, SEC, etc."
+    },
+    {
+      "start": 450,
+      "end": 499,
+      "category": "Sports Overflow",
+      "notes": "Special/future sports feeds"
+    },
+    {
+      "start": 500,
+      "end": 599,
+      "category": "Movies",
+      "notes": "HBO, Showtime, Starz, Cinemax, movie channels"
+    },
+    {
+      "start": 600,
+      "end": 699,
+      "category": "Entertainment",
+      "notes": "USA, TNT, FX, AMC, A&E, etc."
+    },
+    {
+      "start": 700,
+      "end": 749,
+      "category": "News",
+      "notes": "CNN, FOX News, MSNBC, BBC, etc."
+    },
+    {
+      "start": 800,
+      "end": 849,
+      "category": "Kids & Family",
+      "notes": "Disney, Nickelodeon, Cartoon Network, family channels"
+    },
+    {
+      "start": 900,
+      "end": 999,
+      "category": "Adult",
+      "notes": "XXX isolated at bottom"
+    }
+  ]
+}

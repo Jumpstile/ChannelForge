@@ -1,0 +1,22 @@
+{
+  "exclude_groups": [
+    "Default"
+  ],
+  "primary_categories": [
+    "Locals & Networks",
+    "PPV & Events",
+    "NFL",
+    "NBA",
+    "MLB",
+    "NHL",
+    "General Sports",
+    "Sports Overflow",
+    "Movies",
+    "Entertainment",
+    "News",
+    "Kids & Family",
+    "Adult"
+  ],
+  "adult_policy": "keep isolated in 900-999 block",
+  "international_policy": "exclude from primary lineup unless explicitly requested"
+}

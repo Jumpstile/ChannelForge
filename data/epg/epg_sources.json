@@ -1,0 +1,165 @@
+{
+  "epg_sources": [
+    {
+      "name": "EPG Ripper ALL Sources",
+      "priority": 10,
+      "url": "https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz",
+      "enabled": true,
+      "role": "primary"
+    },
+    {
+      "name": "EPG Ripper US 2",
+      "priority": 20,
+      "url": "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz",
+      "enabled": true,
+      "role": "supplement"
+    },
+    {
+      "name": "EPGRipper US Sports",
+      "priority": 30,
+      "url": "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz",
+      "enabled": true,
+      "role": "sports"
+    },
+    {
+      "name": "Jesmann US IPTV",
+      "priority": 40,
+      "url": "https://epg.jesmann.com/7dayiptv/UnitedStates.xml.gz",
+      "enabled": true,
+      "role": "supplement"
+    },
+    {
+      "name": "Jesmann US Locals IPTV",
+      "priority": 50,
+      "url": "https://epg.jesmann.com/7dayiptv/UnitedStates-Locals.xml.gz",
+      "enabled": true,
+      "role": "locals"
+    },
+    {
+      "name": "Jesmann Sports IPTV",
+      "priority": 60,
+      "url": "https://epg.jesmann.com/7dayiptv/Sports.xml.gz",
+      "enabled": true,
+      "role": "sports"
+    },
+    {
+      "name": "IP Torrents EPG",
+      "priority": 70,
+      "url": "https://epg.iptv.cat/epg.xml",
+      "enabled": true,
+      "role": "fallback"
+    },
+    {
+      "name": "Provider MLB",
+      "priority": 80,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/MLB",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider Sports",
+      "priority": 81,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Sports",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider NFL",
+      "priority": 82,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NFL",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider NHL",
+      "priority": 83,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NHL",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider NBA",
+      "priority": 84,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NBA",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider XXX",
+      "priority": 85,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/XXX",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider NBC",
+      "priority": 86,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NBC",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider CBS",
+      "priority": 87,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/CBS",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider ABC",
+      "priority": 88,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/ABC",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider FOX",
+      "priority": 89,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/FOX",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider MY",
+      "priority": 90,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/MY",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider CW",
+      "priority": 91,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/CW",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider Movies",
+      "priority": 92,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Movies",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider Entertainment",
+      "priority": 93,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Entertainment",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider PBS",
+      "priority": 94,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/PBS",
+      "enabled": true,
+      "role": "provider-fallback"
+    },
+    {
+      "name": "Provider PPV",
+      "priority": 95,
+      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/PPV",
+      "enabled": true,
+      "role": "provider-fallback"
+    }
+  ]
+}

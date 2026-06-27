@@ -1,0 +1,15 @@
+# generated output
+output/
+backups/
+*.log
+*.tmp
+
+# sensitive overrides
+data/secrets.json
+data/*secret*
+*.env
+
+# IPTVBoss database/backups
+*.mv.db
+*.lock.db
+*.h2.zip

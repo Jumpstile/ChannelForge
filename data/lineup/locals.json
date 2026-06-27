@@ -1,0 +1,102 @@
+{
+  "locals": [
+    {
+      "number": 2,
+      "station": "WCBS",
+      "network": "CBS",
+      "market": "New York",
+      "display": "WCBS CBS New York"
+    },
+    {
+      "number": 4,
+      "station": "WNBC",
+      "network": "NBC",
+      "market": "New York",
+      "display": "WNBC NBC New York"
+    },
+    {
+      "number": 5,
+      "station": "WNYW",
+      "network": "FOX",
+      "market": "New York",
+      "display": "WNYW FOX New York"
+    },
+    {
+      "number": 7,
+      "station": "WABC",
+      "network": "ABC",
+      "market": "New York",
+      "display": "WABC ABC New York"
+    },
+    {
+      "number": 9,
+      "station": "WWOR",
+      "network": "MyNetworkTV",
+      "market": "New York",
+      "display": "WWOR MyNetworkTV New York"
+    },
+    {
+      "number": 11,
+      "station": "WPIX",
+      "network": "CW",
+      "market": "New York",
+      "display": "WPIX CW New York"
+    },
+    {
+      "number": 13,
+      "station": "WNET",
+      "network": "PBS",
+      "market": "New York",
+      "display": "WNET PBS New York"
+    },
+    {
+      "number": 16,
+      "station": "WNEP",
+      "network": "ABC",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WNEP ABC Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 22,
+      "station": "WYOU",
+      "network": "CBS",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WYOU CBS Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 28,
+      "station": "WBRE",
+      "network": "NBC",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WBRE NBC Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 38,
+      "station": "WSWB",
+      "network": "CW",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WSWB CW Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 44,
+      "station": "WVIA",
+      "network": "PBS",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WVIA PBS Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 53,
+      "station": "WQMY",
+      "network": "MyNetworkTV",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WQMY MyNetworkTV Scranton/Wilkes-Barre"
+    },
+    {
+      "number": 56,
+      "station": "WOLF",
+      "network": "FOX",
+      "market": "Scranton/Wilkes-Barre",
+      "display": "WOLF FOX Scranton/Wilkes-Barre"
+    }
+  ]
+}

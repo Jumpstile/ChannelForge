@@ -1,0 +1,102 @@
+{
+  "provider": "mybunny/tv123",
+  "base_url": "https://tv123.me/iptv/1052902/sKwoX4sCi1",
+  "sources": [
+    {
+      "name": "Sports",
+      "group": "Sports",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/Sports",
+      "enabled": true
+    },
+    {
+      "name": "MLB",
+      "group": "MLB",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/MLB",
+      "enabled": true
+    },
+    {
+      "name": "NFL",
+      "group": "NFL",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/NFL",
+      "enabled": true
+    },
+    {
+      "name": "NHL",
+      "group": "NHL",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/NHL",
+      "enabled": true
+    },
+    {
+      "name": "NBA",
+      "group": "NBA",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/NBA",
+      "enabled": true
+    },
+    {
+      "name": "XXX",
+      "group": "XXX",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/XXX",
+      "enabled": true
+    },
+    {
+      "name": "NBC",
+      "group": "NBC",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/NBC",
+      "enabled": true
+    },
+    {
+      "name": "CBS",
+      "group": "CBS",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/CBS",
+      "enabled": true
+    },
+    {
+      "name": "ABC",
+      "group": "ABC",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/ABC",
+      "enabled": true
+    },
+    {
+      "name": "FOX",
+      "group": "FOX",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/FOX",
+      "enabled": true
+    },
+    {
+      "name": "MY",
+      "group": "MY",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/MY",
+      "enabled": true
+    },
+    {
+      "name": "CW",
+      "group": "CW",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/CW",
+      "enabled": true
+    },
+    {
+      "name": "Movies",
+      "group": "Movies",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/Movies",
+      "enabled": true
+    },
+    {
+      "name": "Entertainment",
+      "group": "Entertainment",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/Entertainment",
+      "enabled": true
+    },
+    {
+      "name": "PBS",
+      "group": "PBS",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/PBS",
+      "enabled": true
+    },
+    {
+      "name": "PPV",
+      "group": "PPV",
+      "url": "https://tv123.me/iptv/1052902/sKwoX4sCi1/PPV",
+      "enabled": true
+    }
+  ]
+}
