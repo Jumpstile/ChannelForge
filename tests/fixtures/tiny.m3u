@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="wcbs.us" tvg-name="WCBS" tvg-logo="https://example.com/wcbs.png" group-title="ABC",WCBS CBS New York
+https://example.com/live/wcbs
+#EXTINF:-1 tvg-id="espn.us" tvg-name="ESPN" tvg-logo="https://example.com/espn.png" group-title="Sports",ESPN HD
+https://example.com/live/espn
+#EXTINF:-1 tvg-id="hbo.us" tvg-name="HBO" tvg-logo="https://example.com/hbo.png" group-title="Movies",HBO East
+https://example.com/live/hbo
