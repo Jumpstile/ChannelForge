@@ -17,4 +17,10 @@ data/*secret*
 # local secrets
 config/provider.local.json
 data/providers/provider.local.json
+data/providers/*.local.json
+data/providers/*.local.csv
+data/epg/*.local.json
+data/epg/*.local.csv
+config/*.local.json
+config/*.local.csv
 *.local.json

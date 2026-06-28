@@ -3,161 +3,161 @@
     {
       "name": "EPG Ripper ALL Sources",
       "priority": 10,
-      "url": "https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz",
+      "url": "https://example.invalid/epg/public/all-sources.xml.gz",
       "enabled": true,
       "role": "primary"
     },
     {
       "name": "EPG Ripper US 2",
       "priority": 20,
-      "url": "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz",
+      "url": "https://example.invalid/epg/public/us-2.xml.gz",
       "enabled": true,
       "role": "supplement"
     },
     {
       "name": "EPGRipper US Sports",
       "priority": 30,
-      "url": "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz",
+      "url": "https://example.invalid/epg/public/us-sports.xml.gz",
       "enabled": true,
       "role": "sports"
     },
     {
       "name": "Jesmann US IPTV",
       "priority": 40,
-      "url": "https://epg.jesmann.com/7dayiptv/UnitedStates.xml.gz",
+      "url": "https://example.invalid/epg/public/united-states.xml.gz",
       "enabled": true,
       "role": "supplement"
     },
     {
       "name": "Jesmann US Locals IPTV",
       "priority": 50,
-      "url": "https://epg.jesmann.com/7dayiptv/UnitedStates-Locals.xml.gz",
+      "url": "https://example.invalid/epg/public/united-states-locals.xml.gz",
       "enabled": true,
       "role": "locals"
     },
     {
       "name": "Jesmann Sports IPTV",
       "priority": 60,
-      "url": "https://epg.jesmann.com/7dayiptv/Sports.xml.gz",
+      "url": "https://example.invalid/epg/public/sports.xml.gz",
       "enabled": true,
       "role": "sports"
     },
     {
       "name": "IP Torrents EPG",
       "priority": 70,
-      "url": "https://epg.iptv.cat/epg.xml",
+      "url": "https://example.invalid/epg/public/fallback.xml",
       "enabled": true,
       "role": "fallback"
     },
     {
       "name": "Provider MLB",
       "priority": 80,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/MLB",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MLB.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Sports",
       "priority": 81,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Sports",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Sports.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NFL",
       "priority": 82,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NFL",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NFL.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NHL",
       "priority": 83,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NHL",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NHL.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NBA",
       "priority": 84,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NBA",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBA.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider XXX",
       "priority": 85,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/XXX",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/XXX.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NBC",
       "priority": 86,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/NBC",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBC.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider CBS",
       "priority": 87,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/CBS",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CBS.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider ABC",
       "priority": 88,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/ABC",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/ABC.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider FOX",
       "priority": 89,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/FOX",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/FOX.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider MY",
       "priority": 90,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/MY",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MY.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider CW",
       "priority": 91,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/CW",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CW.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Movies",
       "priority": 92,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Movies",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Movies.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Entertainment",
       "priority": 93,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/Entertainment",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Entertainment.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider PBS",
       "priority": 94,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/PBS",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PBS.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider PPV",
       "priority": 95,
-      "url": "https://epg.mybunny.tv/ipt/1052902/sKwoX4sCi1/PPV",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PPV.xml",
       "enabled": true,
       "role": "provider-fallback"
     }
