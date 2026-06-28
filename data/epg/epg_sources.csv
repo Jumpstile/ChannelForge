@@ -1,24 +1,24 @@
 name,priority,url,enabled,role
-EPG Ripper ALL Sources,10,https://example.invalid/REDACTED,True,primary
-EPG Ripper US 2,20,https://example.invalid/REDACTED,True,supplement
-EPGRipper US Sports,30,https://example.invalid/REDACTED,True,sports
-Jesmann US IPTV,40,https://example.invalid/REDACTED,True,supplement
-Jesmann US Locals IPTV,50,https://example.invalid/REDACTED,True,locals
-Jesmann Sports IPTV,60,https://example.invalid/REDACTED,True,sports
-IP Torrents EPG,70,https://example.invalid/REDACTED,True,fallback
-Provider MLB,80,https://example.invalid/REDACTED,True,provider-fallback
-Provider Sports,81,https://example.invalid/REDACTED,True,provider-fallback
-Provider NFL,82,https://example.invalid/REDACTED,True,provider-fallback
-Provider NHL,83,https://example.invalid/REDACTED,True,provider-fallback
-Provider NBA,84,https://example.invalid/REDACTED,True,provider-fallback
-Provider XXX,85,https://example.invalid/REDACTED,True,provider-fallback
-Provider NBC,86,https://example.invalid/REDACTED,True,provider-fallback
-Provider CBS,87,https://example.invalid/REDACTED,True,provider-fallback
-Provider ABC,88,https://example.invalid/REDACTED,True,provider-fallback
-Provider FOX,89,https://example.invalid/REDACTED,True,provider-fallback
-Provider MY,90,https://example.invalid/REDACTED,True,provider-fallback
-Provider CW,91,https://example.invalid/REDACTED,True,provider-fallback
-Provider Movies,92,https://example.invalid/REDACTED,True,provider-fallback
-Provider Entertainment,93,https://example.invalid/REDACTED,True,provider-fallback
-Provider PBS,94,https://example.invalid/REDACTED,True,provider-fallback
-Provider PPV,95,https://example.invalid/REDACTED,True,provider-fallback
+EPG Ripper ALL Sources,10,https://example.invalid/epg/public/all-sources.xml.gz,true,primary
+EPG Ripper US 2,20,https://example.invalid/epg/public/us-2.xml.gz,true,supplement
+EPGRipper US Sports,30,https://example.invalid/epg/public/us-sports.xml.gz,true,sports
+Jesmann US IPTV,40,https://example.invalid/epg/public/united-states.xml.gz,true,supplement
+Jesmann US Locals IPTV,50,https://example.invalid/epg/public/united-states-locals.xml.gz,true,locals
+Jesmann Sports IPTV,60,https://example.invalid/epg/public/sports.xml.gz,true,sports
+IP Torrents EPG,70,https://example.invalid/epg/public/fallback.xml,true,fallback
+Provider MLB,80,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MLB.xml,true,provider-fallback
+Provider Sports,81,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Sports.xml,true,provider-fallback
+Provider NFL,82,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NFL.xml,true,provider-fallback
+Provider NHL,83,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NHL.xml,true,provider-fallback
+Provider NBA,84,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBA.xml,true,provider-fallback
+Provider XXX,85,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/XXX.xml,true,provider-fallback
+Provider NBC,86,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBC.xml,true,provider-fallback
+Provider CBS,87,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CBS.xml,true,provider-fallback
+Provider ABC,88,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/ABC.xml,true,provider-fallback
+Provider FOX,89,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/FOX.xml,true,provider-fallback
+Provider MY,90,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MY.xml,true,provider-fallback
+Provider CW,91,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CW.xml,true,provider-fallback
+Provider Movies,92,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Movies.xml,true,provider-fallback
+Provider Entertainment,93,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Entertainment.xml,true,provider-fallback
+Provider PBS,94,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PBS.xml,true,provider-fallback
+Provider PPV,95,https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PPV.xml,true,provider-fallback

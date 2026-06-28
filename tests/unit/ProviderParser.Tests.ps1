@@ -18,7 +18,7 @@ Describe 'Read-ChannelForgeProvider' {
         $sources = @(Read-ChannelForgeProvider -Path $path)
 
         $sources.Name | Should -Contain 'Sports'
-        ($sources | Where-Object Name -eq 'Sports').Url | Should -Be 'https://example.invalid/REDACTED'
+        ($sources | Where-Object Name -eq 'Sports').Url | Should -Be 'https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports'
     }
 
     It 'throws when the provider file is missing' {

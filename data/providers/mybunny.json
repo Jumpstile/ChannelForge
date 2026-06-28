@@ -1,101 +1,101 @@
 {
-  "provider": "mybunny/tv123",
-  "base_url": "https://example.invalid/REDACTED",
+  "provider": "example-provider",
+  "base_url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN",
   "sources": [
     {
       "name": "Sports",
       "group": "Sports",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports",
       "enabled": true
     },
     {
       "name": "MLB",
       "group": "MLB",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/MLB",
       "enabled": true
     },
     {
       "name": "NFL",
       "group": "NFL",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/NFL",
       "enabled": true
     },
     {
       "name": "NHL",
       "group": "NHL",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/NHL",
       "enabled": true
     },
     {
       "name": "NBA",
       "group": "NBA",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/NBA",
       "enabled": true
     },
     {
       "name": "XXX",
       "group": "XXX",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/XXX",
       "enabled": true
     },
     {
       "name": "NBC",
       "group": "NBC",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/NBC",
       "enabled": true
     },
     {
       "name": "CBS",
       "group": "CBS",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/CBS",
       "enabled": true
     },
     {
       "name": "ABC",
       "group": "ABC",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/ABC",
       "enabled": true
     },
     {
       "name": "FOX",
       "group": "FOX",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/FOX",
       "enabled": true
     },
     {
       "name": "MY",
       "group": "MY",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/MY",
       "enabled": true
     },
     {
       "name": "CW",
       "group": "CW",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/CW",
       "enabled": true
     },
     {
       "name": "Movies",
       "group": "Movies",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Movies",
       "enabled": true
     },
     {
       "name": "Entertainment",
       "group": "Entertainment",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Entertainment",
       "enabled": true
     },
     {
       "name": "PBS",
       "group": "PBS",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/PBS",
       "enabled": true
     },
     {
       "name": "PPV",
       "group": "PPV",
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/PPV",
       "enabled": true
     }
   ]

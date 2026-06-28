@@ -3,161 +3,161 @@
     {
       "name": "EPG Ripper ALL Sources",
       "priority": 10,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/all-sources.xml.gz",
       "enabled": true,
       "role": "primary"
     },
     {
       "name": "EPG Ripper US 2",
       "priority": 20,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/us-2.xml.gz",
       "enabled": true,
       "role": "supplement"
     },
     {
       "name": "EPGRipper US Sports",
       "priority": 30,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/us-sports.xml.gz",
       "enabled": true,
       "role": "sports"
     },
     {
       "name": "Jesmann US IPTV",
       "priority": 40,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/united-states.xml.gz",
       "enabled": true,
       "role": "supplement"
     },
     {
       "name": "Jesmann US Locals IPTV",
       "priority": 50,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/united-states-locals.xml.gz",
       "enabled": true,
       "role": "locals"
     },
     {
       "name": "Jesmann Sports IPTV",
       "priority": 60,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/sports.xml.gz",
       "enabled": true,
       "role": "sports"
     },
     {
       "name": "IP Torrents EPG",
       "priority": 70,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/public/fallback.xml",
       "enabled": true,
       "role": "fallback"
     },
     {
       "name": "Provider MLB",
       "priority": 80,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MLB.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Sports",
       "priority": 81,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Sports.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NFL",
       "priority": 82,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NFL.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NHL",
       "priority": 83,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NHL.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NBA",
       "priority": 84,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBA.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider XXX",
       "priority": 85,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/XXX.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider NBC",
       "priority": 86,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/NBC.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider CBS",
       "priority": 87,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CBS.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider ABC",
       "priority": 88,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/ABC.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider FOX",
       "priority": 89,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/FOX.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider MY",
       "priority": 90,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/MY.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider CW",
       "priority": 91,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/CW.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Movies",
       "priority": 92,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Movies.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider Entertainment",
       "priority": 93,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Entertainment.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider PBS",
       "priority": 94,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PBS.xml",
       "enabled": true,
       "role": "provider-fallback"
     },
     {
       "name": "Provider PPV",
       "priority": 95,
-      "url": "https://example.invalid/REDACTED",
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/PPV.xml",
       "enabled": true,
       "role": "provider-fallback"
     }
