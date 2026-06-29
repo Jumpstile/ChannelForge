@@ -20,6 +20,7 @@ function Read-JsonFile {
 $dataDir = Join-Path $Root "data"
 $outDir = Join-Path $Root "output"
 $reportDir = Join-Path $outDir "reports"
+$playlistDir = Join-Path $dataDir "playlists"
 
 # Path-safety guardrail: build reports and the merged playlist may only
 # land inside the project's own output/ folder (a disposable artifact area
@@ -28,8 +29,16 @@ Assert-ChannelForgeWritePath -Path $outDir -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $reportDir -AllowedRoot $outDir
 New-Item -ItemType Directory -Force -Path $outDir, $reportDir | Out-Null
 
-$provider = Read-JsonFile (Join-Path $dataDir "providers/mybunny.json")
-$epg = Read-JsonFile (Join-Path $dataDir "epg/epg_sources.json")
+# Provider and EPG source files go through the centralized readers, not a
+# raw Get-Content/ConvertFrom-Json, so the URL trust-boundary check in
+# Test-ChannelForgeSourceUrl (scheme allowlist, no credentials, no
+# loopback/private/link-local hosts) always runs - a malformed or
+# unsupported source URL fails the build immediately instead of silently
+# being treated as build configuration.
+$providerPath = Join-Path $dataDir "providers/mybunny.json"
+$providerSources = @(Read-ChannelForgeProvider -Path $providerPath)
+$providerConfig = Read-JsonFile $providerPath
+$epgSources = @(Read-ChannelForgeEpgSource -Path (Join-Path $dataDir "epg/epg_sources.json"))
 $locals = Read-JsonFile (Join-Path $dataDir "lineup/locals.json")
 $blocks = Read-JsonFile (Join-Path $dataDir "lineup/numbering_blocks.json")
 $aliasPath = Join-Path $dataDir "rules/aliases.json"
@@ -44,7 +53,7 @@ Assert-ChannelForgeWritePath -Path $planPath -AllowedRoot $outDir
 # a local_playlist configured participate. There is no HTTP fetch yet, so a
 # source with no local_playlist is skipped, not an error - this is the
 # documented Phase 1 boundary, not a silent gap.
-$playlistSources = @($provider.sources | Where-Object { $_.enabled -and $_.local_playlist })
+$playlistSources = @($providerSources | Where-Object { $_.Enabled -and $_.LocalPlaylist })
 
 $m3uGenerated = $false
 $m3uRelativePath = $null
@@ -55,10 +64,19 @@ $warningCount = 0
 
 if ($playlistSources.Count -gt 0) {
     $mergeSource = @($playlistSources | ForEach-Object {
+        $resolvedPlaylistPath = Join-Path $Root $_.LocalPlaylist
+
+        # Path-safety guardrail: a local_playlist value is operator-supplied
+        # configuration, not trusted input. Confine it to data/playlists/ so
+        # ".." traversal, an absolute path elsewhere on disk, a UNC path, or
+        # a drive root/system path can never be read, even if provider.json
+        # is malformed or compromised.
+        Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+
         [pscustomobject]@{
-            Path     = Join-Path $Root $_.local_playlist
-            Provider = $provider.provider
-            Playlist = $_.name
+            Path     = $resolvedPlaylistPath
+            Provider = $providerConfig.provider
+            Playlist = $_.Name
         }
     })
 
@@ -85,9 +103,9 @@ $xmltvDeferredReason = "No programme/EPG guide data source exists yet; generatin
 
 $summary = [ordered]@{
     GeneratedAt         = (Get-Date).ToString("s")
-    Provider            = $provider.provider
-    M3USources          = @($provider.sources).Count
-    EPGSources          = @($epg.epg_sources).Count
+    Provider            = $providerConfig.provider
+    M3USources          = $providerSources.Count
+    EPGSources          = $epgSources.Count
     LocalChannels       = @($locals.locals).Count
     NumberingBlocks     = @($blocks.blocks).Count
     M3UGenerated        = $m3uGenerated
@@ -106,8 +124,8 @@ $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Enco
 # Generate human-readable lineup plan.
 # Provider/EPG/stream URLs are treated as secrets (see docs/reference/SECURITY.md)
 # and must never appear in generated reports. List source/channel names and
-# state only; never include $s.url, $e.url, or $channel.Url here. Never
-# include $Root or any other absolute/local-only path either - only the
+# state only; never include $s.Url or $channel.Url here. Never include
+# $Root or any other absolute/local-only path either - only the
 # project-relative $m3uRelativePath.
 $md = @()
 $md += "# ChannelForge Build Summary"
@@ -124,19 +142,19 @@ else {
 $md += ""
 $md += "Known limitations:"
 $md += "- XMLTV output: deferred. $xmltvDeferredReason"
-$md += "- Live HTTP provider/EPG fetch: deferred. Only local_playlist files are read in this phase."
+$md += "- Live HTTP provider/EPG fetch: deferred. Only local_playlist files under data/playlists/ are read in this phase."
 $md += "- Plex EPG/guide binding: deferred until XMLTV exists. Plex can still play a merged M3U's channels; it will have no guide data."
 $md += ""
 $md += "## Provider M3U Sources"
-foreach ($s in $provider.sources) {
-    $state = if ($s.enabled) { 'enabled' } else { 'disabled' }
-    $playlistState = if ($s.local_playlist) { 'local playlist configured' } else { 'no local playlist' }
-    $md += "- $($s.name) ($state, $playlistState)"
+foreach ($s in $providerSources) {
+    $state = if ($s.Enabled) { 'enabled' } else { 'disabled' }
+    $playlistState = if ($s.LocalPlaylist) { 'local playlist configured' } else { 'no local playlist' }
+    $md += "- $($s.Name) ($state, $playlistState)"
 }
 $md += ""
 $md += "## EPG Sources"
-foreach ($e in ($epg.epg_sources | Sort-Object priority)) {
-    $md += "- [$($e.priority)] $($e.name) - $($e.role)"
+foreach ($e in $epgSources) {
+    $md += "- [$($e.Priority)] $($e.Name) - $($e.Role)"
 }
 $md += ""
 $md += "## Local Channels"

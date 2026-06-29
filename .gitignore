@@ -24,3 +24,7 @@ data/epg/*.local.csv
 config/*.local.json
 config/*.local.csv
 *.local.json
+
+# local playlists (real stream URLs - never commit; see data/playlists/README.md)
+data/playlists/*.local.m3u
+*.local.m3u

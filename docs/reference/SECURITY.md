@@ -16,8 +16,11 @@ Store real local provider configuration only in ignored local files:
 - `data/providers/*.local.csv`
 - `data/epg/*.local.json`
 - `data/epg/*.local.csv`
+- `data/playlists/*.local.m3u`
 - `config/*.local.json`
 - `config/*.local.csv`
+
+A real local M3U playlist (referenced from a `local_playlist` field, see issue #7 Phase 1) can contain real stream URLs, which are exactly as sensitive as a provider source URL. See `data/playlists/README.md` and [the First Plex Smoke Test](../user/PLEX_SMOKE_TEST.md).
 
 These files are for the local machine only. Do not copy real values into examples, tests, docs, build reports, or issue comments.
 

@@ -67,6 +67,41 @@ Describe 'Assert-ChannelForgeWritePath' {
     }
 }
 
+Describe 'Assert-ChannelForgeReadPath' {
+    It 'does not throw for a path inside the allowed root' {
+        $root = Join-Path $TestDrive 'data\playlists'
+        $target = Join-Path $root 'sports.local.m3u'
+
+        { Assert-ChannelForgeReadPath -Path $target -AllowedRoot $root } | Should -Not -Throw
+    }
+
+    It 'throws for a path outside the allowed root' {
+        $root = Join-Path $TestDrive 'data\playlists'
+        $target = Join-Path $TestDrive 'elsewhere\file.m3u'
+
+        { Assert-ChannelForgeReadPath -Path $target -AllowedRoot $root } | Should -Throw
+    }
+
+    It 'throws for a .. traversal attempt that escapes the allowed root' {
+        $root = Join-Path $TestDrive 'data\playlists'
+        $target = Join-Path $root '..\..\elsewhere\file.m3u'
+
+        { Assert-ChannelForgeReadPath -Path $target -AllowedRoot $root } | Should -Throw
+    }
+
+    It 'throws for a UNC path' {
+        $root = Join-Path $TestDrive 'data\playlists'
+
+        { Assert-ChannelForgeReadPath -Path '\\server\share\file.m3u' -AllowedRoot $root } | Should -Throw
+    }
+
+    It 'throws for a drive root or system path unrelated to the allowed root' {
+        $root = Join-Path $TestDrive 'data\playlists'
+
+        { Assert-ChannelForgeReadPath -Path 'C:\Windows\System32\drivers\etc\hosts' -AllowedRoot $root } | Should -Throw
+    }
+}
+
 Describe 'Assert-ChannelForgePathExists' {
     It 'does not throw when the required file exists' {
         $path = Join-Path $TestDrive 'present.json'

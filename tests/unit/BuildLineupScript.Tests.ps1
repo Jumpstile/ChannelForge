@@ -263,3 +263,102 @@ https://example.invalid/live/disabled-channel
         $secondHash | Should -Be $firstHash
     }
 }
+
+Describe 'Build-Lineup.ps1 (local_playlist path-safety guardrail)' {
+    BeforeAll {
+        function New-MinimalFixture {
+            param([string]$LocalPlaylistValue)
+
+            $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString())
+            $dataDir = Join-Path $fixtureRoot 'data'
+
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'rules') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'playlists') | Out-Null
+
+            @{
+                provider = 'fixture'
+                sources  = @(
+                    @{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true; local_playlist = $LocalPlaylistValue }
+                )
+            } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+            @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $true; role = 'primary' }) } |
+                ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+            @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+            @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+            @{ aliases = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'rules\aliases.json') -Encoding UTF8
+
+            return $fixtureRoot
+        }
+    }
+
+    It 'rejects a local_playlist value that traverses outside data/playlists' {
+        $fixtureRoot = New-MinimalFixture -LocalPlaylistValue '../../../../Windows/System32/drivers/etc/hosts'
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*approved location*'
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') | Should -BeFalse
+    }
+
+    It 'rejects a local_playlist value that is an absolute path elsewhere on disk' {
+        $fixtureRoot = New-MinimalFixture -LocalPlaylistValue 'C:\Windows\System32\drivers\etc\hosts'
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*approved location*'
+    }
+
+    It 'rejects a local_playlist value that is a UNC path' {
+        $fixtureRoot = New-MinimalFixture -LocalPlaylistValue '\\server\share\file.m3u'
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*approved location*'
+    }
+}
+
+Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
+    It 'throws when a provider source has a malformed URL, via the centralized Read-ChannelForgeProvider reader' {
+        $fixtureRoot = Join-Path $TestDrive 'invalid-url-project'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+
+        @{
+            provider = 'fixture'
+            sources  = @(
+                @{ name = 'Sports'; group = 'Sports'; url = 'not-a-valid-url'; enabled = $true }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $true; role = 'primary' }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+        @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+        @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw
+    }
+
+    It 'throws when an EPG source has an unsupported URL scheme, via the centralized Read-ChannelForgeEpgSource reader' {
+        $fixtureRoot = Join-Path $TestDrive 'invalid-epg-url-project'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+
+        @{
+            provider = 'fixture'
+            sources  = @(
+                @{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'ftp://example.invalid/y'; enabled = $true; role = 'primary' }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+        @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+        @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw
+    }
+}

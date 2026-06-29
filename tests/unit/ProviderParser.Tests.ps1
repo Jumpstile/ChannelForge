@@ -21,6 +21,28 @@ Describe 'Read-ChannelForgeProvider' {
         ($sources | Where-Object Name -eq 'Sports').Url | Should -Be 'https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports'
     }
 
+    It 'defaults LocalPlaylist to an empty string when not configured' {
+        $path = Join-Path $RepoRoot 'data\providers\mybunny.json'
+
+        $sources = @(Read-ChannelForgeProvider -Path $path)
+
+        ($sources | Where-Object Name -eq 'Sports').LocalPlaylist | Should -Be ''
+    }
+
+    It 'passes through an optional local_playlist field' {
+        $path = Join-Path $TestDrive 'provider-with-playlist.json'
+        @{
+            provider = 'fixture'
+            sources  = @(
+                @{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true; local_playlist = 'data/playlists/sports.local.m3u' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
+
+        $sources = @(Read-ChannelForgeProvider -Path $path)
+
+        $sources[0].LocalPlaylist | Should -Be 'data/playlists/sports.local.m3u'
+    }
+
     It 'throws when the provider file is missing' {
         { Read-ChannelForgeProvider -Path '.\does-not-exist.json' } | Should -Throw
     }

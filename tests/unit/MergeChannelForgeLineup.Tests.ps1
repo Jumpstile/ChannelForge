@@ -126,6 +126,54 @@ Describe 'Export-ChannelForgeM3UPlaylist' {
         $bytes = [System.IO.File]::ReadAllBytes($outPath)
         $bytes[0] | Should -Be ([byte][char]'#')
     }
+
+    It 'sanitizes an embedded double quote in attribute text so the line stays parseable' {
+        $channel = New-ChannelForgeChannel -OriginalName 'Test' -DisplayName 'Test' -TvgName 'Channel "Quoted" Name' -Url 'https://example.invalid/live/test'
+        $outPath = Join-Path $TestDrive 'quote.m3u'
+
+        @($channel) | Export-ChannelForgeM3UPlaylist -Path $outPath
+        $lines = Get-Content -LiteralPath $outPath
+
+        $lines.Count | Should -Be 3
+        $lines[1] | Should -Match "tvg-name=`"Channel 'Quoted' Name`""
+        $lines[1] | Should -Not -Match '\\"'
+    }
+
+    It 'sanitizes an embedded newline in the display name so it cannot inject a fake extra line' {
+        $maliciousName = "Innocent Channel`n#EXTINF:-1,Injected Channel`nhttps://example.invalid/live/injected"
+        $channel = New-ChannelForgeChannel -OriginalName 'Test' -DisplayName $maliciousName -Url 'https://example.invalid/live/test'
+        $outPath = Join-Path $TestDrive 'newline.m3u'
+
+        @($channel) | Export-ChannelForgeM3UPlaylist -Path $outPath
+        $lines = Get-Content -LiteralPath $outPath
+
+        # Exactly 3 lines: header, one #EXTINF, one stream URL. A successful
+        # injection would add extra lines that look like another channel.
+        $lines.Count | Should -Be 3
+        $lines[1] | Should -Match 'Injected Channel'
+        ($lines | Where-Object { $_ -like '#EXTINF*' }).Count | Should -Be 1
+    }
+
+    It 'sanitizes an embedded CRLF in a quoted attribute the same way' {
+        $channel = New-ChannelForgeChannel -OriginalName 'Test' -DisplayName 'Test' -TvgId "abc`r`ndef" -Url 'https://example.invalid/live/test'
+        $outPath = Join-Path $TestDrive 'crlf.m3u'
+
+        @($channel) | Export-ChannelForgeM3UPlaylist -Path $outPath
+        $lines = Get-Content -LiteralPath $outPath
+
+        $lines.Count | Should -Be 3
+        $lines[1] | Should -Match 'tvg-id="abc def"'
+    }
+
+    It 'leaves ordinary commas in a display name untouched (M3U does not require escaping them)' {
+        $channel = New-ChannelForgeChannel -OriginalName 'Test' -DisplayName 'Channel, The Sequel' -Url 'https://example.invalid/live/test'
+        $outPath = Join-Path $TestDrive 'comma.m3u'
+
+        @($channel) | Export-ChannelForgeM3UPlaylist -Path $outPath
+        $lines = Get-Content -LiteralPath $outPath
+
+        $lines[1] | Should -Match ',Channel, The Sequel$'
+    }
 }
 
 Describe 'Set-ChannelForgeChannelNumber' {

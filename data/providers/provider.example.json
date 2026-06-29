@@ -1,5 +1,5 @@
 {
-  "_comment": "Template for a real provider config. Copy this file to provider.local.json (ignored by Git) and replace the placeholder values with your real provider URLs. Never commit the copy.",
+  "_comment": "Template for a real provider config. Copy this file to provider.local.json (ignored by Git) and replace the placeholder values with your real provider URLs. Never commit the copy. local_playlist is optional (issue #7 Phase 1): a path under data/playlists/ to a local .m3u file for that source. See data/playlists/README.md and docs/user/PLEX_SMOKE_TEST.md.",
   "provider": "your-provider-name",
   "base_url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN",
   "sources": [
@@ -7,7 +7,8 @@
       "name": "Sports",
       "group": "Sports",
       "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports",
-      "enabled": true
+      "enabled": true,
+      "local_playlist": "data/playlists/sports.local.m3u"
     },
     {
       "name": "Entertainment",
