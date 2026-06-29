@@ -154,6 +154,42 @@ Working today:
 
 
 
+\## Engineering foundation
+
+
+
+Core project governance and engineering memory:
+
+
+
+\- [Constitution](CONSTITUTION.md)
+
+\- [AI collaboration](AI_COLLABORATION.md)
+
+\- [Contributing](CONTRIBUTING.md)
+
+\- [Roadmap](ROADMAP.md)
+
+\- [Lessons learned](LESSONS_LEARNED.md)
+
+\- [Evidence over assumptions ADR](docs/adr/0005-evidence-over-assumptions.md)
+
+\- [ADR template](docs/templates/adr-template.md)
+
+\- [Bug sweep checklist](docs/templates/bug-sweep-checklist.md)
+
+\- [Vulnerability sweep checklist](docs/templates/vulnerability-sweep-checklist.md)
+
+\- [Release checklist](docs/templates/release-checklist.md)
+
+\- [Repository docs and GitHub Wiki](docs/reference/DOCS_AND_WIKI.md)
+
+
+
+\---
+
+
+
 \## Repository map
 
 
@@ -183,4 +219,3 @@ ChannelForge/
 ├── tests/                 Pester tests and fixtures
 
 └── README.md
-
