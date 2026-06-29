@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/epg_sources.schema.json",
+  "title": "ChannelForge EPG Source Configuration",
+  "description": "Shape contract for epg_sources.json / epg_sources.local.json / epg_sources.example.json (see Read-ChannelForgeEpgSource.ps1). This validates structure only. It does not enforce the URL trust-boundary rules (scheme allowlist, no credentials, no loopback/private/link-local hosts) — those are runtime checks in Test-ChannelForgeSourceUrl.ps1 and must stay there even if this schema is also used in CI.",
+  "type": "object",
+  "required": ["epg_sources"],
+  "additionalProperties": false,
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "Optional documentation note used by template/example files. Ignored by Read-ChannelForgeEpgSource."
+    },
+    "epg_sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/epgSource" }
+    }
+  },
+  "definitions": {
+    "epgSource": {
+      "type": "object",
+      "required": ["name", "priority", "url", "enabled", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source name. Must be unique within the file."
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Lower runs first. Read-ChannelForgeEpgSource sorts sources by this value."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "EPG source URL. Treated as a secret outside example/placeholder files (see docs/reference/SECURITY.md); use https://example.invalid/... in any tracked file."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this source is included in a build."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["primary", "supplement", "sports", "locals", "fallback", "provider-fallback"],
+          "description": "How this source is used relative to others. Extend this enum deliberately if a new role is introduced; do not widen it to a free-form string."
+        }
+      }
+    }
+  }
+}

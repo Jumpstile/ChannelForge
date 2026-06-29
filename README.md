@@ -164,6 +164,8 @@ ChannelForge/
 
 │   └── user/              Beginner-facing docs
 
+├── schemas/               JSON Schema contracts for data/ config files
+
 ├── src/ChannelForge/      PowerShell module
 
 ├── tests/                 Pester tests and fixtures

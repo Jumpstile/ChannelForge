@@ -1,0 +1,10 @@
+{
+  "epg_sources": [
+    {
+      "name": "Public EPG Source",
+      "url": "https://example.invalid/epg/public/all-sources.xml.gz",
+      "enabled": true,
+      "role": "primary"
+    }
+  ]
+}

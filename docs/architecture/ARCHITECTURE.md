@@ -65,6 +65,8 @@ Build orchestration that assembles a `BuildContext` end to end, and the output w
 
 Provider sources, EPG sources, and rules live in `data/` as declarative JSON/CSV files (see [ADR 0001](../adr/0001-source-of-truth.md)). Generated outputs under `output/` are disposable artifacts, not source data.
 
+Provider and EPG source files have a structural contract in `schemas/` (`provider.schema.json`, `epg_sources.schema.json`), validated with PowerShell's built-in `Test-Json -SchemaFile`. Schemas check shape (required/optional fields, types, the EPG `role` enum); they do not check URL trust-boundary rules, which remain a runtime concern in `Test-ChannelForgeSourceUrl`. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#configuration-schemas) for how the two layers relate.
+
 ## Related documents
 
 - [ADR 0001 — ChannelForge owns the source of truth](../adr/0001-source-of-truth.md)
