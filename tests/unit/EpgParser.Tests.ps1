@@ -33,4 +33,17 @@ Describe 'Read-ChannelForgeEpgSource' {
     It 'throws when the EPG source file is missing' {
         { Read-ChannelForgeEpgSource -Path '.\does-not-exist.json' } | Should -Throw
     }
+
+    It 'throws when an EPG source URL uses an unsupported scheme' {
+        $path = Join-Path $RepoRoot 'tests\fixtures\epg-invalid-url.json'
+
+        { Read-ChannelForgeEpgSource -Path $path } | Should -Throw
+
+        try {
+            Read-ChannelForgeEpgSource -Path $path
+        }
+        catch {
+            $_.Exception.Message | Should -Not -Match 'all-sources\.xml\.gz'
+        }
+    }
 }

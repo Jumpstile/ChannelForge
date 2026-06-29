@@ -1,0 +1,11 @@
+{
+  "epg_sources": [
+    {
+      "name": "Untrusted Source",
+      "priority": 10,
+      "url": "ftp://example.invalid/epg/public/all-sources.xml.gz",
+      "enabled": true,
+      "role": "primary"
+    }
+  ]
+}

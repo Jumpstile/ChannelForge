@@ -12,6 +12,11 @@ function Read-ChannelForgeEpgSource {
     $epgConfig = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 
     foreach ($source in $epgConfig.epg_sources | Sort-Object priority) {
+        # EPG URLs are an untrusted ingestion boundary; validate shape, never log the value.
+        if (-not (Test-ChannelForgeSourceUrl -Url $source.url)) {
+            throw "EPG source '$($source.name)' has a malformed or unsupported URL."
+        }
+
         [pscustomobject]@{
             Name     = $source.name
             Priority = [int]$source.priority
