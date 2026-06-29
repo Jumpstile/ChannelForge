@@ -53,14 +53,49 @@ Invoke-Pester ./tests/unit/ProviderParser.Tests.ps1
 
 Every `Describe` block imports the module fresh with `Import-Module ... -Force`, so tests reflect the current state of `src/ChannelForge` rather than a previously loaded session.
 
-## CI
+## CI quality gates
 
-GitHub Actions (`.github/workflows`) runs on every push and pull request to `main`:
+GitHub Actions (`.github/workflows/powershell-ci.yml`) runs two jobs on every push and pull request to `main`. Both must pass before a change is considered mergeable.
 
-1. **Secret scan** — Gitleaks scans the repository and available history for committed secrets before tests run.
-2. **Tests** — installs Pester 5.7.1 on `windows-latest` and runs `Invoke-Pester ./tests/unit -CI`.
+**`secret-scan`** (Ubuntu) — Gitleaks scans the repository and available history for committed secrets. See [SECURITY.md](../reference/SECURITY.md) for what to do if it finds something.
 
-Both jobs must pass before a change is considered mergeable. See [SECURITY.md](../reference/SECURITY.md) for what to do if the secret scan finds something.
+**`quality-gates`** (Windows, runs after `secret-scan`) — installs Pester 5.7.1 and PSScriptAnalyzer 1.25.0, then runs these checks in order, fast/narrow ones first so an easy mistake fails quickly:
+
+| Step | What it checks | Local command |
+|---|---|---|
+| Config schemas | Every tracked `data/*.json` file matches its schema in `schemas/` | `./scripts/Validate-ConfigSchemas.ps1` |
+| Markdown hygiene | No tracked `.md` file has the malformed-generator-artifact shape from the #2/#13/#16 incident | `./scripts/Validate-MarkdownHygiene.ps1` |
+| Markdown links | Every relative link in a tracked `.md` file resolves to a real file | `./scripts/Validate-MarkdownLinks.ps1` |
+| PSScriptAnalyzer | No Error-severity finding under `src/` or `scripts/` | `./scripts/Validate-ScriptAnalyzer.ps1` |
+| Pester | Full unit test suite | `Invoke-Pester ./tests/unit -CI` |
+
+Run all five locally before pushing — they're the same commands CI runs, so a clean local run means a clean CI run for everything except the secret scan.
+
+### What's schema-level vs. runtime/domain-level
+
+These checks validate **shape** ahead of time. They deliberately do not replace the **runtime/domain** checks that already exist in the module — both layers stay in place:
+
+| Layer | Where | What it catches |
+|---|---|---|
+| Schema (`schemas/*.schema.json`, CI step "Config schemas") | Before a file is ever read | Missing/extra fields, wrong types |
+| Runtime trust boundary (`Test-ChannelForgeSourceUrl`, `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`) | When a file is actually loaded | Malformed URLs, unsupported schemes, credentials, loopback/private/link-local hosts |
+| Runtime write guardrails (`Assert-ChannelForgeWritePath`, `Assert-ChannelForgePathExists`, `Assert-ChannelForgeBackupSourcePath`) | When a script writes/reads/backs up a path | Writes outside an approved root, missing sources, overly broad backup sources |
+| Static analysis (PSScriptAnalyzer, CI step "PSScriptAnalyzer") | Before code runs at all | Dangerous patterns, syntax-adjacent mistakes (Error severity only — see below) |
+| Tests (Pester) | On every change | Behavior regressions across all of the above |
+
+A file can pass schema validation and still be rejected at runtime — see `tests/unit/ConfigSchemas.Tests.ps1`'s "Schemas supplement, not replace, runtime validation" cases for a working example. Don't loosen a runtime check because "the schema already validates this"; they check different things.
+
+### PSScriptAnalyzer: why only Error severity fails CI
+
+`Validate-ScriptAnalyzer.ps1` runs at Error, Warning, and Information severity and prints everything, but only an **Error**-severity finding fails the check. As of this writing the codebase has ~50 accepted Warning/Information findings (`Write-Host` usage in `scripts/`, a few naming/`ShouldProcess` conventions in older functions) that aren't worth a sweeping unrelated refactor just to satisfy a new CI gate. Gating on Error severity still catches real mistakes without that noise. If you fix one of the existing Warning findings as part of unrelated work, that's welcome — just don't feel obligated to fix all of them to pass CI.
+
+### Deferred: full Markdown style linting, anchor resolution, external link checks
+
+Three related ideas were considered and intentionally **not** implemented, to keep this pipeline low-noise:
+
+- **A general Markdown style linter** (e.g. markdownlint) would surface many pre-existing, unrelated heading/style inconsistencies across `docs/` and would need a dedicated cleanup pass before it could be a CI gate without immediately failing on day one. `Validate-MarkdownHygiene.ps1` is intentionally narrow instead — it only re-detects the exact failure shape from a real past incident.
+- **Resolving `#anchor` fragments in links** (confirming a heading actually exists, not just the file) requires replicating the renderer's exact heading-to-slug rule, which is a common source of false positives. `Validate-MarkdownLinks.ps1` checks that the target file exists and explicitly ignores anchors.
+- **Checking external `http(s)` links resolve** would make CI depend on network access and third-party sites' uptime, which is the opposite of deterministic. Not implemented; `Validate-MarkdownLinks.ps1` skips `http(s)`/`mailto` targets entirely.
 
 ## Public functions today
 
@@ -125,7 +160,7 @@ Validate every tracked file at once with the dedicated entry point:
 pwsh -File scripts/Validate-ConfigSchemas.ps1
 ```
 
-This script is deterministic (no network access, no secrets, same result every run) and throws — making `pwsh` exit non-zero — on the first set of failures it finds, the same convention every other script under `scripts/` follows. It exists so issue #4 has something to wire into CI directly; CI does not call it yet.
+This script is deterministic (no network access, no secrets, same result every run) and throws — making `pwsh` exit non-zero — on the first set of failures it finds, the same convention every other script under `scripts/` follows. CI runs this on every push and pull request (see [CI quality gates](#ci-quality-gates)).
 
 What the schemas deliberately do **not** do:
 
