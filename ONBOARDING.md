@@ -13,9 +13,13 @@ ChannelForge is an evidence-driven PowerShell project for building accurate, tru
    - Confirm expected project files are present, including `README.md`, `CONSTITUTION.md`, `AI_COLLABORATION.md`, `ROADMAP.md`, `src/`, and `docs/`.
 2. Read [CONSTITUTION.md](CONSTITUTION.md).
 3. Read [AI_COLLABORATION.md](AI_COLLABORATION.md).
-4. Read the ADRs in [docs/adr](docs/adr).
-5. Review [ROADMAP.md](ROADMAP.md) and relevant GitHub Issues before choosing implementation work.
-6. Read the relevant architecture, developer, and engineering docs for the change.
+4. Read [PROJECT.md](PROJECT.md).
+5. Read [PRINCIPLES.md](PRINCIPLES.md).
+6. Read [docs/reference/SECURITY.md](docs/reference/SECURITY.md).
+7. Read [docs/developer/FIRST_READ.md](docs/developer/FIRST_READ.md).
+8. Read the ADRs in [docs/adr](docs/adr).
+9. Review [ROADMAP.md](ROADMAP.md) and relevant GitHub Issues before choosing implementation work.
+10. Read the relevant architecture, developer, and engineering docs for the change.
 
 ## Canonical Project Memory
 
