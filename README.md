@@ -1,206 +1,148 @@
-\# ChannelForge
-
-
+# ChannelForge
 
 <p align="center">
 
-&#x20; <strong>One source. Many outputs. Zero guesswork.</strong>
+  <strong>One source. Many outputs. Zero guesswork.</strong>
 
 </p>
-
-
 
 <p align="center">
 
-&#x20; An evidence-driven television knowledge engine for building accurate, trustworthy, deterministic channel lineups.
+  An evidence-driven television knowledge engine for building accurate, trustworthy, deterministic channel lineups.
 
 </p>
-
-
 
 <p align="center">
 
-&#x20; <img alt="Status" src="https://img.shields.io/badge/status-early%20alpha-orange">
+  <img alt="Status" src="https://img.shields.io/badge/status-early%20alpha-orange">
 
-&#x20; <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7%2B-blue">
+  <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7%2B-blue">
 
-&#x20; <img alt="Tests" src="https://img.shields.io/badge/tests-Pester%205.7.1-purple">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-Pester%205.7.1-purple">
 
 </p>
 
+---
 
-
-\---
-
-
-
-\## What is ChannelForge?
-
-
+## What is ChannelForge?
 
 ChannelForge is a PowerShell project that turns provider playlists, guide data, local rules, and reference knowledge into clean television lineups.
 
-
-
 It started as tooling for IPTVBoss, Dispatcharr, and Plex, but the bigger goal is this:
 
+> **Establish confidence in television metadata.**
 
-
-> \*\*Establish confidence in television metadata.\*\*
-
-
-
-ChannelForge does not blindly trust playlist names.  
+ChannelForge does not blindly trust playlist names.
 
 It verifies, explains, repairs safely, and preserves user intent.
 
+---
 
-
-\---
-
-
-
-\## Why it exists
-
-
+## Why it exists
 
 Television metadata changes constantly.
 
+Providers rename channels.
 
+EPG IDs drift.
 
-Providers rename channels.  
+Logos change.
 
-EPG IDs drift.  
+Duplicate streams appear.
 
-Logos change.  
-
-Duplicate streams appear.  
-
-Feeds go down.  
+Feeds go down.
 
 Lineups get messy.
 
-
-
 ChannelForge is designed to detect that drift, explain what changed, and eventually repair safe issues automatically.
 
+---
 
-
-\---
-
-
-
-\## Five pillars
-
-
+## Five pillars
 
 | Pillar | Meaning |
 
 |---|---|
 
-| \*\*Truth\*\* | Important facts should be supported by evidence. |
+| **Truth** | Important facts should be supported by evidence. |
 
-| \*\*Trust\*\* | Automated decisions should be explainable. |
+| **Trust** | Automated decisions should be explainable. |
 
-| \*\*Recoverability\*\* | Changes should be reversible. |
+| **Recoverability** | Changes should be reversible. |
 
-| \*\*Determinism\*\* | Same input, same output. |
+| **Determinism** | Same input, same output. |
 
-| \*\*Self-Healing\*\* | Safe repairs are automated; uncertain repairs require review. |
+| **Self-Healing** | Safe repairs are automated; uncertain repairs require review. |
 
+---
 
+## Current status
 
-\---
-
-
-
-\## Current status
-
-
-
-> \*\*Early Alpha — not production-ready yet\*\*
-
-
+> **Early Alpha — not production-ready yet**
 
 Working today:
 
+- PowerShell module layout
 
+- GitHub Actions CI
 
-\- PowerShell module layout
+- Pester 5.7.1 tests
 
-\- GitHub Actions CI
+- Provider config import
 
-\- Pester 5.7.1 tests
+- EPG source import
 
-\- Provider config import
+- M3U playlist parsing
 
-\- EPG source import
+- `BuildContext` domain object
 
-\- M3U playlist parsing
+- `Channel` domain object
 
-\- `BuildContext` domain object
+- Channel normalization
 
-\- `Channel` domain object
+- Architecture Decision Records
 
-\- Channel normalization
+- Documentation architecture
 
-\- Architecture Decision Records
+---
 
-\- Documentation architecture
-
-
-
-\---
-
-
-
-\## Engineering foundation
-
-
+## Engineering foundation
 
 Core project governance and engineering memory:
 
+- [Onboarding](ONBOARDING.md)
 
+- [Constitution](CONSTITUTION.md)
 
-\- [Onboarding](ONBOARDING.md)
+- [AI collaboration](AI_COLLABORATION.md)
 
-\- [Constitution](CONSTITUTION.md)
+- [Claude adapter](CLAUDE.md)
 
-\- [AI collaboration](AI_COLLABORATION.md)
+- [Codex adapter](CODEX.md)
 
-\- [Claude adapter](CLAUDE.md)
+- [ChatGPT adapter](CHATGPT.md)
 
-\- [Codex adapter](CODEX.md)
+- [Contributing](CONTRIBUTING.md)
 
-\- [ChatGPT adapter](CHATGPT.md)
+- [Roadmap](ROADMAP.md)
 
-\- [Contributing](CONTRIBUTING.md)
+- [Lessons learned](LESSONS_LEARNED.md)
 
-\- [Roadmap](ROADMAP.md)
+- [Evidence over assumptions ADR](docs/adr/0005-evidence-over-assumptions.md)
 
-\- [Lessons learned](LESSONS_LEARNED.md)
+- [ADR template](docs/templates/adr-template.md)
 
-\- [Evidence over assumptions ADR](docs/adr/0005-evidence-over-assumptions.md)
+- [Bug sweep checklist](docs/templates/bug-sweep-checklist.md)
 
-\- [ADR template](docs/templates/adr-template.md)
+- [Vulnerability sweep checklist](docs/templates/vulnerability-sweep-checklist.md)
 
-\- [Bug sweep checklist](docs/templates/bug-sweep-checklist.md)
+- [Release checklist](docs/templates/release-checklist.md)
 
-\- [Vulnerability sweep checklist](docs/templates/vulnerability-sweep-checklist.md)
+- [Repository docs and GitHub Wiki](docs/reference/DOCS_AND_WIKI.md)
 
-\- [Release checklist](docs/templates/release-checklist.md)
+---
 
-\- [Repository docs and GitHub Wiki](docs/reference/DOCS_AND_WIKI.md)
-
-
-
-\---
-
-
-
-\## Repository map
-
-
+## Repository map
 
 ```text
 

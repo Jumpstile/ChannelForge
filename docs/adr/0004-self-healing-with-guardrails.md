@@ -1,80 +1,55 @@
-\# ADR 0004: Self-healing with guardrails
+# ADR 0004: Self-healing with guardrails
 
-
-
-\## Status
-
-
+## Status
 
 Accepted
 
-
-
-\## Context
-
-
+## Context
 
 Provider playlists, channel names, guide IDs, logos, and EPG sources may change over time. ChannelForge should detect drift and repair safe changes automatically where possible.
 
-
-
-\## Decision
-
-
+## Decision
 
 ChannelForge will support self-healing behavior with strict guardrails.
 
-
-
 Repairs are divided into three levels:
 
+1. Auto-fix
 
+   - High confidence
 
-1\. Auto-fix
+   - Safe
 
-&#x20;  - High confidence
+   - Reversible
 
-&#x20;  - Safe
+   - Fully documented in build reports
 
-&#x20;  - Reversible
+2. Suggest fix
 
-&#x20;  - Fully documented in build reports
+   - Medium confidence
 
+   - Requires user approval
 
+   - Included in review reports
 
-2\. Suggest fix
+3. Block build
 
-&#x20;  - Medium confidence
+   - Low confidence
 
-&#x20;  - Requires user approval
+   - Ambiguous
 
-&#x20;  - Included in review reports
+   - Security-sensitive
 
+   - Could corrupt lineup or production output
 
+## Consequences
 
-3\. Block build
+- No risky repair happens silently.
 
-&#x20;  - Low confidence
+- Every automatic repair must explain why it was made.
 
-&#x20;  - Ambiguous
+- Every repair must be logged in the flight recorder.
 
-&#x20;  - Security-sensitive
+- Self-healing must preserve backups and rollback.
 
-&#x20;  - Could corrupt lineup or production output
-
-
-
-\## Consequences
-
-
-
-\- No risky repair happens silently.
-
-\- Every automatic repair must explain why it was made.
-
-\- Every repair must be logged in the flight recorder.
-
-\- Self-healing must preserve backups and rollback.
-
-\- User trust is more important than automation speed.
-
+- User trust is more important than automation speed.

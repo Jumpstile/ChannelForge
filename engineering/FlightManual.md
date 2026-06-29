@@ -1,180 +1,127 @@
-\# ChannelForge Flight Manual
-
-
+# ChannelForge Flight Manual
 
 ChannelForge uses checklist discipline for important engineering operations.
 
-
-
 Checklists are not a substitute for skill. They are how skilled engineers avoid preventable mistakes.
 
-
-
-\## Operating model
-
-
+## Operating model
 
 Every major change follows this lifecycle:
 
+1. Preflight
 
+2. Taxi
 
-1\. Preflight
+3. Takeoff
 
-2\. Taxi
+4. Cruise
 
-3\. Takeoff
+5. Descent
 
-4\. Cruise
+6. Landing
 
-5\. Descent
+7. Postflight
 
-6\. Landing
-
-7\. Postflight
-
-
-
-\## Preflight
-
-
+## Preflight
 
 Before implementation begins:
 
+- [ ] Requirement is understood.
 
+- [ ] Scope is clear.
 
-\- \[ ] Requirement is understood.
+- [ ] Architecture impact is reviewed.
 
-\- \[ ] Scope is clear.
+- [ ] Existing tests are reviewed.
 
-\- \[ ] Architecture impact is reviewed.
+- [ ] Security impact is considered.
 
-\- \[ ] Existing tests are reviewed.
+- [ ] Backup or recovery needs are identified.
 
-\- \[ ] Security impact is considered.
+- [ ] Documentation impact is identified.
 
-\- \[ ] Backup or recovery needs are identified.
-
-\- \[ ] Documentation impact is identified.
-
-
-
-\## Taxi
-
-
+## Taxi
 
 During implementation:
 
+- [ ] Code follows the module layout.
 
+- [ ] Code is readable before it is clever.
 
-\- \[ ] Code follows the module layout.
+- [ ] Non-obvious logic is commented.
 
-\- \[ ] Code is readable before it is clever.
+- [ ] No secrets are introduced.
 
-\- \[ ] Non-obvious logic is commented.
+- [ ] No production data is modified.
 
-\- \[ ] No secrets are introduced.
-
-\- \[ ] No production data is modified.
-
-
-
-\## Takeoff
-
-
+## Takeoff
 
 Before commit:
 
+- [ ] Relevant tests pass locally.
 
+- [ ] Full unit test suite passes locally.
 
-\- \[ ] Relevant tests pass locally.
+- [ ] New behavior has tests.
 
-\- \[ ] Full unit test suite passes locally.
+- [ ] Bug fixes have regression tests.
 
-\- \[ ] New behavior has tests.
+- [ ] Documentation is updated.
 
-\- \[ ] Bug fixes have regression tests.
-
-\- \[ ] Documentation is updated.
-
-
-
-\## Cruise
-
-
+## Cruise
 
 During review:
 
+- [ ] Architecture is still clean.
 
+- [ ] Function names clearly describe behavior.
 
-\- \[ ] Architecture is still clean.
+- [ ] Inputs are validated.
 
-\- \[ ] Function names clearly describe behavior.
+- [ ] Errors are helpful.
 
-\- \[ ] Inputs are validated.
+- [ ] Comments explain intent.
 
-\- \[ ] Errors are helpful.
+- [ ] Beginner documentation is clear.
 
-\- \[ ] Comments explain intent.
-
-\- \[ ] Beginner documentation is clear.
-
-
-
-\## Descent
-
-
+## Descent
 
 Before merge or release:
 
+- [ ] CI is green.
 
+- [ ] Security review is complete.
 
-\- \[ ] CI is green.
+- [ ] Backup/recovery behavior is reviewed.
 
-\- \[ ] Security review is complete.
+- [ ] Generated output behavior is reviewed.
 
-\- \[ ] Backup/recovery behavior is reviewed.
+- [ ] No release-blocking TODOs remain.
 
-\- \[ ] Generated output behavior is reviewed.
-
-\- \[ ] No release-blocking TODOs remain.
-
-
-
-\## Landing
-
-
+## Landing
 
 For release:
 
+- [ ] Version is correct.
 
+- [ ] Changelog is updated.
 
-\- \[ ] Version is correct.
+- [ ] Release notes are written.
 
-\- \[ ] Changelog is updated.
+- [ ] Tag is created.
 
-\- \[ ] Release notes are written.
+- [ ] Release artifacts are verified.
 
-\- \[ ] Tag is created.
-
-\- \[ ] Release artifacts are verified.
-
-
-
-\## Postflight
-
-
+## Postflight
 
 After release or major feature completion:
 
+- [ ] What surprised us?
 
+- [ ] What should become a test?
 
-\- \[ ] What surprised us?
+- [ ] What should become a checklist item?
 
-\- \[ ] What should become a test?
+- [ ] What belongs in LESSONS_LEARNED.md?
 
-\- \[ ] What should become a checklist item?
-
-\- \[ ] What belongs in LESSONS\_LEARNED.md?
-
-\- \[ ] What can be simplified next?
-
+- [ ] What can be simplified next?
