@@ -103,8 +103,11 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 |---|---|
 | `Read-ChannelForgeProvider` | Load provider source definitions from `provider.json` |
 | `Read-ChannelForgeEpgSource` | Load EPG source definitions from `epg_sources.json`, sorted by priority |
-| `Import-ChannelForgeM3UPlaylist` | Parse an M3U playlist into `Channel` objects |
+| `Import-ChannelForgeM3UPlaylist` | Parse a local M3U playlist into `Channel` objects, including the stream URL |
 | `Resolve-ChannelForgeAlias` | Deterministic, exact-match alias resolution |
+| `Set-ChannelForgeChannelNumber` | Assign `AssignedNumber` from numbering blocks by exact group/category match |
+| `Merge-ChannelForgeLineup` | Phase 1 end-to-end pipeline: parse, normalize, alias-resolve, dedup, number (issue #7) |
+| `Export-ChannelForgeM3UPlaylist` | Render a `Channel[]` to deterministic M3U text |
 | `New-ChannelForgeChannel` | Construct a `Channel` domain object |
 | `New-ChannelForgeBuildContext` | Construct a `BuildContext` domain object |
 | `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel` |
@@ -123,9 +126,33 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 - `Backup-IPTVBoss.ps1` additionally calls `Assert-ChannelForgeBackupSourcePath` to reject a backup source that exists but is dangerously broad (a drive root, or a well-known system directory directly under one) — existence alone doesn't catch a misconfigured path pointed at the whole machine.
 - `Backup-IPTVBoss.ps1` refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
 
+## Lineup build pipeline (Phase 1, issue #7)
+
+`scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists. There is no live HTTP fetch and no XMLTV yet — see "Known limitations" below.
+
+A provider source in `provider.json` participates only if it is `enabled` **and** has a `local_playlist` field (a path to a local `.m3u` file, relative to the repository root — see `schemas/provider.schema.json`). A source with no `local_playlist` is skipped, not an error; this is the documented Phase 1 boundary.
+
+For each participating source, `Build-Lineup.ps1` calls `Merge-ChannelForgeLineup`, which:
+
+1. Sorts sources by file path (never by caller-supplied order) and parses each with `Import-ChannelForgeM3UPlaylist`.
+2. Normalizes names (`ConvertTo-ChannelForgeNormalizedChannel`) and resolves aliases (`Resolve-ChannelForgeAlias`).
+3. Deduplicates: a channel sharing a `tvg-id` (or, if no `tvg-id`, the same display name) with an earlier channel is marked `IsDuplicate` and excluded from the output. "Earlier" is decided entirely by the sorted-path parse order from step 1.
+4. Assigns channel numbers (`Set-ChannelForgeChannelNumber`) by exact (case-insensitive) match between a channel's `Group` and a `numbering_blocks.json` category. No match means no number, plus a warning — never a guess.
+5. Sorts the final set: numbered channels first by number, then unassigned channels by name.
+
+`Export-ChannelForgeM3UPlaylist` then renders that set to `output/merged.m3u`: `#EXTM3U` header, one `#EXTINF` line per channel with whichever of `tvg-id`/`tvg-name`/`tvg-logo`/`tvg-chno`/`group-title` are present, followed by the stream URL line. The file is written as UTF-8 with no BOM and a fixed line ending, so the same channel set always produces the same bytes — `tests/unit/MergeChannelForgeLineup.Tests.ps1` and `tests/unit/BuildLineupScript.Tests.ps1` both assert byte/hash stability across repeated runs, not just "doesn't throw."
+
+### Known limitations
+
+- **HTTP provider/EPG fetch: deferred.** Only `local_playlist` files already on disk are read.
+- **XMLTV: deferred, not faked.** `build-summary.json` always reports `XMLTVGenerated: false` with an `XMLTVDeferredReason` explaining why (no programme/guide data source exists yet — see ADR 0005, evidence over assumptions).
+- **Plex EPG/guide binding: deferred until XMLTV exists.** `output/merged.m3u` is playable in Plex today; it has no guide data without XMLTV.
+
 ## Report redaction
 
-Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG URLs, tokens, account IDs, credentials, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name and enabled state only — never by `url` — and the Pester suite asserts this directly (`tests/unit/BuildLineupScript.Tests.ps1`) using fixture data shaped like a real token-bearing URL, so a regression that reintroduces a URL into the report fails CI.
+Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG/stream URLs, tokens, account IDs, credentials, local-only file paths, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name, enabled state, and local-playlist state only — never by `url` — and reports the merged playlist's path as a project-relative string (`output/merged.m3u`, never an absolute or UNC path) plus its SHA-256 hash rather than its contents. The Pester suite asserts this directly (`tests/unit/BuildLineupScript.Tests.ps1`) using fixture data shaped like a real token-bearing URL and a real stream URL, so a regression that reintroduces either into a report fails CI.
+
+This redaction rule does not apply to `output/merged.m3u` itself: stream URLs are the actual playable content of that file, not a secret to strip (see `Export-ChannelForgeM3UPlaylist` and the Channel class's `Url` field).
 
 ## Private helpers today
 

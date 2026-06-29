@@ -8,6 +8,10 @@ class Channel {
     [string]$TvgName
     [string]$Logo
     [string]$Group
+    # Stream URL. Unlike provider/EPG source URLs, this is the actual
+    # playable content of a merged lineup, not a secret to redact from
+    # generated reports (see Export-ChannelForgeM3UPlaylist).
+    [string]$Url
     [string]$Category
     [string]$League
     [string]$Sport
@@ -34,6 +38,7 @@ class Channel {
         $this.TvgName = ''
         $this.Logo = ''
         $this.Group = ''
+        $this.Url = ''
         $this.Category = ''
         $this.League = ''
         $this.Sport = ''

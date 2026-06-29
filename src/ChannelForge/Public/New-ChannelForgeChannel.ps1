@@ -9,7 +9,8 @@ function New-ChannelForgeChannel {
         [string]$TvgId = '',
         [string]$TvgName = '',
         [string]$Logo = '',
-        [string]$Group = ''
+        [string]$Group = '',
+        [string]$Url = ''
     )
 
     # Channel is the core domain object in ChannelForge.
@@ -25,6 +26,7 @@ function New-ChannelForgeChannel {
     $channel.TvgName = $TvgName
     $channel.Logo = $Logo
     $channel.Group = $Group
+    $channel.Url = $Url
 
     return $channel
 }

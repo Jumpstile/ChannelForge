@@ -1,0 +1,22 @@
+{
+  "blocks": [
+    {
+      "start": 2,
+      "end": 5,
+      "category": "Locals",
+      "notes": "fixture locals block"
+    },
+    {
+      "start": 400,
+      "end": 401,
+      "category": "Sports",
+      "notes": "fixture sports block, deliberately just large enough for 2 channels"
+    },
+    {
+      "start": 700,
+      "end": 705,
+      "category": "News",
+      "notes": "fixture news block"
+    }
+  ]
+}
