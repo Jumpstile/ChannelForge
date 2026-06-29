@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/numbering_blocks.schema.json",
+  "title": "ChannelForge Channel Numbering Block Configuration",
+  "description": "Shape contract for data/lineup/numbering_blocks.json. This validates structure only. It does not check that 'end' is greater than or equal to 'start', or that blocks don't overlap — those are semantic/cross-entry checks deferred for later, not shape checks.",
+  "type": "object",
+  "required": ["blocks"],
+  "additionalProperties": false,
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "Optional documentation note. Ignored by any reader of this file."
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/numberingBlock" }
+    }
+  },
+  "definitions": {
+    "numberingBlock": {
+      "type": "object",
+      "required": ["start", "end", "category"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "First channel number in this block, inclusive."
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Last channel number in this block, inclusive."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Category label for this block, e.g. 'NFL'. Not restricted to a fixed list of categories."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional free-text note about this block."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/aliases.schema.json",
+  "title": "ChannelForge Channel Alias Rules",
+  "description": "Shape contract for data/rules/aliases.json (see Resolve-ChannelForgeAlias.ps1). This validates structure only. It does not check for duplicate aliases across entries or conflicting canonicals — those are semantic/cross-entry checks deferred for later, not shape checks.",
+  "type": "object",
+  "required": ["aliases"],
+  "additionalProperties": false,
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "Optional documentation note. Ignored by Resolve-ChannelForgeAlias."
+    },
+    "aliases": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/aliasEntry" }
+    }
+  },
+  "definitions": {
+    "aliasEntry": {
+      "type": "object",
+      "required": ["canonical", "aliases"],
+      "additionalProperties": false,
+      "properties": {
+        "canonical": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The preferred/canonical channel name this entry resolves to."
+        },
+        "aliases": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Known alternate names that resolve to the canonical name. Conventionally includes the canonical name itself."
+        }
+      }
+    }
+  }
+}

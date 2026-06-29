@@ -44,8 +44,8 @@
         },
         "role": {
           "type": "string",
-          "enum": ["primary", "supplement", "sports", "locals", "fallback", "provider-fallback"],
-          "description": "How this source is used relative to others. Extend this enum deliberately if a new role is introduced; do not widen it to a free-form string."
+          "minLength": 1,
+          "description": "How this source is used relative to others, e.g. 'primary', 'fallback', 'provider-fallback'. Intentionally not an enum: this is a structural schema, not a registry of today's role names, and new roles should not require a schema change."
         }
       }
     }

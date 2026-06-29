@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/locals.schema.json",
+  "title": "ChannelForge Local Channel Configuration",
+  "description": "Shape contract for data/lineup/locals.json. This validates structure only (required/optional fields and types). It intentionally does not enumerate specific stations, networks, or markets — those vary per deployment and are not a structural concern.",
+  "type": "object",
+  "required": ["locals"],
+  "additionalProperties": false,
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "Optional documentation note. Ignored by any reader of this file."
+    },
+    "locals": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/localChannel" }
+    }
+  },
+  "definitions": {
+    "localChannel": {
+      "type": "object",
+      "required": ["number", "station", "network", "market", "display"],
+      "additionalProperties": false,
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Real/virtual channel number for this local station."
+        },
+        "station": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Station call sign, e.g. 'WCBS'."
+        },
+        "network": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Network affiliation, e.g. 'CBS'. Not restricted to a fixed list of networks."
+        },
+        "market": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Designated market area, e.g. 'New York'."
+        },
+        "display": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable display name combining the fields above."
+        }
+      }
+    }
+  }
+}
