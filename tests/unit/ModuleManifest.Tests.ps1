@@ -2,14 +2,20 @@ BeforeAll {
     $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:ManifestPath = Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1'
     $script:PublicDir = Join-Path $RepoRoot 'src\ChannelForge\Public'
+    $script:PrivateDir = Join-Path $RepoRoot 'src\ChannelForge\Private'
 
     Import-Module $script:ManifestPath -Force
     $script:Manifest = Import-PowerShellDataFile -Path $script:ManifestPath
 }
 
 Describe 'ChannelForge module manifest' {
-    It 'is a valid manifest (Test-ModuleManifest does not throw)' {
+    It 'passes Test-ModuleManifest' {
         { Test-ModuleManifest -Path $script:ManifestPath -ErrorAction Stop } | Should -Not -Throw
+    }
+
+    It 'imports successfully with Import-Module -Force' {
+        { Import-Module $script:ManifestPath -Force -ErrorAction Stop } | Should -Not -Throw
+        (Get-Module -Name ChannelForge) | Should -Not -BeNullOrEmpty
     }
 
     It 'exports exactly the functions in src/ChannelForge/Public, no more, no fewer' {
@@ -64,6 +70,25 @@ Describe 'ChannelForge module manifest' {
 
     It 'does not claim a LicenseUri (no license file is tracked yet)' {
         $script:Manifest.PrivateData.PSData.Keys | Should -Not -Contain 'LicenseUri'
+    }
+
+    It 'does not export any Private helper function' {
+        $privateFunctionNames = @((Get-ChildItem -LiteralPath $script:PrivateDir -Filter '*.ps1').BaseName)
+        $module = Get-Module -Name ChannelForge
+
+        $privateFunctionNames | Should -Not -BeNullOrEmpty
+        foreach ($name in $privateFunctionNames) {
+            $module.ExportedFunctions.Keys | Should -Not -Contain $name
+            Get-Command -Name $name -Module ChannelForge -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'has no name shared between Public and Private (a prerequisite for the export checks above to mean anything)' {
+        $publicFunctionNames = @((Get-ChildItem -LiteralPath $script:PublicDir -Filter '*.ps1').BaseName)
+        $privateFunctionNames = @((Get-ChildItem -LiteralPath $script:PrivateDir -Filter '*.ps1').BaseName)
+
+        $overlap = $publicFunctionNames | Where-Object { $privateFunctionNames -contains $_ }
+        $overlap | Should -BeNullOrEmpty
     }
 }
 
