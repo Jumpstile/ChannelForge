@@ -162,9 +162,17 @@ Core project governance and engineering memory:
 
 
 
+\- [Onboarding](ONBOARDING.md)
+
 \- [Constitution](CONSTITUTION.md)
 
 \- [AI collaboration](AI_COLLABORATION.md)
+
+\- [Claude adapter](CLAUDE.md)
+
+\- [Codex adapter](CODEX.md)
+
+\- [ChatGPT adapter](CHATGPT.md)
 
 \- [Contributing](CONTRIBUTING.md)
 
