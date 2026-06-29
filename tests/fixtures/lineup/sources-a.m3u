@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="espn.us" tvg-name="ESPN" tvg-logo="https://example.invalid/logos/espn.png" group-title="Sports",ESPN HD
+https://example.invalid/live/espn
+#EXTINF:-1 tvg-id="fs1.us" tvg-name="FS1" tvg-logo="https://example.invalid/logos/fs1.png" group-title="Sports",FOX Sports 1
+https://example.invalid/live/fs1
+#EXTINF:-1 tvg-id="msnbc.us" tvg-name="MSNBC" group-title="News",MSNBC HD
+https://example.invalid/live/msnbc

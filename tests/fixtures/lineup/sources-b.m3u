@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="wcbs.us" tvg-name="WCBS" group-title="Locals",WCBS CBS New York
+https://example.invalid/live/wcbs
+#EXTINF:-1 tvg-id="cnn.us" tvg-name="CNN" group-title="News",CNN HD
+https://example.invalid/live/cnn
+#EXTINF:-1 tvg-id="overflow.us" tvg-name="Overflow" group-title="Unmatched Group",Unmatched Channel
+https://example.invalid/live/overflow

@@ -48,6 +48,16 @@ Describe 'Provider source schema' {
         $json = '{"provider":"some-other-provider-entirely","sources":[{"name":"Whatever","url":"https://example.invalid/x","enabled":true}]}'
         Test-Json -Json $json -SchemaFile $script:ProviderSchema | Should -BeTrue
     }
+
+    It 'accepts an optional local_playlist field (issue #7 Phase 1)' {
+        $json = '{"provider":"example-provider","sources":[{"name":"Sports","url":"https://example.invalid/x","enabled":true,"local_playlist":"tests/fixtures/lineup/sources-a.m3u"}]}'
+        Test-Json -Json $json -SchemaFile $script:ProviderSchema | Should -BeTrue
+    }
+
+    It 'rejects a local_playlist field of the wrong type' {
+        $json = '{"provider":"example-provider","sources":[{"name":"Sports","url":"https://example.invalid/x","enabled":true,"local_playlist":123}]}'
+        { Test-Json -Json $json -SchemaFile $script:ProviderSchema -ErrorAction Stop } | Should -Throw
+    }
 }
 
 Describe 'EPG source schema' {

@@ -1,0 +1,3 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="espn.us" tvg-name="ESPN" group-title="Sports",ESPN (duplicate feed)
+https://example.invalid/live/espn-backup

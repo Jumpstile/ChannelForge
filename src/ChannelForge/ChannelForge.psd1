@@ -80,12 +80,15 @@ FunctionsToExport = @(
     'Assert-ChannelForgePathExists'
     'Assert-ChannelForgeWritePath'
     'ConvertTo-ChannelForgeNormalizedChannel'
+    'Export-ChannelForgeM3UPlaylist'
     'Import-ChannelForgeM3UPlaylist'
+    'Merge-ChannelForgeLineup'
     'New-ChannelForgeBuildContext'
     'New-ChannelForgeChannel'
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
+    'Set-ChannelForgeChannelNumber'
 )
 
 # Cmdlets to export from this module. None: ChannelForge is a script module

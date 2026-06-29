@@ -29,6 +29,14 @@ Describe 'New-ChannelForgeChannel' {
         $channel.DisplayName | Should -Be 'WABC ABC New York'
     }
 
+    It 'defaults Url to an empty string and accepts an explicit stream URL' {
+        $withoutUrl = New-ChannelForgeChannel -OriginalName 'Test Channel'
+        $withUrl = New-ChannelForgeChannel -OriginalName 'Test Channel' -Url 'https://example.invalid/live/test'
+
+        $withoutUrl.Url | Should -Be ''
+        $withUrl.Url | Should -Be 'https://example.invalid/live/test'
+    }
+
     It 'initializes classification and flags safely' {
         $channel = New-ChannelForgeChannel -OriginalName 'Test Channel'
 

@@ -26,6 +26,17 @@ Describe 'Import-ChannelForgeM3UPlaylist' {
         $wcbs.Logo | Should -Be 'https://example.com/wcbs.png'
     }
 
+    It 'captures the stream URL from the line following #EXTINF' {
+        $path = Join-Path $RepoRoot 'tests\fixtures\tiny.m3u'
+
+        $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider 'fixture' -Playlist 'tiny')
+        $wcbs = $channels | Where-Object DisplayName -eq 'WCBS CBS New York'
+        $espn = $channels | Where-Object DisplayName -eq 'ESPN HD'
+
+        $wcbs.Url | Should -Be 'https://example.com/live/wcbs'
+        $espn.Url | Should -Be 'https://example.com/live/espn'
+    }
+
     It 'throws when the playlist file is missing' {
         { Import-ChannelForgeM3UPlaylist -Path '.\missing.m3u' } | Should -Throw
     }

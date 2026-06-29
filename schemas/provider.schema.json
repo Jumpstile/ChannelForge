@@ -50,6 +50,11 @@
         "enabled": {
           "type": "boolean",
           "description": "Whether this source is included in a build."
+        },
+        "local_playlist": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional path (relative to the repository root) to a local .m3u file for this source, used by Build-Lineup.ps1 (see issue #7 Phase 1). There is no HTTP fetch yet, so a source with no local_playlist is skipped during a build, not an error. This is a local file path, not a secret, but keep it pointed at fixture/local data, never a real production path."
         }
       }
     }

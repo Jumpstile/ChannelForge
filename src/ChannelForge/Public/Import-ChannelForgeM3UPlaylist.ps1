@@ -59,6 +59,18 @@ function Import-ChannelForgeM3UPlaylist {
             $group = $Matches[1]
         }
 
+        # The stream URL is the next non-comment line after #EXTINF. Do not
+        # advance $i here: the loop's own iteration over that line will see
+        # it doesn't match '#EXTINF:*' and simply continue, so this is not
+        # double-processed.
+        $url = ''
+        if ($i + 1 -lt $lines.Count) {
+            $candidateUrl = $lines[$i + 1]
+            if (-not [string]::IsNullOrWhiteSpace($candidateUrl) -and -not $candidateUrl.TrimStart().StartsWith('#')) {
+                $url = $candidateUrl.Trim()
+            }
+        }
+
         $channel = New-ChannelForgeChannel `
             -Provider $Provider `
             -Playlist $Playlist `
@@ -67,7 +79,8 @@ function Import-ChannelForgeM3UPlaylist {
             -TvgId $tvgId `
             -TvgName $tvgName `
             -Logo $logo `
-            -Group $group
+            -Group $group `
+            -Url $url
 
         [void]$channels.Add($channel)
     }
