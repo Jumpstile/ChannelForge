@@ -65,7 +65,7 @@ Build orchestration that assembles a `BuildContext` end to end, and the output w
 
 Provider sources, EPG sources, and rules live in `data/` as declarative JSON/CSV files (see [ADR 0001](../adr/0001-source-of-truth.md)). Generated outputs under `output/` are disposable artifacts, not source data.
 
-Provider and EPG source files have a structural contract in `schemas/` (`provider.schema.json`, `epg_sources.schema.json`), validated with PowerShell's built-in `Test-Json -SchemaFile`. Schemas check shape (required/optional fields, types, the EPG `role` enum); they do not check URL trust-boundary rules, which remain a runtime concern in `Test-ChannelForgeSourceUrl`. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#configuration-schemas) for how the two layers relate.
+Every tracked JSON file under `data/` has a structural contract in `schemas/`, validated with PowerShell's built-in `Test-Json -SchemaFile` (run them all via `scripts/Validate-ConfigSchemas.ps1`). Schemas check shape — required/optional fields and types — not business content; they do not enumerate today's provider names, EPG roles, or categories, and they do not check URL trust-boundary rules, which remain a runtime concern in `Test-ChannelForgeSourceUrl`. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#configuration-schemas) for the full file-to-schema mapping and how the two validation layers relate.
 
 ## Related documents
 

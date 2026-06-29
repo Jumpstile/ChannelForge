@@ -1,0 +1,11 @@
+{
+  "locals": [
+    {
+      "number": "2",
+      "station": "WCBS",
+      "network": "CBS",
+      "market": "New York",
+      "display": "WCBS CBS New York"
+    }
+  ]
+}
