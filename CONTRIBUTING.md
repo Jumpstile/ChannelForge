@@ -32,6 +32,8 @@ When both need updates, update repository docs first, then update the Wiki.
 - Do not commit generated reports, logs, backups, local config, or secrets.
 - Do not commit real provider URLs.
 - Use clear commit messages that explain the user-visible or engineering purpose.
+- Do not add AI/tool attribution footers or a `Co-Authored-By:` trailer to commit
+  messages unless explicitly requested (see [AI_COLLABORATION.md](AI_COLLABORATION.md)).
 
 ## Review Rules
 
