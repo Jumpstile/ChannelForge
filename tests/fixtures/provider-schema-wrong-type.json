@@ -1,0 +1,11 @@
+{
+  "provider": "example-provider",
+  "sources": [
+    {
+      "name": "Sports",
+      "group": "Sports",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports",
+      "enabled": "true"
+    }
+  ]
+}

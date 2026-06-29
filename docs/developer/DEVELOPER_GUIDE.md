@@ -98,6 +98,22 @@ Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-p
 - `Test-ChannelForgeSourceUrl` — validates provider/EPG source URLs (scheme, host, no embedded credentials, no loopback/private/link-local targets).
 - `Test-ChannelForgeDisallowedIpAddress` — IP-range check used by `Test-ChannelForgeSourceUrl`.
 - `Test-ChannelForgeWritePath` — path-safety check used by `Assert-ChannelForgeWritePath`.
+- `Test-ChannelForgeBackupSourcePath` — rejects drive roots and well-known system directories, used by `Assert-ChannelForgeBackupSourcePath`.
+
+## Configuration schemas
+
+`schemas/provider.schema.json` and `schemas/epg_sources.schema.json` are JSON Schema (draft-07) contracts for `data/providers/*.json` and `data/epg/*.json` files (see issue #3). They validate **structure only** — required/optional fields, types, and the EPG `role` enum — using PowerShell's built-in `Test-Json -SchemaFile`, so there's no new dependency:
+
+```powershell
+Test-Json -Path data/providers/provider.example.json -SchemaFile schemas/provider.schema.json
+Test-Json -Path data/epg/epg_sources.example.json -SchemaFile schemas/epg_sources.schema.json
+```
+
+What the schemas deliberately do **not** do: enforce the URL trust-boundary rules (scheme allowlist, no embedded credentials, no loopback/private/link-local hosts). That validation stays in `Test-ChannelForgeSourceUrl` and runs at read time in `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource` regardless of whether a file already passed schema validation — a file can be schema-valid and still get rejected at runtime (see `tests/unit/ConfigSchemas.Tests.ps1`, which asserts exactly that for both fixtures). Schemas catch shape mistakes early (a contributor typo, a missing field) before a file ever reaches the parser; they are a second, earlier check, not a replacement for the trust-boundary one.
+
+`schemas/` currently covers provider and EPG sources only. `data/lineup/*` and `data/rules/aliases.json` don't have schemas yet — that's deferred, not forgotten (see #3).
+
+CI does not run schema validation yet; today it's enforced only through the Pester tests in `tests/unit/ConfigSchemas.Tests.ps1`, which run as part of the existing `Invoke-Pester ./tests/unit -CI` step. Adding a dedicated schema-validation CI step (so a malformed tracked config file fails fast, before the full test run) is in scope for issue #4 and hasn't been done here.
 
 ## Development workflow
 
