@@ -62,6 +62,50 @@ List regression tests, checklist updates, ADRs, or review steps.
 
 
 
+\## 2026-06-28 - Tracked provider URLs exposed private subscription data
+
+
+
+\*\*Area:\*\* Security / Documentation / CI
+
+
+
+\*\*What happened?\*\*
+
+
+
+Tracked provider and EPG configuration files contained private subscription-style provider URLs. A unit test also asserted one private provider URL directly.
+
+
+
+\*\*Why did it happen?\*\*
+
+
+
+The project had a secrets policy, but the source-of-truth example files were created before automated secret scanning and local-only provider file conventions were fully enforced.
+
+
+
+\*\*What changed?\*\*
+
+
+
+Tracked provider and EPG files were replaced with `https://example.invalid/...` placeholders. Real provider files now belong in ignored `*.local.json` or `*.local.csv` files. The provider parser test was changed to use placeholders, `SECURITY.md` was updated, and Gitleaks was added to CI.
+
+
+
+\*\*How do we prevent it from happening again?\*\*
+
+
+
+Run secret scanning in CI, treat provider URLs as secrets, keep real provider data in local-only files, and capture security findings as GitHub Issues with the `security` label.
+
+
+
+\---
+
+
+
 \## 2026-06-26 - IPTVBoss first layout crash required source user
 
 
