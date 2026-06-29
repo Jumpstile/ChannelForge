@@ -69,6 +69,38 @@ Describe 'Build-Lineup.ps1' {
         $plan | Should -Match 'not implemented yet'
     }
 
+    It 'does not leak full provider or EPG URLs into the human-readable report' {
+        $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
+        $plan = Get-Content -LiteralPath $planPath -Raw
+
+        $plan | Should -Not -Match 'https?://'
+        $plan | Should -Not -Match 'example\.invalid'
+    }
+
+    It 'does not leak token- or account-shaped values into the human-readable report' {
+        $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
+        $plan = Get-Content -LiteralPath $planPath -Raw
+
+        $plan | Should -Not -Match 'ACCOUNT_ID'
+        $plan | Should -Not -Match 'API_TOKEN'
+    }
+
+    It 'still identifies provider sources by name and enabled state without their URLs' {
+        $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
+        $plan = Get-Content -LiteralPath $planPath -Raw
+
+        $plan | Should -Match 'Sports \(enabled\)'
+    }
+
+    It 'does not leak full provider or EPG URLs into the machine-readable summary' {
+        $summaryPath = Join-Path $script:FixtureRoot 'output\reports\build-summary.json'
+        $raw = Get-Content -LiteralPath $summaryPath -Raw
+
+        $raw | Should -Not -Match 'https?://'
+        $raw | Should -Not -Match 'ACCOUNT_ID'
+        $raw | Should -Not -Match 'API_TOKEN'
+    }
+
     It 'throws when a required source file is missing' {
         $brokenRoot = Join-Path $TestDrive 'broken-project'
         New-Item -ItemType Directory -Force -Path (Join-Path $brokenRoot 'data\providers') | Out-Null

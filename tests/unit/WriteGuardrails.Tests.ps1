@@ -87,3 +87,54 @@ Describe 'Assert-ChannelForgePathExists' {
         { Assert-ChannelForgePathExists -Path $path -PathType Container -Description 'IPTVBoss data path' } | Should -Throw '*IPTVBoss data path*'
     }
 }
+
+Describe 'Test-ChannelForgeBackupSourcePath' {
+    It 'accepts a normal nested data directory' {
+        InModuleScope ChannelForge {
+            $path = Join-Path $TestDrive 'project\iptvboss-data'
+            Test-ChannelForgeBackupSourcePath -Path $path | Should -BeTrue
+        }
+    }
+
+    It 'rejects a drive root' {
+        InModuleScope ChannelForge {
+            Test-ChannelForgeBackupSourcePath -Path 'C:\' | Should -BeFalse
+        }
+    }
+
+    It 'rejects a well-known system directory directly under a drive root' {
+        InModuleScope ChannelForge {
+            Test-ChannelForgeBackupSourcePath -Path 'C:\Windows' | Should -BeFalse
+            Test-ChannelForgeBackupSourcePath -Path 'C:\Program Files' | Should -BeFalse
+        }
+    }
+
+    It 'does not reject a deeply nested path that happens to share a blocked name' {
+        InModuleScope ChannelForge {
+            $path = Join-Path $TestDrive 'appdata\boot\iptvboss-data'
+            Test-ChannelForgeBackupSourcePath -Path $path | Should -BeTrue
+        }
+    }
+
+    It 'rejects empty values' {
+        InModuleScope ChannelForge {
+            Test-ChannelForgeBackupSourcePath -Path '' | Should -BeFalse
+        }
+    }
+}
+
+Describe 'Assert-ChannelForgeBackupSourcePath' {
+    It 'does not throw for a normal nested data directory' {
+        $path = Join-Path $TestDrive 'project\iptvboss-data'
+
+        { Assert-ChannelForgeBackupSourcePath -Path $path } | Should -Not -Throw
+    }
+
+    It 'throws for a drive root' {
+        { Assert-ChannelForgeBackupSourcePath -Path 'C:\' } | Should -Throw '*system directory*'
+    }
+
+    It 'throws for a well-known system directory' {
+        { Assert-ChannelForgeBackupSourcePath -Path 'C:\Windows' } | Should -Throw '*system directory*'
+    }
+}

@@ -18,6 +18,10 @@ Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Forc
 # otherwise let tar silently produce an empty or misleading archive.
 Assert-ChannelForgePathExists -Path $IPTVBossData -PathType Container -Description 'IPTVBoss data path'
 
+# Defense in depth: reject backing up an entire drive root or a well-known
+# system directory, even though it exists and passed the check above.
+Assert-ChannelForgeBackupSourcePath -Path $IPTVBossData
+
 $backupDir = Join-Path $Root "backups"
 
 # Path-safety guardrail: backups may only land inside the project's own

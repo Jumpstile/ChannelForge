@@ -75,16 +75,22 @@ Both jobs must pass before a change is considered mergeable. See [SECURITY.md](.
 | `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel` |
 | `Assert-ChannelForgeWritePath` | Throw unless a target path resolves under an explicitly approved root |
 | `Assert-ChannelForgePathExists` | Throw unless a required file/directory exists, with a clear description |
+| `Assert-ChannelForgeBackupSourcePath` | Throw if a backup source is a drive root or well-known system directory |
 
 See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit together.
 
 ## Write guardrails
 
-`Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` exist so that anything writing to disk — inside the module or in `scripts/` — has to state its intent rather than trusting a path by default (see issue #5, [ADR 0004](../adr/0004-self-healing-with-guardrails.md)). `scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` both import the module and call these before every write:
+`Assert-ChannelForgeWritePath`, `Assert-ChannelForgePathExists`, and `Assert-ChannelForgeBackupSourcePath` exist so that anything writing to disk — inside the module or in `scripts/` — has to state its intent rather than trusting a path by default (see issue #5, [ADR 0004](../adr/0004-self-healing-with-guardrails.md)). `scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` both import the module and call these before every write:
 
 - Every write target is checked with `Assert-ChannelForgeWritePath -Path <target> -AllowedRoot <root>`. There is no default root; the caller must name the approved area (e.g. the project's `output/` or `backups/` folder), so a write can never silently land somewhere unintended.
 - Every required input path is checked with `Assert-ChannelForgePathExists` before it's read from or backed up, so a missing path fails with a clear error instead of producing an empty or corrupt downstream result.
-- `Backup-IPTVBoss.ps1` additionally refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
+- `Backup-IPTVBoss.ps1` additionally calls `Assert-ChannelForgeBackupSourcePath` to reject a backup source that exists but is dangerously broad (a drive root, or a well-known system directory directly under one) — existence alone doesn't catch a misconfigured path pointed at the whole machine.
+- `Backup-IPTVBoss.ps1` refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
+
+## Report redaction
+
+Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG URLs, tokens, account IDs, credentials, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name and enabled state only — never by `url` — and the Pester suite asserts this directly (`tests/unit/BuildLineupScript.Tests.ps1`) using fixture data shaped like a real token-bearing URL, so a regression that reintroduces a URL into the report fails CI.
 
 ## Private helpers today
 
