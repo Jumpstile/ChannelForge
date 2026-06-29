@@ -40,6 +40,8 @@ Developers and maintainers.
 - Required backup points: before starting any production-changing operation, and after it completes successfully.
 - Backups must be clearly named, timestamped, and stored outside the working output folder.
 - Recovery must always be possible; never remove a backup as part of normal operation.
+- Every write site — in the module or in `scripts/` — must call `Assert-ChannelForgeWritePath` against an explicitly named allowed root before writing, and `Assert-ChannelForgePathExists` before reading from or backing up an external path. See [Write Guardrails](../developer/DEVELOPER_GUIDE.md#write-guardrails).
+- Never overwrite an existing backup archive without an explicit `-Force`-style opt-in from the caller.
 
 ## Release gates
 
