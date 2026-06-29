@@ -78,6 +78,7 @@ PowerShellVersion = '7.0'
 FunctionsToExport = @(
     'Assert-ChannelForgeBackupSourcePath'
     'Assert-ChannelForgePathExists'
+    'Assert-ChannelForgeReadPath'
     'Assert-ChannelForgeWritePath'
     'ConvertTo-ChannelForgeNormalizedChannel'
     'Export-ChannelForgeM3UPlaylist'

@@ -19,10 +19,13 @@ function Read-ChannelForgeProvider {
         }
 
         [pscustomobject]@{
-            Name    = $source.name
-            Group   = $source.group
-            Url     = $source.url
-            Enabled = [bool]$source.enabled
+            Name          = $source.name
+            Group         = $source.group
+            Url           = $source.url
+            Enabled       = [bool]$source.enabled
+            # Optional, local-only (issue #7 Phase 1); see schemas/provider.schema.json.
+            # Empty string, never $null, so callers can test it with a plain if().
+            LocalPlaylist = if ($source.local_playlist) { [string]$source.local_playlist } else { '' }
         }
     }
 }

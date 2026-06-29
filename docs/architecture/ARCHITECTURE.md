@@ -45,7 +45,7 @@ Per ADR 0003, domain objects must not reference infrastructure-specific concepts
 
 ### Write guardrails
 
-`scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` sit outside the module (they're standalone entry points, not part of the public API) but import it to call `Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` before any filesystem write, copy, or archive operation. This keeps the "what's allowed to write where" decision in one place rather than re-implemented per script. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#write-guardrails) for the current write sites and what each guardrail checks.
+`scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` sit outside the module (they're standalone entry points, not part of the public API) but import it to call `Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` before any filesystem write, copy, or archive operation. This keeps the "what's allowed to write where" decision in one place rather than re-implemented per script. The same principle covers reads of operator-supplied configuration paths: `Assert-ChannelForgeReadPath` confines a resolved `local_playlist` value to `data/playlists/` before `Build-Lineup.ps1` ever opens it. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#write-guardrails) for the current write/read sites and what each guardrail checks.
 
 ## Data flow (current)
 

@@ -112,6 +112,7 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | `New-ChannelForgeBuildContext` | Construct a `BuildContext` domain object |
 | `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel` |
 | `Assert-ChannelForgeWritePath` | Throw unless a target path resolves under an explicitly approved root |
+| `Assert-ChannelForgeReadPath` | Throw unless a configured read path (e.g. `local_playlist`) resolves under an explicitly approved root |
 | `Assert-ChannelForgePathExists` | Throw unless a required file/directory exists, with a clear description |
 | `Assert-ChannelForgeBackupSourcePath` | Throw if a backup source is a drive root or well-known system directory |
 
@@ -125,12 +126,17 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 - Every required input path is checked with `Assert-ChannelForgePathExists` before it's read from or backed up, so a missing path fails with a clear error instead of producing an empty or corrupt downstream result.
 - `Backup-IPTVBoss.ps1` additionally calls `Assert-ChannelForgeBackupSourcePath` to reject a backup source that exists but is dangerously broad (a drive root, or a well-known system directory directly under one) — existence alone doesn't catch a misconfigured path pointed at the whole machine.
 - `Backup-IPTVBoss.ps1` refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
+- `Assert-ChannelForgeReadPath -Path <target> -AllowedRoot <root>` is the read-side counterpart, added for issue #7 Phase 1: `Build-Lineup.ps1` calls it on every resolved `local_playlist` path with `data/playlists/` as the allowed root, before that path is ever opened. It reuses the same full-path containment check as `Assert-ChannelForgeWritePath` (`Test-ChannelForgeWritePath`), so `..` traversal, an absolute path elsewhere on disk, a UNC path, or a drive-root/system path are all rejected the same way a write outside an approved root would be.
 
 ## Lineup build pipeline (Phase 1, issue #7)
 
 `scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists. There is no live HTTP fetch and no XMLTV yet — see "Known limitations" below.
 
 A provider source in `provider.json` participates only if it is `enabled` **and** has a `local_playlist` field (a path to a local `.m3u` file, relative to the repository root — see `schemas/provider.schema.json`). A source with no `local_playlist` is skipped, not an error; this is the documented Phase 1 boundary.
+
+Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs — a malformed or unsupported source `url` fails the whole build immediately, even though nothing fetches it yet in Phase 1. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
+
+Each resolved `local_playlist` path is confined to `data/playlists/` via `Assert-ChannelForgeReadPath` before it is read (see "Write guardrails" above) — a `local_playlist` value is operator-supplied configuration, not trusted input, so the same containment logic that protects writes protects this read.
 
 For each participating source, `Build-Lineup.ps1` calls `Merge-ChannelForgeLineup`, which:
 
@@ -142,11 +148,15 @@ For each participating source, `Build-Lineup.ps1` calls `Merge-ChannelForgeLineu
 
 `Export-ChannelForgeM3UPlaylist` then renders that set to `output/merged.m3u`: `#EXTM3U` header, one `#EXTINF` line per channel with whichever of `tvg-id`/`tvg-name`/`tvg-logo`/`tvg-chno`/`group-title` are present, followed by the stream URL line. The file is written as UTF-8 with no BOM and a fixed line ending, so the same channel set always produces the same bytes — `tests/unit/MergeChannelForgeLineup.Tests.ps1` and `tests/unit/BuildLineupScript.Tests.ps1` both assert byte/hash stability across repeated runs, not just "doesn't throw."
 
+Every field `Export-ChannelForgeM3UPlaylist` writes is passed through the private `ConvertTo-ChannelForgeSafeM3UText` helper immediately before being written, never earlier — the domain `Channel` object keeps its original, unsanitized value. M3U has no formal escaping standard, so untrusted provider text (M3U attributes, alias-resolved names) could otherwise corrupt the file's structure: an embedded `"` would break a quoted attribute, and an embedded CR/LF could make later text look like a second, fake `#EXTINF`/URL pair. The helper replaces `"` with `'` and collapses any `\r`/`\n` run to a single space. Ordinary commas are left untouched — the M3U parser locates the display name with `LastIndexOf(',')`, so commas don't need escaping. See `tests/unit/MergeChannelForgeLineup.Tests.ps1`'s `Export-ChannelForgeM3UPlaylist` sanitization cases.
+
 ### Known limitations
 
 - **HTTP provider/EPG fetch: deferred.** Only `local_playlist` files already on disk are read.
 - **XMLTV: deferred, not faked.** `build-summary.json` always reports `XMLTVGenerated: false` with an `XMLTVDeferredReason` explaining why (no programme/guide data source exists yet — see ADR 0005, evidence over assumptions).
 - **Plex EPG/guide binding: deferred until XMLTV exists.** `output/merged.m3u` is playable in Plex today; it has no guide data without XMLTV.
+
+See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthrough of testing a real local playlist in Plex under this Phase 1 boundary.
 
 ## Report redaction
 
@@ -161,6 +171,7 @@ This redaction rule does not apply to `output/merged.m3u` itself: stream URLs ar
 - `Test-ChannelForgeDisallowedIpAddress` — IP-range check used by `Test-ChannelForgeSourceUrl`.
 - `Test-ChannelForgeWritePath` — path-safety check used by `Assert-ChannelForgeWritePath`.
 - `Test-ChannelForgeBackupSourcePath` — rejects drive roots and well-known system directories, used by `Assert-ChannelForgeBackupSourcePath`.
+- `ConvertTo-ChannelForgeSafeM3UText` — sanitizes a text value for safe inclusion in M3U output, used by `Export-ChannelForgeM3UPlaylist`.
 
 ## Configuration schemas
 
