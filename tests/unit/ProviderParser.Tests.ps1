@@ -24,4 +24,17 @@ Describe 'Read-ChannelForgeProvider' {
     It 'throws when the provider file is missing' {
         { Read-ChannelForgeProvider -Path '.\does-not-exist.json' } | Should -Throw
     }
+
+    It 'throws when a provider source URL is malformed' {
+        $path = Join-Path $RepoRoot 'tests\fixtures\provider-invalid-url.json'
+
+        { Read-ChannelForgeProvider -Path $path } | Should -Throw
+
+        try {
+            Read-ChannelForgeProvider -Path $path
+        }
+        catch {
+            $_.Exception.Message | Should -Not -Match 'not-a-valid-url'
+        }
+    }
 }

@@ -12,6 +12,12 @@ function Read-ChannelForgeProvider {
     $provider = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 
     foreach ($source in $provider.sources) {
+        # Provider URLs are an untrusted ingestion boundary and may contain
+        # secret-like account/token data; validate shape, never log the value.
+        if (-not (Test-ChannelForgeSourceUrl -Url $source.url)) {
+            throw "Provider source '$($source.name)' has a malformed or unsupported URL."
+        }
+
         [pscustomobject]@{
             Name    = $source.name
             Group   = $source.group
