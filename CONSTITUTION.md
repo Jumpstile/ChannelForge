@@ -10,6 +10,18 @@ This constitution defines how ChannelForge is built, reviewed, and protected. It
 
 Every important decision must be grounded in repository evidence, user-approved facts, tests, logs, documentation, or reproducible behavior. If evidence is missing, say it is missing.
 
+### Environment Verification Before Engineering
+
+Before engineering work begins, confirm the working directory, Git status, Git remote, and expected repository structure. Do not assume the active shell, checkout, or branch is the intended ChannelForge environment.
+
+### Single Source of Truth
+
+Repository docs, ADRs, source data, and tests are the authoritative engineering record. Adapter files, chat transcripts, generated outputs, local tool state, and external GUIs must point back to canonical repository sources instead of redefining policy.
+
+### Repository Independence
+
+ChannelForge must remain understandable, buildable, and governable from the repository itself. Local machine state, external applications, private configuration, and generated artifacts may support workflows, but they must not be required to understand project rules or accepted architecture.
+
 ### Trust but continuously verify
 
 ChannelForge should be trusted because it verifies itself. Passing tests, green CI, documented decisions, review checklists, and repeatable outputs are part of the product.

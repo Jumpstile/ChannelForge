@@ -1,15 +1,10 @@
 # Contributing
 
-## Start Here
+## Prerequisite
 
-Before changing ChannelForge, read:
+Complete [ONBOARDING.md](ONBOARDING.md) before using this guide. This document assumes the repository, project rules, AI collaboration model, ADRs, and current project memory have already been reviewed.
 
-- [CONSTITUTION.md](CONSTITUTION.md)
-- [AI_COLLABORATION.md](AI_COLLABORATION.md)
-- [PROJECT.md](PROJECT.md)
-- [PRINCIPLES.md](PRINCIPLES.md)
-- [docs/reference/SECURITY.md](docs/reference/SECURITY.md)
-- [docs/developer/FIRST_READ.md](docs/developer/FIRST_READ.md)
+If onboarding has not been completed, stop and start there.
 
 ## Workflow
 
