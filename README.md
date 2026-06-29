@@ -148,7 +148,7 @@ Core project governance and engineering memory:
 
 ChannelForge/
 
-├── data/                  Source data and rules
+├── data/                  Source data and rules (see *.example.json for local secrets setup)
 
 ├── docs/                  Project documentation
 

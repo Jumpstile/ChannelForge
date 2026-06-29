@@ -1,0 +1,19 @@
+{
+  "_comment": "Template for EPG source config. Copy this file to epg_sources.local.json (ignored by Git) and replace the placeholder values with your real EPG URLs. Never commit the copy.",
+  "epg_sources": [
+    {
+      "name": "Public EPG Source",
+      "priority": 10,
+      "url": "https://example.invalid/epg/public/all-sources.xml.gz",
+      "enabled": true,
+      "role": "primary"
+    },
+    {
+      "name": "Provider Fallback EPG",
+      "priority": 80,
+      "url": "https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/Sports.xml",
+      "enabled": true,
+      "role": "provider-fallback"
+    }
+  ]
+}

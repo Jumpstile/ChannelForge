@@ -21,6 +21,16 @@ Store real local provider configuration only in ignored local files:
 
 These files are for the local machine only. Do not copy real values into examples, tests, docs, build reports, or issue comments.
 
+## Starting from the Example Templates
+
+Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.
+
+To set up real local provider data:
+
+1. Copy `data/providers/provider.example.json` to `data/providers/provider.local.json` (or `data/epg/epg_sources.example.json` to `data/epg/epg_sources.local.json`).
+2. Replace the placeholder `url` and `provider`/`name` values with your real provider data in the copy only.
+3. Never rename the copy to drop the `.local.` segment, and never stage it (`git add`) — the `.local.json`/`.local.csv` glob patterns in `.gitignore` exist so this is hard to do by accident, not as the only safeguard.
+
 ## Safe Examples
 
 Examples should use reserved placeholder domains and obvious fake tokens:

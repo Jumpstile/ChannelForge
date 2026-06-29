@@ -1,0 +1,19 @@
+{
+  "_comment": "Template for a real provider config. Copy this file to provider.local.json (ignored by Git) and replace the placeholder values with your real provider URLs. Never commit the copy.",
+  "provider": "your-provider-name",
+  "base_url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN",
+  "sources": [
+    {
+      "name": "Sports",
+      "group": "Sports",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports",
+      "enabled": true
+    },
+    {
+      "name": "Entertainment",
+      "group": "Entertainment",
+      "url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Entertainment",
+      "enabled": true
+    }
+  ]
+}
