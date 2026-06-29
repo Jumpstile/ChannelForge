@@ -1,152 +1,119 @@
-\# ChannelForge Style Guide
+# ChannelForge Style Guide
 
-
-
-\## Motto
-
-
+## Motto
 
 One source. Many outputs. Zero guesswork.
 
+## Commenting standards
 
+- Code must be commented for intent, not noise.
 
-\## Commenting standards
+- Every public function must explain what it does.
 
+- Any non-obvious logic must include a short comment explaining why it exists.
 
+- Any code that touches production files must clearly document what it changes.
 
-\- Code must be commented for intent, not noise.
+- Avoid clever one-liners when a clear multi-line version is easier to understand.
 
-\- Every public function must explain what it does.
+- Comments should help a future maintainer understand the decision, not restate the command.
 
-\- Any non-obvious logic must include a short comment explaining why it exists.
+## Documentation standards
 
-\- Any code that touches production files must clearly document what it changes.
+- Documentation must be written for beginners.
 
-\- Avoid clever one-liners when a clear multi-line version is easier to understand.
+- Do not assume the reader knows Docker, Git, PowerShell, IPTV, XMLTV, M3U, IPTVBoss, Dispatcharr, or Plex.
 
-\- Comments should help a future maintainer understand the decision, not restate the command.
+- Every procedure must include:
 
+  - what the step does
 
+  - where to click or what command to run
 
-\## Documentation standards
+  - what success looks like
 
+  - what to do if it fails
 
+- Prefer exact commands over vague descriptions.
 
-\- Documentation must be written for beginners.
+- Avoid unexplained acronyms.
 
-\- Do not assume the reader knows Docker, Git, PowerShell, IPTV, XMLTV, M3U, IPTVBoss, Dispatcharr, or Plex.
+- Keep instructions clear, direct, and sequential.
 
-\- Every procedure must include:
+## Design principles
 
-&#x20; - what the step does
+- Optimize for maintainability over cleverness.
 
-&#x20; - where to click or what command to run
+- Prefer obvious, testable code over compact code.
 
-&#x20; - what success looks like
+- Domain objects must not reference infrastructure-specific systems.
 
-&#x20; - what to do if it fails
+- Generated files are disposable artifacts.
 
-\- Prefer exact commands over vague descriptions.
+- Source data is the authority.
 
-\- Avoid unexplained acronyms.
+- Every important decision should be explainable.
 
-\- Keep instructions clear, direct, and sequential.## Design principles
+## PowerShell standards
 
+- Target PowerShell 7+.
 
+- Public functions use approved verbs.
 
-\- Optimize for maintainability over cleverness.
+- Public functions live in `src/ChannelForge/Public`.
 
-\- Prefer obvious, testable code over compact code.
+- Private helpers live in `src/ChannelForge/Private`.
 
-\- Domain objects must not reference infrastructure-specific systems.
+- Classes live in `src/ChannelForge/Classes`.
 
-\- Generated files are disposable artifacts.
+- Tests live in `tests/unit`.
 
-\- Source data is the authority.
+- Avoid global state.
 
-\- Every important decision should be explainable.
+- Avoid hidden filesystem side effects.
 
+- Throw terminating errors for invalid required input.
 
+- Return objects, not formatted strings.
 
-\## PowerShell standards
+## Function rules
 
+- One function should do one job.
 
+- Prefer explicit parameters.
 
-\- Target PowerShell 7+.
+- Use `[CmdletBinding()]` for public functions.
 
-\- Public functions use approved verbs.
+- Validate required file paths before reading.
 
-\- Public functions live in `src/ChannelForge/Public`.
+- Do not write production files unless explicitly requested.
 
-\- Private helpers live in `src/ChannelForge/Private`.
+- Do not silently ignore malformed input.
 
-\- Classes live in `src/ChannelForge/Classes`.
+## Testing rules
 
-\- Tests live in `tests/unit`.
+- New public functions require Pester tests.
 
-\- Avoid global state.
+- Bug fixes require regression tests.
 
-\- Avoid hidden filesystem side effects.
+- Parser tests should include malformed and edge-case fixtures.
 
-\- Throw terminating errors for invalid required input.
+- CI must remain green.
 
-\- Return objects, not formatted strings.
+## Logging rules
 
+- Avoid random `Write-Host` in engine code.
 
+- Build/report functions may write human-readable output.
 
-\## Function rules
+- Future logging should flow through a central ChannelForge logger.
 
+## Security rules
 
+- Do not commit real provider credentials.
 
-\- One function should do one job.
+- Do not commit tokenized provider URLs to public repositories.
 
-\- Prefer explicit parameters.
+- Keep local secrets in ignored `*.local.json` files.
 
-\- Use `\\\[CmdletBinding()]` for public functions.
-
-\- Validate required file paths before reading.
-
-\- Do not write production files unless explicitly requested.
-
-\- Do not silently ignore malformed input.
-
-
-
-\## Testing rules
-
-
-
-\- New public functions require Pester tests.
-
-\- Bug fixes require regression tests.
-
-\- Parser tests should include malformed and edge-case fixtures.
-
-\- CI must remain green.
-
-
-
-\## Logging rules
-
-
-
-\- Avoid random `Write-Host` in engine code.
-
-\- Build/report functions may write human-readable output.
-
-\- Future logging should flow through a central ChannelForge logger.
-
-
-
-\## Security rules
-
-
-
-\- Do not commit real provider credentials.
-
-\- Do not commit tokenized provider URLs to public repositories.
-
-\- Keep local secrets in ignored `\\\*.local.json` files.
-
-\- Do not commit generated playlists, XMLTV files, H2 databases, or backups.
-
+- Do not commit generated playlists, XMLTV files, H2 databases, or backups.

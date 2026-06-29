@@ -1,110 +1,79 @@
-\# Go / No-Go Checklist
-
-
+# Go / No-Go Checklist
 
 A release is not ready because it works locally.
 
-
-
 A release is ready only when we are willing to stand behind it.
 
+## Engineering
 
+- [ ] Full test suite passes locally.
 
-\## Engineering
+- [ ] CI is green.
 
+- [ ] PSScriptAnalyzer is clean or documented.
 
+- [ ] Code review is complete.
 
-\- \[ ] Full test suite passes locally.
+- [ ] No release-blocking TODOs remain.
 
-\- \[ ] CI is green.
+## Security
 
-\- \[ ] PSScriptAnalyzer is clean or documented.
+- [ ] Deep bug sweep completed.
 
-\- \[ ] Code review is complete.
+- [ ] Vulnerability review completed.
 
-\- \[ ] No release-blocking TODOs remain.
+- [ ] Secrets scan completed.
 
+- [ ] Path validation reviewed.
 
+- [ ] Input validation reviewed.
 
-\## Security
+- [ ] Logging reviewed for secret leakage.
 
+- [ ] Dependency review completed.
 
+## Safety
 
-\- \[ ] Deep bug sweep completed.
+- [ ] Pre-operation backup tested.
 
-\- \[ ] Vulnerability review completed.
+- [ ] Post-operation backup tested.
 
-\- \[ ] Secrets scan completed.
+- [ ] Restore process tested.
 
-\- \[ ] Path validation reviewed.
+- [ ] Production writes require explicit approval.
 
-\- \[ ] Input validation reviewed.
+- [ ] Failure modes are documented.
 
-\- \[ ] Logging reviewed for secret leakage.
+## Documentation
 
-\- \[ ] Dependency review completed.
+- [ ] README updated.
 
+- [ ] PROJECT.md updated if needed.
 
+- [ ] STYLEGUIDE.md updated if needed.
 
-\## Safety
+- [ ] ADRs updated if architecture changed.
 
+- [ ] Beginner instructions verified.
 
+- [ ] Troubleshooting notes updated.
 
-\- \[ ] Pre-operation backup tested.
+## User Experience
 
-\- \[ ] Post-operation backup tested.
+- [ ] Fresh install tested.
 
-\- \[ ] Restore process tested.
+- [ ] Upgrade tested.
 
-\- \[ ] Production writes require explicit approval.
+- [ ] Error messages are understandable.
 
-\- \[ ] Failure modes are documented.
+- [ ] Success messages are clear.
 
+- [ ] User can verify outcome.
 
+## Decision
 
-\## Documentation
+- [ ] GO
 
-
-
-\- \[ ] README updated.
-
-\- \[ ] PROJECT.md updated if needed.
-
-\- \[ ] STYLEGUIDE.md updated if needed.
-
-\- \[ ] ADRs updated if architecture changed.
-
-\- \[ ] Beginner instructions verified.
-
-\- \[ ] Troubleshooting notes updated.
-
-
-
-\## User Experience
-
-
-
-\- \[ ] Fresh install tested.
-
-\- \[ ] Upgrade tested.
-
-\- \[ ] Error messages are understandable.
-
-\- \[ ] Success messages are clear.
-
-\- \[ ] User can verify outcome.
-
-
-
-\## Decision
-
-
-
-\- \[ ] GO
-
-\- \[ ] NO-GO
-
-
+- [ ] NO-GO
 
 If any required item is incomplete, the decision is NO-GO.
-

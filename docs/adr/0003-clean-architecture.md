@@ -1,92 +1,67 @@
-\# ADR 0003: Use clean layered architecture
+# ADR 0003: Use clean layered architecture
 
-
-
-\## Status
-
-
+## Status
 
 Accepted
 
-
-
-\## Context
-
-
+## Context
 
 ChannelForge may eventually support multiple input formats and multiple output targets. If domain objects depend on IPTVBoss, Dispatcharr, Plex, or any specific infrastructure, the project will become difficult to extend and maintain.
 
-
-
-\## Decision
-
-
+## Decision
 
 ChannelForge will use a layered architecture:
 
+1. Domain layer
 
+   - Channel
 
-1\. Domain layer
+   - Provider
 
-&#x20;  - Channel
+   - Playlist
 
-&#x20;  - Provider
+   - Programme
 
-&#x20;  - Playlist
+   - Rules
 
-&#x20;  - Programme
+   - Build context
 
-&#x20;  - Rules
+2. Application layer
 
-&#x20;  - Build context
+   - Build orchestration
 
+   - Validation
 
+   - Reports
 
-2\. Application layer
+   - Deployment approval
 
-&#x20;  - Build orchestration
+3. Infrastructure layer
 
-&#x20;  - Validation
+   - M3U
 
-&#x20;  - Reports
+   - XMLTV
 
-&#x20;  - Deployment approval
+   - JSON
 
+   - CSV
 
+   - IPTVBoss
 
-3\. Infrastructure layer
+   - Dispatcharr
 
-&#x20;  - M3U
+   - File system
 
-&#x20;  - XMLTV
-
-&#x20;  - JSON
-
-&#x20;  - CSV
-
-&#x20;  - IPTVBoss
-
-&#x20;  - Dispatcharr
-
-&#x20;  - File system
-
-&#x20;  - HTTP
-
-
+   - HTTP
 
 Domain objects must not reference infrastructure-specific concepts.
 
+## Consequences
 
+- IPTVBoss is an output target, not the core model.
 
-\## Consequences
+- New outputs can be added without changing the domain.
 
+- Engines must consume and produce domain objects.
 
-
-\- IPTVBoss is an output target, not the core model.
-
-\- New outputs can be added without changing the domain.
-
-\- Engines must consume and produce domain objects.
-
-\- Configuration remains source-of-truth.
-
+- Configuration remains source-of-truth.

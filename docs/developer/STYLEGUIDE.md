@@ -1,90 +1,52 @@
-\# ChannelForge Style Guide
-
-
+# ChannelForge Style Guide
 
 > Status: Living Document
 
+---
 
-
-\---
-
-
-
-\# Purpose
-
-
+# Purpose
 
 This document defines the coding standards for the ChannelForge project.
 
-
-
 These standards exist to make the project:
 
+- Easy to read
 
+- Easy to maintain
 
-\- Easy to read
+- Easy to review
 
-\- Easy to maintain
+- Easy to test
 
-\- Easy to review
+- Consistent across the entire codebase
 
-\- Easy to test
+---
 
-\- Consistent across the entire codebase
-
-
-
-\---
-
-
-
-\# Core Philosophy
-
-
+# Core Philosophy
 
 Write code for the next developer.
 
-
-
 Assume they know nothing.
-
-
 
 That next developer might be you six months from now.
 
+---
 
+# General Rules
 
-\---
-
-
-
-\# General Rules
-
-
-
-\## Prefer clarity over cleverness.
-
-
+## Prefer clarity over cleverness.
 
 Good:
-
-
 
 ```powershell
 
 foreach ($Channel in $Channels) {
 
-
-
 }
 
 ```
 
-
-
 Bad:
-
-
 
 ```powershell
 
@@ -92,93 +54,59 @@ $Channels | % { ... }
 
 ```
 
-
-
 Avoid aliases.
-
-
 
 Always use full cmdlet names.
 
+---
 
-
-\---
-
-
-
-\## One responsibility per function.
-
-
+## One responsibility per function.
 
 Functions should perform one task well.
 
-
-
 Avoid large "God functions."
 
+---
 
-
-\---
-
-
-
-\## Approved Verbs
-
-
+## Approved Verbs
 
 Use PowerShell approved verbs whenever possible.
 
-
-
 Examples:
 
+- Get-
 
+- Set-
 
-\- Get-
+- New-
 
-\- Set-
+- Remove-
 
-\- New-
+- Test-
 
-\- Remove-
+- Read-
 
-\- Test-
+- Write-
 
-\- Read-
+- Import-
 
-\- Write-
+- Export-
 
-\- Import-
+- ConvertTo-
 
-\- Export-
+- ConvertFrom-
 
-\- ConvertTo-
-
-\- ConvertFrom-
-
-\- Invoke-
-
-
+- Invoke-
 
 Avoid unapproved verbs.
 
+---
 
-
-\---
-
-
-
-\# Variables
-
-
+# Variables
 
 Use descriptive variable names.
 
-
-
 Good:
-
-
 
 ```powershell
 
@@ -186,11 +114,7 @@ $ProviderConfiguration
 
 ```
 
-
-
 Bad:
-
-
 
 ```powershell
 
@@ -198,331 +122,206 @@ $p
 
 ```
 
-
-
 Avoid abbreviations unless universally understood.
 
+---
 
-
-\---
-
-
-
-\# Functions
-
-
+# Functions
 
 Every public function should include:
 
+- Comment-based help
 
+- Parameter validation
 
-\- Comment-based help
+- Error handling
 
-\- Parameter validation
+- Examples
 
-\- Error handling
+- Unit tests
 
-\- Examples
+---
 
-\- Unit tests
-
-
-
-\---
-
-
-
-\# Comments
-
-
+# Comments
 
 Comment WHY.
 
-
-
 Not WHAT.
-
-
 
 Bad:
 
-
-
 ```powershell
 
 $i++
 
 ```
-
-
 
 Good:
 
-
-
 ```powershell
 
-\# Skip duplicate channels that were already merged.
+# Skip duplicate channels that were already merged.
 
 $i++
 
 ```
 
+---
 
-
-\---
-
-
-
-\# Error Handling
-
-
+# Error Handling
 
 Never ignore errors silently.
 
-
-
 Prefer:
-
-
 
 ```powershell
 
 try {
 
-
-
 }
 
 catch {
-
-
 
 }
 
 ```
 
-
-
 Fail with meaningful messages.
 
+---
 
-
-\---
-
-
-
-\# Input Validation
-
-
+# Input Validation
 
 Treat all external data as untrusted.
 
-
-
 Always validate:
 
+- File paths
 
+- URLs
 
-\- File paths
+- JSON
 
-\- URLs
+- XML
 
-\- JSON
+- Provider data
 
-\- XML
+- User input
 
-\- Provider data
+---
 
-\- User input
-
-
-
-\---
-
-
-
-\# Security
-
-
+# Security
 
 Never:
 
+- Trust provider data
 
+- Execute downloaded code
 
-\- Trust provider data
+- Store secrets in source control
 
-\- Execute downloaded code
+- Skip validation
 
-\- Store secrets in source control
+---
 
-\- Skip validation
-
-
-
-\---
-
-
-
-\# Testing
-
-
+# Testing
 
 Every bug fix requires:
 
-
-
-\- A regression test
-
-
+- A regression test
 
 Every new feature requires:
 
-
-
-\- Unit tests
-
-
+- Unit tests
 
 CI must pass before merging.
 
+---
 
-
-\---
-
-
-
-\# Documentation
-
-
+# Documentation
 
 Every significant feature must update:
 
+- README (if appropriate)
 
+- Developer Guide
 
-\- README (if appropriate)
+- Architecture
 
-\- Developer Guide
-
-\- Architecture
-
-\- Tests
-
-
+- Tests
 
 Documentation is part of the feature.
 
+---
 
-
-\---
-
-
-
-\# Backups
-
-
+# Backups
 
 Before modifying production data:
 
+- Backup
 
+- Verify backup
 
-\- Backup
+- Apply changes
 
-\- Verify backup
-
-\- Apply changes
-
-\- Verify result
-
-
+- Verify result
 
 Recovery must always be possible.
 
+---
 
-
-\---
-
-
-
-\# Self-Healing
-
-
+# Self-Healing
 
 Automatic repairs must be:
 
+- Safe
 
+- Deterministic
 
-\- Safe
+- Explainable
 
-\- Deterministic
+- Logged
 
-\- Explainable
+- Reversible
 
-\- Logged
+---
 
-\- Reversible
-
-
-
-\---
-
-
-
-\# Definition of Done
-
-
+# Definition of Done
 
 A feature is complete only when:
 
+- Architecture reviewed
 
+- Code implemented
 
-\- Architecture reviewed
+- Code commented
 
-\- Code implemented
+- Tests written
 
-\- Code commented
+- Tests passing
 
-\- Tests written
+- Documentation updated
 
-\- Tests passing
+- Security reviewed
 
-\- Documentation updated
+- Regression checked
 
-\- Security reviewed
+- CI green
 
-\- Regression checked
+---
 
-\- CI green
-
-
-
-\---
-
-
-
-\# The ChannelForge Standard
-
-
+# The ChannelForge Standard
 
 Every important decision must be:
 
+- Explainable
 
+- Reproducible
 
-\- Explainable
+- Reversible
 
-\- Reproducible
+---
 
-\- Reversible
-
-
-
-\---
-
-
-
-\# Motto
-
-
+# Motto
 
 Build software people can trust.
-

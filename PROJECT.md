@@ -1,192 +1,117 @@
-\# ChannelForge Project Guide
+# ChannelForge Project Guide
 
-
-
-\## Mission
-
-
+## Mission
 
 ChannelForge is a source-of-truth television lineup builder.
 
-
-
 It stores provider sources, EPG sources, numbering rules, channel categories, aliases, and deployment rules in clear configuration files, then generates outputs for tools such as IPTVBoss, Dispatcharr, and Plex.
 
-
-
-\## Motto
-
-
+## Motto
 
 One source. Many outputs. Zero guesswork.
 
-
-
-\## User experience standard
-
-
+## User experience standard
 
 ChannelForge must be usable by a careful beginner.
 
-
-
 Documentation should assume the reader has never used Docker, Git, PowerShell, IPTV tools, M3U playlists, XMLTV guides, IPTVBoss, Dispatcharr, or Plex before.
-
-
 
 Instructions must be exact, sequential, and easy to verify.
 
-
-
-\## Code standard
-
-
+## Code standard
 
 Code should be easy to understand before it is clever.
 
-
-
 Public functions must be clearly commented. Non-obvious logic must explain why it exists. Anything that touches production data must be explicit about what it changes.
 
-
-
-\## Safety standard
-
-
+## Safety standard
 
 ChannelForge must fail safely.
 
-
-
 Generated output should be previewed before deployment. Production files must not be overwritten without explicit approval.
 
-
-
-\## Architecture standard
-
-
+## Architecture standard
 
 The domain model is independent of IPTVBoss, Dispatcharr, Plex, or any specific output system.
 
-
-
 IPTVBoss is an output target, not the core model.
 
-
-
-\## Backup standard
-
-
+## Backup standard
 
 Nothing that modifies production data may run without backups.
 
-
-
 Required backup points:
 
+1. Before starting any production-changing operation.
 
-
-1\. Before starting any production-changing operation.
-
-2\. After completing the operation successfully.
-
-
+2. After completing the operation successfully.
 
 Backups must be clearly named, timestamped, and stored outside the working output folder.
 
-
-
-\## Testing and release standard
-
-
+## Testing and release standard
 
 No code may be committed, tagged, or pushed until:
 
+- Relevant tests pass locally.
 
+- Full test suite passes locally.
 
-\- Relevant tests pass locally.
+- CI passes after push.
 
-\- Full test suite passes locally.
+- Any production-impacting logic has been reviewed.
 
-\- CI passes after push.
+- A bug and regression sweep has been completed.
 
-\- Any production-impacting logic has been reviewed.
+- A security review has been completed.
 
-\- A bug and regression sweep has been completed.
-
-\- A security review has been completed.
-
-
-
-\## Security standard
-
-
+## Security standard
 
 Security is a primary project requirement.
 
-
-
 ChannelForge must:
 
+- Never commit secrets.
 
+- Never expose provider tokens in logs or reports.
 
-\- Never commit secrets.
+- Never overwrite production data without confirmation.
 
-\- Never expose provider tokens in logs or reports.
+- Validate paths before writing files.
 
-\- Never overwrite production data without confirmation.
+- Prefer safe defaults.
 
-\- Validate paths before writing files.
+- Treat generated playlists, XMLTV files, logs, databases, and backups as sensitive.
 
-\- Prefer safe defaults.
-
-\- Treat generated playlists, XMLTV files, logs, databases, and backups as sensitive.
-
-
-
-\## Documentation standard
-
-
+## Documentation standard
 
 Every major feature must include beginner-friendly documentation.
 
-
-
 Good documentation explains:
 
+1. What this does.
 
+2. Why it matters.
 
-1\. What this does.
+3. Exactly how to use it.
 
-2\. Why it matters.
+4. What success looks like.
 
-3\. Exactly how to use it.
+5. What to do if something fails.
 
-4\. What success looks like.
-
-5\. What to do if something fails.
-
-
-
-\## Definition of Done
-
-
+## Definition of Done
 
 A feature is not complete until:
 
+- The code is readable.
 
+- Important logic is commented.
 
-\- The code is readable.
+- Tests pass.
 
-\- Important logic is commented.
+- CI is green.
 
-\- Tests pass.
+- Documentation is updated.
 
-\- CI is green.
+- Any architecture decision is captured in an ADR when needed.
 
-\- Documentation is updated.
-
-\- Any architecture decision is captured in an ADR when needed.
-
-\- The feature can be explained to a beginner.
-
+- The feature can be explained to a beginner.
