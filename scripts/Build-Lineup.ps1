@@ -63,9 +63,13 @@ $md += "Generated: $($summary.GeneratedAt)"
 $md += ""
 $md += "This report describes the current source-of-truth configuration only. M3U and XMLTV output generation is not implemented yet (see issue #7)."
 $md += ""
+# Provider/EPG source URLs are treated as secrets (see docs/reference/SECURITY.md)
+# and must never appear in generated reports. List source names and state
+# only; never include $s.url or $e.url here.
 $md += "## Provider M3U Sources"
 foreach ($s in $provider.sources) {
-    $md += "- $($s.name): $($s.url)"
+    $state = if ($s.enabled) { 'enabled' } else { 'disabled' }
+    $md += "- $($s.name) ($state)"
 }
 $md += ""
 $md += "## EPG Sources"

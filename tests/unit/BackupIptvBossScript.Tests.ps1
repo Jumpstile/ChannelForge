@@ -53,4 +53,48 @@ Describe 'Backup-IPTVBoss.ps1' {
 
         { & $script:ScriptPath -Root $fixtureRoot -IPTVBossData $source -Timestamp $fixedStamp -Force } | Should -Not -Throw
     }
+
+    It 'throws and reports the exit code when tar fails' {
+        $fixtureRoot = Join-Path $TestDrive 'tar-failure'
+        $source = Join-Path $fixtureRoot 'iptvboss-data'
+        New-Item -ItemType Directory -Force -Path $source | Out-Null
+        Set-Content -LiteralPath (Join-Path $source 'sample.db') -Value 'fixture data'
+
+        Mock -CommandName tar -MockWith { $global:LASTEXITCODE = 1 }
+
+        try {
+            { & $script:ScriptPath -Root $fixtureRoot -IPTVBossData $source -Timestamp '20260102-000000' } | Should -Throw '*tar failed with exit code 1*'
+        }
+        finally {
+            $global:LASTEXITCODE = 0
+        }
+
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'backups\iptvboss-data-20260102-000000.tar.gz') | Should -BeFalse
+    }
+
+    It 'throws when tar reports success but no archive file was actually produced' {
+        $fixtureRoot = Join-Path $TestDrive 'tar-silent-failure'
+        $source = Join-Path $fixtureRoot 'iptvboss-data'
+        New-Item -ItemType Directory -Force -Path $source | Out-Null
+        Set-Content -LiteralPath (Join-Path $source 'sample.db') -Value 'fixture data'
+
+        # Simulate tar exiting 0 without writing the archive (e.g. a
+        # filesystem hiccup or a tar build that silently no-ops).
+        Mock -CommandName tar -MockWith { $global:LASTEXITCODE = 0 }
+
+        try {
+            { & $script:ScriptPath -Root $fixtureRoot -IPTVBossData $source -Timestamp '20260103-000000' } | Should -Throw '*Backup archive*'
+        }
+        finally {
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    It 'refuses to back up a drive root or well-known system directory' {
+        $fixtureRoot = Join-Path $TestDrive 'system-path'
+
+        { & $script:ScriptPath -Root $fixtureRoot -IPTVBossData 'C:\Windows' } | Should -Throw '*system directory*'
+
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'backups') | Should -BeFalse
+    }
 }
