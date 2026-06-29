@@ -40,6 +40,10 @@ File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dis
 
 Per ADR 0003, domain objects must not reference infrastructure-specific concepts. `Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific fields; provider- and playlist-specific values are stored as plain strings supplied by the infrastructure layer.
 
+### Write guardrails
+
+`scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` sit outside the module (they're standalone entry points, not part of the public API) but import it to call `Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` before any filesystem write, copy, or archive operation. This keeps the "what's allowed to write where" decision in one place rather than re-implemented per script. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#write-guardrails) for the current write sites and what each guardrail checks.
+
 ## Data flow (current)
 
 ```text
