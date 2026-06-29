@@ -25,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test:
+  quality-gates:
     needs: secret-scan
     runs-on: windows-latest
 
@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Pester 5.7.1
+      - name: Install Pester 5.7.1 and PSScriptAnalyzer 1.25.0
         shell: pwsh
         run: |
           if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
@@ -49,7 +49,31 @@ jobs:
               -Scope CurrentUser `
               -SkipPublisherCheck
 
+          Install-Module PSScriptAnalyzer `
+              -RequiredVersion 1.25.0 `
+              -Repository PSGallery `
+              -Force `
+              -Scope CurrentUser `
+              -SkipPublisherCheck
+
+      # Fast, narrow checks run first so an easy mistake (a malformed config
+      # file, a broken doc link) fails quickly, before the full test suite.
+      - name: Validate config schemas
+        shell: pwsh
+        run: ./scripts/Validate-ConfigSchemas.ps1
+
+      - name: Validate Markdown hygiene
+        shell: pwsh
+        run: ./scripts/Validate-MarkdownHygiene.ps1
+
+      - name: Validate Markdown links
+        shell: pwsh
+        run: ./scripts/Validate-MarkdownLinks.ps1
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: ./scripts/Validate-ScriptAnalyzer.ps1
+
       - name: Run Pester tests
         shell: pwsh
-        run: |
-          Invoke-Pester ./tests/unit -CI
+        run: Invoke-Pester ./tests/unit -CI

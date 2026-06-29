@@ -84,7 +84,7 @@ Working today:
 
 - PowerShell module layout
 
-- GitHub Actions CI
+- GitHub Actions CI with config schema, Markdown, lint, and test quality gates
 
 - Pester 5.7.1 tests
 
