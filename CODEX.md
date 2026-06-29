@@ -1,0 +1,7 @@
+- Verify the environment first.
+- Read [ONBOARDING.md](ONBOARDING.md).
+- Follow [CONSTITUTION.md](CONSTITUTION.md).
+- Follow [AI_COLLABORATION.md](AI_COLLABORATION.md).
+- Read the ADRs in [docs/adr](docs/adr).
+- Use GitHub Issues as project memory.
+- Refer to [AI_COLLABORATION.md](AI_COLLABORATION.md) for role-specific responsibilities.
