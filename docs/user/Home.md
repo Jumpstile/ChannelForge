@@ -11,11 +11,17 @@ ChannelForge turns provider playlists, guide data, and local rules into a determ
 - **I want to understand what ChannelForge is.** → [What Is ChannelForge?](What-Is-ChannelForge.md)
 - **I want to build my first lineup.** → [Build Your First Lineup](Build-Your-First-Lineup.md)
 - **I want to configure my provider safely.** → [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)
-- **I want to use ChannelForge with Plex.** → *(dedicated guide coming soon — see [the Plex smoke test](PLEX_SMOKE_TEST.md) in the meantime)*
+- **I want to use ChannelForge with Plex.** → [Use ChannelForge with Plex](Use-With-Plex.md)
 - **I want to troubleshoot a problem.** → [Troubleshooting](TROUBLESHOOTING.md)
 - **I want to understand current limitations.** → [Current Limitations](CURRENT_LIMITATIONS.md)
 
-This documentation set is being built incrementally, in reviewable commits. Pages not yet linked above will route directly here once written — see [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) for progress.
+## More
+
+- [Concepts](Concepts/README.md) — the ideas behind ChannelForge, for once the basics work
+- [Reference](Reference/README.md) — quick-lookup configuration and command reference
+- [Contribute](Contribute.md) — report a problem or get involved
+
+This documentation set is being built incrementally, in reviewable commits — see [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) for progress.
 
 ## A note on safety
 

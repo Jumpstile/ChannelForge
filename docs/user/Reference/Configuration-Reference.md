@@ -1,0 +1,75 @@
+# Configuration Reference
+
+A summary of the config files a build reads. Each one has an exact structural contract in `schemas/` — this page gives you the shape at a glance; the schema file is canonical if anything here is unclear or out of date.
+
+For *how* to set these up safely, see [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md) — this page is the field reference, not the walkthrough.
+
+## Provider configuration
+
+`data/providers/mybunny.json` (tracked example) or `data/providers/*.local.json` (your real config — see [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)).
+
+| Field | Required | Notes |
+|---|---|---|
+| `provider` | Yes | Display label. Appears in build reports — not secret-safe, see below. |
+| `sources` | Yes | Array of source entries, at least one. |
+| `sources[].name` | Yes | Display label, must be unique in the file. Appears in build reports. |
+| `sources[].group` | No | Optional grouping label. |
+| `sources[].url` | Yes | Provider source URL. Treated as a secret; validated for shape (scheme, host, no embedded credentials). |
+| `sources[].enabled` | Yes | Whether this source is included in a build. |
+| `sources[].local_playlist` | No | Path to a local `.m3u` file, relative to the repository root, confined to `data/playlists/`. Required (along with `enabled: true`) for a source to actually produce output today — see [Sources](../Concepts/Sources.md). |
+
+Full schema: [`schemas/provider.schema.json`](../../../schemas/provider.schema.json).
+
+## EPG source configuration
+
+`data/epg/epg_sources.json` (tracked example) or `data/epg/*.local.json`.
+
+| Field | Required | Notes |
+|---|---|---|
+| `epg_sources` | Yes | Array of source entries, at least one. |
+| `epg_sources[].name` | Yes | Must be unique in the file. |
+| `epg_sources[].priority` | Yes | Integer; lower runs first. |
+| `epg_sources[].url` | Yes | Treated as a secret, same validation as provider URLs. |
+| `epg_sources[].enabled` | Yes | |
+| `epg_sources[].role` | Yes | Free-text role label, e.g. `primary`, `fallback`. |
+
+EPG sources are read and validated today, but not fetched — see [XMLTV](../Concepts/XMLTV.md). Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
+
+## Aliases
+
+`data/rules/aliases.json` — optional. Maps known alternate provider names to one canonical name (exact match only — see [Channel IDs](../Concepts/Channel-IDs.md)).
+
+| Field | Required | Notes |
+|---|---|---|
+| `aliases` | Yes | Array, can be empty. |
+| `aliases[].canonical` | Yes | The preferred name this entry resolves to. |
+| `aliases[].aliases` | Yes | Array of known alternate names, at least one. |
+
+Full schema: [`schemas/aliases.schema.json`](../../../schemas/aliases.schema.json).
+
+## Numbering blocks
+
+`data/lineup/numbering_blocks.json` — optional. A channel is numbered only if its source `group` exactly (case-insensitively) matches a block's `category`.
+
+| Field | Required | Notes |
+|---|---|---|
+| `blocks` | Yes | Array, can be empty. |
+| `blocks[].start` / `blocks[].end` | Yes | Inclusive channel number range. |
+| `blocks[].category` | Yes | Must exactly match a source's `group` to apply. |
+
+Full schema: [`schemas/numbering_blocks.schema.json`](../../../schemas/numbering_blocks.schema.json).
+
+## Local channels
+
+`data/lineup/locals.json` — optional, informational local-station data referenced in build reports.
+
+| Field | Required | Notes |
+|---|---|---|
+| `locals` | Yes | Array, can be empty. |
+| `locals[].number`, `.station`, `.network`, `.market`, `.display` | Yes | All required per entry. |
+
+Full schema: [`schemas/locals.schema.json`](../../../schemas/locals.schema.json).
+
+## A note on secrets in display fields
+
+`provider`, `sources[].name`, and similar display-only fields are **not** redacted from build reports — only `url` fields are. Never put a token, account ID, or other secret-shaped value in a display field. See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md#how-to-avoid-exposing-credentials).
