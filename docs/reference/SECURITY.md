@@ -8,6 +8,8 @@ Real provider URLs must never be committed. Provider subscription URLs often con
 
 Tracked provider and EPG files must use placeholder values only.
 
+Historical note: an earlier tracked provider token existed in repository history, including commit `91a3913`. That token was revoked/rotated on 2026-06-28. Current tracked provider and EPG files use placeholder/example values only; do not treat the historical value as active.
+
 ## Local Provider Files
 
 Store real local provider configuration only in ignored local files:
