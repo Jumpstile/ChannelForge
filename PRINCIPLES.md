@@ -198,6 +198,12 @@ No law may be violated without documenting why.
 
 ---
 
+# Definition of Done
+
+The authoritative definition of done is in [CONSTITUTION.md](CONSTITUTION.md).
+
+---
+
 # Definition of Excellence
 
 Code is not finished when it works.
@@ -217,32 +223,6 @@ Code is finished when:
 * It is reviewed.
 
 * It can be confidently changed years later.
-
----
-
-# Definition of Done
-
-Every completed feature must include:
-
-* Clean architecture
-
-* Complete comments
-
-* Beginner-friendly documentation
-
-* Automated tests
-
-* Passing CI
-
-* Security review
-
-* Regression review
-
-* Backup strategy
-
-* Recovery strategy
-
-Anything less is work in progress.
 
 ---
 

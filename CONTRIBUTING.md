@@ -25,6 +25,8 @@ The GitHub Wiki is the user-facing knowledge base. It should explain first-run s
 
 When both need updates, update repository docs first, then update the Wiki.
 
+For user-facing changes, issue and pull request completion summaries must state the repository docs review result and the Wiki review result. Use [DOCUMENTATION.md](DOCUMENTATION.md) and [Documentation Governance Standard](docs/reference/DOCS_AND_WIKI.md) as the guide.
+
 ## Commit Rules
 
 - Tests before commits.

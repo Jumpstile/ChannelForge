@@ -100,18 +100,4 @@ Good documentation explains:
 
 ## Definition of Done
 
-A feature is not complete until:
-
-- The code is readable.
-
-- Important logic is commented.
-
-- Tests pass.
-
-- CI is green.
-
-- Documentation is updated.
-
-- Any architecture decision is captured in an ADR when needed.
-
-- The feature can be explained to a beginner.
+The authoritative definition of done is in [CONSTITUTION.md](CONSTITUTION.md).
