@@ -2,11 +2,13 @@
 
 ## Rule
 
-Repository documentation is the engineering source of truth. GitHub Wiki is the user-facing knowledge base.
+Repository documentation is the engineering source of truth. [`docs/user/`](../user/README.md) is the user-facing knowledge base.
 
 Repository docs explain what is true for engineering: architecture, governance, safety rules, schemas, tests, security, release gates, and accepted decisions.
 
-Wiki docs explain how users succeed with the product: first-run setup, workflows, screenshots, feature guides, examples, troubleshooting, and FAQ material.
+`docs/user/` explains how users succeed with the product: first-run setup, workflows, feature guides, examples, troubleshooting, and FAQ material.
+
+**Why `docs/user/` instead of a GitHub Wiki:** the original design called for a GitHub Wiki as a separate, user-facing knowledge base. GitHub Wiki is not available on ChannelForge's current GitHub plan, so the same journey-based information architecture was implemented directly in the repository at `docs/user/` instead (see Issue #12). This keeps user documentation versioned and reviewed exactly like code, with no loss of architecture — if a GitHub Wiki ever becomes available, the page structure in `docs/user/` is designed to move there with minimal rework.
 
 ## Repository Documentation Set
 
@@ -27,13 +29,12 @@ Every Jumpstile project should consider these repository docs as part of its eng
 
 Repository docs must change in the same branch as the engineering behavior they describe.
 
-## GitHub Wiki Documentation Set
+## `docs/user/` Documentation Set
 
-Every Jumpstile project should consider these Wiki areas when user-facing behavior changes:
+Every Jumpstile project should consider these user-documentation areas when user-facing behavior changes:
 
 - First-run guide
 - Beginner user guide
-- Screenshots
 - Common workflows
 - Troubleshooting
 - Feature guides
@@ -41,49 +42,47 @@ Every Jumpstile project should consider these Wiki areas when user-facing behavi
 - Examples
 - FAQ
 
-The Wiki can be more tutorial-oriented, screenshot-heavy, and task-focused than repository engineering docs.
+`docs/user/` can be more tutorial-oriented and task-focused than repository engineering docs.
 
 ## Documentation Completion Gate
 
-Every change must review both repository docs and Wiki docs when user-facing behavior changes.
+Every change must review both repository docs and `docs/user/` when user-facing behavior changes.
 
 Pull requests, issue completion summaries, and release reviews should state one of these outcomes:
 
 - Repository docs updated.
 - Repository docs reviewed; no update needed.
-- Wiki docs updated.
-- Wiki docs reviewed; no update needed.
-- Wiki docs need follow-up issue.
-- Wiki is not enabled or not yet published.
+- `docs/user/` updated.
+- `docs/user/` reviewed; no update needed.
+- `docs/user/` needs follow-up issue.
 
-Release checklists must include a Wiki review item for user-facing changes.
+Release checklists must include a `docs/user/` review item for user-facing changes.
 
 ## Duplication Rule
 
-Do not duplicate everything between repository docs and the Wiki.
+Do not duplicate everything between repository docs and `docs/user/`.
 
-Repository docs should explain engineering truth. Wiki pages should explain user-facing usage.
+Repository docs should explain engineering truth. `docs/user/` pages should explain user-facing usage and answer a specific user question or task, not restate engineering rules.
 
-`README.md` and `DOCUMENTATION.md` should link to the Wiki when it is available. Wiki pages should link back to repository docs only when users need deeper technical detail.
+`README.md` and `DOCUMENTATION.md` link to [`docs/user/README.md`](../user/README.md) as the entry point. `docs/user/` pages link back to repository docs only when a user needs deeper technical detail.
 
-If a Wiki page describes behavior controlled by code, configuration, security policy, or release gates, the repository docs remain authoritative. Update repository docs first, then update the Wiki.
+If a `docs/user/` page describes behavior controlled by code, configuration, security policy, or release gates, the repository docs remain authoritative. Update repository docs first, then update `docs/user/`.
 
-## Wiki Status Values
+## Documentation Status Values
 
 Use these values in `DOCUMENTATION.md` and release/issue summaries:
 
-- `Not enabled`: GitHub Wiki is unavailable for the repository.
-- `Planned`: Wiki is expected, but user-facing pages are not yet drafted.
-- `Drafted`: Wiki content exists but is not ready as the user-facing reference.
-- `Published`: Wiki content is live and current for users.
-- `Needs update`: Wiki exists but no longer matches current user-facing behavior.
+- `Not started`: no pages exist yet for this area.
+- `In Progress`: some pages exist; the set is not yet complete.
+- `Complete`: the planned page set exists and links validate.
+- `Needs update`: pages exist but no longer match current user-facing behavior.
 
-## ChannelForge Wiki Status
+## ChannelForge User Documentation Status
 
-Status: `Planned`
+Status: `In Progress`
 
-ChannelForge tracks user-facing Wiki work separately from engineering documentation. Until the Wiki is published, repository docs remain the only complete documentation set.
+Pages built so far: `Home`, `What Is ChannelForge?`, `Build Your First Lineup`, `Safe Local Configuration`, `Current Limitations`, `Troubleshooting`, plus the pre-existing `THE_CHANNELFORGE_WAY.md`, `QUICK_START.md`, and `PLEX_SMOKE_TEST.md`. Remaining pages (Plex usage guide, Concepts, Reference) are tracked in [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) and built incrementally, in reviewable commits.
 
 ## Issue Tracking
 
-Wiki work should be tracked in GitHub Issues with documentation labels. User-facing issue completion summaries should explicitly state the repository docs and Wiki review result.
+User documentation work should be tracked in GitHub Issues with documentation labels. User-facing issue completion summaries should explicitly state the repository docs and `docs/user/` review result.
