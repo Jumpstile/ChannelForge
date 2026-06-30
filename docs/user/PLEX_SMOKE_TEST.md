@@ -6,6 +6,8 @@
 
 Walk through the first real, hands-on test of a ChannelForge-merged M3U in Plex, using your own local provider playlist. This exercises the Phase 1 pipeline from [issue #7](https://github.com/Jumpstile/ChannelForge/issues/7): local playlist in, deterministic `output/merged.m3u` out.
 
+This is the **detailed, canonical walkthrough** — every step, every file, every edge case. If you just want the short version, see [Use ChannelForge with Plex](Use-With-Plex.md) instead; it links back here for anything beyond the basics.
+
 ## Before you start
 
 Read [SECURITY.md](../reference/SECURITY.md) and [data/playlists/README.md](../../data/playlists/README.md) first. A real M3U playlist can contain real stream URLs. Treat it like a password: never commit it, never paste it into an issue, chat, or this repository's docs.

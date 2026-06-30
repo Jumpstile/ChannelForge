@@ -30,6 +30,16 @@ Anywhere you see a URL like `https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/S
 - **The `provider` label and each source's `name` are display fields, not secrets, and they *do* appear in build reports** (`output/reports/build-summary.json` and `lineup-plan.md`). Only the `url` field is stripped from those reports. Use a plain label like `my-provider`, never a token, account ID, or other secret-shaped value, in `provider` or `name`.
 - A real local M3U playlist file (see [Build Your First Lineup](Build-Your-First-Lineup.md)) contains real stream URLs and is exactly as sensitive — keep it under `data/playlists/` with a `.local.m3u` filename, same rule.
 
+## Editing JSON safely (if you're new to it)
+
+`provider.local.json` is plain JSON — strict about a few things that are easy to get wrong if you haven't edited it before:
+
+- **Every entry except the last one in a list needs a trailing comma; the last one doesn't.** A missing or extra comma is the most common reason a build suddenly fails after an edit.
+- **Use double quotes around every key and string value**, never single quotes, and don't drop them.
+- **Use a proper text editor** (e.g. VS Code, Notepad++, or any plain-text editor) — never a word processor like Word, which can silently substitute "smart quotes" that look identical but break JSON parsing.
+- **Validate by running the build.** There's no separate JSON validator step to remember: `pwsh -File scripts/Build-Lineup.ps1` will fail immediately with a clear error if your edit broke the file's structure. If it runs and produces `output/reports/build-summary.json`, your JSON was valid.
+- **Never paste secrets into a bug report.** If a build error happens and you want help, share the error message and, if needed, `output/reports/build-summary.json`/`lineup-plan.md` (already safe — see above) — never the contents of `provider.local.json` itself. See [Troubleshooting](TROUBLESHOOTING.md#reporting-a-bug-safely).
+
 ## If you have more than one local file
 
 If `data/providers/` ever contains more than one `*.local.json` file, the build refuses to guess which one you meant and fails with a clear error naming both files. Keep exactly one, or use the explicit override below.

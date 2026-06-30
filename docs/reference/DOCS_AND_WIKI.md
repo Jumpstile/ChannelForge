@@ -79,9 +79,9 @@ Use these values in `DOCUMENTATION.md` and release/issue summaries:
 
 ## ChannelForge User Documentation Status
 
-Status: `In Progress`
+Status: `Complete`
 
-Pages built so far: `Home`, `What Is ChannelForge?`, `Build Your First Lineup`, `Safe Local Configuration`, `Current Limitations`, `Troubleshooting`, plus the pre-existing `THE_CHANNELFORGE_WAY.md`, `QUICK_START.md`, and `PLEX_SMOKE_TEST.md`. Remaining pages (Plex usage guide, Concepts, Reference) are tracked in [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) and built incrementally, in reviewable commits.
+`docs/user/` covers the full approved journey-based architecture: `Home`, `What Is ChannelForge?`, `Build Your First Lineup`, `Safe Local Configuration`, `Use ChannelForge with Plex`, `Current Limitations`, `Troubleshooting`, `Contribute`, the `Concepts/` set, and the `Reference/` set, plus the pre-existing `THE_CHANNELFORGE_WAY.md` and `PLEX_SMOKE_TEST.md`. `QUICK_START.md` was relocated to `docs/developer/` — its content is a developer environment check, not end-user guidance. See [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) for history.
 
 ## Issue Tracking
 
