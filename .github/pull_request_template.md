@@ -12,7 +12,8 @@ List the issue, ADR, tests, docs, or command output that supports this change.
 
 - [ ] Relevant tests pass locally.
 - [ ] CI is expected to pass.
-- [ ] Documentation updated or explicitly not needed.
+- [ ] Repository documentation updated or explicitly not needed.
+- [ ] Wiki documentation reviewed for user-facing changes.
 - [ ] ADR reviewed or explicitly not needed.
 - [ ] Security review completed.
 - [ ] Regression review completed.

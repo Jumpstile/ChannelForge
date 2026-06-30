@@ -60,7 +60,7 @@ Lessons learned, ADRs, issues, checklists, and release notes preserve project me
 
 ### Repository docs and Wiki
 
-Repository docs are the engineering source of truth. The GitHub Wiki is the user-facing knowledge base. Engineering rules, ADRs, security policy, and release gates belong in the repository; user walkthroughs, screenshots, troubleshooting, and examples belong in the Wiki.
+Repository docs are the engineering source of truth. The GitHub Wiki is the user-facing knowledge base. Engineering rules, ADRs, security policy, and release gates belong in the repository; user walkthroughs, screenshots, troubleshooting, and examples belong in the Wiki. User-facing changes must review both documentation sets and record the outcome in issue, pull request, or release evidence.
 
 ## Roles
 

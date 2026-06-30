@@ -6,23 +6,19 @@ Welcome to ChannelForge.
 
 This project is intentionally engineered differently from many software projects.
 
-Please read the following documents before contributing:
+Before contributing, read these documents in order:
 
-1. PROJECT_CHARTER.md
-
-2. MANIFESTO.md
-
-3. ENGINEERING_PRINCIPLES.md
-
-4. CHANNEL_IDENTITY_MODEL.md
-
-5. STYLEGUIDE.md
+1. [Project Charter](../architecture/PROJECT_CHARTER.md) — mission, success criteria, non-goals
+2. [Manifesto](../architecture/MANIFESTO.md) — the five pillars and the golden rule
+3. [Engineering Principles](../engineering/ENGINEERING_PRINCIPLES.md) — safety, testing, security, backup, and release rules
+4. [Channel Identity Model](../architecture/CHANNEL_IDENTITY_MODEL.md) — why provider labels are evidence, not truth
+5. [Style Guide](../../STYLEGUIDE.md) — naming, comments, error handling, and validation standards
 
 Understanding these documents is more important than understanding the code.
 
 ---
 
-# Our Mission
+## Our Mission
 
 ChannelForge exists to produce accurate, trustworthy, deterministic television lineups through verifiable evidence, transparent decision-making, and uncompromising engineering discipline.
 
@@ -32,69 +28,44 @@ We are building an evidence-driven television knowledge engine.
 
 ---
 
-# Before Writing Code
+## Before Writing Code
 
 Ask yourself:
 
 - What problem am I solving?
-
 - Is there already an engine responsible for this?
-
 - What is the source of truth?
-
 - Can this decision be explained?
-
 - Can this be tested?
-
 - Can this be reversed?
-
 - Does this improve trust?
 
 If you cannot answer these questions, stop and review the architecture.
 
 ---
 
-# Engineering Principles
+## Engineering Principles
 
 Every important decision should be:
 
 - Explainable
-
 - Reproducible
-
 - Reversible
 
 Every change should include:
 
 - Documentation
-
 - Tests
-
 - Security review
-
 - Regression review
 
----
+For the complete set of safety rules, backup requirements, and release gates, see [Engineering Principles](../engineering/ENGINEERING_PRINCIPLES.md).
 
-# Safety Rules
-
-Never:
-
-- Guess when evidence is available.
-
-- Trust external data without validation.
-
-- Silently overwrite user data.
-
-- Remove backups.
-
-- Ignore failing tests.
-
-- Merge with failing CI.
+For the definition of done, see [CONSTITUTION.md](../../CONSTITUTION.md).
 
 ---
 
-# Philosophy
+## Philosophy
 
 ChannelForge does not guess.
 
@@ -106,31 +77,7 @@ User-approved data is always the highest authority.
 
 ---
 
-# Definition of Done
-
-A feature is not complete until:
-
-- Design reviewed
-
-- Architecture documented
-
-- Code implemented
-
-- Code fully commented
-
-- Unit tests written
-
-- Regression tests pass
-
-- Security review complete
-
-- Documentation updated
-
-- CI green
-
----
-
-# Final Thought
+## Final Thought
 
 Write code as though the next developer knows nothing.
 

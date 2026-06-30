@@ -3,6 +3,7 @@ output/
 backups/
 *.log
 *.tmp
+testResults.xml
 
 # sensitive overrides
 data/secrets.json

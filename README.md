@@ -126,6 +126,8 @@ Core project governance and engineering memory:
 
 - [Contributing](CONTRIBUTING.md)
 
+- [Documentation](DOCUMENTATION.md)
+
 - [Roadmap](ROADMAP.md)
 
 - [Lessons learned](LESSONS_LEARNED.md)
