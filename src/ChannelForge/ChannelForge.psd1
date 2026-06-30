@@ -89,6 +89,7 @@ FunctionsToExport = @(
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
+    'Resolve-ChannelForgeProviderConfigPath'
     'Set-ChannelForgeChannelNumber'
 )
 

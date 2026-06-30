@@ -1,5 +1,12 @@
 param(
-    [string]$Root = (Split-Path -Parent $PSScriptRoot)
+    [string]$Root = (Split-Path -Parent $PSScriptRoot),
+
+    # Explicit override for the provider config file (issue #20). Resolved
+    # relative to data/providers/ and confined there - see
+    # Resolve-ChannelForgeProviderConfigPath. Highest precedence: when set,
+    # it bypasses *.local.json auto-discovery (and any ambiguity in it)
+    # entirely.
+    [string]$ProviderPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,15 +36,24 @@ Assert-ChannelForgeWritePath -Path $outDir -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $reportDir -AllowedRoot $outDir
 New-Item -ItemType Directory -Force -Path $outDir, $reportDir | Out-Null
 
+# Provider config resolution (issue #20): explicit -ProviderPath override >
+# exactly one non-recursive data/providers/*.local.json > tracked
+# data/providers/mybunny.json fallback. Resolve-ChannelForgeProviderConfigPath
+# only selects the path - it does not read or validate it, and there is no
+# try/catch fallback around the read below, so a selected file that is
+# missing, malformed, or fails URL validation fails the build loudly instead
+# of silently falling back to the tracked file.
+$providersDir = Join-Path $dataDir "providers"
+$resolvedProviderPath = Resolve-ChannelForgeProviderConfigPath -ProviderDirectory $providersDir -TrackedFileName 'mybunny.json' -OverridePath $ProviderPath
+
 # Provider and EPG source files go through the centralized readers, not a
 # raw Get-Content/ConvertFrom-Json, so the URL trust-boundary check in
 # Test-ChannelForgeSourceUrl (scheme allowlist, no credentials, no
 # loopback/private/link-local hosts) always runs - a malformed or
 # unsupported source URL fails the build immediately instead of silently
 # being treated as build configuration.
-$providerPath = Join-Path $dataDir "providers/mybunny.json"
-$providerSources = @(Read-ChannelForgeProvider -Path $providerPath)
-$providerConfig = Read-JsonFile $providerPath
+$providerSources = @(Read-ChannelForgeProvider -Path $resolvedProviderPath)
+$providerConfig = Read-JsonFile $resolvedProviderPath
 $epgSources = @(Read-ChannelForgeEpgSource -Path (Join-Path $dataDir "epg/epg_sources.json"))
 $locals = Read-JsonFile (Join-Path $dataDir "lineup/locals.json")
 $blocks = Read-JsonFile (Join-Path $dataDir "lineup/numbering_blocks.json")

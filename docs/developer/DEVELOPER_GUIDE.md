@@ -138,6 +138,16 @@ Provider and EPG source files are always loaded through `Read-ChannelForgeProvid
 
 Each resolved `local_playlist` path is confined to `data/playlists/` via `Assert-ChannelForgeReadPath` before it is read (see "Write guardrails" above) — a `local_playlist` value is operator-supplied configuration, not trusted input, so the same containment logic that protects writes protects this read.
 
+### Provider config resolution (issue #20)
+
+`Build-Lineup.ps1` never requires editing a tracked provider file with real values. `Resolve-ChannelForgeProviderConfigPath` selects which file under `data/providers/` to read, in this exact precedence order:
+
+1. An explicit `-ProviderPath` override, if `Build-Lineup.ps1` was called with one. Resolved relative to `data/providers/` and confined there the same way `local_playlist` is — an absolute path, a UNC path, `..` traversal, a directory, or a non-`.json` file is rejected, not silently coerced. An override bypasses local-file discovery entirely, including any ambiguity in it.
+2. Exactly one non-recursive `data/providers/*.local.json` file, if no override was given and exactly one exists. More than one is an error naming the conflicting files — the build never guesses which one to use (see ADR 0005).
+3. The tracked `data/providers/mybunny.json` (today's example/fixture file), if neither of the above applies.
+
+`Resolve-ChannelForgeProviderConfigPath` only selects a path; it does not read or validate the file. Once a path is selected, `Build-Lineup.ps1` reads it with no fallback: a selected file that is missing, malformed, or fails the URL trust-boundary check in `Read-ChannelForgeProvider` fails the whole build loudly, it never falls back to the tracked file. See `tests/unit/ProviderConfigResolution.Tests.ps1` for the resolver's unit tests and `tests/unit/BuildLineupScript.Tests.ps1`'s "provider config resolution" `Describe` block for the end-to-end behavior.
+
 For each participating source, `Build-Lineup.ps1` calls `Merge-ChannelForgeLineup`, which:
 
 1. Sorts sources by file path (never by caller-supplied order) and parses each with `Import-ChannelForgeM3UPlaylist`.
@@ -163,6 +173,8 @@ See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthro
 Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG/stream URLs, tokens, account IDs, credentials, local-only file paths, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name, enabled state, and local-playlist state only — never by `url` — and reports the merged playlist's path as a project-relative string (`output/merged.m3u`, never an absolute or UNC path) plus its SHA-256 hash rather than its contents. The Pester suite asserts this directly (`tests/unit/BuildLineupScript.Tests.ps1`) using fixture data shaped like a real token-bearing URL and a real stream URL, so a regression that reintroduces either into a report fails CI.
 
 This redaction rule does not apply to `output/merged.m3u` itself: stream URLs are the actual playable content of that file, not a secret to strip (see `Export-ChannelForgeM3UPlaylist` and the Channel class's `Url` field).
+
+Display fields are not redacted, only URLs/tokens are: the top-level `provider` label and each source's `name` *do* appear in `build-summary.json` (`Provider` field) and `lineup-plan.md` ("Provider M3U Sources" list). These are display-only fields, not validated as opaque, so do not put a secret-shaped value (a token, account ID, or credential) in a `provider` or source `name` field — only in `url`, which is the field the redaction rule actually strips.
 
 ## Private helpers today
 
