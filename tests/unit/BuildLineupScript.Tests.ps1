@@ -362,3 +362,118 @@ Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
         { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw
     }
 }
+
+Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
+    BeforeAll {
+        function New-MinimalProviderFixtureRoot {
+            param([string]$RootName)
+
+            $fixtureRoot = Join-Path $TestDrive $RootName
+            $dataDir = Join-Path $fixtureRoot 'data'
+
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+
+            @{ epg_sources = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+            @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+            @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+
+            return $fixtureRoot
+        }
+    }
+
+    It 'uses a single local provider file instead of the tracked file' {
+        $fixtureRoot = New-MinimalProviderFixtureRoot -RootName 'local-preferred'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        @{ provider = 'tracked-should-not-be-used'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+        @{ provider = 'local-provider'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\provider.local.json') -Encoding UTF8
+
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.Provider | Should -Be 'local-provider'
+    }
+
+    It 'fails the build with no fallback when the selected local provider file is malformed JSON' {
+        $fixtureRoot = New-MinimalProviderFixtureRoot -RootName 'local-malformed'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        @{ provider = 'tracked-should-not-be-used'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path $dataDir 'providers\provider.local.json') -Value '{ this is not valid json' -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw
+
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -PathType Leaf | Should -BeFalse
+    }
+
+    It 'fails clearly when neither an override, a local file, nor the tracked fallback file exists' {
+        $fixtureRoot = New-MinimalProviderFixtureRoot -RootName 'no-provider-file'
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Provider file not found*'
+    }
+
+    It 'uses an explicit -ProviderPath override even when a local file also exists' {
+        $fixtureRoot = New-MinimalProviderFixtureRoot -RootName 'override-precedence'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        @{ provider = 'tracked-should-not-be-used'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+        @{ provider = 'local-should-not-be-used'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\provider.local.json') -Encoding UTF8
+        @{ provider = 'override-provider'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\chosen.local.json') -Encoding UTF8
+
+        & $script:ScriptPath -Root $fixtureRoot -ProviderPath 'chosen.local.json'
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.Provider | Should -Be 'override-provider'
+    }
+
+    It 'fails the build when multiple local provider files exist and no override is given' {
+        $fixtureRoot = New-MinimalProviderFixtureRoot -RootName 'ambiguous-local'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        @{ provider = 'tracked'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+        @{ provider = 'a'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\a.local.json') -Encoding UTF8
+        @{ provider = 'b'; sources = @(@{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/x'; enabled = $true }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\b.local.json') -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Multiple local provider files*'
+    }
+}
+
+Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
+    It 'never writes a provider URL, account ID, or token to the console' {
+        $fixtureRoot = Join-Path $TestDrive 'console-output-project'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+
+        @{
+            provider = 'fixture-provider'
+            sources  = @(
+                @{ name = 'Sports'; group = 'Sports'; url = 'https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports'; enabled = $true }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/y.xml'; enabled = $true; role = 'primary' }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+        @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+        @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+
+        $output = & $script:ScriptPath -Root $fixtureRoot *>&1 | Out-String
+
+        $output | Should -Not -Match 'https?://'
+        $output | Should -Not -Match 'ACCOUNT_ID'
+        $output | Should -Not -Match 'API_TOKEN'
+    }
+}

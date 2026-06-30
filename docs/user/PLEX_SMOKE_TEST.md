@@ -34,7 +34,7 @@ Copy-Item data/providers/provider.example.json data/providers/provider.local.jso
 
 Edit `data/providers/provider.local.json`:
 
-- Set `provider` to whatever you want (this is just a label).
+- Set `provider` to whatever you want (this is just a label — see the warning below).
 - Replace the example `sources` array with one entry per playlist you're testing. At minimum, each needs `name`, `url` (still required by the schema and validated by `Read-ChannelForgeProvider` — use a real or placeholder URL consistent with your real setup, it isn't fetched in this phase), `enabled: true`, and `local_playlist` pointing at the file from step 2:
 
 ```json
@@ -54,7 +54,9 @@ Edit `data/providers/provider.local.json`:
 
 `data/providers/provider.local.json` is already covered by `.gitignore` — do not rename it.
 
-> **Note:** `Build-Lineup.ps1` currently reads `data/providers/mybunny.json` directly, not `provider.local.json`, for Phase 1. Until that's made configurable, either edit `mybunny.json` directly with your real local-only values (and do not commit that change — see the warning below) or temporarily swap its content with your local config for the smoke test, restoring the tracked placeholder content afterward. Treat any uncommitted local edit to `mybunny.json` the same as a `.local.json` file: never `git add` it while it contains real values.
+`Build-Lineup.ps1` automatically discovers and uses `data/providers/provider.local.json` (or any single `data/providers/*.local.json` file) in place of the tracked `mybunny.json` — you never need to edit `mybunny.json` or any other tracked file. Do not place more than one `*.local.json` file under `data/providers/`: the build fails loudly rather than guessing which one to use. (Advanced/CI users can also pass `-ProviderPath` to `scripts/Build-Lineup.ps1` to point at a specific file explicitly; see [DEVELOPER_GUIDE.md](../developer/DEVELOPER_GUIDE.md#provider-config-resolution-issue-20).)
+
+> **Warning:** the `provider` label and each source's `name` are display fields that appear as-is in `output/reports/build-summary.json` and `lineup-plan.md`. Only `url` is stripped from those reports. Use a plain label like `my-smoke-test`, never a token, account ID, or other secret-shaped value, in `provider` or `name`.
 
 ## 4. Set up numbering and aliases (optional but recommended)
 

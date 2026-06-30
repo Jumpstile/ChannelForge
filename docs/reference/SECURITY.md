@@ -36,6 +36,10 @@ To set up real local provider data:
 2. Replace the placeholder `url` and `provider`/`name` values with your real provider data in the copy only.
 3. Never rename the copy to drop the `.local.` segment, and never stage it (`git add`) — the `.local.json`/`.local.csv` glob patterns in `.gitignore` exist so this is hard to do by accident, not as the only safeguard.
 
+`scripts/Build-Lineup.ps1` automatically discovers `data/providers/provider.local.json` (or any single `data/providers/*.local.json` file) and uses it in place of the tracked `mybunny.json` — no tracked file ever needs editing to run a real build. Do not place more than one `*.local.json` file in `data/providers/`: the build fails loudly rather than guessing which one to use. For advanced or CI use, an explicit `-ProviderPath` parameter overrides discovery; it is confined to `data/providers/` the same way (absolute paths, UNC paths, `..` traversal, directories, and non-`.json` files are all rejected). See [DEVELOPER_GUIDE.md](../developer/DEVELOPER_GUIDE.md#provider-config-resolution-issue-20) for the full precedence order.
+
+The `provider` label and each source's `name` are display fields, not validated as opaque, and do appear in build reports (`output/reports/build-summary.json` and `lineup-plan.md`). Only the `url` field is stripped from reports. Do not put a token, account ID, or other secret-shaped value in a `provider` or source `name` field.
+
 ## Safe Examples
 
 Examples should use reserved placeholder domains and obvious fake tokens:
