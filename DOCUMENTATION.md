@@ -6,11 +6,11 @@ For the full standard, see [Documentation Governance Standard](docs/reference/DO
 
 ## User Documentation Status
 
-Status: `In Progress`
+Status: `Complete`
 
 ChannelForge's user-facing documentation lives in [`docs/user/`](docs/user/README.md), versioned and reviewed in the repository alongside the code, not published as a separate GitHub Wiki — **GitHub Wiki is not available on the current GitHub plan.** The same journey-based information architecture originally designed for a Wiki was adopted directly into `docs/user/`, so a future migration to a GitHub Wiki (if the plan ever changes) is a straightforward content move, not a redesign.
 
-`docs/user/` is being built incrementally; see [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) for current progress. Until it's complete, the rest of the repository's engineering documentation remains the complete reference for any topic not yet covered there.
+`docs/user/` covers the full approved journey-based architecture, reviewed for completeness and coherence in [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12). The rest of the repository's engineering documentation remains the canonical reference for engineering-level detail that `docs/user/` intentionally summarizes and links to rather than duplicates.
 
 ## Repository Documentation
 
