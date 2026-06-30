@@ -71,9 +71,64 @@ Check `build-summary.json` for `M3UGenerated: true` and a `ChannelCount` that lo
 
 `output/` is disposable — it's fine to delete it and rebuild at any time.
 
+## What success looks like
+
+Here's a real `build-summary.json` from a successful run with one source and two channels (URLs are `example.invalid` placeholders for illustration — yours will have your real provider's data, which is exactly why this report never includes them):
+
+```json
+{
+  "GeneratedAt": "2026-06-30T17:34:56",
+  "Provider": "my-provider",
+  "M3USources": 1,
+  "EPGSources": 1,
+  "LocalChannels": 1,
+  "NumberingBlocks": 1,
+  "M3UGenerated": true,
+  "M3UPath": "output/merged.m3u",
+  "M3USha256": "d938a228b2bcc2bfb91f3e25a7cf2431fa201daf2d2bf7aea014ef4a1918b998",
+  "ChannelCount": 2,
+  "DuplicateCount": 0,
+  "WarningCount": 0,
+  "XMLTVGenerated": false,
+  "XMLTVDeferredReason": "No programme/EPG guide data source exists yet; generating XMLTV without real programme data would be fabricated content. Deferred until an EPG fetch path exists (see issue #7 follow-up).",
+  "Status": "M3U_GENERATED"
+}
+```
+
+The signals that this run succeeded: `"M3UGenerated": true`, `"Status": "M3U_GENERATED"`, a `ChannelCount` greater than zero, and a `M3USha256` value. `"XMLTVGenerated": false"` is expected and correct — see [Current Limitations](CURRENT_LIMITATIONS.md), not a failure.
+
+The matching `lineup-plan.md` for the same run:
+
+```markdown
+# ChannelForge Build Summary
+
+Generated: 2026-06-30T17:34:56
+
+Merged M3U: output/merged.m3u (2 channels, 0 duplicates excluded, 0 warnings, SHA-256 d938a228b2bcc2bfb91f3e25a7cf2431fa201daf2d2bf7aea014ef4a1918b998)
+
+Known limitations:
+- XMLTV output: deferred. No programme/EPG guide data source exists yet...
+- Live HTTP provider/EPG fetch: deferred. Only local_playlist files under data/playlists/ are read in this phase.
+- Plex EPG/guide binding: deferred until XMLTV exists. Plex can still play a merged M3U's channels; it will have no guide data.
+
+## Provider M3U Sources
+- Sports (enabled, local playlist configured)
+
+## EPG Sources
+- [10] Public EPG - primary
+
+## Local Channels
+- 2 - WCBS CBS New York
+
+## Numbering Blocks
+- 400-410: Sports - sports block
+```
+
+If your real run's `build-summary.json` matches this shape — `M3UGenerated: true`, a sensible `ChannelCount`, no `https://` anywhere in either report — your first lineup succeeded.
+
 ## What's next
 
-- Want to see this in Plex? → *(dedicated guide coming soon — in the meantime, [the Plex smoke test](PLEX_SMOKE_TEST.md) covers it end to end)*
+- Want to see this in Plex? → [Use ChannelForge with Plex](Use-With-Plex.md)
 - Curious what doesn't work yet? → [Current Limitations](CURRENT_LIMITATIONS.md) covers it honestly.
 
 ## If something goes wrong

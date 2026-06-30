@@ -17,7 +17,4 @@ This directory is the task-oriented, user-facing documentation for ChannelForge 
 - [Concepts](Concepts/README.md) — the ideas behind ChannelForge
 - [Reference](Reference/README.md) — quick-lookup configuration and command reference
 - [The ChannelForge Way](THE_CHANNELFORGE_WAY.md) — project mindset and philosophy
-- [Quick Start](QUICK_START.md) — verifying your development environment works
-- [First Plex Smoke Test](PLEX_SMOKE_TEST.md) — full walkthrough of testing a real lineup in Plex
-
-This documentation set is built incrementally, in reviewable commits — see [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12) for progress.
+- [First Plex Smoke Test](PLEX_SMOKE_TEST.md) — detailed, hands-on walkthrough of testing a real lineup in Plex

@@ -4,15 +4,15 @@
 
 ## Purpose
 
-Help a beginner run ChannelForge for the first time.
+Verify your development environment can run and test the ChannelForge module — tests pass, the module imports, and a sample playlist parses correctly. This is a developer/contributor environment check, not a guide to building a real lineup; for that, see [Build Your First Lineup](../user/Build-Your-First-Lineup.md).
 
 ## Audience
 
-New users and new developers.
+Developers and contributors setting up the repository for the first time.
 
 ## Before you begin
 
-Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7+, Git, Pester 5.7.1, and a local clone of the repository.
+Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7+, Git, Pester 5.7.1, and a local clone of the repository. Then read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md).
 
 ## 1. Open PowerShell 7
 
@@ -65,5 +65,5 @@ Import-ChannelForgeM3UPlaylist -Path ./tests/fixtures/tiny.m3u
 
 ## What's next
 
-- Read [THE_CHANNELFORGE_WAY.md](THE_CHANNELFORGE_WAY.md) to understand the project's mindset.
-- Read [DEVELOPER_GUIDE.md](../developer/DEVELOPER_GUIDE.md) before making changes.
+- Read [THE_CHANNELFORGE_WAY.md](../user/THE_CHANNELFORGE_WAY.md) to understand the project's mindset.
+- Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) before making changes.

@@ -12,7 +12,7 @@ Developers and maintainers.
 
 ## Prerequisite
 
-Read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md) before making changes.
+Read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md) before making changes. [QUICK_START.md](QUICK_START.md) walks through verifying your environment can run and test the module, if you haven't done that yet.
 
 ## Module layout
 

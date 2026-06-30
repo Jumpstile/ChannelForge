@@ -18,7 +18,7 @@ Start with [ONBOARDING.md](../../ONBOARDING.md) — it's the prerequisite for ev
 
 ## Improve this documentation
 
-This `docs/user/` documentation set is itself a work in progress (see [Issue #12](https://github.com/Jumpstile/ChannelForge/issues/12)). If something here is unclear, outdated, or missing, that's exactly the kind of issue worth opening.
+If anything in `docs/user/` is unclear, outdated, or missing, that's exactly the kind of issue worth opening.
 
 ## Where to go next
 
