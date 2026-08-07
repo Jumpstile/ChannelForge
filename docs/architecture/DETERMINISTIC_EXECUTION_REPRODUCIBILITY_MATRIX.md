@@ -38,12 +38,14 @@ Feature implementation remains blocked. Updater work remains unauthorized.
 
 - Stable identifiers must be derived from canonical input content or keys.
 - Identical canonical inputs must produce identical identifiers across separate runs.
-- Identifiers must not be derived from generation order, process timing, incidental enumeration sequence, mutable cache state, uncontrolled timestamps, or random values.
+- Stable identifiers must not be derived from counters, sequence numbers, generation order, process timing, timestamps, randomness, incidental enumeration order, or any value that can vary between equivalent runs. Mutable cache state is also not a valid identifier source.
 - Identifier derivation must be documented well enough for independent verification and must preserve the authority of the owning abstraction.
 
 ## Artifact integrity and immutability
 
 - Generated artifacts must use canonical content and serialization rules before integrity evidence is computed.
+- Every approved generated artifact must have a recorded content hash computed from its canonical serialized content. Hashes are required for integrity verification, independent-run comparison, last-known-good comparison, governed replacement, and publication evidence.
+- A hash mismatch must fail closed and must not update approved artifacts, last-known-good state, identity mappings, review decisions, or publication records.
 - Artifact integrity evidence must be recorded and independently verifiable under the selected implementation.
 - Approved generated artifacts are immutable records. Corrections require governed replacement artifacts rather than in-place mutation.
 - An artifact is not canonical state merely because it was generated or published.
