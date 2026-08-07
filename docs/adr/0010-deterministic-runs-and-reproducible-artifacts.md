@@ -25,6 +25,8 @@ The determinism contract must define:
 - Artifact hashing
 - Separation of deterministic artifacts from volatile diagnostics
 
+Stable identifiers must be derived deterministically from canonical input content or keys, not from generation order, process timing, or incidental enumeration sequence, so that identical inputs produce identical identifiers across separate runs, not merely within one run.
+
 Volatile metadata may be recorded for operations and diagnostics but must not alter deterministic artifacts.
 
 ## Consequences
