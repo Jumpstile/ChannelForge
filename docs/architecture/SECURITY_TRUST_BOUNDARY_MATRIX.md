@@ -99,6 +99,23 @@ Authorized transitions must record, as applicable, the actor or boundary, source
 
 Audit history must be durable where required, protected against silent alteration, access-controlled, redacted, and sufficient for review, recovery, and investigation. Audit evidence must preserve enough context to explain and investigate decisions without retaining raw secrets, credentials, private tokens, or sensitive payloads.
 
+## Backup requirements
+
+- Security-relevant state, audit evidence, approved artifacts, last-known-good references, and recovery metadata must have explicit backup expectations wherever they are retained.
+- Backups must not include raw secrets, credentials, private tokens, or sensitive payloads.
+- Backup evidence must include enough integrity and provenance context to support recovery and investigation.
+- Backup handling must preserve redaction, retention, and access-control expectations.
+- A backup that fails integrity, provenance, redaction, retention, or access checks must fail closed and must not be treated as recoverable evidence.
+
+## Rollback requirements
+
+- Rollback must be governed, explicitly authorized, auditable, and fail-closed.
+- Rollback must use verified last-known-good state or artifacts and integrity evidence.
+- Rollback must not silently rewrite canonical identity, evidence, review decisions, audit history, or approved publication records.
+- Rollback from failed, partial, interrupted, unverifiable, or nondeterministic runs is prohibited unless it uses a previously approved last-known-good record.
+- Rollback must not bypass quarantine, publication authorization, or review-needed escalation.
+- A rollback failure or ambiguous rollback target must preserve the current governed state and require review.
+
 ## Publication and write authorization boundary
 
 - All writes and publication actions are denied by default unless an explicit boundary contract authorizes them.
@@ -149,6 +166,8 @@ The following shortcuts are prohibited:
 - Quarantine isolation, evidence preservation, and release-approval checks.
 - Fail-closed behavior for authorization, integrity, redaction, path, ownership, and audit failures.
 - Audit completeness, access control, redaction, and tamper-evidence checks.
+- Backup coverage, integrity, provenance, redaction, retention, and access-control checks.
+- Authorized rollback, last-known-good verification, auditability, fail-closed, quarantine, publication, and review-escalation checks.
 - Publication authorization, immutable-artifact, and governed-replacement checks.
 - Provider and guide adapter ownership-boundary and non-duplication checks.
 - Preflight/certification no-mutation checks.
