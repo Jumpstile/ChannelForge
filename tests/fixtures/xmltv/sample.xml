@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge fixture">
+  <channel id="news.us">
+    <display-name lang="en">News US</display-name>
+  </channel>
+  <channel id="sports.us">
+    <display-name lang="en">Sports US</display-name>
+  </channel>
+  <programme start="20260815120000 +0000" stop="20260815130000 +0000" channel="sports.us">
+    <title lang="en">The Big Game</title>
+    <sub-title>Opening Match</sub-title>
+    <desc>A deterministic fixture programme.</desc>
+    <category lang="en">Sports</category>
+    <episode-num system="onscreen">S01E01</episode-num>
+    <live />
+  </programme>
+  <programme start="20260815090000 +0000" stop="20260815100000 +0000" channel="news.us">
+    <title lang="en">Morning News</title>
+    <desc>Headlines and weather.</desc>
+    <category lang="en">News</category>
+    <new />
+  </programme>
+</tv>
