@@ -11,18 +11,66 @@ function Read-ChannelForgeEpgSource {
 
     $epgConfig = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 
+    $configPath = [System.IO.Path]::GetFullPath($Path)
+    $configDirectory = [System.IO.Path]::GetDirectoryName($configPath)
+
     foreach ($source in $epgConfig.epg_sources | Sort-Object priority) {
-        # EPG URLs are an untrusted ingestion boundary; validate shape, never log the value.
-        if (-not (Test-ChannelForgeSourceUrl -Url $source.url)) {
-            throw "EPG source '$($source.name)' has a malformed or unsupported URL."
+        $propertyNames = @($source.PSObject.Properties.Name)
+        $rawPath = if ($propertyNames -contains 'path') { [string]$source.path } else { '' }
+        $rawUrl = if ($propertyNames -contains 'url') { [string]$source.url } else { '' }
+        $rawFormat = if ($propertyNames -contains 'format') { [string]$source.format } else { '' }
+
+        $hasPath = -not [string]::IsNullOrWhiteSpace($rawPath)
+        $hasUrl = -not [string]::IsNullOrWhiteSpace($rawUrl)
+
+        if ($hasPath -eq $hasUrl) {
+            throw "EPG source '$($source.name)' must specify exactly one of path or url."
+        }
+
+        $format = if ([string]::IsNullOrWhiteSpace($rawFormat)) {
+            'xmltv'
+        }
+        else {
+            $rawFormat.Trim().ToLowerInvariant()
+        }
+
+        if ($format -ne 'xmltv') {
+            throw "EPG source '$($source.name)' has unsupported format '$($rawFormat.Trim())'; only xmltv is supported."
+        }
+
+        $resolvedPath = ''
+        $supported = $false
+        $unsupportedReason = ''
+
+        if ($hasUrl) {
+            # EPG URLs are an untrusted ingestion boundary; validate shape, never log the value.
+            if (-not (Test-ChannelForgeSourceUrl -Url $rawUrl)) {
+                throw "EPG source '$($source.name)' has a malformed or unsupported URL."
+            }
+
+            $unsupportedReason = 'Remote URL sources are not supported in the local-only XMLTV slice.'
+        }
+        else {
+            $resolvedPath = if ([System.IO.Path]::IsPathRooted($rawPath.Trim())) {
+                [System.IO.Path]::GetFullPath($rawPath.Trim())
+            }
+            else {
+                [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($configDirectory, $rawPath.Trim()))
+            }
+
+            $supported = $true
         }
 
         [pscustomobject]@{
-            Name     = $source.name
-            Priority = [int]$source.priority
-            Url      = $source.url
-            Enabled  = [bool]$source.enabled
-            Role     = $source.role
+            Name              = $source.name
+            Priority          = [int]$source.priority
+            Url               = $rawUrl
+            Path              = $resolvedPath
+            Format            = $format
+            Enabled           = [bool]$source.enabled
+            Role              = $source.role
+            Supported         = $supported
+            UnsupportedReason = $unsupportedReason
         }
     }
 }

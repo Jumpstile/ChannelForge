@@ -83,6 +83,7 @@ FunctionsToExport = @(
     'ConvertTo-ChannelForgeNormalizedChannel'
     'Export-ChannelForgeM3UPlaylist'
     'Import-ChannelForgeM3UPlaylist'
+    'Import-ChannelForgeConfiguredXmltvSource'
     'Import-ChannelForgeXmltvSource'
     'Merge-ChannelForgeLineup'
     'New-ChannelForgeBuildContext'

@@ -76,6 +76,31 @@ Describe 'EPG source schema' {
         Test-Json -Path $path -SchemaFile $script:EpgSchema | Should -BeTrue
     }
 
+    It 'accepts a local path source with the optional format omitted' {
+        $json = '{"epg_sources":[{"name":"local","priority":1,"path":"xmltv/sample.xml","enabled":true,"role":"primary"}]}'
+        Test-Json -Json $json -SchemaFile $script:EpgSchema | Should -BeTrue
+    }
+
+    It 'accepts a local path source with an explicit xmltv format' {
+        $json = '{"epg_sources":[{"name":"local","priority":1,"path":"xmltv/sample.xml","format":"xmltv","enabled":true,"role":"primary"}]}'
+        Test-Json -Json $json -SchemaFile $script:EpgSchema | Should -BeTrue
+    }
+
+    It 'rejects an unsupported EPG source format' {
+        $json = '{"epg_sources":[{"name":"local","priority":1,"path":"xmltv/sample.xml","format":"json","enabled":true,"role":"primary"}]}'
+        { Test-Json -Json $json -SchemaFile $script:EpgSchema -ErrorAction Stop } | Should -Throw
+    }
+
+    It 'rejects a source that specifies both path and url' {
+        $json = '{"epg_sources":[{"name":"ambiguous","priority":1,"path":"xmltv/sample.xml","url":"https://example.invalid/guide.xml","enabled":true,"role":"primary"}]}'
+        { Test-Json -Json $json -SchemaFile $script:EpgSchema -ErrorAction Stop } | Should -Throw
+    }
+
+    It 'rejects a source that specifies neither path nor url' {
+        $json = '{"epg_sources":[{"name":"missing-location","priority":1,"enabled":true,"role":"primary"}]}'
+        { Test-Json -Json $json -SchemaFile $script:EpgSchema -ErrorAction Stop } | Should -Throw
+    }
+
     It 'rejects a source missing the required priority field' {
         $path = Join-Path $RepoRoot 'tests\fixtures\epg-schema-invalid.json'
         { Test-Json -Path $path -SchemaFile $script:EpgSchema -ErrorAction Stop } | Should -Throw '*priority*'

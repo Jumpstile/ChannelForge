@@ -1,0 +1,11 @@
+{
+  "epg_sources": [
+    {
+      "name": "Local XMLTV Fixture",
+      "priority": 10,
+      "path": "xmltv/sample.xml",
+      "enabled": true,
+      "role": "primary"
+    }
+  ]
+}

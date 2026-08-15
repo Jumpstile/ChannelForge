@@ -94,7 +94,7 @@ Working today:
 
 - M3U playlist parsing
 
-- Deterministic merged M3U output from local playlists (alias resolution, numbering, dedup; XMLTV and live fetch deferred)
+- Deterministic merged M3U output from local playlists (alias resolution, numbering, dedup; XMLTV merge/output and live fetch deferred; local XMLTV import available)
 
 - `BuildContext` domain object
 

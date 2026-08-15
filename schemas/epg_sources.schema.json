@@ -20,7 +20,17 @@
   "definitions": {
     "epgSource": {
       "type": "object",
-      "required": ["name", "priority", "url", "enabled", "role"],
+      "required": ["name", "priority", "enabled", "role"],
+      "oneOf": [
+        {
+          "required": ["path"],
+          "not": { "required": ["url"] }
+        },
+        {
+          "required": ["url"],
+          "not": { "required": ["path"] }
+        }
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -37,6 +47,16 @@
           "type": "string",
           "minLength": 1,
           "description": "EPG source URL. Treated as a secret outside example/placeholder files (see docs/reference/SECURITY.md); use https://example.invalid/... in any tracked file."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Local XMLTV file path. Relative paths are resolved against the directory containing epg_sources.json."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["xmltv"],
+          "description": "Optional source format. When omitted, Read-ChannelForgeEpgSource defaults it to xmltv."
         },
         "enabled": {
           "type": "boolean",

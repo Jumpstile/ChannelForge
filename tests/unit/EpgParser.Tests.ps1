@@ -30,6 +30,71 @@ Describe 'Read-ChannelForgeEpgSource' {
         $sources.Name | Should -Contain 'Provider NFL'
     }
 
+    It 'normalizes a local XMLTV source and resolves relative paths against its config directory' {
+        $path = Join-Path $RepoRoot 'tests\fixtures\epg-local-source.json'
+
+        $source = @(Read-ChannelForgeEpgSource -Path $path)
+
+        $source.Count | Should -Be 1
+        $source[0].Name | Should -Be 'Local XMLTV Fixture'
+        $source[0].Format | Should -Be 'xmltv'
+        $source[0].Path | Should -Be ([io.path]::GetFullPath((Join-Path (Split-Path $path) 'xmltv\sample.xml')))
+        $source[0].Url | Should -Be ''
+        $source[0].Supported | Should -BeTrue
+        $source[0].UnsupportedReason | Should -Be ''
+    }
+
+    It 'defaults an omitted source format to xmltv at runtime' {
+        $path = Join-Path $RepoRoot 'tests\fixtures\epg-local-source.json'
+
+        (Read-ChannelForgeEpgSource -Path $path).Format | Should -Be 'xmltv'
+    }
+
+    It 'returns URL sources as structurally valid but unsupported for this local-only slice' {
+        $path = Join-Path $RepoRoot 'data\epg\epg_sources.json'
+
+        $source = @(Read-ChannelForgeEpgSource -Path $path)[0]
+
+        $source.Format | Should -Be 'xmltv'
+        $source.Supported | Should -BeFalse
+        $source.Path | Should -Be ''
+        $source.UnsupportedReason | Should -Match 'local-only'
+    }
+
+    It 'rejects an unsupported source format' {
+        $path = Join-Path $TestDrive 'epg-unsupported-format.json'
+        $config = @{
+            epg_sources = @(@{
+                name = 'Unsupported Format'
+                priority = 1
+                path = 'guide.json'
+                format = 'json'
+                enabled = $true
+                role = 'primary'
+            })
+        }
+        $config | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+
+        { Read-ChannelForgeEpgSource -Path $path } | Should -Throw '*unsupported format*'
+    }
+
+    It 'rejects a source that specifies both a local path and a URL' {
+        $path = Join-Path $TestDrive 'epg-both-path-and-url.json'
+        $config = @{
+            epg_sources = @(@{
+                name = 'Ambiguous Source'
+                priority = 1
+                path = 'sample.xml'
+                url = 'https://example.invalid/guide.xml'
+                enabled = $true
+                role = 'primary'
+            })
+        }
+        $config | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+
+        { Read-ChannelForgeEpgSource -Path $path } | Should -Throw '*exactly one*'
+    }
+
     It 'throws when the EPG source file is missing' {
         { Read-ChannelForgeEpgSource -Path '.\does-not-exist.json' } | Should -Throw
     }
