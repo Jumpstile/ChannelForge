@@ -86,6 +86,7 @@ FunctionsToExport = @(
     'Import-ChannelForgeConfiguredXmltvSource'
     'Import-ChannelForgeXmltvSource'
     'Merge-ChannelForgeLineup'
+    'Merge-ChannelForgeXmltvProgrammes'
     'New-ChannelForgeBuildContext'
     'New-ChannelForgeChannel'
     'New-ChannelForgeProgramme'
