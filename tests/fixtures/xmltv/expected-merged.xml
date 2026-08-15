@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tv generator-info-name="ChannelForge" xmlns:channelforge="urn:channelforge">
+  <channel id="7:fixture|7:news.us">
+    <display-name>news.us</display-name>
+    <channelforge:source-id>fixture</channelforge:source-id>
+    <channelforge:channel-reference>news.us</channelforge:channel-reference>
+  </channel>
+  <channel id="7:fixture|9:sports.us">
+    <display-name>sports.us</display-name>
+    <channelforge:source-id>fixture</channelforge:source-id>
+    <channelforge:channel-reference>sports.us</channelforge:channel-reference>
+  </channel>
+  <programme start="20260815090000 +0000" stop="20260815100000 +0000" channel="7:fixture|7:news.us">
+    <channelforge:source-id>fixture</channelforge:source-id>
+    <title>Morning News</title>
+    <desc>Headlines and weather.</desc>
+    <category>News</category>
+    <new />
+  </programme>
+  <programme start="20260815120000 +0000" stop="20260815130000 +0000" channel="7:fixture|9:sports.us">
+    <channelforge:source-id>fixture</channelforge:source-id>
+    <title>The Big Game</title>
+    <sub-title>Opening Match</sub-title>
+    <desc>A deterministic fixture programme.</desc>
+    <category>Sports</category>
+    <episode-num system="onscreen">S01E01</episode-num>
+    <live />
+  </programme>
+</tv>

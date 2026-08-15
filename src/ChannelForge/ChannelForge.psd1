@@ -82,6 +82,7 @@ FunctionsToExport = @(
     'Assert-ChannelForgeWritePath'
     'ConvertTo-ChannelForgeNormalizedChannel'
     'Export-ChannelForgeM3UPlaylist'
+    'Export-ChannelForgeXmltv'
     'Import-ChannelForgeM3UPlaylist'
     'Import-ChannelForgeConfiguredXmltvSource'
     'Import-ChannelForgeXmltvSource'

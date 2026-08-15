@@ -32,6 +32,7 @@ Public functions that turn raw input into domain objects, or transform domain ob
 - [`Set-ChannelForgeChannelNumber`](../../src/ChannelForge/Public/Set-ChannelForgeChannelNumber.ps1) — assigns `AssignedNumber` from `numbering_blocks.json` by exact (case-insensitive) match against a channel's `Group`; leaves a channel unassigned with a warning rather than guessing a category mapping.
 - [`Merge-ChannelForgeLineup`](../../src/ChannelForge/Public/Merge-ChannelForgeLineup.ps1) — the Phase 1 end-to-end pipeline (issue #7): parses one or more local playlists in sorted-path order, normalizes, alias-resolves, deduplicates by tvg-id (or display name), numbers, and returns a deterministically ordered channel set plus duplicate/warning counts.
 - [`Export-ChannelForgeM3UPlaylist`](../../src/ChannelForge/Public/Export-ChannelForgeM3UPlaylist.ps1) — renders a `Channel[]` to M3U text (`#EXTM3U`/`#EXTINF` with `tvg-id`/`tvg-name`/`tvg-logo`/`tvg-chno`/`group-title`) and writes it with no BOM and a fixed line ending, so the same channel set always produces the same bytes.
+- [`Export-ChannelForgeXmltv`](../../src/ChannelForge/Public/Export-ChannelForgeXmltv.ps1) — writes deterministic XMLTV from merged local Programme records; Build-Lineup wiring and remote acquisition remain deferred.
 - [`New-ChannelForgeChannel`](../../src/ChannelForge/Public/New-ChannelForgeChannel.ps1) / [`New-ChannelForgeBuildContext`](../../src/ChannelForge/Public/New-ChannelForgeBuildContext.ps1) — domain object constructors.
 - [`ConvertTo-ChannelForgeNormalizedChannel`](../../src/ChannelForge/Public/ConvertTo-ChannelForgeNormalizedChannel.ps1) — applies normalization to a channel.
 
@@ -39,7 +40,7 @@ Private helpers in `src/ChannelForge/Private` support the application layer with
 
 ### Infrastructure layer (planned)
 
-File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dispatcharr, the file system, and HTTP. Today this is limited to local file parsing and writing (M3U in, M3U out, JSON via `Read-*` functions). HTTP fetch of provider or EPG sources, XMLTV generation, and the IPTVBoss/Dispatcharr/Plex output writers described in the [Roadmap](../../ROADMAP.md), have not been implemented yet — see "Known limitations" below.
+File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dispatcharr, the file system, and HTTP. Today this is limited to local file parsing and writing (M3U in, M3U out, XMLTV in, XMLTV out, JSON via `Read-*` functions). HTTP fetch of provider or EPG sources and the IPTVBoss/Dispatcharr/Plex output writers described in the [Roadmap](../../ROADMAP.md), have not been implemented yet — see "Known limitations" below.
 
 Per ADR 0003, domain objects must not reference infrastructure-specific concepts. `Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific fields; provider- and playlist-specific values are stored as plain strings supplied by the infrastructure layer.
 
@@ -73,7 +74,7 @@ This is the Phase 1 pipeline `scripts/Build-Lineup.ps1` runs via `Merge-ChannelF
 ### Known limitations (issue #7 Phase 1)
 
 - **HTTP provider/EPG fetch is deferred.** Only `local_playlist` files already on disk are read. A provider source with no `local_playlist` is skipped, not an error.
-- **XMLTV generation and build wiring are deferred, not faked.** Local XMLTV import and source-aware deterministic programme binding/merge provide programme and evidence objects, but the build pipeline does not yet consume them (`BuildContext.Programmes` remains an unused placeholder). Generating XMLTV without output wiring would be fabricated content, which ADR 0005 (evidence over assumptions) does not allow. `build-summary.json` always reports `XMLTVGenerated: false` with an explicit `XMLTVDeferredReason`.
+- **Build-Lineup XMLTV wiring is deferred, not faked.** Local XMLTV import, source-aware deterministic programme binding/merge, and standalone deterministic XMLTV output are available, but the build pipeline does not yet consume them (`BuildContext.Programmes` remains an unused placeholder). `build-summary.json` continues to report `XMLTVGenerated: false` with an explicit `XMLTVDeferredReason`.
 - **Plex EPG/guide binding is deferred until XMLTV exists.** Plex (and xTeVe/Threadfin-style tuners in front of it) can still play channels from `output/merged.m3u` directly, but without XMLTV there is no guide data to bind via `tvg-id`.
 - **Category-to-numbering-block matching is intentionally simple.** A channel is numbered only if its M3U `group-title` exactly matches (case-insensitive) a `numbering_blocks.json` category. Smarter category inference is Confidence Engine territory (Roadmap Milestone 2), not this pipeline.
 
