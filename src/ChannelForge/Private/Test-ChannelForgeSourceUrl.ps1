@@ -18,7 +18,10 @@ function Test-ChannelForgeSourceUrl {
         return $false
     }
 
-    if ($parsedUri.Scheme -notin @('http', 'https')) {
+    # HTTPS-only: no downgrade path exists for provider/EPG source URLs
+    # (locked security policy for the Milestone 4 XMLTV fetch slice, see
+    # issue #89).
+    if ($parsedUri.Scheme -ne 'https') {
         return $false
     }
 
@@ -39,11 +42,8 @@ function Test-ChannelForgeSourceUrl {
         return $false
     }
 
-    $hostAddress = $null
-    if ([System.Net.IPAddress]::TryParse($parsedUri.Host, [ref]$hostAddress)) {
-        if (Test-ChannelForgeDisallowedIpAddress -Address $hostAddress) {
-            return $false
-        }
+    if (-not (Test-ChannelForgeSafeHostAddress -HostName $parsedUri.Host)) {
+        return $false
     }
 
     return $true
