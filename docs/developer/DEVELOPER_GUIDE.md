@@ -14,6 +14,8 @@ Developers and maintainers.
 
 Read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md) before making changes. [QUICK_START.md](QUICK_START.md) walks through verifying your environment can run and test the module, if you haven't done that yet.
 
+ChannelForge requires PowerShell 7.6 or newer, Core edition. PowerShell 7.6 supplies the supported .NET 10 or newer hosting runtime; no separate .NET installation is required.
+
 ## Module layout
 
 ```text

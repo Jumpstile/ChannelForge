@@ -6,7 +6,7 @@ This page answers: **something went wrong — how do I fix it myself, or report 
 
 | Symptom | Likely cause | What to do |
 |---|---|---|
-| `Import-Module` reports a parse error | Wrong PowerShell version | Confirm `$PSVersionTable.PSVersion` is 7 or later |
+| `Import-Module` reports a parse error | Wrong PowerShell version or edition | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
 | `Install-Module` fails with a trust prompt | PSGallery not yet trusted | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first |
 | `Invoke-Pester` reports "command not found" | Pester not installed for this user, or wrong version | Re-run `Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -SkipPublisherCheck` |
 | A `Read-ChannelForge*` function throws "file not found" | Wrong working directory | Run commands from the repository root, or pass an absolute path |

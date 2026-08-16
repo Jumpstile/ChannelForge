@@ -33,47 +33,75 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install PowerShell 7.6 global tool
+        shell: pwsh
+        env:
+          CHANNELFORGE_PWSH_VERSION: '7.6.4'
+        run: |
+          $toolPath = Join-Path $env:RUNNER_TEMP 'channelforge-pwsh'
+          dotnet tool install `
+              --tool-path $toolPath `
+              PowerShell `
+              --version $env:CHANNELFORGE_PWSH_VERSION
+
+          $pwshPath = Join-Path $toolPath 'pwsh.exe'
+          if (-not (Test-Path -LiteralPath $pwshPath -PathType Leaf)) {
+              throw "PowerShell $env:CHANNELFORGE_PWSH_VERSION was not installed at the expected path."
+          }
+
+          "CHANNELFORGE_PWSH=$pwshPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify PowerShell and .NET runtime contract
+        shell: pwsh
+        run: |
+          $runtimeCommand = '$PSVersionTable.PSVersion; $PSVersionTable.PSEdition; [System.Environment]::Version; if ([version]$PSVersionTable.PSVersion -lt [version]''7.6'') { throw ''ChannelForge requires PowerShell 7.6 or newer.'' }; if ($PSVersionTable.PSEdition -ne ''Core'') { throw ''ChannelForge requires PowerShell Core.'' }; if ([version][System.Environment]::Version -lt [version]''10.0'') { throw ''ChannelForge requires a .NET 10 or newer hosting runtime.'' }'
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -Command $runtimeCommand
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
       - name: Install Pester 5.7.1 and PSScriptAnalyzer 1.25.0
         shell: pwsh
         run: |
-          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
-              Register-PSRepository -Default
+          $toolCommand = 'if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) { Register-PSRepository -Default }; Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; Install-Module Pester -RequiredVersion 5.7.1 -Repository PSGallery -Force -Scope CurrentUser -SkipPublisherCheck; Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Repository PSGallery -Force -Scope CurrentUser -SkipPublisherCheck'
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -Command $toolCommand
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
           }
-
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-
-          Install-Module Pester `
-              -RequiredVersion 5.7.1 `
-              -Repository PSGallery `
-              -Force `
-              -Scope CurrentUser `
-              -SkipPublisherCheck
-
-          Install-Module PSScriptAnalyzer `
-              -RequiredVersion 1.25.0 `
-              -Repository PSGallery `
-              -Force `
-              -Scope CurrentUser `
-              -SkipPublisherCheck
 
       # Fast, narrow checks run first so an easy mistake (a malformed config
       # file, a broken doc link) fails quickly, before the full test suite.
       - name: Validate config schemas
         shell: pwsh
-        run: ./scripts/Validate-ConfigSchemas.ps1
+        run: |
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -File ./scripts/Validate-ConfigSchemas.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate Markdown hygiene
         shell: pwsh
-        run: ./scripts/Validate-MarkdownHygiene.ps1
+        run: |
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -File ./scripts/Validate-MarkdownHygiene.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate Markdown links
         shell: pwsh
-        run: ./scripts/Validate-MarkdownLinks.ps1
+        run: |
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -File ./scripts/Validate-MarkdownLinks.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run PSScriptAnalyzer
         shell: pwsh
-        run: ./scripts/Validate-ScriptAnalyzer.ps1
+        run: |
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -File ./scripts/Validate-ScriptAnalyzer.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Pester tests
         shell: pwsh
-        run: Invoke-Pester ./tests/unit -CI
+        run: |
+          & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -Command 'Invoke-Pester ./tests/unit -CI'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

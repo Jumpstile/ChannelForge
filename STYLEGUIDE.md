@@ -56,7 +56,7 @@ One source. Many outputs. Zero guesswork.
 
 ## PowerShell standards
 
-- Target PowerShell 7+.
+- Target PowerShell 7.6 or newer, Core edition.
 
 - Public functions use approved verbs.
 

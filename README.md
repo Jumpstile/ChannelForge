@@ -16,7 +16,7 @@
 
   <img alt="Status" src="https://img.shields.io/badge/status-early%20alpha-orange">
 
-  <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7%2B-blue">
+  <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7.6%2B-blue">
 
   <img alt="Tests" src="https://img.shields.io/badge/tests-Pester%205.7.1-purple">
 

@@ -12,13 +12,13 @@ Users and developers installing ChannelForge.
 
 ## Requirements
 
-- **PowerShell 7 or later.** Check your version:
+- **PowerShell 7.6 or later, Core edition.** Check your version:
 
   ```powershell
   $PSVersionTable.PSVersion
   ```
 
-  If it reports a major version below 7, install PowerShell 7 from [Microsoft's PowerShell releases](https://github.com/PowerShell/PowerShell/releases) and launch it as `pwsh` instead of `powershell`.
+  If it reports a version below 7.6 or an edition other than `Core`, install PowerShell 7.6 from [Microsoft's PowerShell releases](https://github.com/PowerShell/PowerShell/releases) and launch it as `pwsh` instead of `powershell`. PowerShell 7.6 supplies the supported .NET 10 or newer hosting runtime; no separate .NET installation is required.
 
 - **Git**, to clone the repository.
 
@@ -67,7 +67,7 @@ This should return `Channel` objects without errors.
 
 | Symptom | Likely cause | What to do |
 |---|---|---|
-| `Import-Module` reports a parse error | Wrong PowerShell version | Confirm `$PSVersionTable.PSVersion` is 7 or later |
+| `Import-Module` reports a parse error | Wrong PowerShell version or edition | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
 | `Install-Module` fails with a trust prompt | PSGallery not yet trusted | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first |
 | `Invoke-Pester` reports "command not found" | Pester not installed for this user, or wrong version | Re-run the install command above with `-Force` |
 | A `Read-ChannelForge*` function throws "file not found" | Wrong working directory | Run commands from the repository root, or pass an absolute `-Path` |

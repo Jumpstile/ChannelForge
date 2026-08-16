@@ -8,7 +8,7 @@ Accepted
 
 ChannelForge currently supports local XMLTV ingestion and local provider processing. Remote XMLTV and remote M3U acquisition require a shared transport boundary that prevents DNS rebinding, unsafe destinations, redirects, proxies, unbounded buffering, credential leakage, and degraded-success publication.
 
-The current module manifest declares PowerShell 7.0. The required `SocketsHttpHandler.ConnectCallback` API is available on newer .NET runtimes, but the supported ChannelForge transport floor must remain aligned with a currently supported PowerShell LTS line.
+The module runtime contract is PowerShell 7.6 or newer on the Core edition. The required `SocketsHttpHandler.ConnectCallback` API is available on newer .NET runtimes, but the supported ChannelForge transport floor must remain aligned with a currently supported PowerShell LTS line.
 
 This ADR defines transport only. It does not implement XMLTV parsing, M3U parsing, caching, scheduling, provider adapters, or GUI behavior.
 
@@ -26,19 +26,13 @@ The minimum supported runtime for ChannelForge remote HTTPS acquisition is:
 
 PowerShell 7.6 is the current Microsoft LTS line. PowerShell 7.4 remains supported only until 2026-11-10, so it is not adopted as a new long-lived ChannelForge product floor.
 
-Before remote transport ships, the module manifest must change from:
-
-```powershell
-PowerShellVersion = '7.0'
-```
-
-to:
+The module manifest enforces the selected floor:
 
 ```powershell
 PowerShellVersion = '7.6'
 ```
 
-This is an intentional compatibility change. The 7.6 floor applies to the module version containing the adopted transport architecture, including local-only commands. The transport helper remains lazy-loaded: local-only commands do not compile or invoke it.
+This is an intentional compatibility change. The 7.6 floor applies to the ChannelForge module contract before transport helper adoption and remains the floor for later transport-enabled versions, including local-only commands. The transport helper remains lazy-loaded: local-only commands do not compile or invoke it.
 
 The API availability floor and the supported product floor are deliberately different. `ConnectCallback` exists in earlier .NET versions, but retired PowerShell runtimes are not supported ChannelForge targets.
 

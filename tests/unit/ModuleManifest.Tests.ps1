@@ -56,8 +56,8 @@ Describe 'ChannelForge module manifest' {
         $script:Manifest.CompatiblePSEditions | Should -Be @('Core')
     }
 
-    It 'declares a PowerShellVersion of at least 7.0' {
-        [version]$script:Manifest.PowerShellVersion | Should -BeGreaterOrEqual ([version]'7.0')
+    It 'declares a PowerShellVersion of exactly 7.6' {
+        [version]$script:Manifest.PowerShellVersion | Should -Be ([version]'7.6')
     }
 
     It 'does not declare RequiredModules (no runtime module dependencies today)' {
