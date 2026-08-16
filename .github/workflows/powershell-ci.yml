@@ -33,6 +33,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate Prettier formatting
+        shell: pwsh
+        run: |
+          npm ci
+          npm run format:check
+
       - name: Set up .NET 10 SDK
         uses: actions/setup-dotnet@v5
         with:
