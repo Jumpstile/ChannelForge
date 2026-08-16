@@ -18,7 +18,7 @@ Future contributors and maintainers making code changes.
 
 ## Local setup
 
-See [INSTALL.md](../reference/INSTALL.md) for PowerShell 7, Git, and Pester setup.
+See [INSTALL.md](../reference/INSTALL.md) for PowerShell 7.6 or newer (Core edition), Git, and Pester setup.
 
 ## Making a code change
 

@@ -12,9 +12,9 @@ Developers and contributors setting up the repository for the first time.
 
 ## Before you begin
 
-Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7+, Git, Pester 5.7.1, and a local clone of the repository. Then read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md).
+Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7.6 or newer, Core edition, Git, Pester 5.7.1, and a local clone of the repository. Then read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md).
 
-## 1. Open PowerShell 7
+## 1. Open PowerShell 7.6
 
 Launch `pwsh` (not the older Windows PowerShell `powershell.exe`). Confirm the version:
 
@@ -22,7 +22,7 @@ Launch `pwsh` (not the older Windows PowerShell `powershell.exe`). Confirm the v
 $PSVersionTable.PSVersion
 ```
 
-You should see major version 7 or higher.
+You should see version 7.6 or higher and `Core` for `PSEdition`.
 
 ## 2. Move into the repository
 

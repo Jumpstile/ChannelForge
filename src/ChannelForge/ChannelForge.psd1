@@ -32,8 +32,10 @@ Copyright = '(c) 2026 Jumpstile. All rights reserved.'
 # Description of the functionality provided by this module
 Description = 'Source-of-truth IPTV lineup builder for IPTVBoss, Dispatcharr, and Plex'
 
-# Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '7.0'
+# Minimum version of the PowerShell engine required by this module.
+# PowerShell 7.6 supplies the supported .NET 10+ Core runtime; the runtime
+# contract is also verified by tests and CI.
+PowerShellVersion = '7.6'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''

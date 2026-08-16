@@ -19,7 +19,7 @@ your provider's M3U file              ChannelForge                 what you get
 
 You need:
 
-- **PowerShell 7+**, **Git**, and **Pester 5.7.1**.
+- **PowerShell 7.6 or newer, Core edition**, **Git**, and **Pester 5.7.1**.
 - A real M3U playlist file already saved to disk (exported or downloaded from your provider however you normally would — ChannelForge doesn't fetch it for you yet).
 
 Full install steps and a troubleshooting table are in [INSTALL.md](../reference/INSTALL.md) — this page won't repeat them, only summarize:
