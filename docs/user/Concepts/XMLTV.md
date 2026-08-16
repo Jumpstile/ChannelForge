@@ -1,22 +1,24 @@
 # XMLTV
 
-This page answers: **what is XMLTV, and why doesn't ChannelForge produce it yet?**
+This page answers: **what is XMLTV, and how does ChannelForge produce it safely today?**
 
 ## What XMLTV is
 
 XMLTV is the standard file format for TV program guide data — what gives Plex (or any tuner app) the "what's on now / what's on next" schedule information for each channel. It's a separate file from your channel list (`merged.m3u`); a channel list alone tells a player *what channels exist*, while XMLTV tells it *what's airing on each one*.
 
-## Why ChannelForge doesn't generate it yet
+## How ChannelForge produces XMLTV today
 
-ChannelForge has a hard rule: it does not fabricate data it can't verify (see [ADR 0005, evidence over assumptions](../../adr/0005-evidence-over-assumptions.md)). There is no program-guide data source wired up anywhere in ChannelForge today — EPG *source configuration* is read and validated, but the actual guide data behind those sources is never fetched. Generating an XMLTV file under those conditions would mean inventing schedule data, which ChannelForge refuses to do.
+ChannelForge has a hard rule: it does not fabricate data it cannot verify (see [ADR 0005, evidence over assumptions](../../adr/0005-evidence-over-assumptions.md)). Build-Lineup accepts enabled local XMLTV `path` entries from `epg_sources.json`, with the optional `format` defaulting to `xmltv`. Plain `.xml`, gzip `.gz`, and single-entry `.zip` files are streamed through the existing importer, merged source-aware and deterministically, and written as `output/merged.xml` only after validation and conflict checks succeed.
 
-Every build is explicit about this rather than silent: `output/reports/build-summary.json` always reports `XMLTVGenerated: false`, with an `XMLTVDeferredReason` field explaining exactly why.
+Remote URL entries remain structurally valid and are reported as deferred in this local-only slice. No network acquisition, cache, degraded/offline success, or stale-output success path is used.
+
+A successful local XMLTV build reports `XMLTVStatus: GENERATED`, `XMLTVGenerated: true`, and the project-relative `XMLTVPath`. A failed import, invalid interval, merge conflict, `NeedsReview` result, or export failure reports `XMLTVStatus: FAILED`, leaves the public `output/merged.xml` path absent, and preserves any prior artifact only in the non-published rollback area.
 
 ## What this means in practice
 
-- `output/merged.m3u` is fully playable in Plex today — channels and streams work.
-- Plex (or any tuner in front of it) will show no schedule data for those channels, because there's no guide file to bind.
-- This is tracked as deferred, not abandoned — see [ROADMAP.md](../../../ROADMAP.md).
+- `output/merged.m3u` remains the channel-list output; `output/merged.xml` is the separate guide-data output.
+- XMLTV bindings remain source-scoped; this slice does not perform fuzzy station matching or bind XMLTV to M3U `Channel.TvgId` values.
+- Downstream Plex guide binding and automatic refresh remain separate work.
 
 ## Where to go next
 

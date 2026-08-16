@@ -53,7 +53,8 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $summary.M3UPath | Should -BeNullOrEmpty
         $summary.M3USha256 | Should -BeNullOrEmpty
         $summary.XMLTVGenerated | Should -BeFalse
-        $summary.XMLTVDeferredReason | Should -Match 'programme'
+        $summary.XMLTVStatus | Should -Be 'DEFERRED_REMOTE_ONLY'
+    $summary.XMLTVDeferredReason | Should -Match 'remote'
         $summary.Status | Should -Be 'SOURCE_OF_TRUTH_VALIDATED'
     }
 
@@ -475,5 +476,300 @@ Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
         $output | Should -Not -Match 'https?://'
         $output | Should -Not -Match 'ACCOUNT_ID'
         $output | Should -Not -Match 'API_TOKEN'
+    }
+}
+
+Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
+    BeforeAll {
+        $script:XmltvFixturePath = Join-Path $RepoRoot 'tests\fixtures\xmltv\sample.xml'
+
+        function New-GzipFixtureFile {
+            param([string]$SourcePath, [string]$DestinationPath)
+
+            $inputBytes = [io.file]::ReadAllBytes($SourcePath)
+            $file = [io.filestream]::new($DestinationPath, [io.filemode]::Create, [io.fileaccess]::Write, [io.fileshare]::None)
+            try {
+                $gzip = [io.compression.gzipstream]::new($file, [io.compression.compressionmode]::Compress)
+                try {
+                    $gzip.Write($inputBytes, 0, $inputBytes.Length)
+                }
+                finally {
+                    $gzip.Dispose()
+                }
+            }
+            finally {
+                $file.Dispose()
+            }
+        }
+
+        function New-ZipFixtureFile {
+            param([string]$SourcePath, [string]$DestinationPath)
+
+            $inputBytes = [io.file]::ReadAllBytes($SourcePath)
+            $file = [io.filestream]::new($DestinationPath, [io.filemode]::Create, [io.fileaccess]::Write, [io.fileshare]::None)
+            try {
+                $archive = [io.compression.ziparchive]::new($file, [io.compression.ziparchivemode]::Create)
+                try {
+                    $entry = $archive.CreateEntry('guide.xml')
+                    $entryStream = $entry.Open()
+                    try {
+                        $entryStream.Write($inputBytes, 0, $inputBytes.Length)
+                    }
+                    finally {
+                        $entryStream.Dispose()
+                    }
+                }
+                finally {
+                    $archive.Dispose()
+                }
+            }
+            finally {
+                $file.Dispose()
+            }
+        }
+
+        function New-XmltvBuildFixture {
+            param(
+                [string]$Name,
+                [object[]]$Sources
+            )
+
+            $fixtureRoot = Join-Path $TestDrive $Name
+            $dataDir = Join-Path $fixtureRoot 'data'
+            $playlistDir = Join-Path $dataDir 'playlists'
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers'), (Join-Path $dataDir 'epg'), (Join-Path $dataDir 'lineup'), (Join-Path $dataDir 'rules'), $playlistDir | Out-Null
+
+            @(
+                '#EXTM3U'
+                '#EXTINF:-1 tvg-id="news.us" group-title="News",News US'
+                'https://example.invalid/live/news'
+            ) -join "`n" | Set-Content -LiteralPath (Join-Path $playlistDir 'fixture.m3u') -Encoding utf8NoBOM
+
+            @{
+                provider = 'fixture-provider'
+                sources = @(
+                    @{ name = 'Fixture M3U'; group = 'News'; url = 'https://example.invalid/iptv/fixture'; enabled = $true; local_playlist = 'data/playlists/fixture.m3u' }
+                )
+            } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+            @{ epg_sources = @($Sources) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+            @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+            @{ blocks = @(@{ start = 1; end = 999; category = 'News'; notes = 'fixture' }) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+            @{ aliases = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'rules\aliases.json') -Encoding UTF8
+
+            return $fixtureRoot
+        }
+    }
+
+    It 'generates separate deterministic M3U and XMLTV outputs for local XMLTV input' {
+        $fixtureRoot = New-XmltvBuildFixture -Name 'xmltv-plain' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml'; enabled = $true; role = 'primary' }
+        )
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $fixtureRoot 'data\epg\guide.xml')
+
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
+        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
+        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
+
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeFalse
+        $summary.M3UGenerated | Should -BeTrue
+        $summary.XMLTVStatus | Should -Be 'GENERATED'
+        $summary.XMLTVGenerated | Should -BeTrue
+        $summary.XMLTVPath | Should -Be 'output/merged.xml'
+        $summary.XMLTVSha256 | Should -Be (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $summary.XMLTVSourceCount | Should -Be 1
+        $summary.XMLTVProgrammeCount | Should -Be 2
+        $summary.XMLTVBindingCount | Should -Be 2
+        $summary.XMLTVConflictCount | Should -Be 0
+        $summary.XMLTVPreviousOutputPresent | Should -BeFalse
+        $summary.XMLTVPreviousOutputPreserved | Should -BeFalse
+        $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
+        $summary.Status | Should -Be 'M3U_XMLTV_GENERATED'
+        $plan | Should -Match 'Generated XMLTV: output/merged.xml'
+        $plan | Should -Match 'Plex EPG/guide binding: deferred'
+        $plan | Should -Not -Match 'https?://'
+        $plan | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
+        $plan | Should -Not -Match '[A-Z]:\\|^\\\\'
+        (Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw) | Should -Not -Match 'https?://|ACCOUNT_ID|API_TOKEN|[A-Z]:\\|^\\\\'
+    }
+
+    It 'produces byte-identical XMLTV for equivalent plain, gzip, and single-entry zip sources' {
+        $plainRoot = New-XmltvBuildFixture -Name 'xmltv-equivalent-plain' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml'; enabled = $true; role = 'primary' }
+        )
+        $gzipRoot = New-XmltvBuildFixture -Name 'xmltv-equivalent-gzip' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml.gz'; enabled = $true; role = 'primary' }
+        )
+        $zipRoot = New-XmltvBuildFixture -Name 'xmltv-equivalent-zip' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.zip'; enabled = $true; role = 'primary' }
+        )
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $plainRoot 'data\epg\guide.xml')
+        New-GzipFixtureFile -SourcePath $script:XmltvFixturePath -DestinationPath (Join-Path $gzipRoot 'data\epg\guide.xml.gz')
+        New-ZipFixtureFile -SourcePath $script:XmltvFixturePath -DestinationPath (Join-Path $zipRoot 'data\epg\guide.zip')
+
+        & $script:ScriptPath -Root $plainRoot
+        & $script:ScriptPath -Root $gzipRoot
+        & $script:ScriptPath -Root $zipRoot
+
+        $plainBytes = [io.file]::ReadAllBytes((Join-Path $plainRoot 'output\merged.xml'))
+        $gzipBytes = [io.file]::ReadAllBytes((Join-Path $gzipRoot 'output\merged.xml'))
+        $zipBytes = [io.file]::ReadAllBytes((Join-Path $zipRoot 'output\merged.xml'))
+        [Convert]::ToBase64String($gzipBytes) | Should -Be ([Convert]::ToBase64String($plainBytes))
+        [Convert]::ToBase64String($zipBytes) | Should -Be ([Convert]::ToBase64String($plainBytes))
+    }
+
+    It 'keeps output deterministic when configured local source entries are permuted' {
+        $sourcesForward = @(
+            @{ name = 'source-a'; priority = 10; path = 'guide-a.xml'; enabled = $true; role = 'primary' }
+            @{ name = 'source-b'; priority = 10; path = 'guide-b.xml'; enabled = $true; role = 'primary' }
+        )
+        $sourcesReverse = @(
+            @{ name = 'source-b'; priority = 10; path = 'guide-b.xml'; enabled = $true; role = 'primary' }
+            @{ name = 'source-a'; priority = 10; path = 'guide-a.xml'; enabled = $true; role = 'primary' }
+        )
+        $forwardRoot = New-XmltvBuildFixture -Name 'xmltv-order-forward' -Sources $sourcesForward
+        $reverseRoot = New-XmltvBuildFixture -Name 'xmltv-order-reverse' -Sources $sourcesReverse
+        foreach ($root in @($forwardRoot, $reverseRoot)) {
+            Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $root 'data\epg\guide-a.xml')
+            Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $root 'data\epg\guide-b.xml')
+            & $script:ScriptPath -Root $root
+        }
+
+        $forwardBytes = [io.file]::ReadAllBytes((Join-Path $forwardRoot 'output\merged.xml'))
+        $reverseBytes = [io.file]::ReadAllBytes((Join-Path $reverseRoot 'output\merged.xml'))
+        [Convert]::ToBase64String($reverseBytes) | Should -Be ([Convert]::ToBase64String($forwardBytes))
+    }
+
+    It 'fails closed on malformed XMLTV and never treats an old output as current' {
+        $fixtureRoot = New-XmltvBuildFixture -Name 'xmltv-failure-preserves-output' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml'; enabled = $true; role = 'primary' }
+        )
+        $guidePath = Join-Path $fixtureRoot 'data\epg\guide.xml'
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination $guidePath
+        & $script:ScriptPath -Root $fixtureRoot
+        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
+        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
+        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
+        $beforeHash = (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash
+        '<tv><programme></tv>' | Set-Content -LiteralPath $guidePath -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Configured local XMLTV input could not be imported*'
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $summary.Status | Should -Be 'FAILED'
+        $summary.M3UGenerated | Should -BeTrue
+        $summary.XMLTVStatus | Should -Be 'FAILED'
+        $summary.XMLTVGenerated | Should -BeFalse
+        $summary.XMLTVPath | Should -BeNullOrEmpty
+        $summary.XMLTVSha256 | Should -BeNullOrEmpty
+        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
+        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
+        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
+        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
+        (Get-FileHash -LiteralPath $rollbackPath -Algorithm SHA256).Hash | Should -Be $beforeHash
+        $plan | Should -Match 'XMLTV output: FAILED'
+        $plan | Should -Match 'Current XMLTV publication: absent'
+        $plan | Should -Match 'preserved for rollback/inspection only'
+        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        $plan | Should -Not -Match 'https?://|ACCOUNT_ID|API_TOKEN|[A-Z]:\\|^\\\\'
+    }
+
+    It 'removes a prior public XMLTV output when XMLTV is not configured' {
+        $fixtureRoot = New-XmltvBuildFixture -Name 'xmltv-not-configured-after-success' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml'; enabled = $true; role = 'primary' }
+        )
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $fixtureRoot 'data\epg\guide.xml')
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $epgPath = Join-Path $fixtureRoot 'data\epg\epg_sources.json'
+        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
+        'stale staged output' | Set-Content -LiteralPath $xmltvTempPath -Encoding UTF8
+        @{ epg_sources = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $epgPath -Encoding UTF8
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
+        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
+
+        $summary.Status | Should -Be 'M3U_GENERATED'
+        $summary.XMLTVStatus | Should -Be 'NOT_CONFIGURED'
+        $summary.XMLTVGenerated | Should -BeFalse
+        $summary.XMLTVPath | Should -BeNullOrEmpty
+        $summary.XMLTVSha256 | Should -BeNullOrEmpty
+        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
+        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
+        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
+        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        $plan | Should -Match 'Current XMLTV publication: absent'
+        $plan | Should -Match 'preserved for rollback/inspection only'
+    }
+
+    It 'removes a prior public XMLTV output for remote-only EPG configuration' {
+        $fixtureRoot = New-XmltvBuildFixture -Name 'xmltv-remote-only-after-success' -Sources @(
+            @{ name = 'fixture-guide'; priority = 10; path = 'guide.xml'; enabled = $true; role = 'primary' }
+        )
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $fixtureRoot 'data\epg\guide.xml')
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $epgPath = Join-Path $fixtureRoot 'data\epg\epg_sources.json'
+        @{ epg_sources = @(@{ name = 'remote-guide'; priority = 10; url = 'https://example.invalid/guide.xml'; enabled = $true; role = 'primary' }) } |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $epgPath -Encoding UTF8
+        & $script:ScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
+        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
+        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
+
+        $summary.Status | Should -Be 'M3U_GENERATED'
+        $summary.XMLTVStatus | Should -Be 'DEFERRED_REMOTE_ONLY'
+        $summary.XMLTVGenerated | Should -BeFalse
+        $summary.XMLTVPath | Should -BeNullOrEmpty
+        $summary.XMLTVSha256 | Should -BeNullOrEmpty
+        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
+        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
+        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
+        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        $plan | Should -Match 'Current XMLTV publication: absent'
+        $plan | Should -Match 'preserved for rollback/inspection only'
+        $plan | Should -Not -Match 'https?://'
+    }
+
+    It 'fails closed on XMLTV merge conflicts before creating final output' {
+        $fixtureRoot = New-XmltvBuildFixture -Name 'xmltv-conflict' -Sources @(
+            @{ name = 'same-source'; priority = 10; path = 'guide-a.xml'; enabled = $true; role = 'primary' }
+            @{ name = 'same-source'; priority = 20; path = 'guide-b.xml'; enabled = $true; role = 'primary' }
+        )
+        $guideA = Join-Path $fixtureRoot 'data\epg\guide-a.xml'
+        $guideB = Join-Path $fixtureRoot 'data\epg\guide-b.xml'
+        Copy-Item -LiteralPath $script:XmltvFixturePath -Destination $guideA
+        (Get-Content -LiteralPath $script:XmltvFixturePath -Raw).Replace('Morning News', 'Different News') | Set-Content -LiteralPath $guideB -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*merged deterministically*'
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.Status | Should -Be 'FAILED'
+        $summary.XMLTVStatus | Should -Be 'FAILED'
+        $summary.XMLTVConflictCount | Should -Be 1
+        $summary.XMLTVGenerated | Should -BeFalse
+        $summary.XMLTVPath | Should -BeNullOrEmpty
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.xml') -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.xml.tmp') -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous') -PathType Leaf | Should -BeFalse
     }
 }

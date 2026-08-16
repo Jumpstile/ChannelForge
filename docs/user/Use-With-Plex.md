@@ -14,7 +14,7 @@ If you haven't built a lineup yet, start at [Build Your First Lineup](Build-Your
 
 ## What won't work yet
 
-- **No program guide.** Plex will list your channels with no schedule data — see [Current Limitations](CURRENT_LIMITATIONS.md) and the [XMLTV concept page](Concepts/XMLTV.md) for why.
+- **No automatic guide binding.** Plex will not consume ChannelForge's separate XMLTV output automatically; configure the guide path explicitly when using a local XMLTV source. Remote EPG acquisition remains deferred.
 - **No automatic refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at it (or refreshing if already pointed there) is a manual step in Plex.
 
 ## Point Plex at your lineup
@@ -28,4 +28,4 @@ For the complete step-by-step — including how to set up a real provider playli
 ## Where to go next
 
 - Something not working? → [Troubleshooting](TROUBLESHOOTING.md)
-- Want to understand why there's no guide data? → [Current Limitations](CURRENT_LIMITATIONS.md)
+- Want to understand the local XMLTV boundary? → [Current Limitations](CURRENT_LIMITATIONS.md)

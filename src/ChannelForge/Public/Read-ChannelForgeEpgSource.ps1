@@ -14,7 +14,22 @@ function Read-ChannelForgeEpgSource {
     $configPath = [System.IO.Path]::GetFullPath($Path)
     $configDirectory = [System.IO.Path]::GetDirectoryName($configPath)
 
-    foreach ($source in $epgConfig.epg_sources | Sort-Object priority) {
+    $rawSources = @($epgConfig.epg_sources)
+    $indexedSources = @(
+        for ($index = 0; $index -lt $rawSources.Count; $index++) {
+            [pscustomobject]@{
+                Index  = $index
+                Source = $rawSources[$index]
+            }
+        }
+    )
+
+    foreach ($indexedSource in @(
+        $indexedSources | Sort-Object `
+            @{ Expression = { [int]$_.Source.priority }; Ascending = $true }, `
+            @{ Expression = { [int]$_.Index }; Ascending = $true }
+    )) {
+        $source = $indexedSource.Source
         $propertyNames = @($source.PSObject.Properties.Name)
         $rawPath = if ($propertyNames -contains 'path') { [string]$source.path } else { '' }
         $rawUrl = if ($propertyNames -contains 'url') { [string]$source.url } else { '' }
@@ -65,12 +80,14 @@ function Read-ChannelForgeEpgSource {
             Name              = $source.name
             Priority          = [int]$source.priority
             Url               = $rawUrl
+            ConfiguredPath    = $rawPath.Trim()
             Path              = $resolvedPath
             Format            = $format
             Enabled           = [bool]$source.enabled
             Role              = $source.role
             Supported         = $supported
             UnsupportedReason = $unsupportedReason
+            ConfigurationIndex = [int]$indexedSource.Index
         }
     }
 }

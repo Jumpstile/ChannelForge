@@ -96,9 +96,9 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 
 ## What will not work yet
 
-- **No program guide / EPG data.** XMLTV generation is deferred (see issue #7) — there is no programme/guide data source anywhere in ChannelForge yet, and generating fake guide data is explicitly against this project's evidence-over-assumptions principle (ADR 0005). Plex will show channels with no schedule information.
-- **No live provider fetch.** Only the local file you placed in step 2 is read. If your provider's playlist changes, re-download it and re-run the build.
-- **No automatic Plex refresh.** Re-running `Build-Lineup.ps1` regenerates `output/merged.m3u`; refreshing Plex's channel list afterward is a manual step in Plex's tuner settings.
+- **No automatic Plex guide binding in this smoke flow.** Build-Lineup can generate `output/merged.xml` from configured local XMLTV sources, but this walkthrough covers M3U playback; remote EPG fetch and downstream guide binding remain deferred.
+- **No live provider or remote EPG fetch.** Only local files are read in this workflow. If your playlist or XMLTV source changes, replace the local file and re-run the build.
+- **No automatic Plex refresh.** Re-running `Build-Lineup.ps1` regenerates `output/merged.m3u` and any successful local XMLTV output; refreshing Plex's channel list or guide afterward is a manual step in Plex's tuner settings.
 
 ## If something goes wrong
 
