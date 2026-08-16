@@ -13,22 +13,11 @@
     },
     {
       "canonical": "ESPN",
-      "aliases": [
-        "ESPN",
-        "ESPN HD",
-        "ESPN FHD",
-        "ESPN US",
-        "ESPN USA"
-      ]
+      "aliases": ["ESPN", "ESPN HD", "ESPN FHD", "ESPN US", "ESPN USA"]
     },
     {
       "canonical": "MSG",
-      "aliases": [
-        "MSG",
-        "MSG HD",
-        "MSG Network",
-        "Madison Square Garden"
-      ]
+      "aliases": ["MSG", "MSG HD", "MSG Network", "Madison Square Garden"]
     },
     {
       "canonical": "YES",
@@ -41,44 +30,23 @@
     },
     {
       "canonical": "SNY",
-      "aliases": [
-        "SNY",
-        "SNY HD",
-        "SportsNet New York"
-      ]
+      "aliases": ["SNY", "SNY HD", "SportsNet New York"]
     },
     {
       "canonical": "HBO",
-      "aliases": [
-        "HBO",
-        "HBO HD",
-        "HBO East",
-        "HBO East HD"
-      ]
+      "aliases": ["HBO", "HBO HD", "HBO East", "HBO East HD"]
     },
     {
       "canonical": "CNN",
-      "aliases": [
-        "CNN",
-        "CNN HD",
-        "CNN US"
-      ]
+      "aliases": ["CNN", "CNN HD", "CNN US"]
     },
     {
       "canonical": "FOX News",
-      "aliases": [
-        "FOX News",
-        "Fox News Channel",
-        "FNC",
-        "FNC HD"
-      ]
+      "aliases": ["FOX News", "Fox News Channel", "FNC", "FNC HD"]
     },
     {
       "canonical": "MSNBC",
-      "aliases": [
-        "MSNBC",
-        "MSNBC HD"
-      ]
+      "aliases": ["MSNBC", "MSNBC HD"]
     }
   ]
 }

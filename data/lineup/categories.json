@@ -1,7 +1,5 @@
 {
-  "exclude_groups": [
-    "Default"
-  ],
+  "exclude_groups": ["Default"],
   "primary_categories": [
     "Locals & Networks",
     "PPV & Events",
