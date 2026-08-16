@@ -2,9 +2,9 @@ name: PowerShell CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -36,12 +36,12 @@ jobs:
       - name: Set up .NET 10 SDK
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Install PowerShell 7.6 global tool
         shell: pwsh
         env:
-          CHANNELFORGE_PWSH_VERSION: '7.6.4'
+          CHANNELFORGE_PWSH_VERSION: "7.6.4"
         run: |
           $toolPath = Join-Path $env:RUNNER_TEMP 'channelforge-pwsh'
           dotnet tool install `
