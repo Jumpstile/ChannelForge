@@ -1,6 +1,6 @@
 # Concepts
 
-These pages explain the ideas behind ChannelForge — useful once the basics work and you want to understand *why* it behaves the way it does, not required reading before your first build.
+These pages explain the ideas behind ChannelForge — useful once the basics work and you want to understand _why_ it behaves the way it does, not required reading before your first build.
 
 If you just want to get a lineup built, start at [Build Your First Lineup](../Build-Your-First-Lineup.md) instead.
 

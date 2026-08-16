@@ -4,7 +4,7 @@ This page answers: **what is XMLTV, and how does ChannelForge produce it safely 
 
 ## What XMLTV is
 
-XMLTV is the standard file format for TV program guide data — what gives Plex (or any tuner app) the "what's on now / what's on next" schedule information for each channel. It's a separate file from your channel list (`merged.m3u`); a channel list alone tells a player *what channels exist*, while XMLTV tells it *what's airing on each one*.
+XMLTV is the standard file format for TV program guide data — what gives Plex (or any tuner app) the "what's on now / what's on next" schedule information for each channel. It's a separate file from your channel list (`merged.m3u`); a channel list alone tells a player _what channels exist_, while XMLTV tells it _what's airing on each one_.
 
 ## How ChannelForge produces XMLTV today
 

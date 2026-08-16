@@ -25,15 +25,15 @@ Before any engineering session:
 
 ## Engineering Non-Negotiables
 
-| Rule | Canonical source |
-|---|---|
-| Evidence before implementation | [ADR 0005](docs/adr/0005-evidence-over-assumptions.md) |
-| Tests before commits | [ENGINEERING_PRINCIPLES.md](docs/engineering/ENGINEERING_PRINCIPLES.md) |
-| Secrets never in Git | [ADR 0002](docs/adr/0002-secrets-policy.md) · [SECURITY.md](docs/reference/SECURITY.md) |
-| No commit, push, branch, or release without explicit instruction | [AI_COLLABORATION.md](AI_COLLABORATION.md) |
-| No silent overwrite of user work | [CONSTITUTION.md](CONSTITUTION.md) |
-| GitHub Issues are project memory | [CONSTITUTION.md](CONSTITUTION.md) |
-| Repository docs are the engineering source of truth | [ADR 0001](docs/adr/0001-source-of-truth.md) |
+| Rule                                                             | Canonical source                                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Evidence before implementation                                   | [ADR 0005](docs/adr/0005-evidence-over-assumptions.md)                                  |
+| Tests before commits                                             | [ENGINEERING_PRINCIPLES.md](docs/engineering/ENGINEERING_PRINCIPLES.md)                 |
+| Secrets never in Git                                             | [ADR 0002](docs/adr/0002-secrets-policy.md) · [SECURITY.md](docs/reference/SECURITY.md) |
+| No commit, push, branch, or release without explicit instruction | [AI_COLLABORATION.md](AI_COLLABORATION.md)                                              |
+| No silent overwrite of user work                                 | [CONSTITUTION.md](CONSTITUTION.md)                                                      |
+| GitHub Issues are project memory                                 | [CONSTITUTION.md](CONSTITUTION.md)                                                      |
+| Repository docs are the engineering source of truth              | [ADR 0001](docs/adr/0001-source-of-truth.md)                                            |
 
 ## Documentation Synchronization
 

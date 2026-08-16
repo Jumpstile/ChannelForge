@@ -184,28 +184,28 @@ Proxy use is disabled. The transport does not use environment proxy settings bec
 
 ### Network policy
 
-| Policy | Decision |
-|---|---|
-| Scheme | HTTPS only |
-| Port | 443 only |
-| HTTP method | GET only initially |
-| URI credentials | Rejected |
-| Automatic redirects | Disabled |
-| Cookies | Disabled |
-| Default credentials | Disabled |
-| Proxy | Disabled |
-| Automatic decompression | Disabled |
-| Automatic retries | Zero |
-| Compressed/raw body limit | 256 MiB hard maximum |
-| Decompressed body limit | 256 MiB hard maximum |
-| DNS resolution timeout | 10 seconds |
-| TCP connection timeout | 10 seconds |
-| Response-header timeout | 30 seconds |
-| Body-read inactivity timeout | 30 seconds |
-| Total request deadline | 120 seconds |
-| TLS certificate validation | Platform default validation; no bypass |
-| TLS hostname | Original requested hostname |
-| Cancellation | Immediate linked-token cancellation; no retry |
+| Policy                       | Decision                                      |
+| ---------------------------- | --------------------------------------------- |
+| Scheme                       | HTTPS only                                    |
+| Port                         | 443 only                                      |
+| HTTP method                  | GET only initially                            |
+| URI credentials              | Rejected                                      |
+| Automatic redirects          | Disabled                                      |
+| Cookies                      | Disabled                                      |
+| Default credentials          | Disabled                                      |
+| Proxy                        | Disabled                                      |
+| Automatic decompression      | Disabled                                      |
+| Automatic retries            | Zero                                          |
+| Compressed/raw body limit    | 256 MiB hard maximum                          |
+| Decompressed body limit      | 256 MiB hard maximum                          |
+| DNS resolution timeout       | 10 seconds                                    |
+| TCP connection timeout       | 10 seconds                                    |
+| Response-header timeout      | 30 seconds                                    |
+| Body-read inactivity timeout | 30 seconds                                    |
+| Total request deadline       | 120 seconds                                   |
+| TLS certificate validation   | Platform default validation; no bypass        |
+| TLS hostname                 | Original requested hostname                   |
+| Cancellation                 | Immediate linked-token cancellation; no retry |
 
 Adapters may request smaller limits but may not raise the hard maximums without a new ADR decision.
 
@@ -292,19 +292,19 @@ Credentials still require a dedicated secret-aware configuration boundary. “Fu
 
 Transport failures use deterministic categories:
 
-| Category | Meaning |
-|---|---|
-| `DnsFailure` | Name resolution failed or returned no usable address |
-| `BlockedDestination` | At least one resolved address was unsafe or not globally routable |
-| `TlsFailure` | TLS negotiation or platform certificate/hostname validation failed |
-| `Timeout` | DNS, connection, headers, body inactivity, or total deadline expired |
-| `RedirectRejected` | The server returned a 3xx response |
-| `ResponseTooLarge` | Raw response bytes exceeded the hard limit |
-| `DecompressionLimitExceeded` | Expanded bytes exceeded the hard limit |
-| `NonSuccessHttpStatus` | The response status was not authorized by the caller |
-| `UnsupportedContentType` | Declared media type was outside the caller's allowlist |
-| `ConnectionFailure` | Direct connection failed after deterministic candidate attempts |
-| `Cancelled` | Caller cancellation was requested |
+| Category                     | Meaning                                                              |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `DnsFailure`                 | Name resolution failed or returned no usable address                 |
+| `BlockedDestination`         | At least one resolved address was unsafe or not globally routable    |
+| `TlsFailure`                 | TLS negotiation or platform certificate/hostname validation failed   |
+| `Timeout`                    | DNS, connection, headers, body inactivity, or total deadline expired |
+| `RedirectRejected`           | The server returned a 3xx response                                   |
+| `ResponseTooLarge`           | Raw response bytes exceeded the hard limit                           |
+| `DecompressionLimitExceeded` | Expanded bytes exceeded the hard limit                               |
+| `NonSuccessHttpStatus`       | The response status was not authorized by the caller                 |
+| `UnsupportedContentType`     | Declared media type was outside the caller's allowlist               |
+| `ConnectionFailure`          | Direct connection failed after deterministic candidate attempts      |
+| `Cancelled`                  | Caller cancellation was requested                                    |
 
 A caller-authorized 304 is not an error category, but it is a status-only outcome with no payload. It must not be consumed by payload parsers.
 

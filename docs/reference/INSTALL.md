@@ -65,11 +65,11 @@ This should return `Channel` objects without errors.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | What to do |
-|---|---|---|
-| `Import-Module` reports a parse error | Wrong PowerShell version or edition | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
-| `Install-Module` fails with a trust prompt | PSGallery not yet trusted | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first |
-| `Invoke-Pester` reports "command not found" | Pester not installed for this user, or wrong version | Re-run the install command above with `-Force` |
-| A `Read-ChannelForge*` function throws "file not found" | Wrong working directory | Run commands from the repository root, or pass an absolute `-Path` |
+| Symptom                                                 | Likely cause                                         | What to do                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `Import-Module` reports a parse error                   | Wrong PowerShell version or edition                  | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
+| `Install-Module` fails with a trust prompt              | PSGallery not yet trusted                            | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first                      |
+| `Invoke-Pester` reports "command not found"             | Pester not installed for this user, or wrong version | Re-run the install command above with `-Force`                                                |
+| A `Read-ChannelForge*` function throws "file not found" | Wrong working directory                              | Run commands from the repository root, or pass an absolute `-Path`                            |
 
 If a problem isn't covered here, check [LESSONS_LEARNED.md](../../LESSONS_LEARNED.md) or open a GitHub Issue.

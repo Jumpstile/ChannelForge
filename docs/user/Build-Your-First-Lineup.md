@@ -111,22 +111,28 @@ Generated: 2026-06-30T17:34:56
 Merged M3U: output/merged.m3u (2 channels, 0 duplicates excluded, 0 warnings, SHA-256 d938a228b2bcc2bfb91f3e25a7cf2431fa201daf2d2bf7aea014ef4a1918b998)
 
 ## XMLTV Result
+
 - XMLTV output: deferred. Remote XMLTV acquisition is deferred; no local XMLTV source was processed.
 
 Known limitations:
+
 - Live HTTP provider/EPG fetch: deferred. Only local M3U and configured local XMLTV files are read.
 - Plex EPG/guide binding: deferred; generated XMLTV is a separate output.
 
 ## Provider M3U Sources
+
 - Sports (enabled, local playlist configured)
 
 ## EPG Sources
+
 - [10] Public EPG - primary
 
 ## Local Channels
+
 - 2 - WCBS CBS New York
 
 ## Numbering Blocks
+
 - 400-410: Sports - sports block
 ```
 

@@ -63,13 +63,13 @@ GitHub Actions (`.github/workflows/powershell-ci.yml`) runs two jobs on every pu
 
 **`quality-gates`** (Windows, runs after `secret-scan`) — installs Pester 5.7.1 and PSScriptAnalyzer 1.25.0, then runs these checks in order, fast/narrow ones first so an easy mistake fails quickly:
 
-| Step | What it checks | Local command |
-|---|---|---|
-| Config schemas | Every tracked `data/*.json` file matches its schema in `schemas/` | `./scripts/Validate-ConfigSchemas.ps1` |
+| Step             | What it checks                                                                                | Local command                            |
+| ---------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Config schemas   | Every tracked `data/*.json` file matches its schema in `schemas/`                             | `./scripts/Validate-ConfigSchemas.ps1`   |
 | Markdown hygiene | No tracked `.md` file has the malformed-generator-artifact shape from the #2/#13/#16 incident | `./scripts/Validate-MarkdownHygiene.ps1` |
-| Markdown links | Every relative link in a tracked `.md` file resolves to a real file | `./scripts/Validate-MarkdownLinks.ps1` |
-| PSScriptAnalyzer | No Error-severity finding under `src/` or `scripts/` | `./scripts/Validate-ScriptAnalyzer.ps1` |
-| Pester | Full unit test suite | `Invoke-Pester ./tests/unit -CI` |
+| Markdown links   | Every relative link in a tracked `.md` file resolves to a real file                           | `./scripts/Validate-MarkdownLinks.ps1`   |
+| PSScriptAnalyzer | No Error-severity finding under `src/` or `scripts/`                                          | `./scripts/Validate-ScriptAnalyzer.ps1`  |
+| Pester           | Full unit test suite                                                                          | `Invoke-Pester ./tests/unit -CI`         |
 
 Run all five locally before pushing — they're the same commands CI runs, so a clean local run means a clean CI run for everything except the secret scan.
 
@@ -77,13 +77,13 @@ Run all five locally before pushing — they're the same commands CI runs, so a 
 
 These checks validate **shape** ahead of time. They deliberately do not replace the **runtime/domain** checks that already exist in the module — both layers stay in place:
 
-| Layer | Where | What it catches |
-|---|---|---|
-| Schema (`schemas/*.schema.json`, CI step "Config schemas") | Before a file is ever read | Missing/extra fields, wrong types |
-| Runtime trust boundary (`Test-ChannelForgeSourceUrl`, `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`) | When a file is actually loaded | Malformed URLs, unsupported schemes, credentials, loopback/private/link-local hosts |
-| Runtime write guardrails (`Assert-ChannelForgeWritePath`, `Assert-ChannelForgePathExists`, `Assert-ChannelForgeBackupSourcePath`) | When a script writes/reads/backs up a path | Writes outside an approved root, missing sources, overly broad backup sources |
-| Static analysis (PSScriptAnalyzer, CI step "PSScriptAnalyzer") | Before code runs at all | Dangerous patterns, syntax-adjacent mistakes (Error severity only — see below) |
-| Tests (Pester) | On every change | Behavior regressions across all of the above |
+| Layer                                                                                                                             | Where                                      | What it catches                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Schema (`schemas/*.schema.json`, CI step "Config schemas")                                                                        | Before a file is ever read                 | Missing/extra fields, wrong types                                                   |
+| Runtime trust boundary (`Test-ChannelForgeSourceUrl`, `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`)                   | When a file is actually loaded             | Malformed URLs, unsupported schemes, credentials, loopback/private/link-local hosts |
+| Runtime write guardrails (`Assert-ChannelForgeWritePath`, `Assert-ChannelForgePathExists`, `Assert-ChannelForgeBackupSourcePath`) | When a script writes/reads/backs up a path | Writes outside an approved root, missing sources, overly broad backup sources       |
+| Static analysis (PSScriptAnalyzer, CI step "PSScriptAnalyzer")                                                                    | Before code runs at all                    | Dangerous patterns, syntax-adjacent mistakes (Error severity only — see below)      |
+| Tests (Pester)                                                                                                                    | On every change                            | Behavior regressions across all of the above                                        |
 
 A file can pass schema validation and still be rejected at runtime — see `tests/unit/ConfigSchemas.Tests.ps1`'s "Schemas supplement, not replace, runtime validation" cases for a working example. Don't loosen a runtime check because "the schema already validates this"; they check different things.
 
@@ -101,22 +101,22 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 
 ## Public functions today
 
-| Function | Purpose |
-|---|---|
-| `Read-ChannelForgeProvider` | Load provider source definitions from `provider.json` |
-| `Read-ChannelForgeEpgSource` | Load EPG source definitions from `epg_sources.json`, sorted by priority |
-| `Import-ChannelForgeM3UPlaylist` | Parse a local M3U playlist into `Channel` objects, including the stream URL |
-| `Resolve-ChannelForgeAlias` | Deterministic, exact-match alias resolution |
-| `Set-ChannelForgeChannelNumber` | Assign `AssignedNumber` from numbering blocks by exact group/category match |
-| `Merge-ChannelForgeLineup` | Phase 1 end-to-end pipeline: parse, normalize, alias-resolve, dedup, number (issue #7) |
-| `Export-ChannelForgeM3UPlaylist` | Render a `Channel[]` to deterministic M3U text |
-| `New-ChannelForgeChannel` | Construct a `Channel` domain object |
-| `New-ChannelForgeBuildContext` | Construct a `BuildContext` domain object |
-| `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel` |
-| `Assert-ChannelForgeWritePath` | Throw unless a target path resolves under an explicitly approved root |
-| `Assert-ChannelForgeReadPath` | Throw unless a configured read path (e.g. `local_playlist`) resolves under an explicitly approved root |
-| `Assert-ChannelForgePathExists` | Throw unless a required file/directory exists, with a clear description |
-| `Assert-ChannelForgeBackupSourcePath` | Throw if a backup source is a drive root or well-known system directory |
+| Function                                  | Purpose                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Read-ChannelForgeProvider`               | Load provider source definitions from `provider.json`                                                  |
+| `Read-ChannelForgeEpgSource`              | Load EPG source definitions from `epg_sources.json`, sorted by priority                                |
+| `Import-ChannelForgeM3UPlaylist`          | Parse a local M3U playlist into `Channel` objects, including the stream URL                            |
+| `Resolve-ChannelForgeAlias`               | Deterministic, exact-match alias resolution                                                            |
+| `Set-ChannelForgeChannelNumber`           | Assign `AssignedNumber` from numbering blocks by exact group/category match                            |
+| `Merge-ChannelForgeLineup`                | Phase 1 end-to-end pipeline: parse, normalize, alias-resolve, dedup, number (issue #7)                 |
+| `Export-ChannelForgeM3UPlaylist`          | Render a `Channel[]` to deterministic M3U text                                                         |
+| `New-ChannelForgeChannel`                 | Construct a `Channel` domain object                                                                    |
+| `New-ChannelForgeBuildContext`            | Construct a `BuildContext` domain object                                                               |
+| `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel`                                                                |
+| `Assert-ChannelForgeWritePath`            | Throw unless a target path resolves under an explicitly approved root                                  |
+| `Assert-ChannelForgeReadPath`             | Throw unless a configured read path (e.g. `local_playlist`) resolves under an explicitly approved root |
+| `Assert-ChannelForgePathExists`           | Throw unless a required file/directory exists, with a clear description                                |
+| `Assert-ChannelForgeBackupSourcePath`     | Throw if a backup source is a drive root or well-known system directory                                |
 
 See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit together.
 
@@ -139,6 +139,7 @@ A provider source in `provider.json` participates only if it is `enabled` **and*
 Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs. Remote URL values are validated but never dereferenced; enabled local XMLTV path values are passed to `Import-ChannelForgeConfiguredXmltvSource`. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
 
 Each resolved `local_playlist` path is confined to `data/playlists/` via `Assert-ChannelForgeReadPath` before it is read (see "Write guardrails" above) — a `local_playlist` value is operator-supplied configuration, not trusted input, so the same containment logic that protects writes protects this read.
+
 ### Local XMLTV orchestration
 
 Enabled sources are ordered by priority, name, and the configured relative path using ordinal comparisons. The resolved path is used only to open the configured file; it is not used in identifiers, reports, warnings, or artifact ordering. A failed import, merge conflict, `NeedsReview` result, or export/promotion failure fails the XMLTV branch, leaves the public `output/merged.xml` path absent, and preserves any prior artifact only in the non-published rollback area.
@@ -179,7 +180,7 @@ Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-p
 
 This redaction rule does not apply to `output/merged.m3u` itself: stream URLs are the actual playable content of that file, not a secret to strip (see `Export-ChannelForgeM3UPlaylist` and the Channel class's `Url` field).
 
-Display fields are not redacted, only URLs/tokens are: the top-level `provider` label and each source's `name` *do* appear in `build-summary.json` (`Provider` field) and `lineup-plan.md` ("Provider M3U Sources" list). These are display-only fields, not validated as opaque, so do not put a secret-shaped value (a token, account ID, or credential) in a `provider` or source `name` field — only in `url`, which is the field the redaction rule actually strips.
+Display fields are not redacted, only URLs/tokens are: the top-level `provider` label and each source's `name` _do_ appear in `build-summary.json` (`Provider` field) and `lineup-plan.md` ("Provider M3U Sources" list). These are display-only fields, not validated as opaque, so do not put a secret-shaped value (a token, account ID, or credential) in a `provider` or source `name` field — only in `url`, which is the field the redaction rule actually strips.
 
 ## Private helpers today
 
@@ -194,14 +195,14 @@ Display fields are not redacted, only URLs/tokens are: the top-level `provider` 
 
 Every tracked source-of-truth JSON file under `data/` has a JSON Schema (draft-07) contract in `schemas/` (see issue #3):
 
-| Data file | Schema |
-|---|---|
-| `data/providers/mybunny.json`, `data/providers/provider.example.json` | `schemas/provider.schema.json` |
-| `data/epg/epg_sources.json`, `data/epg/epg_sources.example.json` | `schemas/epg_sources.schema.json` |
-| `data/lineup/locals.json` | `schemas/locals.schema.json` |
-| `data/lineup/numbering_blocks.json` | `schemas/numbering_blocks.schema.json` |
-| `data/lineup/categories.json` | `schemas/categories.schema.json` |
-| `data/rules/aliases.json` | `schemas/aliases.schema.json` |
+| Data file                                                             | Schema                                 |
+| --------------------------------------------------------------------- | -------------------------------------- |
+| `data/providers/mybunny.json`, `data/providers/provider.example.json` | `schemas/provider.schema.json`         |
+| `data/epg/epg_sources.json`, `data/epg/epg_sources.example.json`      | `schemas/epg_sources.schema.json`      |
+| `data/lineup/locals.json`                                             | `schemas/locals.schema.json`           |
+| `data/lineup/numbering_blocks.json`                                   | `schemas/numbering_blocks.schema.json` |
+| `data/lineup/categories.json`                                         | `schemas/categories.schema.json`       |
+| `data/rules/aliases.json`                                             | `schemas/aliases.schema.json`          |
 
 They validate **structure only** — required/optional fields and types — using PowerShell's built-in `Test-Json -SchemaFile`, so there's no new dependency:
 

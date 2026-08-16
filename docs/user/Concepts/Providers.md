@@ -19,7 +19,7 @@ See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md) for the full setu
 
 ## Why provider labels aren't the final word on channel identity
 
-A provider's name for a channel (e.g. how it labels ESPN in its playlist) is treated as one piece of *evidence*, not as ground truth — see [Channel IDs](Channel-IDs.md) for why that distinction matters.
+A provider's name for a channel (e.g. how it labels ESPN in its playlist) is treated as one piece of _evidence_, not as ground truth — see [Channel IDs](Channel-IDs.md) for why that distinction matters.
 
 ## Where to go next
 

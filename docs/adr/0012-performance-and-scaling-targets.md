@@ -26,24 +26,29 @@ Any future benchmark against these targets must scope what it measures explicitl
 - **Must be measured separately, not assumed from channel/source counts:** EPG programme volume (programme-count and date-range can vary independently of channel count) and raw input byte size (a provider file can be large without having many channels, e.g. dense metadata or malformed/bloated markup). A benchmark that reports only "N channels, M seconds" without also reporting programme count and input bytes has not established evidence for this ADR's targets.
 
 **Target lineup size**
+
 - Primary target: up to 5,000 channels merged from up to 20 provider/local-playlist sources.
 - EPG: up to 5,000 channels x 14 days of programme data per source, tracked as its own figure per the measurement boundary above.
 - These figures reflect a well-provisioned IPTV enthusiast setup (multiple providers, regional/local channels, several EPG sources), not a commercial aggregator scale.
 
 **Acceptable build time**
+
 - Target (not yet measured): a full local build (in-scope work only, per the measurement boundary above) at the target lineup size should complete in under 60 seconds on typical enthusiast hardware (consumer NAS or desktop-class CPU, with either spinning-disk or SSD storage).
 - A build several times smaller (a few hundred channels, one or two sources) should complete in a few seconds, since that is the common case exercised on most runs.
 - Once Milestone 4 adds HTTP fetch, network latency to provider/EPG endpoints is excluded from this budget; it is a separate, provider-dependent cost that must be reported to the user (progress or timing output), not hidden inside a silent hang.
 
 **Memory and CPU**
+
 - Target (not yet measured): a full build at target scale should stay within roughly 500 MB of working memory and should not require sustained high CPU use beyond the build's own duration (no background polling, no idle spin).
 - ChannelForge is not expected to run well on severely constrained hardware; "practical" means typical home-server or desktop resources, not embedded devices.
 
 **Deterministic output under performance work**
+
 - Any performance optimization (parallelism, streaming parsers, caching per ADR 0013) must preserve ADR-level determinism: the same inputs produce the same meaningful outputs, including stable ordering of `Export-ChannelForgeM3UPlaylist` output. Speed must never be purchased by making output order or content depend on timing, thread scheduling, or partial/incomplete reads.
 - If an optimization cannot preserve determinism, it is not acceptable as designed and must be redesigned or documented as an explicit, isolated exception per the Constitution's "deterministic behavior" principle.
 
 **Why performance is a product requirement, not just an optimization**
+
 - ChannelForge's stated audience is IPTV enthusiasts who will rerun builds routinely (Roadmap Milestone 5's "guarded production outputs," issue #60's "detect channel additions and removals automatically" and "rerun and update results without requiring full manual reconfiguration"). A slow or resource-heavy rebuild directly undermines that workflow and pushes users back toward manual, error-prone alternatives — the exact failure mode ChannelForge exists to prevent.
 - Self-healing and automatic reconciliation (ADR 0004) only remain trustworthy if they are also fast enough to run unattended and often; a repair mechanism nobody dares to run because it takes too long is not a repair mechanism.
 

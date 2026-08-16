@@ -10,10 +10,10 @@ The main build command. Run from the repository root:
 pwsh -File scripts/Build-Lineup.ps1
 ```
 
-| Parameter | Required | Default | Notes |
-|---|---|---|---|
-| `-Root` | No | Repository root | Where `data/` and `output/` are resolved from. You won't normally need to set this. |
-| `-ProviderPath` | No | *(none — triggers auto-discovery)* | Explicit override for which provider config file to use, relative to `data/providers/`. See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md#advanced-pointing-at-a-specific-file). |
+| Parameter       | Required | Default                            | Notes                                                                                                                                                                                        |
+| --------------- | -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-Root`         | No       | Repository root                    | Where `data/` and `output/` are resolved from. You won't normally need to set this.                                                                                                          |
+| `-ProviderPath` | No       | _(none — triggers auto-discovery)_ | Explicit override for which provider config file to use, relative to `data/providers/`. See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md#advanced-pointing-at-a-specific-file). |
 
 **Output:** `output/merged.m3u` (if at least one source has `enabled: true` and a `local_playlist`), `output/reports/build-summary.json`, `output/reports/lineup-plan.md`. See [Build Your First Lineup](../Build-Your-First-Lineup.md) for what these mean.
 

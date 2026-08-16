@@ -14,19 +14,19 @@ Feature implementation remains blocked. Updater implementation remains unauthori
 
 ## Trust-boundary inventory
 
-| Boundary | Trust posture | Authority and responsibility | Required controls |
-|---|---|---|---|
-| UI and coaching | User-facing and untrusted for direct state ownership | Presents explanations and requests governed actions | No direct mutation of canonical identity, evidence, durable state, provider state, or approved publication artifacts |
-| Configuration and policy | Controlled input subject to validation and review | Owns declarative policy and authorization inputs | Validate, preserve provenance, exclude secrets, and deny unauthorized changes |
-| Ingestion | External and source-dependent | Captures source evidence and provenance | Classify, validate, preserve snapshots where authorized, and quarantine unsafe input |
-| Identity/matching and evidence/confidence | Domain trust boundary | Owns canonical identity, evidence, confidence, and review contracts | Do not promote untrusted evidence or rewrite ownership through adapters or UI |
-| Durable storage | Persistence enforcement boundary | Persists authorized state without owning all business meaning | Enforce authorization, integrity, audit, and state-transition contracts |
-| Provider and guide adapters | External integration boundary | Consumes permitted provider capabilities and evidence | Treat responses as untrusted; do not duplicate provider state or rewrite canonical decisions |
-| Output and publication | External write and target boundary | Owns publication authorization and immutable approved artifacts | Verify, authorize, audit, and use governed replacements rather than in-place mutation |
-| Operations and recovery | Recovery and last-known-good boundary | Coordinates authorized recovery transitions | No silent repair, mutation, or replacement from verification-only paths |
-| Security and audit | Cross-cutting control boundary | Preserves trust, authorization, redaction, and audit evidence | Enforce fail-closed behavior and ownership contracts without becoming business owner of other modules |
-| External providers, guides, network, and filesystem | Outside ChannelForge trust | Remain external authorities or untrusted resources | Validate, classify, constrain, and retain only governed evidence or references |
-| Updater | Deferred and out of scope | No updater ownership is defined here | No implementation, updater-state ownership, or `pr-23-auto-update` expansion is authorized |
+| Boundary                                            | Trust posture                                        | Authority and responsibility                                        | Required controls                                                                                                    |
+| --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| UI and coaching                                     | User-facing and untrusted for direct state ownership | Presents explanations and requests governed actions                 | No direct mutation of canonical identity, evidence, durable state, provider state, or approved publication artifacts |
+| Configuration and policy                            | Controlled input subject to validation and review    | Owns declarative policy and authorization inputs                    | Validate, preserve provenance, exclude secrets, and deny unauthorized changes                                        |
+| Ingestion                                           | External and source-dependent                        | Captures source evidence and provenance                             | Classify, validate, preserve snapshots where authorized, and quarantine unsafe input                                 |
+| Identity/matching and evidence/confidence           | Domain trust boundary                                | Owns canonical identity, evidence, confidence, and review contracts | Do not promote untrusted evidence or rewrite ownership through adapters or UI                                        |
+| Durable storage                                     | Persistence enforcement boundary                     | Persists authorized state without owning all business meaning       | Enforce authorization, integrity, audit, and state-transition contracts                                              |
+| Provider and guide adapters                         | External integration boundary                        | Consumes permitted provider capabilities and evidence               | Treat responses as untrusted; do not duplicate provider state or rewrite canonical decisions                         |
+| Output and publication                              | External write and target boundary                   | Owns publication authorization and immutable approved artifacts     | Verify, authorize, audit, and use governed replacements rather than in-place mutation                                |
+| Operations and recovery                             | Recovery and last-known-good boundary                | Coordinates authorized recovery transitions                         | No silent repair, mutation, or replacement from verification-only paths                                              |
+| Security and audit                                  | Cross-cutting control boundary                       | Preserves trust, authorization, redaction, and audit evidence       | Enforce fail-closed behavior and ownership contracts without becoming business owner of other modules                |
+| External providers, guides, network, and filesystem | Outside ChannelForge trust                           | Remain external authorities or untrusted resources                  | Validate, classify, constrain, and retain only governed evidence or references                                       |
+| Updater                                             | Deferred and out of scope                            | No updater ownership is defined here                                | No implementation, updater-state ownership, or `pr-23-auto-update` expansion is authorized                           |
 
 ## Input and source trust classifications
 
