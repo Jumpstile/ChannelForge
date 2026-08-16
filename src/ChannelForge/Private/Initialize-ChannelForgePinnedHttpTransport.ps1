@@ -174,11 +174,11 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
-    if ($contractVersion -ne 1) {
+    if ($contractVersion -ne 2) {
         return [pscustomobject]@{
             Valid = $false
             Category = 'ConflictingContract'
-            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '1'."
+            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '2'."
         }
     }
 
@@ -187,6 +187,48 @@ function Get-ChannelForgePinnedHttpTransportContractState {
             Valid = $false
             Category = 'ContractMismatch'
             Detail = 'the loaded helper ContractName does not match the required contract.'
+        }
+    }
+
+    $endpointResultType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeValidatedEndpoint',
+        $false,
+        $false)
+    if ($null -eq $endpointResultType -or
+        -not $endpointResultType.IsPublic -or
+        -not $endpointResultType.IsClass) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper does not expose the required validated endpoint type.'
+        }
+    }
+
+    $endpointMethods = @(
+        $Type.GetMethods($flags) | Where-Object {
+            $parameters = $_.GetParameters()
+            $parameters.Count -eq 2 -and
+                $_.Name -ceq 'ValidateEndpointAsync' -and
+                $parameters[0].ParameterType -eq [string] -and
+                $parameters[1].ParameterType -eq [System.Threading.CancellationToken]
+        }
+    )
+    if ($endpointMethods.Count -ne 1) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper does not expose exactly one endpoint validation method.'
+        }
+    }
+
+    $endpointReturnType = $endpointMethods[0].ReturnType
+    if (-not $endpointReturnType.IsGenericType -or
+        $endpointReturnType.GetGenericTypeDefinition().FullName -cne ('System.Threading.Tasks.Task' + [char]96 + '1') -or
+        $endpointReturnType.GetGenericArguments()[0] -ne $endpointResultType) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper endpoint validation method has the wrong return type.'
         }
     }
 
@@ -211,6 +253,8 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         Detail = $null
         ContractName = $contractName
         ContractVersion = $contractVersion
+        EndpointMethod = $endpointMethods[0]
+        EndpointResultType = $endpointResultType
         CapabilityMethod = $capabilityMethods[0]
     }
 }
@@ -365,7 +409,7 @@ function New-ChannelForgePinnedHttpTransportResult {
 
     return [pscustomobject]@{
         Type = $Type
-        ContractVersion = 1
+        ContractVersion = 2
         LoadMode = $LoadMode
         CompilerWarnings = @($CompilerWarnings)
     }

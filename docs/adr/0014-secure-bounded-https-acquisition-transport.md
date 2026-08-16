@@ -160,6 +160,8 @@ A literal IP address is validated directly. A hostname is resolved before connec
 
 A mixed DNS answer containing both allowed and blocked destinations is rejected rather than filtered. This treats an ambiguous DNS response as unsafe.
 
+The blocked-address policy is implemented from a tracked, code-reviewed snapshot of the IANA IPv4 and IPv6 special-purpose registries. ChannelForge never downloads or queries those registries at runtime; registry updates require normal reviewed code changes.
+
 ### Deterministic address ordering
 
 Candidate family order is:
@@ -294,6 +296,7 @@ Transport failures use deterministic categories:
 
 | Category                     | Meaning                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
+| `InvalidEndpoint`            | Endpoint URI or host shape failed before DNS/address evaluation      |
 | `DnsFailure`                 | Name resolution failed or returned no usable address                 |
 | `BlockedDestination`         | At least one resolved address was unsafe or not globally routable    |
 | `TlsFailure`                 | TLS negotiation or platform certificate/hostname validation failed   |
