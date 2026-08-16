@@ -20,13 +20,13 @@ ADR 0005 (evidence over assumptions) and ADR 0001 (source of truth) both bear on
 
 To avoid conflating categories ADR 0009 already keeps separate, this ADR distinguishes five kinds of state relevant to the fetch/build pipeline:
 
-| Category | Example in ChannelForge | Authority | Cacheable? |
-|---|---|---|---|
-| **a. Declarative source truth** | `data/provider.json`, `data/epg_sources.json`, `numbering_blocks.json`, local playlists under `data/playlists/` | The working tree (ADR 0001) | No — always read live; already local and cheap |
-| **b. Durable incremental/source-snapshot state** | Longer-lived indexed state ADR 0009 anticipates (e.g. identity/mapping knowledge built up across runs) | ADR 0009's "identity and mapping knowledge" / "source snapshots" authority | Out of scope for this ADR — ADR 0009 owns it |
-| **c. Disposable fetch cache** | Parsed provider listing or EPG payload from a fetched URL, held only to avoid re-fetching/re-parsing an unchanged source | This ADR (implementation detail of ADR 0009's "source snapshots and caches" category) | Yes — this is what this ADR specifies |
-| **d. Generated artifacts** | `output/merged.m3u`, build summaries | ADR 0009's "generated artifacts" authority | No — never treated as input |
-| **e. Provider-owned state** | Entitlements, account state, anything the provider is system-of-record for | Stays with the provider (ADR 0009, CONSTITUTION.md) | Never ChannelForge-cached as if owned |
+| Category                                         | Example in ChannelForge                                                                                                  | Authority                                                                             | Cacheable?                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **a. Declarative source truth**                  | `data/provider.json`, `data/epg_sources.json`, `numbering_blocks.json`, local playlists under `data/playlists/`          | The working tree (ADR 0001)                                                           | No — always read live; already local and cheap |
+| **b. Durable incremental/source-snapshot state** | Longer-lived indexed state ADR 0009 anticipates (e.g. identity/mapping knowledge built up across runs)                   | ADR 0009's "identity and mapping knowledge" / "source snapshots" authority            | Out of scope for this ADR — ADR 0009 owns it   |
+| **c. Disposable fetch cache**                    | Parsed provider listing or EPG payload from a fetched URL, held only to avoid re-fetching/re-parsing an unchanged source | This ADR (implementation detail of ADR 0009's "source snapshots and caches" category) | Yes — this is what this ADR specifies          |
+| **d. Generated artifacts**                       | `output/merged.m3u`, build summaries                                                                                     | ADR 0009's "generated artifacts" authority                                            | No — never treated as input                    |
+| **e. Provider-owned state**                      | Entitlements, account state, anything the provider is system-of-record for                                               | Stays with the provider (ADR 0009, CONSTITUTION.md)                                   | Never ChannelForge-cached as if owned          |
 
 This ADR's scope is **(c) only**: the disposable fetch cache for provider/EPG source data. It does not define, redefine, or implement (b), and it does not authorize ChannelForge to treat any cache as (b)'s durable/indexed state.
 
@@ -37,17 +37,20 @@ This ADR's scope is **(c) only**: the disposable fetch cache for provider/EPG so
 - Local playlists and local rule files (category a, above) are never cached — reading them is already cheap, and ADR 0001 makes the working tree always authoritative.
 
 **When a full fetch is still required regardless of cache state:**
+
 - First run for a given source (no cache entry exists).
 - Any explicit `-Force`/full-rebuild flag from the user — the user must always be able to force ground truth.
 - Any change to `data/provider.json`, `data/epg_sources.json`, or `numbering_blocks.json` that alters which sources are enabled or how they're configured.
 - Any cache entry that fails validation (see invalidation, below).
 
 **Change detection.** Reused (cached) data must be based on positive evidence that the underlying source has not changed, not merely on the presence of a cache file:
+
 - Where supported, use HTTP conditional requests (`ETag`/`If-None-Match` or `Last-Modified`/`If-Modified-Since`) to ask the provider directly whether content changed.
 - Where conditional requests are unsupported or unreliable, fall back to a content hash of the fetched payload: fetch is still required, but reparse/downstream processing (alias resolution, dedup, numbering) is skipped when the hash matches the cached hash.
 - A cache entry always records: source identifier, fetch timestamp, ETag/Last-Modified if known, content hash, and the ChannelForge schema/parser version that produced it.
 
 **Safe invalidation:**
+
 - Every cache entry has a maximum age (proposed default: 24 hours for provider listings, 6 hours for EPG data, both configurable) after which it is treated as expired even without a change-detection check.
 - A cache entry whose recorded parser/schema version doesn't match the current version is invalidated unconditionally.
 - Falling back to a full fetch when a cache entry is missing, expired, mismatched, or corrupt is a safe automatic repair under ADR 0004 and requires no user approval.

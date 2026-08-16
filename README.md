@@ -2,13 +2,13 @@
 
 <p align="center">
 
-  <strong>One source. Many outputs. Zero guesswork.</strong>
+<strong>One source. Many outputs. Zero guesswork.</strong>
 
 </p>
 
 <p align="center">
 
-  An evidence-driven television knowledge engine for building accurate, trustworthy, deterministic channel lineups.
+An evidence-driven television knowledge engine for building accurate, trustworthy, deterministic channel lineups.
 
 </p>
 
@@ -175,3 +175,4 @@ ChannelForge/
 ├── tests/                 Pester tests and fixtures
 
 └── README.md
+```

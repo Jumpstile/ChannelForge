@@ -78,15 +78,15 @@ Production data is valuable.
 
 Before modifying production:
 
-* Backup first.
+- Backup first.
 
-* Verify.
+- Verify.
 
-* Make the change.
+- Make the change.
 
-* Verify again.
+- Verify again.
 
-* Create a post-operation backup.
+- Create a post-operation backup.
 
 Recovery must always be possible.
 
@@ -96,15 +96,15 @@ Recovery must always be possible.
 
 Users trust software that:
 
-* behaves predictably
+- behaves predictably
 
-* explains itself
+- explains itself
 
-* documents itself
+- documents itself
 
-* protects their data
+- protects their data
 
-* fails safely
+- fails safely
 
 We build software worthy of that trust.
 
@@ -118,15 +118,15 @@ Documentation should assume no prior knowledge.
 
 Every major feature explains:
 
-* What it does.
+- What it does.
 
-* Why it exists.
+- Why it exists.
 
-* How to use it.
+- How to use it.
 
-* What success looks like.
+- What success looks like.
 
-* How to recover if something fails.
+- How to recover if something fails.
 
 ---
 
@@ -136,7 +136,7 @@ Comments do not repeat code.
 
 Comments explain decisions.
 
-Future maintainers should understand *why* something exists.
+Future maintainers should understand _why_ something exists.
 
 ---
 
@@ -210,19 +210,19 @@ Code is not finished when it works.
 
 Code is finished when:
 
-* It is understandable.
+- It is understandable.
 
-* It is documented.
+- It is documented.
 
-* It is tested.
+- It is tested.
 
-* It is secure.
+- It is secure.
 
-* It is maintainable.
+- It is maintainable.
 
-* It is reviewed.
+- It is reviewed.
 
-* It can be confidently changed years later.
+- It can be confidently changed years later.
 
 ---
 

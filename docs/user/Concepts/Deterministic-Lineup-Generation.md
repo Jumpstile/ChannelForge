@@ -18,7 +18,7 @@ This matters because it makes a build **verifiable**: `output/reports/build-summ
 ## What this means for you
 
 - You can safely re-run a build any time without worrying it'll silently change something you didn't touch.
-- If `merged.m3u`'s checksum *does* change, something in your inputs changed — that's a feature, not a bug, for catching unexpected drift.
+- If `merged.m3u`'s checksum _does_ change, something in your inputs changed — that's a feature, not a bug, for catching unexpected drift.
 - A channel with no matching alias or numbering-block entry isn't silently guessed at — it passes through unresolved (with a warning, for numbering) rather than ChannelForge inventing an answer. See [ADR 0005, evidence over assumptions](../../adr/0005-evidence-over-assumptions.md).
 
 ## Where to go next

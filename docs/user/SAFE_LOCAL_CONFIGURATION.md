@@ -21,13 +21,13 @@ This page answers: **how do I give ChannelForge my real provider data without ev
 
 ## Why `example.invalid`?
 
-Anywhere you see a URL like `https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports` in a tracked repository file, it's a deliberate placeholder. `.invalid` is a domain reserved by standard specifically so it can never resolve to a real host — it's used precisely so a tracked example can show the *shape* of a provider URL without being mistaken for a real one. Your real provider URL belongs only in your own `provider.local.json`, never in a tracked file, an issue, a commit, or a chat message.
+Anywhere you see a URL like `https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/Sports` in a tracked repository file, it's a deliberate placeholder. `.invalid` is a domain reserved by standard specifically so it can never resolve to a real host — it's used precisely so a tracked example can show the _shape_ of a provider URL without being mistaken for a real one. Your real provider URL belongs only in your own `provider.local.json`, never in a tracked file, an issue, a commit, or a chat message.
 
 ## How to avoid exposing credentials
 
 - Real provider/EPG URLs, account IDs, and tokens go in `provider.local.json` (or `epg_sources.local.json`) only — never in a tracked file.
 - Never paste a real URL into a GitHub issue, pull request, commit message, or chat, even temporarily "to show someone the problem." Redact it first.
-- **The `provider` label and each source's `name` are display fields, not secrets, and they *do* appear in build reports** (`output/reports/build-summary.json` and `lineup-plan.md`). Only the `url` field is stripped from those reports. Use a plain label like `my-provider`, never a token, account ID, or other secret-shaped value, in `provider` or `name`.
+- **The `provider` label and each source's `name` are display fields, not secrets, and they _do_ appear in build reports** (`output/reports/build-summary.json` and `lineup-plan.md`). Only the `url` field is stripped from those reports. Use a plain label like `my-provider`, never a token, account ID, or other secret-shaped value, in `provider` or `name`.
 - A real local M3U playlist file (see [Build Your First Lineup](Build-Your-First-Lineup.md)) contains real stream URLs and is exactly as sensitive — keep it under `data/playlists/` with a `.local.m3u` filename, same rule.
 
 ## Editing JSON safely (if you're new to it)

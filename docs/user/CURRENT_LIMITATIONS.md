@@ -31,5 +31,5 @@ ChannelForge's evidence-over-assumptions rule (ADR 0005) means remote acquisitio
 ## Where to go next
 
 - Want the engineering-level milestone breakdown? → [ROADMAP.md](../../ROADMAP.md)
-- Ready to try what *is* implemented? → [Build Your First Lineup](Build-Your-First-Lineup.md)
+- Ready to try what _is_ implemented? → [Build Your First Lineup](Build-Your-First-Lineup.md)
 - Hit a problem? → [Troubleshooting](TROUBLESHOOTING.md)

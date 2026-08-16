@@ -4,24 +4,24 @@ This page answers: **something went wrong — how do I fix it myself, or report 
 
 ## Environment problems
 
-| Symptom | Likely cause | What to do |
-|---|---|---|
-| `Import-Module` reports a parse error | Wrong PowerShell version or edition | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
-| `Install-Module` fails with a trust prompt | PSGallery not yet trusted | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first |
-| `Invoke-Pester` reports "command not found" | Pester not installed for this user, or wrong version | Re-run `Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -SkipPublisherCheck` |
-| A `Read-ChannelForge*` function throws "file not found" | Wrong working directory | Run commands from the repository root, or pass an absolute path |
+| Symptom                                                 | Likely cause                                         | What to do                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `Import-Module` reports a parse error                   | Wrong PowerShell version or edition                  | Confirm `$PSVersionTable.PSVersion` is 7.6 or later and `$PSVersionTable.PSEdition` is `Core` |
+| `Install-Module` fails with a trust prompt              | PSGallery not yet trusted                            | Run `Set-PSRepository -Name PSGallery -InstallationPolicy Trusted` first                      |
+| `Invoke-Pester` reports "command not found"             | Pester not installed for this user, or wrong version | Re-run `Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -SkipPublisherCheck`  |
+| A `Read-ChannelForge*` function throws "file not found" | Wrong working directory                              | Run commands from the repository root, or pass an absolute path                               |
 
 This table mirrors [INSTALL.md](../reference/INSTALL.md)'s — check there too if your problem isn't here.
 
 ## Build problems
 
-| Symptom | Likely cause | What to do |
-|---|---|---|
-| `Refusing to read from outside the approved location` | A configured path (e.g. `local_playlist`, or a `-ProviderPath` override) resolves outside the folder it's allowed to | Fix the path — this guardrail exists to stop accidental or malicious path traversal, never work around it |
-| `Multiple local provider files found` | More than one `data/providers/*.local.json` exists | Keep exactly one, or use an explicit `-ProviderPath` override (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md#advanced-pointing-at-a-specific-file)) |
-| `Provider source '...' has a malformed or unsupported URL` | A source's `url` field isn't a well-formed `https://` URL | Every source URL is validated even though nothing fetches it yet — use a real or `example.invalid`-style well-formed URL |
-| No channels in `merged.m3u`, or fewer than expected | A source is missing `enabled: true` or `local_playlist` | A source missing either is silently skipped, not an error — check `lineup-plan.md`'s "Provider M3U Sources" list, which states each source's enabled/playlist state |
-| `Provider file not found` | Neither an override, a local file, nor the tracked fallback resolved to a real file | Confirm `data/providers/provider.local.json` exists, or that the tracked `data/providers/mybunny.json` example wasn't deleted |
+| Symptom                                                    | Likely cause                                                                                                         | What to do                                                                                                                                                          |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Refusing to read from outside the approved location`      | A configured path (e.g. `local_playlist`, or a `-ProviderPath` override) resolves outside the folder it's allowed to | Fix the path — this guardrail exists to stop accidental or malicious path traversal, never work around it                                                           |
+| `Multiple local provider files found`                      | More than one `data/providers/*.local.json` exists                                                                   | Keep exactly one, or use an explicit `-ProviderPath` override (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md#advanced-pointing-at-a-specific-file))    |
+| `Provider source '...' has a malformed or unsupported URL` | A source's `url` field isn't a well-formed `https://` URL                                                            | Every source URL is validated even though nothing fetches it yet — use a real or `example.invalid`-style well-formed URL                                            |
+| No channels in `merged.m3u`, or fewer than expected        | A source is missing `enabled: true` or `local_playlist`                                                              | A source missing either is silently skipped, not an error — check `lineup-plan.md`'s "Provider M3U Sources" list, which states each source's enabled/playlist state |
+| `Provider file not found`                                  | Neither an override, a local file, nor the tracked fallback resolved to a real file                                  | Confirm `data/providers/provider.local.json` exists, or that the tracked `data/providers/mybunny.json` example wasn't deleted                                       |
 
 ## "Where are the logs?"
 

@@ -6,13 +6,13 @@ Accepted
 
 ## Context
 
-Issue #10 ("Define the GUI-first product path") commits ChannelForge to a GUI-first experience, but no design standard existed to govern *how* that GUI should be designed. Without one, GUI work risks becoming a collection of ad hoc screens shaped by internal architecture rather than user goals, with no consistent approach to safety, feedback, or error prevention — directly at odds with ChannelForge's existing five pillars (Truth, Trust, Recoverability, Determinism, Self-Healing; see the [repository README](../../README.md#five-pillars)) and its evidence-over-assumptions principle ([ADR 0005](0005-evidence-over-assumptions.md)).
+Issue #10 ("Define the GUI-first product path") commits ChannelForge to a GUI-first experience, but no design standard existed to govern _how_ that GUI should be designed. Without one, GUI work risks becoming a collection of ad hoc screens shaped by internal architecture rather than user goals, with no consistent approach to safety, feedback, or error prevention — directly at odds with ChannelForge's existing five pillars (Truth, Trust, Recoverability, Determinism, Self-Healing; see the [repository README](../../README.md#five-pillars)) and its evidence-over-assumptions principle ([ADR 0005](0005-evidence-over-assumptions.md)).
 
 These are established product design principles, not cosmetic UI preferences, drawn from:
 
-- Don Norman — *The Design of Everyday Things*
-- Alan Cooper — *About Face*
-- Steve Krug — *Don't Make Me Think* (optional supporting influence)
+- Don Norman — _The Design of Everyday Things_
+- Alan Cooper — _About Face_
+- Steve Krug — _Don't Make Me Think_ (optional supporting influence)
 
 ## Decision
 
