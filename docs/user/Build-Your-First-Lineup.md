@@ -89,13 +89,17 @@ Here's a real `build-summary.json` from a successful run with one source and two
   "ChannelCount": 2,
   "DuplicateCount": 0,
   "WarningCount": 0,
+  "XMLTVStatus": "DEFERRED_REMOTE_ONLY",
   "XMLTVGenerated": false,
-  "XMLTVDeferredReason": "No programme/EPG guide data source exists yet; generating XMLTV without real programme data would be fabricated content. Deferred until an EPG fetch path exists (see issue #7 follow-up).",
+  "XMLTVPath": null,
+  "XMLTVSha256": null,
+  "XMLTVDeferredReason": "Remote XMLTV acquisition is deferred; no local XMLTV source was processed.",
+  "XMLTVFailureReason": null,
   "Status": "M3U_GENERATED"
 }
 ```
 
-The signals that this run succeeded: `"M3UGenerated": true`, `"Status": "M3U_GENERATED"`, a `ChannelCount` greater than zero, and a `M3USha256` value. `"XMLTVGenerated": false"` is expected and correct — see [Current Limitations](CURRENT_LIMITATIONS.md), not a failure.
+The signals that this M3U-only run succeeded are `"M3UGenerated": true`, `"Status": "M3U_GENERATED"`, a `ChannelCount` greater than zero, and a `M3USha256` value. Because the example uses only a remote EPG URL, `"XMLTVStatus": "DEFERRED_REMOTE_ONLY"` and `"XMLTVGenerated": false` are expected. An enabled local XMLTV path instead produces `XMLTVStatus: GENERATED` and `XMLTVPath: output/merged.xml`.
 
 The matching `lineup-plan.md` for the same run:
 
@@ -106,10 +110,12 @@ Generated: 2026-06-30T17:34:56
 
 Merged M3U: output/merged.m3u (2 channels, 0 duplicates excluded, 0 warnings, SHA-256 d938a228b2bcc2bfb91f3e25a7cf2431fa201daf2d2bf7aea014ef4a1918b998)
 
+## XMLTV Result
+- XMLTV output: deferred. Remote XMLTV acquisition is deferred; no local XMLTV source was processed.
+
 Known limitations:
-- XMLTV output: deferred. No programme/EPG guide data source exists yet...
-- Live HTTP provider/EPG fetch: deferred. Only local_playlist files under data/playlists/ are read in this phase.
-- Plex EPG/guide binding: deferred until XMLTV exists. Plex can still play a merged M3U's channels; it will have no guide data.
+- Live HTTP provider/EPG fetch: deferred. Only local M3U and configured local XMLTV files are read.
+- Plex EPG/guide binding: deferred; generated XMLTV is a separate output.
 
 ## Provider M3U Sources
 - Sports (enabled, local playlist configured)

@@ -130,13 +130,16 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 
 ## Lineup build pipeline (Phase 1, issue #7)
 
-`scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists. There is no live HTTP fetch and no XMLTV yet — see "Known limitations" below.
+`scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists and, when configured, imports local XMLTV `.xml`, `.gz`, or single-entry `.zip` sources and writes deterministic `output/merged.xml`. There is no live HTTP fetch — see "Known limitations" below.
 
 A provider source in `provider.json` participates only if it is `enabled` **and** has a `local_playlist` field (a path to a local `.m3u` file, relative to the repository root — see `schemas/provider.schema.json`). A source with no `local_playlist` is skipped, not an error; this is the documented Phase 1 boundary.
 
-Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs — a malformed or unsupported source `url` fails the whole build immediately, even though nothing fetches it yet in Phase 1. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
+Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs. Remote URL values are validated but never dereferenced; enabled local XMLTV path values are passed to `Import-ChannelForgeConfiguredXmltvSource`. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
 
 Each resolved `local_playlist` path is confined to `data/playlists/` via `Assert-ChannelForgeReadPath` before it is read (see "Write guardrails" above) — a `local_playlist` value is operator-supplied configuration, not trusted input, so the same containment logic that protects writes protects this read.
+### Local XMLTV orchestration
+
+Enabled sources are ordered by priority, name, and the configured relative path using ordinal comparisons. The resolved path is used only to open the configured file; it is not used in identifiers, reports, warnings, or artifact ordering. A failed import, merge conflict, `NeedsReview` result, or export/promotion failure fails the XMLTV branch, leaves the public `output/merged.xml` path absent, and preserves any prior artifact only in the non-published rollback area.
 
 ### Provider config resolution (issue #20)
 
@@ -162,9 +165,9 @@ Every field `Export-ChannelForgeM3UPlaylist` writes is passed through the privat
 
 ### Known limitations
 
-- **HTTP provider/EPG fetch: deferred.** Only `local_playlist` files already on disk are read.
-- **XMLTV: deferred, not faked.** `build-summary.json` always reports `XMLTVGenerated: false` with an `XMLTVDeferredReason` explaining why (no programme/guide data source exists yet — see ADR 0005, evidence over assumptions).
-- **Plex EPG/guide binding: deferred until XMLTV exists.** `output/merged.m3u` is playable in Plex today; it has no guide data without XMLTV.
+- **HTTP provider/EPG fetch: deferred.** Only local M3U and configured local XMLTV files are read; URL sources are validated but never fetched.
+- **XMLTV: local-only and fail-closed.** A successful build reports `XMLTVStatus: GENERATED` and a project-relative `XMLTVPath`; a deferred remote-only run reports `DEFERRED_REMOTE_ONLY`; malformed input, conflicts, `NeedsReview`, or output failures report `FAILED` and do not claim an old XMLTV file is current.
+- **Plex EPG/guide binding: deferred.** `output/merged.m3u` and optional `output/merged.xml` are generated artifacts; downstream Plex binding and automatic refresh remain separate work.
 
 See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthrough of testing a real local playlist in Plex under this Phase 1 boundary.
 

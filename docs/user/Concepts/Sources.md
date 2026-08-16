@@ -17,7 +17,7 @@ A source is included in `output/merged.m3u` only if it is **both** `enabled: tru
 
 ## EPG sources are separate
 
-Your provider's M3U sources (above) are a different list from EPG sources (`data/epg/epg_sources.json` or a local equivalent), which describe guide-data feeds rather than channel playlists. EPG sources are currently read and validated, but not fetched — see [XMLTV](XMLTV.md) for why.
+Your provider's M3U sources (above) are a different list from EPG sources (`data/epg/epg_sources.json` or a local equivalent), which describe guide-data inputs rather than channel playlists. Enabled local XMLTV path entries are imported through the local XMLTV pipeline; remote URL entries are read and validated but not fetched. See [XMLTV](XMLTV.md) for the current boundary.
 
 ## Where to go next
 

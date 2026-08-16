@@ -39,6 +39,8 @@ Describe 'Read-ChannelForgeEpgSource' {
         $source[0].Name | Should -Be 'Local XMLTV Fixture'
         $source[0].Format | Should -Be 'xmltv'
         $source[0].Path | Should -Be ([io.path]::GetFullPath((Join-Path (Split-Path $path) 'xmltv\sample.xml')))
+        $source[0].ConfiguredPath | Should -Be 'xmltv/sample.xml'
+        $source[0].ConfigurationIndex | Should -Be 0
         $source[0].Url | Should -Be ''
         $source[0].Supported | Should -BeTrue
         $source[0].UnsupportedReason | Should -Be ''
@@ -48,6 +50,45 @@ Describe 'Read-ChannelForgeEpgSource' {
         $path = Join-Path $RepoRoot 'tests\fixtures\epg-local-source.json'
 
         (Read-ChannelForgeEpgSource -Path $path).Format | Should -Be 'xmltv'
+    }
+
+    It 'uses ConfigurationIndex as the deterministic tie-breaker for equal source keys' {
+        $path = Join-Path $TestDrive 'epg-equal-source-keys.json'
+        $config = @{
+            epg_sources = @(
+                @{
+                    name = 'Same Source'
+                    priority = 10
+                    path = 'guide.xml'
+                    enabled = $true
+                    role = 'primary'
+                }
+                @{
+                    name = 'Same Source'
+                    priority = 10
+                    path = 'guide.xml'
+                    enabled = $true
+                    role = 'primary'
+                }
+            )
+        }
+        $config | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+
+        $firstRun = @(Read-ChannelForgeEpgSource -Path $path)
+        $secondRun = @(Read-ChannelForgeEpgSource -Path $path)
+
+        $firstRun.Count | Should -Be 2
+        $firstRun[0].Priority | Should -Be 10
+        $firstRun[1].Priority | Should -Be 10
+        $firstRun[0].Name | Should -Be 'Same Source'
+        $firstRun[1].Name | Should -Be 'Same Source'
+        $firstRun[0].ConfiguredPath | Should -Be 'guide.xml'
+        $firstRun[1].ConfiguredPath | Should -Be 'guide.xml'
+        $firstRun[0].ConfigurationIndex | Should -Be 0
+        $firstRun[1].ConfigurationIndex | Should -Be 1
+        (@($firstRun | ForEach-Object { $_.ConfigurationIndex }) -join ',') | Should -Be '0,1'
+        (@($secondRun | ForEach-Object { $_.ConfigurationIndex }) -join ',') | Should -Be '0,1'
+        (@($secondRun | ForEach-Object { $_.ConfigurationIndex }) -join ',') | Should -Be ((@($firstRun | ForEach-Object { $_.ConfigurationIndex }) -join ','))
     }
 
     It 'returns URL sources as structurally valid but unsupported for this local-only slice' {

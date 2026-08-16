@@ -29,11 +29,13 @@ Full schema: [`schemas/provider.schema.json`](../../../schemas/provider.schema.j
 | `epg_sources` | Yes | Array of source entries, at least one. |
 | `epg_sources[].name` | Yes | Must be unique in the file. |
 | `epg_sources[].priority` | Yes | Integer; lower runs first. |
-| `epg_sources[].url` | Yes | Treated as a secret, same validation as provider URLs. |
+| `epg_sources[].url` | One of `path`/`url` | Remote HTTPS EPG URL; validated as a sensitive input but not fetched in the local-only build. |
+| `epg_sources[].path` | One of `path`/`url` | Local XMLTV path, resolved relative to the `epg_sources.json` directory; plain `.xml`, gzip `.gz`, and single-entry `.zip` are accepted. |
+| `epg_sources[].format` | No | Optional; defaults to `xmltv`; only `xmltv` is supported. |
 | `epg_sources[].enabled` | Yes | |
 | `epg_sources[].role` | Yes | Free-text role label, e.g. `primary`, `fallback`. |
 
-EPG sources are read and validated today, but not fetched — see [XMLTV](../Concepts/XMLTV.md). Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
+Local EPG path sources are imported by Build-Lineup; remote URL sources are read and validated but not fetched. Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
 
 ## Aliases
 

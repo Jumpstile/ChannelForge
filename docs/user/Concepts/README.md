@@ -9,7 +9,7 @@ If you just want to get a lineup built, start at [Build Your First Lineup](../Bu
 - [Sources](Sources.md) — what a "source" is and how it participates in a build
 - [Providers](Providers.md) — provider config vs. provider data
 - [Channel IDs](Channel-IDs.md) — why ChannelForge treats channel identity as more than a playlist name
-- [XMLTV](XMLTV.md) — what it is and why ChannelForge doesn't generate it yet
+- [XMLTV](XMLTV.md) — what it is and how ChannelForge handles local XMLTV today
 - [Deterministic Lineup Generation](Deterministic-Lineup-Generation.md) — why the same input always produces the same output
 
 For the full engineering detail behind any of these, see the [Architecture](../../architecture/ARCHITECTURE.md) and [Channel Identity Model](../../architecture/CHANNEL_IDENTITY_MODEL.md) documents — these pages summarize and link to them rather than duplicating them.
