@@ -677,6 +677,8 @@ Describe 'ChannelForge pinned connection foundation' {
         $sourceText | Should -Match '(?i)SocketsHttpHandler'
         $sourceText | Should -Match '(?i)ConnectCallback'
         $sourceText | Should -Match '(?i)NetworkStream'
-        $sourceText | Should -Not -Match '(?i)new\s+HttpClient|\.GetAsync|\.SendAsync|HttpRequestMessage\s+\w+|HttpResponseMessage\s+\w+|ReadAs|ResponseHeaders'
+        $sourceText | Should -Match '(?i)AcquireGetAsync'
+        $sourceText | Should -Match '(?i)HttpCompletionOption\.ResponseHeadersRead'
+        $sourceText | Should -Not -Match '(?i)HttpClient\.GetAsync|DefaultRequestHeaders\.Host\s*=|Headers\.Host\s*='
     }
 }

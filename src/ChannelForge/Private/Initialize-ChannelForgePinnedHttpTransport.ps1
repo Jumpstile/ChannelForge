@@ -178,11 +178,11 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
-    if ($contractVersion -ne 3) {
+    if ($contractVersion -ne 4) {
         return [pscustomobject]@{
             Valid = $false
             Category = 'ConflictingContract'
-            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '3'."
+            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '4'."
         }
     }
 
@@ -208,6 +208,41 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
+    $acquisitionOptionsType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeHttpAcquisitionOptions',
+        $false,
+        $false)
+    $payloadType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeHttpsPayload',
+        $false,
+        $false)
+    $statusPolicyType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeHttpStatusPolicy',
+        $false,
+        $false)
+    $statusDispositionType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeHttpStatusDisposition',
+        $false,
+        $false)
+    if ($null -eq $acquisitionOptionsType -or
+        -not $acquisitionOptionsType.IsPublic -or
+        -not $acquisitionOptionsType.IsClass -or
+        $null -eq $payloadType -or
+        -not $payloadType.IsPublic -or
+        -not $payloadType.IsClass -or
+        $null -eq $statusPolicyType -or
+        -not $statusPolicyType.IsPublic -or
+        -not $statusPolicyType.IsEnum -or
+        $null -eq $statusDispositionType -or
+        -not $statusDispositionType.IsPublic -or
+        -not $statusDispositionType.IsEnum) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper does not expose the required v4 acquisition types.'
+        }
+    }
+
     $endpointMethods = @(
         $Type.GetMethods($flags) | Where-Object {
             $parameters = $_.GetParameters()
@@ -224,7 +259,6 @@ function Get-ChannelForgePinnedHttpTransportContractState {
             Detail = 'the loaded helper does not expose exactly one endpoint validation method.'
         }
     }
-
     $endpointReturnType = $endpointMethods[0].ReturnType
     if (-not $endpointReturnType.IsGenericType -or
         $endpointReturnType.GetGenericTypeDefinition().FullName -cne ('System.Threading.Tasks.Task' + [char]96 + '1') -or
@@ -270,6 +304,36 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
+    $acquisitionMethods = @(
+        $Type.GetMethods($internalStaticFlags) | Where-Object {
+            $parameters = $_.GetParameters()
+            $_.Name -ceq 'AcquireGetAsync' -and
+                $_.IsAssembly -and
+                $parameters.Count -eq 3 -and
+                $parameters[0].ParameterType -eq $endpointResultType -and
+                $parameters[1].ParameterType -eq $acquisitionOptionsType -and
+                $parameters[2].ParameterType -eq [System.Threading.CancellationToken]
+        }
+    )
+    if ($acquisitionMethods.Count -ne 1) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper does not expose exactly one internal acquisition method.'
+        }
+    }
+
+    $acquisitionReturnType = $acquisitionMethods[0].ReturnType
+    if (-not $acquisitionReturnType.IsGenericType -or
+        $acquisitionReturnType.GetGenericTypeDefinition().FullName -cne ('System.Threading.Tasks.Task' + [char]96 + '1') -or
+        $acquisitionReturnType.GetGenericArguments()[0] -ne $payloadType) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper acquisition method has the wrong return type.'
+        }
+    }
+
     return [pscustomobject]@{
         Valid = $true
         Category = $null
@@ -280,6 +344,7 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         EndpointResultType = $endpointResultType
         CapabilityMethod = $capabilityMethods[0]
         HandlerFactoryMethod = $factoryMethods[0]
+        AcquisitionMethod = $acquisitionMethods[0]
     }
 }
 
@@ -431,15 +496,19 @@ function New-ChannelForgePinnedHttpTransportResult {
         [string[]]$CompilerWarnings = @(),
 
         [Parameter(Mandatory)]
-        [System.Reflection.MethodInfo]$HandlerFactoryMethod
+        [System.Reflection.MethodInfo]$HandlerFactoryMethod,
+
+        [Parameter(Mandatory)]
+        [System.Reflection.MethodInfo]$AcquisitionMethod
     )
 
     return [pscustomobject]@{
         Type = $Type
-        ContractVersion = 3
+        ContractVersion = 4
         LoadMode = $LoadMode
         CompilerWarnings = @($CompilerWarnings)
         HandlerFactoryMethod = $HandlerFactoryMethod
+        AcquisitionMethod = $AcquisitionMethod
     }
 }
 
@@ -476,8 +545,8 @@ function Initialize-ChannelForgePinnedHttpTransport {
                 -Type $loadedTypes[0] `
                 -LoadMode 'Reused' `
                 -CompilerWarnings @() `
-                -HandlerFactoryMethod $state.HandlerFactoryMethod
-
+                -HandlerFactoryMethod $state.HandlerFactoryMethod `
+                -AcquisitionMethod $state.AcquisitionMethod
             return $script:ChannelForgePinnedHttpTransportInitializationResult
         }
 
@@ -549,8 +618,8 @@ function Initialize-ChannelForgePinnedHttpTransport {
             -Type $loadedTypes[0] `
             -LoadMode 'Compiled' `
             -CompilerWarnings $warningText `
-            -HandlerFactoryMethod $state.HandlerFactoryMethod
-
+            -HandlerFactoryMethod $state.HandlerFactoryMethod `
+            -AcquisitionMethod $state.AcquisitionMethod
         return $script:ChannelForgePinnedHttpTransportInitializationResult
     }
     finally {
