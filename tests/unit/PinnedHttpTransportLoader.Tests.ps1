@@ -197,7 +197,7 @@ namespace ChannelForge.Private.Transport {
     public sealed class ChannelForgeValidatedEndpoint { }
     public static class ChannelForgePinnedHttpTransport {
         public const string ContractName = "ChannelForgePinnedHttpTransport";
-        public const int ContractVersion = 3;
+        public const int ContractVersion = 4;
         public static Task<ChannelForgeValidatedEndpoint> ValidateEndpointAsync(string value, CancellationToken cancellationToken) { return Task.FromResult<ChannelForgeValidatedEndpoint>(null); }
         public static bool HasRequiredCapabilities() { return true; }
     }
@@ -378,7 +378,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 3
+        $result.ContractVersion | Should -Be 4
         $result.Capability | Should -BeTrue
         $result.FirstHelperCount | Should -Be 1
         $result.SecondHelperCount | Should -Be 1
@@ -393,18 +393,18 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Success | Should -BeTrue
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
-        $result.ContractVersion | Should -Be 3
+        $result.ContractVersion | Should -Be 4
         $result.HelperCount | Should -Be 1
     }
 
-    It 'reuses an already-loaded matching v3 helper' {
+    It 'reuses an already-loaded matching v4 helper' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'preloaded-matching'
 
         $result.Success | Should -BeTrue
         $result.Mode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 3
+        $result.ContractVersion | Should -Be 4
         $result.HelperCount | Should -Be 1
     }
 
@@ -428,7 +428,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Message | Should -Match 'ConflictingContract'
     }
 
-    It 'fails closed when a v3 helper has a mismatched endpoint contract shape' {
+    It 'fails closed when a v4 helper has a mismatched endpoint contract shape' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'shape-mismatch'
 
@@ -532,9 +532,10 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
                     Valid = $true
                     Category = $null
                     Detail = $null
-                    ContractVersion = 3
+                    ContractVersion = 4
                     CapabilityMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
                     HandlerFactoryMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
+                    AcquisitionMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
                 }
             }
             Mock Test-ChannelForgePinnedHttpTransportLoadedCapability { return $true }
@@ -568,7 +569,9 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $loaderText | Should -Not -Match '-IgnoreWarnings'
         $loaderText | Should -Not -Match '-CompilerOptions'
         $loaderText | Should -Not -Match '(?i)Invoke-WebRequest|Invoke-RestMethod|Start-BitsTransfer|Install-Module|Install-Package|PackageManagement|HttpClient|Dns\.Get|System\.Net\.Sockets'
-        $sourceText | Should -Not -Match '(?i)new\s+HttpClient|SendAsync|GetAsync|HttpRequestMessage\s+\w+|HttpResponseMessage\s+\w+|ReadAs|ResponseHeaders'
+        $sourceText | Should -Match '(?i)AcquireGetAsync'
+        $sourceText | Should -Match '(?i)ResponseHeadersRead'
+        $sourceText | Should -Not -Match '(?i)HttpClient\.GetAsync|DefaultRequestHeaders\.Host\s*=|Headers\.Host\s*='
     }
 
     It 'leaves local M3U and XMLTV functionality unaffected' {
