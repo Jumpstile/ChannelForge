@@ -17,7 +17,7 @@ param(
     [string]$ModulePath,
 
     [Parameter(Mandatory)]
-    [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'shape-mismatch', 'multiple', 'initialize')]
+    [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
     [string]$Scenario
 )
 
@@ -180,12 +180,25 @@ namespace ChannelForge.Private.Transport {
             break
         }
 
+        'conflicting-v2' {
+            $source = 'namespace ChannelForge.Private.Transport { public static class ChannelForgePinnedHttpTransport { public const string ContractName = "ChannelForgePinnedHttpTransport"; public const int ContractVersion = 2; public static bool HasRequiredCapabilities() { return true; } } }'
+            $null = @(Add-Type -TypeDefinition $source -Language CSharp -PassThru)
+            $result = Invoke-Initializer
+            Write-ChildResult ([pscustomobject]@{ Success = $false; UnexpectedSuccess = $true; Mode = $result.LoadMode })
+            break
+        }
+
         'shape-mismatch' {
             $source = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 namespace ChannelForge.Private.Transport {
+    public sealed class ChannelForgeValidatedEndpoint { }
     public static class ChannelForgePinnedHttpTransport {
         public const string ContractName = "ChannelForgePinnedHttpTransport";
-        public const int ContractVersion = 2;
+        public const int ContractVersion = 3;
+        public static Task<ChannelForgeValidatedEndpoint> ValidateEndpointAsync(string value, CancellationToken cancellationToken) { return Task.FromResult<ChannelForgeValidatedEndpoint>(null); }
         public static bool HasRequiredCapabilities() { return true; }
     }
 }
@@ -262,7 +275,7 @@ catch {
             [string]$ModulePath,
 
             [Parameter(Mandatory)]
-            [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'shape-mismatch', 'multiple', 'initialize')]
+            [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
             [string]$Scenario
         )
 
@@ -307,7 +320,7 @@ function Invoke-PinnedTransportChild {
         [string]$ModulePath,
 
         [Parameter(Mandatory)]
-        [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'shape-mismatch', 'multiple', 'initialize')]
+        [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
         [string]$Scenario
     )
 
@@ -365,7 +378,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 2
+        $result.ContractVersion | Should -Be 3
         $result.Capability | Should -BeTrue
         $result.FirstHelperCount | Should -Be 1
         $result.SecondHelperCount | Should -Be 1
@@ -380,18 +393,18 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Success | Should -BeTrue
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
-        $result.ContractVersion | Should -Be 2
+        $result.ContractVersion | Should -Be 3
         $result.HelperCount | Should -Be 1
     }
 
-    It 'reuses an already-loaded matching v2 helper' {
+    It 'reuses an already-loaded matching v3 helper' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'preloaded-matching'
 
         $result.Success | Should -BeTrue
         $result.Mode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 2
+        $result.ContractVersion | Should -Be 3
         $result.HelperCount | Should -Be 1
     }
 
@@ -405,7 +418,17 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Message | Should -Match 'ConflictingContract'
     }
 
-    It 'fails closed when a v2 helper has a mismatched endpoint contract shape' {
+    It 'fails closed when a v2 helper contract is already loaded' {
+        $modulePath = New-PinnedTransportTestModuleCopy
+        $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'conflicting-v2'
+
+        $result.Success | Should -BeFalse
+        $result.UnexpectedSuccess | Should -BeNullOrEmpty
+        $result.Category | Should -Be 'ConflictingContract'
+        $result.Message | Should -Match 'ConflictingContract'
+    }
+
+    It 'fails closed when a v3 helper has a mismatched endpoint contract shape' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'shape-mismatch'
 
@@ -509,8 +532,9 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
                     Valid = $true
                     Category = $null
                     Detail = $null
-                    ContractVersion = 2
+                    ContractVersion = 3
                     CapabilityMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
+                    HandlerFactoryMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
                 }
             }
             Mock Test-ChannelForgePinnedHttpTransportLoadedCapability { return $true }
@@ -544,7 +568,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $loaderText | Should -Not -Match '-IgnoreWarnings'
         $loaderText | Should -Not -Match '-CompilerOptions'
         $loaderText | Should -Not -Match '(?i)Invoke-WebRequest|Invoke-RestMethod|Start-BitsTransfer|Install-Module|Install-Package|PackageManagement|HttpClient|Dns\.Get|System\.Net\.Sockets'
-        $sourceText | Should -Not -Match '(?i)new\s+SocketsHttpHandler|HttpClient|Socket\.Connect|Socket\.ConnectAsync|TcpClient|NetworkStream|ConnectAsync|GetStream|HttpRequest|ResponseMessage|SendAsync|GetAsync'
+        $sourceText | Should -Not -Match '(?i)new\s+HttpClient|SendAsync|GetAsync|HttpRequestMessage\s+\w+|HttpResponseMessage\s+\w+|ReadAs|ResponseHeaders'
     }
 
     It 'leaves local M3U and XMLTV functionality unaffected' {
