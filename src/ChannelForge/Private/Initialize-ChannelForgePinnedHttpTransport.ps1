@@ -139,6 +139,10 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         [System.Reflection.BindingFlags]::Static -bor
         [System.Reflection.BindingFlags]::DeclaredOnly
 
+    $internalStaticFlags = [System.Reflection.BindingFlags]::NonPublic -bor
+        [System.Reflection.BindingFlags]::Static -bor
+        [System.Reflection.BindingFlags]::DeclaredOnly
+
     $nameField = $Type.GetField('ContractName', $flags)
     $versionField = $Type.GetField('ContractVersion', $flags)
 
@@ -174,11 +178,11 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
-    if ($contractVersion -ne 2) {
+    if ($contractVersion -ne 3) {
         return [pscustomobject]@{
             Valid = $false
             Category = 'ConflictingContract'
-            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '2'."
+            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '3'."
         }
     }
 
@@ -247,6 +251,25 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
+    $factoryMethods = @(
+        $Type.GetMethods($internalStaticFlags) | Where-Object {
+            $parameters = $_.GetParameters()
+            $_.Name -ceq 'CreatePinnedHandler' -and
+                $_.IsAssembly -and
+                $parameters.Count -eq 1 -and
+                $parameters[0].ParameterType -eq $endpointResultType -and
+                $_.ReturnType -eq [System.Net.Http.SocketsHttpHandler]
+        }
+    )
+
+    if ($factoryMethods.Count -ne 1) {
+        return [pscustomobject]@{
+            Valid = $false
+            Category = 'ContractMismatch'
+            Detail = 'the loaded helper does not expose exactly one internal pinned handler factory.'
+        }
+    }
+
     return [pscustomobject]@{
         Valid = $true
         Category = $null
@@ -256,6 +279,7 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         EndpointMethod = $endpointMethods[0]
         EndpointResultType = $endpointResultType
         CapabilityMethod = $capabilityMethods[0]
+        HandlerFactoryMethod = $factoryMethods[0]
     }
 }
 
@@ -404,14 +428,18 @@ function New-ChannelForgePinnedHttpTransportResult {
         [string]$LoadMode,
 
         [Parameter()]
-        [string[]]$CompilerWarnings = @()
+        [string[]]$CompilerWarnings = @(),
+
+        [Parameter(Mandatory)]
+        [System.Reflection.MethodInfo]$HandlerFactoryMethod
     )
 
     return [pscustomobject]@{
         Type = $Type
-        ContractVersion = 2
+        ContractVersion = 3
         LoadMode = $LoadMode
         CompilerWarnings = @($CompilerWarnings)
+        HandlerFactoryMethod = $HandlerFactoryMethod
     }
 }
 
@@ -447,7 +475,8 @@ function Initialize-ChannelForgePinnedHttpTransport {
             $script:ChannelForgePinnedHttpTransportInitializationResult = New-ChannelForgePinnedHttpTransportResult `
                 -Type $loadedTypes[0] `
                 -LoadMode 'Reused' `
-                -CompilerWarnings @()
+                -CompilerWarnings @() `
+                -HandlerFactoryMethod $state.HandlerFactoryMethod
 
             return $script:ChannelForgePinnedHttpTransportInitializationResult
         }
@@ -519,7 +548,8 @@ function Initialize-ChannelForgePinnedHttpTransport {
         $script:ChannelForgePinnedHttpTransportInitializationResult = New-ChannelForgePinnedHttpTransportResult `
             -Type $loadedTypes[0] `
             -LoadMode 'Compiled' `
-            -CompilerWarnings $warningText
+            -CompilerWarnings $warningText `
+            -HandlerFactoryMethod $state.HandlerFactoryMethod
 
         return $script:ChannelForgePinnedHttpTransportInitializationResult
     }

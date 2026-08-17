@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,23 +39,47 @@ namespace ChannelForge.Private.Transport
             bool isLiteralAddress,
             IReadOnlyList<IPAddress> candidates)
         {
+            if (requestUri == null ||
+                string.IsNullOrWhiteSpace(tlsHostName) ||
+                candidates == null)
+            {
+                throw new ArgumentNullException();
+            }
+
+            var snapshot = candidates
+                .Select(address =>
+                {
+                    if (address == null)
+                    {
+                        throw new ArgumentException("The validated endpoint contains a null candidate.", nameof(candidates));
+                    }
+
+                    return new IPAddress(address.GetAddressBytes());
+                })
+                .ToArray();
+
             RequestUri = requestUri;
             TlsHostName = tlsHostName;
             Port = port;
             IsLiteralAddress = isLiteralAddress;
-            Candidates = candidates;
+            Candidates = new ReadOnlyCollection<IPAddress>(snapshot);
         }
     }
 
     public static class ChannelForgePinnedHttpTransport
     {
         public const string ContractName = "ChannelForgePinnedHttpTransport";
-        public const int ContractVersion = 2;
+        public const int ContractVersion = 3;
 
         public const string InvalidEndpointCategory = "InvalidEndpoint";
         public const string DnsFailureCategory = "DnsFailure";
         public const string BlockedDestinationCategory = "BlockedDestination";
         public const string CancelledCategory = "Cancelled";
+        public const string TimeoutCategory = "Timeout";
+        public const string ConnectionFailureCategory = "ConnectionFailure";
+        private static readonly TimeSpan PinnedConnectionTimeout = TimeSpan.FromSeconds(10);
+
+
 
         private static readonly AddressPrefix[] Ipv4DenyPrefixes =
         {
@@ -120,6 +147,255 @@ namespace ChannelForge.Private.Transport
             return handlerType.GetProperty(
                        "ConnectCallback",
                        BindingFlags.Instance | BindingFlags.Public) != null;
+        }
+
+        internal static SocketsHttpHandler CreatePinnedHandler(ChannelForgeValidatedEndpoint endpoint)
+        {
+            ValidateHandlerEndpoint(endpoint, enforceDestinationPolicy: true);
+            return CreatePinnedHandlerCore(endpoint, enforceDestinationPolicy: true);
+        }
+
+        // This internal reflection-only seam is used only by isolated tests that
+        // must bind a local loopback listener. It is not returned by the loader
+        // and is not reachable through a module command.
+        internal static SocketsHttpHandler CreatePinnedHandlerForTest(ChannelForgeValidatedEndpoint endpoint)
+        {
+            ValidateHandlerEndpoint(endpoint, enforceDestinationPolicy: false);
+            return CreatePinnedHandlerCore(endpoint, enforceDestinationPolicy: false);
+        }
+
+        private static SocketsHttpHandler CreatePinnedHandlerCore(
+            ChannelForgeValidatedEndpoint endpoint,
+            bool enforceDestinationPolicy)
+        {
+            var handler = new SocketsHttpHandler
+            {
+                UseProxy = false,
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                AutomaticDecompression = DecompressionMethods.None,
+            };
+
+            // The callback owns the single bounded TCP connection deadline. Do not
+            // configure SocketsHttpHandler.ConnectTimeout with a competing policy.
+            handler.ConnectCallback = (context, cancellationToken) =>
+                ConnectPinnedAsync(endpoint, context, cancellationToken, enforceDestinationPolicy);
+
+            // Future request code must use endpoint.RequestUri as the request URI
+            // and must not override HttpRequestMessage.Headers.Host or
+            // HttpClient.DefaultRequestHeaders.Host.
+            return handler;
+        }
+
+        // This is an internal reflection-only test seam. It is not returned by the
+        // PowerShell loader and is not reachable through a module command.
+        internal static ValueTask<Stream> ConnectPinnedForTest(
+            ChannelForgeValidatedEndpoint endpoint,
+            string contextHost,
+            int contextPort,
+            CancellationToken cancellationToken,
+            TimeSpan connectionTimeout,
+            Func<IPAddress, CancellationToken, ValueTask<Stream>> connector)
+        {
+            if (connector == null)
+            {
+                throw Failure(InvalidEndpointCategory, "the test connector is not available.");
+            }
+
+            return ConnectPinnedCoreAsync(
+                endpoint,
+                contextHost,
+                contextPort,
+                cancellationToken,
+                connectionTimeout,
+                connector,
+                enforceDestinationPolicy: false);
+        }
+
+        private static ValueTask<Stream> ConnectPinnedAsync(
+            ChannelForgeValidatedEndpoint endpoint,
+            SocketsHttpConnectionContext context,
+            CancellationToken cancellationToken,
+            bool enforceDestinationPolicy)
+        {
+            if (context == null || context.DnsEndPoint == null)
+            {
+                throw Failure(InvalidEndpointCategory, "the connection context is missing its endpoint.");
+            }
+
+            return ConnectPinnedCoreAsync(
+                endpoint,
+                context.DnsEndPoint.Host,
+                context.DnsEndPoint.Port,
+                cancellationToken,
+                PinnedConnectionTimeout,
+                null,
+                enforceDestinationPolicy);
+        }
+
+        private static async ValueTask<Stream> ConnectPinnedCoreAsync(
+            ChannelForgeValidatedEndpoint endpoint,
+            string contextHost,
+            int contextPort,
+            CancellationToken cancellationToken,
+            TimeSpan connectionTimeout,
+            Func<IPAddress, CancellationToken, ValueTask<Stream>> connector,
+            bool enforceDestinationPolicy)
+        {
+            ValidateHandlerEndpoint(endpoint, enforceDestinationPolicy);
+
+            if (string.IsNullOrWhiteSpace(contextHost) ||
+                !string.Equals(contextHost, endpoint.TlsHostName, StringComparison.OrdinalIgnoreCase) ||
+                contextPort != endpoint.Port)
+            {
+                throw Failure(InvalidEndpointCategory, "the connection context does not match the validated endpoint.");
+            }
+
+            if (connectionTimeout <= TimeSpan.Zero || connectionTimeout == Timeout.InfiniteTimeSpan)
+            {
+                throw Failure(InvalidEndpointCategory, "the pinned connection timeout is invalid.");
+            }
+
+            var deadline = GetDeadlineTimestamp(connectionTimeout);
+            var timedOut = false;
+
+            foreach (var candidate in endpoint.Candidates)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw Failure(CancelledCategory, "the pinned connection was cancelled.");
+                }
+
+                var remaining = GetRemaining(deadline);
+                if (remaining <= TimeSpan.Zero)
+                {
+                    timedOut = true;
+                    break;
+                }
+
+                using (var timeoutSource = new CancellationTokenSource())
+                using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+                           cancellationToken,
+                           timeoutSource.Token))
+                {
+                    timeoutSource.CancelAfter(remaining);
+
+                    try
+                    {
+                        var operation = connector == null
+                            ? ConnectSocketAsync(candidate, endpoint.Port, linkedSource.Token)
+                            : connector(candidate, linkedSource.Token);
+                        var stream = await operation.AsTask()
+                            .WaitAsync(linkedSource.Token)
+                            .ConfigureAwait(false);
+
+                        if (stream != null)
+                        {
+                            return stream;
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            throw Failure(CancelledCategory, "the pinned connection was cancelled.");
+                        }
+
+                        if (timeoutSource.IsCancellationRequested)
+                        {
+                            timedOut = true;
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        // Candidate-specific failures are intentionally opaque and
+                        // do not expose socket, address, or provider details.
+                    }
+                }
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw Failure(CancelledCategory, "the pinned connection was cancelled.");
+            }
+
+            if (timedOut || GetRemaining(deadline) <= TimeSpan.Zero)
+            {
+                throw Failure(TimeoutCategory, "the pinned connection deadline expired.");
+            }
+
+            throw Failure(ConnectionFailureCategory, "all validated connection candidates failed.");
+        }
+
+        private static async ValueTask<Stream> ConnectSocketAsync(
+            IPAddress candidate,
+            int port,
+            CancellationToken cancellationToken)
+        {
+            Socket socket = null;
+            try
+            {
+                socket = new Socket(candidate.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = true
+                };
+
+                await socket.ConnectAsync(
+                    new IPEndPoint(candidate, port),
+                    cancellationToken).ConfigureAwait(false);
+
+                var stream = new NetworkStream(socket, ownsSocket: true);
+                socket = null;
+                return stream;
+            }
+            catch
+            {
+                socket?.Dispose();
+                throw;
+            }
+        }
+
+        private static long GetDeadlineTimestamp(TimeSpan timeout)
+        {
+            var timeoutTicks = checked((long)(timeout.TotalSeconds * Stopwatch.Frequency));
+            return checked(Stopwatch.GetTimestamp() + timeoutTicks);
+        }
+
+        private static TimeSpan GetRemaining(long deadline)
+        {
+            var remainingTicks = deadline - Stopwatch.GetTimestamp();
+            if (remainingTicks <= 0)
+            {
+                return TimeSpan.Zero;
+            }
+
+            var seconds = remainingTicks / (double)Stopwatch.Frequency;
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        private static void ValidateHandlerEndpoint(ChannelForgeValidatedEndpoint endpoint, bool enforceDestinationPolicy)
+        {
+            if (endpoint == null ||
+                endpoint.RequestUri == null ||
+                !string.Equals(endpoint.RequestUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                endpoint.RequestUri.Port != 443 ||
+                endpoint.Port != 443 ||
+                string.IsNullOrWhiteSpace(endpoint.TlsHostName) ||
+                !string.Equals(endpoint.RequestUri.IdnHost, endpoint.TlsHostName, StringComparison.OrdinalIgnoreCase) ||
+                endpoint.Candidates == null ||
+                endpoint.Candidates.Count == 0 ||
+                endpoint.Candidates.Any(address => address == null ||
+                    (address.AddressFamily != AddressFamily.InterNetwork &&
+                     address.AddressFamily != AddressFamily.InterNetworkV6)))
+            {
+                throw Failure(InvalidEndpointCategory, "the validated endpoint cannot be used for a pinned connection.");
+            }
+
+            if (enforceDestinationPolicy && endpoint.Candidates.Any(IsBlockedAddress))
+            {
+                throw Failure(BlockedDestinationCategory, "the validated endpoint contains a blocked destination.");
+            }
         }
 
         public static async Task<ChannelForgeValidatedEndpoint> ValidateEndpointAsync(
