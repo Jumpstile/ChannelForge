@@ -247,6 +247,34 @@ Automatic HTTP content decompression is disabled so the raw compressed-byte limi
 
 A decompression limit failure is reported as `DecompressionLimitExceeded`. It must not become a successful partial payload.
 
+### Generic bounded decompression (clarification)
+
+This clarifies the shared generic decompression wrapper referenced above. The wrapper is a caller-side layer built on top of the transport's raw `ResponseStream`; it is not part of `ChannelForgePinnedHttpTransport.cs` and does not change the transport contract or `ContractVersion`.
+
+Supported HTTP content codings for this wrapper are exactly:
+
+- `identity`
+- `gzip`
+- `x-gzip`
+
+Any other declared coding -- including `br`, `deflate`, `compress`, and unrecognized tokens -- fails closed as `UnsupportedContentEncoding` before any response byte is read. Brotli and deflate support are not adopted speculatively; a future coding requires its own review.
+
+`Content-Encoding` may list more than one coding. Per RFC 9110, codings are applied in listed order, so the wrapper decodes in the reverse order: the last-listed coding is unwrapped first. For `Content-Encoding: gzip, gzip`, the outer gzip layer is decoded first, then the inner one, deterministically.
+
+ZIP is explicitly out of scope for this wrapper. ZIP is a payload/container format, not an HTTP Content-Encoding token, and the wrapper never inspects payload bytes for ZIP structure, never seeks or buffers the response to stage it, and never opens a `ZipArchive` against transport bytes. A response containing ZIP bytes with no `Content-Encoding` remains raw ZIP payload bytes after this layer; bounded, seekable staging for remote ZIP XMLTV is a separate future architecture decision for the #89 adapter.
+
+The wrapper adds an independent decompressed-byte limit distinct from the raw `ResponseStream` limit above. Callers may request a smaller decompressed limit but may not exceed the 256 MiB hard maximum defined for the raw limit.
+
+Error mapping is deliberate and must not be blurred with adjacent categories:
+
+- A malformed, truncated, or otherwise undecodable compressed stream is `DecompressionFailed`. It must not be reported as `ConnectionFailure`. Truncation detection is best-effort and decoder-dependent: a compressed stream cut short at an arbitrary point does not always produce a decodable-structure error, so the wrapper must never fabricate a success beyond what was actually decoded, but it is not guaranteed to raise `DecompressionFailed` for every truncated input.
+- A declared coding outside the supported set is `UnsupportedContentEncoding`. It must not be reported as `UnsupportedContentType`, which remains reserved for the transport's media-type allowlist.
+- Expanded bytes crossing the configured decompressed limit remains `DecompressionLimitExceeded`, as already defined above.
+
+The wrapper does not add its own timers, retries, or cancellation sources. The raw `ResponseStream`'s existing caller-cancellation, total-deadline, and body-inactivity semantics are the sole source of timeout/cancellation behavior; the wrapper only propagates whatever category the raw stream already raised.
+
+HTTP decompression is not the final content-validity check. Decoder-dependent truncation detection is best-effort, as noted above: a decoder may treat a cleanly truncated compressed stream as early end-of-stream rather than an error, and this layer must not try to close that gap with unreliable footer/CRC validation of its own. Completeness of the decompressed payload is therefore the adapter's responsibility, not this wrapper's: XMLTV adapters must require complete, well-formed XML and must not report acquisition or import success for a document that is truncated or otherwise not well-formed; M3U adapters must enforce their own complete format contract and reject incomplete input the same way. Remote ZIP or other container handling remains a future adapter-level bounded-staging design decision, not something this generic decompression layer takes on.
+
 ### Content-type handling
 
 The transport does not infer payload meaning from content type.
@@ -294,20 +322,22 @@ Credentials still require a dedicated secret-aware configuration boundary. “Fu
 
 Transport failures use deterministic categories:
 
-| Category                     | Meaning                                                              |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `InvalidEndpoint`            | Endpoint URI or host shape failed before DNS/address evaluation      |
-| `DnsFailure`                 | Name resolution failed or returned no usable address                 |
-| `BlockedDestination`         | At least one resolved address was unsafe or not globally routable    |
-| `TlsFailure`                 | TLS negotiation or platform certificate/hostname validation failed   |
-| `Timeout`                    | DNS, connection, headers, body inactivity, or total deadline expired |
-| `RedirectRejected`           | The server returned a 3xx response                                   |
-| `ResponseTooLarge`           | Raw response bytes exceeded the hard limit                           |
-| `DecompressionLimitExceeded` | Expanded bytes exceeded the hard limit                               |
-| `NonSuccessHttpStatus`       | The response status was not authorized by the caller                 |
-| `UnsupportedContentType`     | Declared media type was outside the caller's allowlist               |
-| `ConnectionFailure`          | Direct connection failed after deterministic candidate attempts      |
-| `Cancelled`                  | Caller cancellation was requested                                    |
+| Category                     | Meaning                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `InvalidEndpoint`            | Endpoint URI or host shape failed before DNS/address evaluation                                                            |
+| `DnsFailure`                 | Name resolution failed or returned no usable address                                                                       |
+| `BlockedDestination`         | At least one resolved address was unsafe or not globally routable                                                          |
+| `TlsFailure`                 | TLS negotiation or platform certificate/hostname validation failed                                                         |
+| `Timeout`                    | DNS, connection, headers, body inactivity, or total deadline expired                                                       |
+| `RedirectRejected`           | The server returned a 3xx response                                                                                         |
+| `ResponseTooLarge`           | Raw response bytes exceeded the hard limit                                                                                 |
+| `DecompressionLimitExceeded` | Expanded bytes exceeded the hard limit                                                                                     |
+| `DecompressionFailed`        | A supported content coding was selected but the encoded stream was malformed, truncated, or otherwise could not be decoded |
+| `UnsupportedContentEncoding` | The response declared a content coding not supported by ChannelForge                                                       |
+| `NonSuccessHttpStatus`       | The response status was not authorized by the caller                                                                       |
+| `UnsupportedContentType`     | Declared media type was outside the caller's allowlist                                                                     |
+| `ConnectionFailure`          | Direct connection failed after deterministic candidate attempts                                                            |
+| `Cancelled`                  | Caller cancellation was requested                                                                                          |
 
 A caller-authorized 304 is not an error category, but it is a status-only outcome with no payload. It must not be consumed by payload parsers.
 
