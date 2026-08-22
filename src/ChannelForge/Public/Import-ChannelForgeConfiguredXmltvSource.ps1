@@ -22,9 +22,60 @@ function Import-ChannelForgeConfiguredXmltvSource {
     $supported = if ($propertyNames -contains 'Supported') { [bool]$Source.Supported } else { $true }
     $rawUrl = if ($propertyNames -contains 'Url') { [string]$Source.Url } else { '' }
     $rawPath = if ($propertyNames -contains 'Path') { [string]$Source.Path } else { '' }
+    $sourceKind = if ($propertyNames -contains 'SourceKind' -and
+        -not [string]::IsNullOrWhiteSpace([string]$Source.SourceKind)) {
+        ([string]$Source.SourceKind).Trim().ToLowerInvariant()
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($rawUrl)) {
+        'remote'
+    }
+    else {
+        'local'
+    }
 
-    if (-not $supported -or -not [string]::IsNullOrWhiteSpace($rawUrl)) {
-        throw 'Configured EPG source is remote or otherwise unsupported in the local-only XMLTV slice.'
+    $sourceId = if ($propertyNames -contains 'Name') { [string]$Source.Name } else { '' }
+    $isRemote = $sourceKind -eq 'remote' -or -not [string]::IsNullOrWhiteSpace($rawUrl)
+
+    if ($isRemote) {
+        if (-not $supported) {
+            throw 'Configured EPG source is unsupported.'
+        }
+
+        $opened = $null
+        try {
+            $opened = Open-ChannelForgeRemoteXmltvSourceStream `
+                -Source $Source `
+                -MaxDocumentBytes $MaxDocumentBytes
+
+            return @(Read-ChannelForgeXmltvDocument `
+                -Stream $opened.Stream `
+                -SourceId $sourceId `
+                -SourcePath '' `
+                -SourceKind 'remote' `
+                -SourceReference $opened.SourceReference `
+                -Compression $opened.Compression `
+                -TransportContractVersion $opened.TransportContract `
+                -HttpStatusCode $opened.StatusCode `
+                -ContentType $opened.ContentType `
+                -ContentEncodings $opened.ContentEncodings `
+                -RawContentLength $opened.RawContentLength `
+                -MaxDocumentBytes $MaxDocumentBytes)
+        }
+        finally {
+            if ($null -ne $opened) {
+                if ($null -ne $opened.Stream) {
+                    try { $opened.Stream.Dispose() } catch { }
+                }
+
+                foreach ($resource in @($opened.Resources)) {
+                    try { $resource.Dispose() } catch { }
+                }
+            }
+        }
+    }
+
+    if (-not $supported) {
+        throw 'Configured EPG source is unsupported.'
     }
 
     if ([string]::IsNullOrWhiteSpace($rawPath)) {
@@ -34,8 +85,6 @@ function Import-ChannelForgeConfiguredXmltvSource {
     if ($rawPath -match '^[a-z][a-z0-9+.-]*://') {
         throw 'Configured XMLTV source accepts local file paths only; URL or network sources are not supported.'
     }
-
-    $sourceId = if ($propertyNames -contains 'Name') { [string]$Source.Name } else { '' }
 
     return @(Import-ChannelForgeXmltvSource `
         -Path $rawPath.Trim() `

@@ -21,7 +21,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
         @{
             epg_sources = @(
-                @{ name = 'Public EPG'; priority = 10; url = 'https://example.invalid/epg/public/all-sources.xml.gz'; enabled = $true; role = 'primary' }
+                @{ name = 'Public EPG'; priority = 10; url = 'https://example.invalid/epg/public/all-sources.xml.gz'; enabled = $false; role = 'primary' }
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
 
@@ -53,8 +53,8 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $summary.M3UPath | Should -BeNullOrEmpty
         $summary.M3USha256 | Should -BeNullOrEmpty
         $summary.XMLTVGenerated | Should -BeFalse
-        $summary.XMLTVStatus | Should -Be 'DEFERRED_REMOTE_ONLY'
-    $summary.XMLTVDeferredReason | Should -Match 'remote'
+        $summary.XMLTVStatus | Should -Be 'NOT_CONFIGURED'
+        $summary.XMLTVDeferredReason | Should -Match 'No enabled XMLTV'
         $summary.Status | Should -Be 'SOURCE_OF_TRUTH_VALIDATED'
     }
 
@@ -72,7 +72,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
         $plan | Should -Match 'Merged M3U: not generated'
         $plan | Should -Match 'XMLTV output: deferred'
-        $plan | Should -Match 'HTTP provider/EPG fetch: deferred'
+        $plan | Should -Match 'Remote XMLTV acquisition: bounded HTTPS XMLTV only'
         $plan | Should -Match 'Plex EPG/guide binding: deferred'
     }
 
@@ -157,7 +157,7 @@ https://example.invalid/live/disabled-channel
 
         @{
             epg_sources = @(
-                @{ name = 'Public EPG'; priority = 10; url = 'https://example.invalid/epg/public/all-sources.xml.gz'; enabled = $true; role = 'primary' }
+                @{ name = 'Public EPG'; priority = 10; url = 'https://example.invalid/epg/public/all-sources.xml.gz'; enabled = $false; role = 'primary' }
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
 
@@ -286,7 +286,7 @@ Describe 'Build-Lineup.ps1 (local_playlist path-safety guardrail)' {
                 )
             } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
 
-            @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $true; role = 'primary' }) } |
+            @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $false; role = 'primary' }) } |
                 ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
             @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
             @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
@@ -332,7 +332,7 @@ Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
 
-        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $true; role = 'primary' }) } |
+        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/y'; enabled = $false; role = 'primary' }) } |
             ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
         @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
         @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
@@ -466,7 +466,7 @@ Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
 
-        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/y.xml'; enabled = $true; role = 'primary' }) } |
+        @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/y.xml'; enabled = $false; role = 'primary' }) } |
             ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
         @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
         @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
@@ -726,7 +726,12 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $epgPath = Join-Path $fixtureRoot 'data\epg\epg_sources.json'
         @{ epg_sources = @(@{ name = 'remote-guide'; priority = 10; url = 'https://example.invalid/guide.xml'; enabled = $true; role = 'primary' }) } |
             ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $epgPath -Encoding UTF8
-        & $script:ScriptPath -Root $fixtureRoot
+        Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
+        Mock -CommandName Import-Module -MockWith { }
+        Mock -CommandName Import-ChannelForgeConfiguredXmltvSource -MockWith {
+            throw 'deterministic remote acquisition failure'
+        }
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Configured XMLTV input could not be imported*'
 
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
@@ -734,8 +739,8 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
         $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
 
-        $summary.Status | Should -Be 'M3U_GENERATED'
-        $summary.XMLTVStatus | Should -Be 'DEFERRED_REMOTE_ONLY'
+        $summary.Status | Should -Be 'FAILED'
+        $summary.XMLTVStatus | Should -Be 'FAILED'
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVPath | Should -BeNullOrEmpty
         $summary.XMLTVSha256 | Should -BeNullOrEmpty

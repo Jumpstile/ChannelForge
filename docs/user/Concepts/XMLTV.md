@@ -8,9 +8,9 @@ XMLTV is the standard file format for TV program guide data — what gives Plex 
 
 ## How ChannelForge produces XMLTV today
 
-ChannelForge has a hard rule: it does not fabricate data it cannot verify (see [ADR 0005, evidence over assumptions](../../adr/0005-evidence-over-assumptions.md)). Build-Lineup accepts enabled local XMLTV `path` entries from `epg_sources.json`, with the optional `format` defaulting to `xmltv`. Plain `.xml`, gzip `.gz`, and single-entry `.zip` files are streamed through the existing importer, merged source-aware and deterministically, and written as `output/merged.xml` only after validation and conflict checks succeed.
+ChannelForge has a hard rule: it does not fabricate data it cannot verify (see [ADR 0005, evidence over assumptions](../../adr/0005-evidence-over-assumptions.md)). Build-Lineup accepts enabled local XMLTV `path` entries and remote HTTPS XMLTV `url` entries from `epg_sources.json`, with the optional `format` defaulting to `xmltv`. Local plain `.xml`, gzip `.gz`, and single-entry `.zip` files, plus remote plain XML and supported HTTP content codings, are streamed through the existing importer, merged source-aware and deterministically, and written as `output/merged.xml` only after validation and conflict checks succeed.
 
-Remote URL entries remain structurally valid and are reported as deferred in this local-only slice. No network acquisition, cache, degraded/offline success, or stale-output success path is used.
+Remote HTTPS XMLTV entries are acquired only through the pinned transport on port 443, with no redirects, proxies, credentials, retries, or cache. Plain XML and HTTP identity/gzip/x-gzip content codings are supported; ZIP-over-HTTP and suffix-inferred `.gz` remain unsupported. A remote source is published only after bounded acquisition, decompression, XMLTV validation, deterministic merge, and export all succeed.
 
 A successful local XMLTV build reports `XMLTVStatus: GENERATED`, `XMLTVGenerated: true`, and the project-relative `XMLTVPath`. A failed import, invalid interval, merge conflict, `NeedsReview` result, or export failure reports `XMLTVStatus: FAILED`, leaves the public `output/merged.xml` path absent, and preserves any prior artifact only in the non-published rollback area.
 

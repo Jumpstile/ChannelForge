@@ -200,11 +200,16 @@ foreach ($source in $epgSources) {
         ''
     }
 
+    $hasRemoteUrl = -not [string]::IsNullOrWhiteSpace([string]$source.Url)
+    $hasLocalPath = -not [string]::IsNullOrWhiteSpace([string]$source.Path)
+
     if ($source.Enabled -and $source.Supported -and
         [string]::Equals([string]$source.Format, 'xmltv', [System.StringComparison]::Ordinal) -and
-        [string]::IsNullOrWhiteSpace([string]$source.Url) -and
-        -not [string]::IsNullOrWhiteSpace([string]$source.Path)) {
-        $pathKey = if ([System.IO.Path]::IsPathRooted($configuredPath.Trim())) {
+        (($hasRemoteUrl -and -not $hasLocalPath) -or ($hasLocalPath -and -not $hasRemoteUrl))) {
+        $pathKey = if ($hasRemoteUrl) {
+            ''
+        }
+        elseif ([System.IO.Path]::IsPathRooted($configuredPath.Trim())) {
             ''
         }
         else {
@@ -240,17 +245,17 @@ $xmltvSourceRecords.Sort([System.Comparison[object]]{
     return 0
 })
 
-$localXmltvSources = @($xmltvSourceRecords | ForEach-Object { $_.Source })
-$xmltvSourceCount = $localXmltvSources.Count
+$xmltvSources = @($xmltvSourceRecords | ForEach-Object { $_.Source })
+$xmltvSourceCount = $xmltvSources.Count
 
 if ($xmltvSourceCount -eq 0) {
     if ($xmltvRemoteSourceCount -gt 0) {
-        $xmltvStatus = 'DEFERRED_REMOTE_ONLY'
-        $xmltvDeferredReason = 'Remote XMLTV acquisition is deferred; no local XMLTV source was processed.'
+        $xmltvStatus = 'FAILED'
+        $xmltvFailureReason = 'An enabled remote XMLTV source could not be selected.'
     }
     else {
         $xmltvStatus = 'NOT_CONFIGURED'
-        $xmltvDeferredReason = 'No enabled local XMLTV source is configured.'
+        $xmltvDeferredReason = 'No enabled XMLTV source is configured.'
     }
 }
 else {
@@ -258,7 +263,7 @@ else {
     try {
         $allProgrammes = [System.Collections.Generic.List[object]]::new()
 
-        foreach ($source in $localXmltvSources) {
+        foreach ($source in $xmltvSources) {
             $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource -Source $source)
             foreach ($programme in $sourceProgrammes) {
                 [void]$allProgrammes.Add($programme)
@@ -307,11 +312,18 @@ else {
         $xmltvRelativePath = $null
         $xmltvHash = $null
         $xmltvFailureReason = switch ($xmltvFailureStage) {
-            'import'  { 'Configured local XMLTV input could not be imported.'; break }
+            'import'  {
+                $hasRemoteXmltvSource = @($xmltvSources | Where-Object {
+                    [string]::Equals([string]$_.SourceKind, 'remote', [System.StringComparison]::Ordinal)
+                }).Count -gt 0
+                if ($hasRemoteXmltvSource) { 'Configured XMLTV input could not be imported.' }
+                else { 'Configured local XMLTV input could not be imported.' }
+                break
+            }
             'merge'   { 'Imported XMLTV programmes could not be merged deterministically.'; break }
             'export'  { 'Merged XMLTV programmes could not be serialized.'; break }
             'publish' { 'XMLTV output could not be promoted safely.'; break }
-            default   { 'Local XMLTV build processing failed.'; break }
+            default   { 'XMLTV build processing failed.'; break }
         }
     }
     finally {
@@ -411,7 +423,7 @@ if ($xmltvPreviousOutputPreserved) {
 
 $md += ""
 $md += "Known limitations:"
-$md += '- Remote HTTP provider/EPG fetch: deferred. Only local files are read in this phase.'
+$md += '- Remote XMLTV acquisition: bounded HTTPS XMLTV only; cache, refresh, and other network sources remain deferred.'
 $md += '- Cache, scheduled refresh, provider adapters, and GUI workflows: deferred.'
 $md += '- Plex EPG/guide binding: deferred; generated XMLTV is a separate output.'
 $md += ""

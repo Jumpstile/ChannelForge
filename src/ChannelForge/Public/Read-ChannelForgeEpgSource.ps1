@@ -56,6 +56,7 @@ function Read-ChannelForgeEpgSource {
         $resolvedPath = ''
         $supported = $false
         $unsupportedReason = ''
+        $sourceKind = 'local'
 
         if ($hasUrl) {
             # EPG URLs are an untrusted ingestion boundary; validate shape, never log the value.
@@ -63,7 +64,8 @@ function Read-ChannelForgeEpgSource {
                 throw "EPG source '$($source.name)' has a malformed or unsupported URL."
             }
 
-            $unsupportedReason = 'Remote URL sources are not supported in the local-only XMLTV slice.'
+            $sourceKind = 'remote'
+            $supported = $true
         }
         else {
             $resolvedPath = if ([System.IO.Path]::IsPathRooted($rawPath.Trim())) {
@@ -82,6 +84,7 @@ function Read-ChannelForgeEpgSource {
             Url               = $rawUrl
             ConfiguredPath    = $rawPath.Trim()
             Path              = $resolvedPath
+            SourceKind        = $sourceKind
             Format            = $format
             Enabled           = [bool]$source.enabled
             Role              = $source.role

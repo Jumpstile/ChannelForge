@@ -114,11 +114,14 @@ Describe 'Configured local XMLTV source ingestion' {
         $zip[0].Evidence.SourceId | Should -Be 'configured-fixture'
     }
 
-    It 'rejects URL-backed normalized sources in the local-only adapter' {
+    It 'keeps URL-backed sources in the normalized remote adapter boundary' {
         $configPath = Join-Path $RepoRoot 'data\epg\epg_sources.json'
         $source = @(Read-ChannelForgeEpgSource -Path $configPath)[0]
 
-        { Import-ChannelForgeConfiguredXmltvSource -Source $source } | Should -Throw '*local-only*'
+        $source.SourceKind | Should -Be 'remote'
+        $source.Supported | Should -BeTrue
+        $source.Path | Should -Be ''
+        $source.UnsupportedReason | Should -Be ''
     }
 
     It 'rejects normalized sources with no path or an unsupported format' {
