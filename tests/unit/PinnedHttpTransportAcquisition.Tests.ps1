@@ -70,23 +70,23 @@ function New-Scenario { param([string]$Name,[string]$Address,[System.Collections
 function Get-Scenarios {
     $hostName='transport.test.invalid'
     @(
-        (New-Scenario 'success' '127.0.0.2' ([ordered]@{Success=$true;StatusCode=200;Disposition='Payload';ContentType='application/octet-stream';Body='hello';Sni=$hostName;RequestLine=[ordered]@{Matches='^GET /acquisition-test HTTP/'} }))
-        (New-Scenario '304-default' '127.0.0.3' ([ordered]@{Success=$false;Category='RedirectRejected';StatusCode=304}))
-        (New-Scenario '304-authorized' '127.0.0.4' ([ordered]@{Success=$true;Disposition='MetadataOnly';HasPayload=$false;ResponseStreamNull=$true}))
-        (New-Scenario 'redirect' '127.0.0.5' ([ordered]@{Success=$false;Category='RedirectRejected';StatusCode=302}))
-        (New-Scenario 'status' '127.0.0.6' ([ordered]@{Success=$false;Category='NonSuccessHttpStatus';StatusCode=404}))
-        (New-Scenario 'content-type' '127.0.0.7' ([ordered]@{Success=$false;Category='UnsupportedContentType'}))
-        (New-Scenario 'missing-type' '127.0.0.8' ([ordered]@{Success=$true;Body='hello'}))
-        (New-Scenario 'encoding' '127.0.0.9' ([ordered]@{Success=$true;Encodings=@('gzip','br');Body='hello'}))
-        (New-Scenario 'header-limit' '127.0.0.10' ([ordered]@{Success=$false;Category='ResponseTooLarge';Phase='Headers'}))
-        (New-Scenario 'body-limit' '127.0.0.11' ([ordered]@{Success=$false;Category='ResponseTooLarge';Phase='Body'}))
-        (New-Scenario 'exact-limit' '127.0.0.12' ([ordered]@{Success=$true;Body='abcde'}))
-        (New-Scenario 'inactivity' '127.0.0.13' ([ordered]@{Success=$false;Category='Timeout';Phase='BodyInactivity'}))
-        (New-Scenario 'total' '127.0.0.14' ([ordered]@{Success=$false;Category='Timeout';Phase='Total'}))
-        (New-Scenario 'cancel' '127.0.0.15' ([ordered]@{Success=$false;Category='Cancelled'}))
-        (New-Scenario 'header-timeout' '127.0.0.16' ([ordered]@{Success=$false;Category='Timeout';Phase='Headers'}))
-        (New-Scenario 'tls-mismatch' '127.0.0.17' ([ordered]@{Success=$false;Category='TlsFailure';Phase='Headers'}))
-        (New-Scenario 'source-id' '127.0.0.18' ([ordered]@{Success=$true;Rejected=$true}))
+        (New-Scenario 'success' '127.0.0.2' ([ordered]@{Success=$true;Category=$null;Phase=$null;StatusCode=200;Disposition='Payload';ContentType='application/octet-stream';Encodings=@();HasPayload=$true;ResponseStreamNull=$false;Body='hello';Sni=$hostName;RequestLine='GET /acquisition-test HTTP/1.1'}))
+        (New-Scenario '304-default' '127.0.0.3' ([ordered]@{Success=$false;Category='RedirectRejected';StatusCode=304;Phase='Headers'}))
+        (New-Scenario '304-authorized' '127.0.0.4' ([ordered]@{Success=$true;Category=$null;Phase=$null;StatusCode=304;Disposition='MetadataOnly';ContentType=$null;Encodings=@();HasPayload=$false;ResponseStreamNull=$true;Body=$null;Sni=$hostName;RequestLine='GET /acquisition-test HTTP/1.1'}))
+        (New-Scenario 'redirect' '127.0.0.5' ([ordered]@{Success=$false;Category='RedirectRejected';StatusCode=302;Phase='Headers'}))
+        (New-Scenario 'status' '127.0.0.6' ([ordered]@{Success=$false;Category='NonSuccessHttpStatus';StatusCode=404;Phase='Headers'}))
+        (New-Scenario 'content-type' '127.0.0.7' ([ordered]@{Success=$false;Category='UnsupportedContentType';StatusCode=$null;Phase='Headers'}))
+        (New-Scenario 'missing-type' '127.0.0.8' ([ordered]@{Success=$true;Category=$null;Phase=$null;StatusCode=200;Disposition='Payload';ContentType=$null;Encodings=@();HasPayload=$true;ResponseStreamNull=$false;Body='hello';Sni=$hostName;RequestLine='GET /acquisition-test HTTP/1.1'}))
+        (New-Scenario 'encoding' '127.0.0.9' ([ordered]@{Success=$true;Category=$null;Phase=$null;StatusCode=200;Disposition='Payload';ContentType='application/octet-stream';Encodings=@('gzip','br');HasPayload=$true;ResponseStreamNull=$false;Body='hello';Sni=$hostName;RequestLine='GET /acquisition-test HTTP/1.1'}))
+        (New-Scenario 'header-limit' '127.0.0.10' ([ordered]@{Success=$false;Category='ResponseTooLarge';StatusCode=$null;Phase='Headers'}))
+        (New-Scenario 'body-limit' '127.0.0.11' ([ordered]@{Success=$false;Category='ResponseTooLarge';StatusCode=$null;Phase='Body'}))
+        (New-Scenario 'exact-limit' '127.0.0.12' ([ordered]@{Success=$true;Category=$null;Phase=$null;StatusCode=200;Disposition='Payload';ContentType='application/octet-stream';Encodings=@();HasPayload=$true;ResponseStreamNull=$false;Body='abcde';Sni=$hostName;RequestLine='GET /acquisition-test HTTP/1.1'}))
+        (New-Scenario 'inactivity' '127.0.0.13' ([ordered]@{Success=$false;Category='Timeout';StatusCode=$null;Phase='BodyInactivity'}))
+        (New-Scenario 'total' '127.0.0.14' ([ordered]@{Success=$false;Category='Timeout';StatusCode=$null;Phase='Total'}))
+        (New-Scenario 'cancel' '127.0.0.15' ([ordered]@{Success=$false;Category='Cancelled';StatusCode=$null;Phase='Headers'}))
+        (New-Scenario 'header-timeout' '127.0.0.16' ([ordered]@{Success=$false;Category='Timeout';StatusCode=$null;Phase='Headers'}))
+        (New-Scenario 'tls-mismatch' '127.0.0.17' ([ordered]@{Success=$false;Category='TlsFailure';StatusCode=$null;Phase='Headers'}))
+        (New-Scenario 'source-id' '127.0.0.18' ([ordered]@{Success=$true;Category=$null;Phase=$null;Rejected=$true}))
     )
 }
 function Run-Scenario {
@@ -95,8 +95,8 @@ function Run-Scenario {
     try {
         $chain=New-Certificates $certificateName;$listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Parse([string]$Definition.Address),443);$listener.Start();$milestones.ListenerStarted=$true;$accept=$listener.AcceptTcpClientAsync();$endpoint=New-Endpoint ([string]$Definition.Address);$handler=New-Handler $endpoint;$milestones.HandlerCreated=$true;$policy=[Security.Cryptography.X509Certificates.X509ChainPolicy]::new();$policy.TrustMode=[Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust;$policy.RevocationMode=[Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck;$policy.CustomTrustStore.Add($chain.Root)|Out-Null;$handler.SslOptions.CertificateChainPolicy=$policy
         if($name -eq 'source-id'){try{$null=New-Options -Source 'https://secret.invalid/token';$result=New-Actual ([ordered]@{Success=$false;UnexpectedSuccess=$true}) $milestones}catch{$result=New-Actual ([ordered]@{Success=$true;Rejected=$true;Message=(Safe-Message $_.Exception.Message)}) $milestones}}else{
-            $options=if($name -eq '304-authorized'){New-Options -Policy Allow304MetadataOnly}elseif($name -in @('header-limit','body-limit','exact-limit')){New-Options -Max 5}elseif($name -eq 'missing-type'){New-Options -AllowMissing $true}else{New-Options};$headerTimeout=if($name -eq 'header-timeout'){[TimeSpan]::FromMilliseconds(100)}else{[TimeSpan]::FromSeconds(2)};$bodyTimeout=if($name -eq 'inactivity'){[TimeSpan]::FromMilliseconds(100)}else{[TimeSpan]::FromSeconds(2)};$totalTimeout=[TimeSpan]::FromSeconds(3);if($name -eq 'cancel'){$cancellation.CancelAfter(100)};$task=Start-Acquisition $endpoint $options $handler $headerTimeout $bodyTimeout $totalTimeout $cancellation.Token;$milestones.AcquisitionStarted=$true;if(-not $accept.Wait(5000)){throw 'local listener received no connection'};$client=$accept.GetAwaiter().GetResult();$milestones.ConnectionAccepted=$true;$ssl=[Net.Security.SslStream]::new($client.GetStream(),$false);$sslOptions=[Net.Security.SslServerAuthenticationOptions]::new();$script:TlsSelector.GetField('Certificate').SetValue($null,$chain.Server);$script:TlsSelector.GetField('ServerName').SetValue($null,$null);$sslOptions.ServerCertificateSelectionCallback=$script:TlsSelectionCallback;$milestones.TlsHandshakeStarted=$true
-            try{$null=$ssl.AuthenticateAsServerAsync($sslOptions).GetAwaiter().GetResult();$sni.Name=[string]$script:TlsSelector.GetField('ServerName').GetValue($null);$milestones.TlsHandshakeCompleted=$true}catch{$sni.Name=[string]$script:TlsSelector.GetField('ServerName').GetValue($null);if($name -eq 'tls-mismatch'){$result=New-Actual ([ordered]@{Success=$false;Category='TlsFailure';Phase='Tls';Message=(Safe-Message $_.Exception.Message);Sni=$sni.Name}) $milestones}else{throw}}
+            $options=if($name -eq '304-authorized'){New-Options -Policy Allow304MetadataOnly}elseif($name -in @('header-limit','body-limit','exact-limit')){New-Options -Max 5}elseif($name -eq 'missing-type'){New-Options -AllowMissing $true}else{New-Options};$headerTimeout=if($name -eq 'header-timeout'){[TimeSpan]::FromMilliseconds(100)}else{[TimeSpan]::FromSeconds(2)};$bodyTimeout=if($name -eq 'inactivity'){[TimeSpan]::FromMilliseconds(100)}else{[TimeSpan]::FromSeconds(2)};$totalTimeout=[TimeSpan]::FromSeconds(3);if($name -eq 'cancel'){$cancellation.CancelAfter(100)};$task=Start-Acquisition $endpoint $options $handler $headerTimeout $bodyTimeout $totalTimeout $cancellation.Token;$milestones.AcquisitionStarted=$true;if(-not $accept.Wait(5000)){throw 'local listener received no connection'};$client=$accept.GetAwaiter().GetResult();$milestones.ConnectionAccepted=$true;$ssl=[Net.Security.SslStream]::new($client.GetStream(),$false);$sslOptions=[Net.Security.SslServerAuthenticationOptions]::new();$tlsCallbacks=[ChannelForgePinnedAcquisitionTlsCallbacks]::new($chain.Server,'transport.test.invalid');$sslOptions.ServerCertificateSelectionCallback=$tlsCallbacks.CreateSelectionCallback();$milestones.TlsHandshakeStarted=$true
+            try{$null=$ssl.AuthenticateAsServerAsync($sslOptions).GetAwaiter().GetResult();$sni.Name=[string]$tlsCallbacks.ServerName;$milestones.TlsHandshakeCompleted=$true}catch{$sni.Name=[string]$tlsCallbacks.ServerName;if($name -eq 'tls-mismatch'){$result=New-Actual ([ordered]@{Success=$false;Category='TlsFailure';Phase='Tls';Message=(Safe-Message $_.Exception.Message);Sni=$sni.Name}) $milestones}else{throw}}
             if($null -eq $result){if($name -eq 'header-timeout'){try{$null=$task.GetAwaiter().GetResult();$result=New-Actual ([ordered]@{Success=$false;UnexpectedSuccess=$true;Sni=$sni.Name}) $milestones}catch{$d=Get-Details $_.Exception;$result=New-Actual ([ordered]@{Success=$false;Category=$d.Category;Phase=$d.Phase;Sni=$sni.Name;Message=$d.Message}) $milestones}}else{
                 $requestBytes=[byte[]]::new(8192);$requestReadTask=$ssl.ReadAsync($requestBytes,0,$requestBytes.Length);if($task.Wait(500) -and $task.IsFaulted){$d=Get-Details $task.Exception;$result=New-Actual ([ordered]@{Success=$false;Category=$d.Category;Phase=$d.Phase;StatusCode=$d.StatusCode;Sni=$sni.Name;Message=$d.Message}) $milestones};if($null -eq $result){if(-not $requestReadTask.Wait(5000)){throw 'local TLS server did not receive the HTTP request'};$request=[Text.Encoding]::ASCII.GetString($requestBytes,0,$requestReadTask.Result);$milestones.RequestReceived=$true;$body=[Text.Encoding]::UTF8.GetBytes('hello');$code=200;$reason='OK';$headers=@('Content-Type: application/octet-stream');$chunked=$false;$headersOnly=$false;switch($name){'304-default'{$code=304;$reason='Not Modified';$headers=@()};'304-authorized'{$code=304;$reason='Not Modified';$headers=@()};'redirect'{$code=302;$reason='Found';$headers=@('Location: https://redirect.test.invalid/next')};'status'{$code=404;$reason='Not Found';$headers=@()};'content-type'{$headers=@('Content-Type: text/plain')};'missing-type'{$headers=@()};'encoding'{$headers=@('Content-Type: application/octet-stream','Content-Encoding: gzip','Content-Encoding: br')};'header-limit'{$body=[Text.Encoding]::UTF8.GetBytes('hello world')};'body-limit'{$body=[Text.Encoding]::UTF8.GetBytes('abcdef');$chunked=$true};'exact-limit'{$body=[Text.Encoding]::UTF8.GetBytes('abcde');$chunked=$true};'inactivity'{$headersOnly=$true};'total'{$headersOnly=$true};'cancel'{$headersOnly=$true}};Send-Response $ssl $code $reason $body $headers -Chunked:$chunked -HeadersOnly:$headersOnly;$milestones.ResponseSent=$true;try{$payload=$task.GetAwaiter().GetResult();$milestones.PayloadAcquired=$true}catch{$d=Get-Details $_.Exception;$result=New-Actual ([ordered]@{Success=$false;Category=$d.Category;Phase=$d.Phase;StatusCode=$d.StatusCode;Sni=$sni.Name;RequestLine=if($request){($request -split '\r?\n')[0]}else{$null};Message=$d.Message}) $milestones};if($null -eq $result){if($name -in @('inactivity','total','cancel')){$readCancellation=$null;try{if($name -eq 'total'){Start-Sleep -Milliseconds 3200};if($name -eq 'cancel'){$readCancellation=[Threading.CancellationTokenSource]::new();$readCancellation.CancelAfter(100);$null=$payload.ResponseStream.ReadAsync([byte[]]::new(32),0,32,$readCancellation.Token).GetAwaiter().GetResult()}else{$null=$payload.ResponseStream.Read([byte[]]::new(32),0,32)};$result=New-Actual ([ordered]@{Success=$false;UnexpectedSuccess=$true;Sni=$sni.Name}) $milestones}catch{$d=Get-Details $_.Exception;$result=New-Actual ([ordered]@{Success=$false;Category=$d.Category;Phase=$d.Phase;Sni=$sni.Name;Message=$d.Message}) $milestones}finally{if($readCancellation){$readCancellation.Dispose()}}}else{$bodyText=if($payload.HasPayload){Read-Body $payload $milestones}else{$null};$result=New-Actual ([ordered]@{Success=$true;StatusCode=$payload.StatusCode;Disposition=[string]$payload.StatusDisposition;ContentType=$payload.ContentType;Encodings=@($payload.ContentEncodings);HasPayload=$payload.HasPayload;ResponseStreamNull=$null -eq $payload.ResponseStream;Body=$bodyText;Sni=$sni.Name;RequestLine=($request -split '\r?\n')[0]}) $milestones}}}
             }}
@@ -110,12 +110,56 @@ function Run-Scenario {
 }
 function Get-Property { param($Object,[string]$Name) if($Object -is [System.Collections.IDictionary]){if($Object.Contains($Name)){return [pscustomobject]@{Present=$true;Value=$Object[$Name]}};return [pscustomobject]@{Present=$false;Value=$null}};$property=$Object.PSObject.Properties[$Name];if($null -eq $property){return [pscustomobject]@{Present=$false;Value=$null}};[pscustomobject]@{Present=$true;Value=$property.Value} }
 function Test-Value { param($Actual,$Expected) if($Expected -is [System.Collections.IDictionary] -and $Expected.Contains('Matches')){return [regex]::IsMatch([string]$Actual,[string]$Expected['Matches'])};if($Expected -is [System.Array] -or $Actual -is [System.Array]){$a=@($Actual);$e=@($Expected);if($a.Count -ne $e.Count){return $false};for($i=0;$i -lt $a.Count;$i++){if(-not (Test-Value $a[$i] $e[$i])){return $false}};return $true};if($Expected -is [bool]){return [bool]$Actual -eq [bool]$Expected};if($null -eq $Expected){return $null -eq $Actual};[string]$Actual -ceq [string]$Expected }
-function Compare-Outcome { param($Actual,[System.Collections.IDictionary]$Expected) $mismatches=[Collections.Generic.List[string]]::new();foreach($entry in $Expected.GetEnumerator()){$property=Get-Property $Actual $entry.Key;if(-not $property.Present){$mismatches.Add("$($entry.Key) missing")}elseif(-not (Test-Value $property.Value $entry.Value)){$mismatches.Add("$($entry.Key) expected $([string]$entry.Value), actual $([string]$property.Value)")}};[pscustomobject]@{Matched=$mismatches.Count -eq 0;Mismatches=$mismatches.ToArray()} }
+function Compare-Outcome { param($Actual,[System.Collections.IDictionary]$Expected)
+    $mismatches=[Collections.Generic.List[string]]::new()
+    foreach($entry in $Expected.GetEnumerator()){
+        $property=Get-Property $Actual $entry.Key
+        if(-not $property.Present){
+            if($null -eq $entry.Value -and $entry.Key -in @('Category','Phase','StatusCode')){continue}
+            $mismatches.Add("$($entry.Key) missing")
+        }elseif(-not (Test-Value $property.Value $entry.Value)){
+            $mismatches.Add("$($entry.Key) expected $([string]$entry.Value), actual $([string]$property.Value)")
+        }
+    }
+    [pscustomobject]@{Matched=$mismatches.Count -eq 0;Mismatches=$mismatches.ToArray()}
+}
 try {
     Import-Module (Join-Path $ModulePath 'ChannelForge.psd1') -Force
     $script:Helper=Get-HelperType
-    $script:TlsSelector=Add-Type -TypeDefinition 'using System;using System.Security.Cryptography.X509Certificates;public static class ChannelForgePinnedAcquisitionTlsSelector { public static X509Certificate2 Certificate; public static string ServerName; public static X509Certificate Select(object sender,string serverName){ServerName=serverName;return Certificate;} }' -PassThru | Select-Object -First 1
-    $script:TlsSelectionCallback=$script:TlsSelector.GetMethod('Select').CreateDelegate([Net.Security.ServerCertificateSelectionCallback])
+    $script:TlsCallbackType = Add-Type -TypeDefinition @"
+using System;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading;
+
+public sealed class ChannelForgePinnedAcquisitionTlsCallbacks
+{
+    private readonly X509Certificate2 _certificate;
+    private readonly string _expectedServerName;
+    private string _serverName;
+    private int _selectionCount;
+
+    public ChannelForgePinnedAcquisitionTlsCallbacks(X509Certificate2 certificate, string expectedServerName)
+    {
+        _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
+        _expectedServerName = expectedServerName ?? throw new ArgumentNullException(nameof(expectedServerName));
+    }
+
+    public string ServerName => Volatile.Read(ref _serverName);
+    public int SelectionCount => Volatile.Read(ref _selectionCount);
+    public bool ServerNameMatchesExpected =>
+        string.Equals(ServerName, _expectedServerName, StringComparison.OrdinalIgnoreCase);
+
+    public ServerCertificateSelectionCallback CreateSelectionCallback() => Select;
+
+    public X509Certificate Select(object sender, string serverName)
+    {
+        Volatile.Write(ref _serverName, serverName);
+        Interlocked.Increment(ref _selectionCount);
+        return _certificate;
+    }
+}
+"@ -PassThru | Select-Object -First 1
     $definitions=@(Get-Scenarios)
     if($definitions.Count -ne 17){throw "expected 17 acquisition scenarios, found $($definitions.Count)"}
     if(@($definitions|ForEach-Object{$_.Name}|Sort-Object -Unique).Count -ne $definitions.Count){throw 'scenario names are not unique'}
