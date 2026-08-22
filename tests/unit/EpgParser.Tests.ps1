@@ -91,15 +91,16 @@ Describe 'Read-ChannelForgeEpgSource' {
         (@($secondRun | ForEach-Object { $_.ConfigurationIndex }) -join ',') | Should -Be ((@($firstRun | ForEach-Object { $_.ConfigurationIndex }) -join ','))
     }
 
-    It 'returns URL sources as structurally valid but unsupported for this local-only slice' {
+    It 'returns URL sources as structurally valid remote XMLTV sources' {
         $path = Join-Path $RepoRoot 'data\epg\epg_sources.json'
 
         $source = @(Read-ChannelForgeEpgSource -Path $path)[0]
 
         $source.Format | Should -Be 'xmltv'
-        $source.Supported | Should -BeFalse
+        $source.Supported | Should -BeTrue
         $source.Path | Should -Be ''
-        $source.UnsupportedReason | Should -Match 'local-only'
+        $source.SourceKind | Should -Be 'remote'
+        $source.UnsupportedReason | Should -Be ''
     }
 
     It 'rejects an unsupported source format' {

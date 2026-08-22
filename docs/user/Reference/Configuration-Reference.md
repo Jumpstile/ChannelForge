@@ -29,13 +29,13 @@ Full schema: [`schemas/provider.schema.json`](../../../schemas/provider.schema.j
 | `epg_sources`            | Yes                 | Array of source entries, at least one.                                                                                                   |
 | `epg_sources[].name`     | Yes                 | Must be unique in the file.                                                                                                              |
 | `epg_sources[].priority` | Yes                 | Integer; lower runs first.                                                                                                               |
-| `epg_sources[].url`      | One of `path`/`url` | Remote HTTPS EPG URL; validated as a sensitive input but not fetched in the local-only build.                                            |
+| `epg_sources[].url`      | One of `path`/`url` | Remote HTTPS XMLTV URL; acquired through the pinned port-443 transport with strict XML content types and no redirect/proxy/credential/retry path. |
 | `epg_sources[].path`     | One of `path`/`url` | Local XMLTV path, resolved relative to the `epg_sources.json` directory; plain `.xml`, gzip `.gz`, and single-entry `.zip` are accepted. |
 | `epg_sources[].format`   | No                  | Optional; defaults to `xmltv`; only `xmltv` is supported.                                                                                |
 | `epg_sources[].enabled`  | Yes                 |                                                                                                                                          |
 | `epg_sources[].role`     | Yes                 | Free-text role label, e.g. `primary`, `fallback`.                                                                                        |
 
-Local EPG path sources are imported by Build-Lineup; remote URL sources are read and validated but not fetched. Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
+Local EPG paths retain `.xml`, `.gz`, and single-entry `.zip` support. Remote URLs support plain XML plus HTTP identity/gzip/x-gzip codings only; cache, scheduling, ZIP-over-HTTP, and degraded publication remain out of scope. Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
 
 ## Aliases
 

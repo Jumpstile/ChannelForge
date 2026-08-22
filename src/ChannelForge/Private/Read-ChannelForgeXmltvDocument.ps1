@@ -7,17 +7,40 @@ function Read-ChannelForgeXmltvDocument {
         [Parameter(Mandatory)]
         [string]$SourceId,
 
-        [Parameter(Mandatory)]
-        [string]$SourcePath,
+        [AllowEmptyString()]
+        [string]$SourcePath = '',
 
         [ValidateSet('none', 'gzip', 'zip')]
         [string]$Compression = 'none',
+
+        [ValidateSet('local', 'remote')]
+        [string]$SourceKind = 'local',
+
+        [AllowEmptyString()]
+        [string]$SourceReference = '',
+
+        [int]$TransportContractVersion = 0,
+
+        [int]$HttpStatusCode = 0,
+
+        [AllowEmptyString()]
+        [string]$ContentType = '',
+
+        [AllowEmptyCollection()]
+        [string[]]$ContentEncodings = @(),
+
+        [AllowNull()]
+        [Nullable[long]]$RawContentLength,
 
         [long]$MaxDocumentBytes = 268435456
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceId)) {
         throw 'XMLTV SourceId cannot be empty.'
+    }
+
+    if ($SourceKind -eq 'remote' -and [string]::IsNullOrWhiteSpace($SourceReference)) {
+        throw 'Remote XMLTV SourceReference cannot be empty.'
     }
 
     if ($MaxDocumentBytes -le 0) {
@@ -234,8 +257,25 @@ function Read-ChannelForgeXmltvDocument {
             throw 'XMLTV document is empty.'
         }
 
+        $documentBytes = 0
         if ($Stream -is [BoundedStream]) {
+            # Preserve the local BoundedStream limit probe and byte accounting.
             $Stream.EnsureWithinLimit()
+            $documentBytes = $Stream.BytesRead
+        }
+        elseif ($Stream -is [BoundedDecompressionStream]) {
+            # This stream is already the decompressed-byte boundary. Drain it
+            # without wrapping it so truncated codings and trailing bytes are
+            # observed before a document is considered Fetched.
+            $drainBuffer = [byte[]]::new(8192)
+            while ($true) {
+                $read = $Stream.Read($drainBuffer, 0, $drainBuffer.Length)
+                if ($read -eq 0) {
+                    break
+                }
+            }
+
+            $documentBytes = $Stream.BytesRead
         }
 
         $comparison = [System.Comparison[Programme]]{
@@ -271,13 +311,22 @@ function Read-ChannelForgeXmltvDocument {
         }
 
         $programmes.Sort($comparison)
-        $evidence = New-ChannelForgeXmltvEvidenceRecord `
-            -SourceId $SourceId `
-            -SourcePath $SourcePath `
-            -Compression $Compression `
-            -ProgrammeCount $programmes.Count `
-            -ChannelCount $channelIds.Count `
-            -DocumentBytes $(if ($Stream -is [BoundedStream]) { $Stream.BytesRead } else { 0 })
+        $evidenceParameters = @{
+            SourceId       = $SourceId
+            SourcePath     = $SourcePath
+            Compression    = $Compression
+            SourceKind     = $SourceKind
+            SourceReference = $SourceReference
+            TransportContractVersion = $TransportContractVersion
+            HttpStatusCode  = $HttpStatusCode
+            ContentType     = $ContentType
+            ContentEncodings = $ContentEncodings
+            RawContentLength = $RawContentLength
+            ProgrammeCount  = $programmes.Count
+            ChannelCount    = $channelIds.Count
+            DocumentBytes   = $documentBytes
+        }
+        $evidence = New-ChannelForgeXmltvEvidenceRecord @evidenceParameters
 
         foreach ($programme in $programmes) {
             $programme.Evidence = $evidence
