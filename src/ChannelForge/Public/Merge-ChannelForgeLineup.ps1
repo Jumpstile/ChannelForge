@@ -1,10 +1,10 @@
 function Merge-ChannelForgeLineup {
     [CmdletBinding()]
     param(
-        # Each entry: a pscustomobject with Path (local .m3u file), Provider,
-        # and Playlist. HTTP fetch is explicitly out of scope for this
-        # function (see issue #7 Phase 1) - every Path must already exist on
-        # disk before calling this.
+        # Each entry may provide Path (a local .m3u file) or already-parsed
+        # Channels from a configured adapter, plus Provider and Playlist.
+        # The adapter owns acquisition and format validation; this function
+        # owns deterministic normalization, deduplication, and numbering.
         [Parameter(Mandatory)]
         [psobject[]]$Source,
 
@@ -15,16 +15,26 @@ function Merge-ChannelForgeLineup {
         [string]$NumberingBlocksPath
     )
 
-    # Deterministic merge pipeline (issue #7 Phase 1): sort sources by path
-    # before parsing anything, so caller-supplied ordering (e.g. an
-    # unsorted directory listing) can never affect the result. The same
-    # input files must always produce the same channel set in the same
-    # order, byte-for-byte, on every run.
-    $sortedSource = @($Source | Sort-Object { $_.Path })
+    # Prefer the caller's stable, path-independent OrderKey for configured
+    # remote sources. Existing local callers without OrderKey retain their
+    # historical path ordering exactly.
+    $sortedSource = @($Source | Sort-Object {
+        if ($_.PSObject.Properties.Name -contains 'OrderKey') {
+            [string]$_.OrderKey
+        }
+        else {
+            [string]$_.Path
+        }
+    })
 
     $channels = [System.Collections.Generic.List[Channel]]::new()
     foreach ($src in $sortedSource) {
-        $parsed = Import-ChannelForgeM3UPlaylist -Path $src.Path -Provider $src.Provider -Playlist $src.Playlist
+        $parsed = if ($src.PSObject.Properties.Name -contains 'Channels') {
+            @($src.Channels)
+        }
+        else {
+            Import-ChannelForgeM3UPlaylist -Path $src.Path -Provider $src.Provider -Playlist $src.Playlist
+        }
         foreach ($ch in $parsed) {
             $channels.Add($ch)
         }

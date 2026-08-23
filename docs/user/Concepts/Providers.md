@@ -15,7 +15,8 @@ See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md) for the full setu
 
 - **Does:** read and validate your provider's configured sources, including a URL trust-boundary check (so a malformed URL fails the build early).
 - **Does:** read a local playlist file you've already downloaded from your provider.
-- **Does not yet:** connect to your provider directly over HTTP to fetch a playlist or guide data. You're responsible for downloading your playlist file yourself — see [Current Limitations](../CURRENT_LIMITATIONS.md).
+- **Does:** acquire an enabled source without `local_playlist` through the bounded HTTPS/443 remote M3U path, with the disposable 24-hour fetch cache and the same parser used for local playlists.
+- **Does not:** authenticate to providers, follow redirects, use proxies, or publish stale/degraded cache data. Guide acquisition and binding are separate source paths — see [Current Limitations](../CURRENT_LIMITATIONS.md).
 
 ## Why provider labels aren't the final word on channel identity
 

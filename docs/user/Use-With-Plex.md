@@ -14,7 +14,7 @@ If you haven't built a lineup yet, start at [Build Your First Lineup](Build-Your
 
 ## What won't work yet
 
-- **No automatic guide binding.** Plex will not consume ChannelForge's separate XMLTV output automatically; configure the guide path explicitly when using a local XMLTV source. Remote EPG acquisition remains deferred.
+- **No automatic guide binding.** Plex will not consume ChannelForge's separate XMLTV output automatically; configure the guide path explicitly when using a local or remote XMLTV source. ChannelForge's remote XMLTV acquisition remains bounded HTTPS/443, but downstream Plex binding is separate.
 - **No automatic refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at it (or refreshing if already pointed there) is a manual step in Plex.
 
 ## Point Plex at your lineup

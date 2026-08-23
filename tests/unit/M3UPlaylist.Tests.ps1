@@ -40,4 +40,18 @@ Describe 'Import-ChannelForgeM3UPlaylist' {
     It 'throws when the playlist file is missing' {
         { Import-ChannelForgeM3UPlaylist -Path '.\missing.m3u' } | Should -Throw
     }
+
+    It 'requires #EXTM3U and rejects the same incomplete records as remote input' {
+        foreach ($content in @(
+            "not-m3u`n#EXTINF:-1,Channel`nhttps://example.invalid/live/channel`n",
+            "#EXTM3U`n#EXTINF:-1,Channel`n",
+            "#EXTM3U`n#EXTINF:-1,First`n#EXTINF:-1,Second`nhttps://example.invalid/live/second`n"
+        )) {
+            $path = Join-Path $TestDrive ([guid]::NewGuid().ToString() + '.m3u')
+            [io.file]::WriteAllText($path, $content, [text.utf8encoding]::new($false))
+
+            { Import-ChannelForgeM3UPlaylist -Path $path -Provider 'fixture' -Playlist 'invalid' } |
+                Should -Throw
+        }
+    }
 }

@@ -9,81 +9,39 @@ function Import-ChannelForgeM3UPlaylist {
         [string]$Playlist = ''
     )
 
-    # M3U playlists are external input and must be treated as untrusted.
-    # This parser only reads from disk and returns Channel domain objects.
-    # It does not modify production data.
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "M3U playlist not found: $Path"
     }
 
-    $lines = Get-Content -LiteralPath $Path
-    $channels = [System.Collections.ArrayList]::new()
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $fileStream = $null
+    $reader = $null
+    try {
+        $fileStream = [System.IO.FileStream]::new(
+            $fullPath,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read,
+            8192,
+            [System.IO.FileOptions]::SequentialScan)
+        $reader = [System.IO.StreamReader]::new(
+            $fileStream,
+            [System.Text.UTF8Encoding]::new($false, $true),
+            $true,
+            8192,
+            $false)
 
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $line = $lines[$i]
-
-        if ($line -notlike '#EXTINF:*') {
-            continue
-        }
-
-        # The display name appears after the final comma in the EXTINF line.
-        $displayName = ''
-        $commaIndex = $line.LastIndexOf(',')
-        if ($commaIndex -ge 0 -and $commaIndex -lt ($line.Length - 1)) {
-            $displayName = $line.Substring($commaIndex + 1).Trim()
-        }
-
-        if ([string]::IsNullOrWhiteSpace($displayName)) {
-            $displayName = 'Unknown Channel'
-        }
-
-        # Extract common M3U attributes. Missing attributes are allowed.
-        $tvgId = ''
-        $tvgName = ''
-        $logo = ''
-        $group = ''
-
-        if ($line -match 'tvg-id="([^"]*)"') {
-            $tvgId = $Matches[1]
-        }
-
-        if ($line -match 'tvg-name="([^"]*)"') {
-            $tvgName = $Matches[1]
-        }
-
-        if ($line -match 'tvg-logo="([^"]*)"') {
-            $logo = $Matches[1]
-        }
-
-        if ($line -match 'group-title="([^"]*)"') {
-            $group = $Matches[1]
-        }
-
-        # The stream URL is the next non-comment line after #EXTINF. Do not
-        # advance $i here: the loop's own iteration over that line will see
-        # it doesn't match '#EXTINF:*' and simply continue, so this is not
-        # double-processed.
-        $url = ''
-        if ($i + 1 -lt $lines.Count) {
-            $candidateUrl = $lines[$i + 1]
-            if (-not [string]::IsNullOrWhiteSpace($candidateUrl) -and -not $candidateUrl.TrimStart().StartsWith('#')) {
-                $url = $candidateUrl.Trim()
-            }
-        }
-
-        $channel = New-ChannelForgeChannel `
+        return @(Read-ChannelForgeM3UReader `
+            -Reader $reader `
             -Provider $Provider `
-            -Playlist $Playlist `
-            -OriginalName $displayName `
-            -DisplayName $displayName `
-            -TvgId $tvgId `
-            -TvgName $tvgName `
-            -Logo $logo `
-            -Group $group `
-            -Url $url
-
-        [void]$channels.Add($channel)
+            -Playlist $Playlist)
     }
-
-    return $channels
+    finally {
+        if ($null -ne $reader) {
+            $reader.Dispose()
+        }
+        elseif ($null -ne $fileStream) {
+            $fileStream.Dispose()
+        }
+    }
 }

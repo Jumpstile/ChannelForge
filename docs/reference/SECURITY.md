@@ -26,6 +26,12 @@ A real local M3U playlist (referenced from a `local_playlist` field, see issue #
 
 These files are for the local machine only. Do not copy real values into examples, tests, docs, build reports, or issue comments.
 
+## Remote M3U Disposable Cache
+
+An enabled provider source without `local_playlist` may be acquired through the bounded HTTPS/443 transport. The disposable cache under `output/cache/remote-m3u/` stores decompressed M3U payload bytes, so it may contain playable stream URLs or provider-issued tokenized URLs and must be treated as sensitive local data. It is ignored generated output, not a source snapshot or durable provider store; deleting it is a safe recovery operation.
+
+Remote M3U cache metadata and build evidence deliberately exclude provider URLs, query strings, stream URLs, response bodies, ETag values, credentials, selected addresses, and absolute paths. They contain only the opaque cache key and bounded operational fields such as outcome, status, normalized content type, encoding list, byte counts, parsed channel count, and validator-presence booleans. This slice performs no authentication, credential handling, proxying, redirect following, or stale/offline publication.
+
 ## Starting from the Example Templates
 
 Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.

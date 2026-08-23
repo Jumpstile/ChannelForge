@@ -105,7 +105,8 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `Read-ChannelForgeProvider`               | Load provider source definitions from `provider.json`                                                  |
 | `Read-ChannelForgeEpgSource`              | Load EPG source definitions from `epg_sources.json`, sorted by priority                                |
-| `Import-ChannelForgeM3UPlaylist`          | Parse a local M3U playlist into `Channel` objects, including the stream URL                            |
+| `Import-ChannelForgeM3UPlaylist`          | Parse a local M3U playlist into `Channel` objects through the shared streaming parser                  |
+| `Import-ChannelForgeConfiguredM3USource`  | Acquire and parse one configured remote M3U through bounded HTTPS/443 and the disposable fetch cache   |
 | `Resolve-ChannelForgeAlias`               | Deterministic, exact-match alias resolution                                                            |
 | `Set-ChannelForgeChannelNumber`           | Assign `AssignedNumber` from numbering blocks by exact group/category match                            |
 | `Merge-ChannelForgeLineup`                | Phase 1 end-to-end pipeline: parse, normalize, alias-resolve, dedup, number (issue #7)                 |
@@ -130,13 +131,13 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 - `Backup-IPTVBoss.ps1` refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
 - `Assert-ChannelForgeReadPath -Path <target> -AllowedRoot <root>` is the read-side counterpart, added for issue #7 Phase 1: `Build-Lineup.ps1` calls it on every resolved `local_playlist` path with `data/playlists/` as the allowed root, before that path is ever opened. It reuses the same full-path containment check as `Assert-ChannelForgeWritePath` (`Test-ChannelForgeWritePath`), so `..` traversal, an absolute path elsewhere on disk, a UNC path, or a drive-root/system path are all rejected the same way a write outside an approved root would be.
 
-## Lineup build pipeline (Phase 1, issue #7)
+## Lineup build pipeline (M3U/XMLTV acquisition)
 
-`scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists and, when configured, imports local XMLTV `.xml`, `.gz`, or single-entry `.zip` sources and writes deterministic `output/merged.xml`. There is no live HTTP fetch — see "Known limitations" below.
+`scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists or configured remote M3U sources and, when configured, imports local XMLTV `.xml`, `.gz`, or single-entry `.zip` sources or bounded remote XMLTV sources and writes deterministic `output/merged.xml`. Remote acquisition uses the v5 pinned HTTPS/443 boundary — see "Known limitations" below.
 
-A provider source in `provider.json` participates only if it is `enabled` **and** has a `local_playlist` field (a path to a local `.m3u` file, relative to the repository root — see `schemas/provider.schema.json`). A source with no `local_playlist` is skipped, not an error; this is the documented Phase 1 boundary.
+A provider source in `provider.json` participates if it is `enabled` and has either a safe `local_playlist` field (a path to a local `.m3u` file, relative to the repository root) or a supported remote URL. When both are present, the local playlist is authoritative. An enabled source with neither usable input fails closed; it is not silently skipped. See `schemas/provider.schema.json`.
 
-Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs. Remote URL values are validated but never dereferenced; enabled local XMLTV path values are passed to `Import-ChannelForgeConfiguredXmltvSource`. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
+Provider and EPG source files are always loaded through `Read-ChannelForgeProvider`/`Read-ChannelForgeEpgSource`, never a raw `Get-Content | ConvertFrom-Json`, so the URL trust-boundary check in `Test-ChannelForgeSourceUrl` always runs. Validated remote URL values are passed only to the private configured-source adapters, which apply the v5 transport policy; they are never exposed through a public raw-URL ingestion command. `Build-Lineup.ps1` keeps exactly one raw read of `provider.json` solely to pull the top-level `provider` label string, which `Read-ChannelForgeProvider` intentionally doesn't return (it returns one record per source); every URL-bearing field still comes from the validated reader.
 
 Each resolved `local_playlist` path is confined to `data/playlists/` via `Assert-ChannelForgeReadPath` before it is read (see "Write guardrails" above) — a `local_playlist` value is operator-supplied configuration, not trusted input, so the same containment logic that protects writes protects this read.
 
@@ -156,9 +157,9 @@ Enabled sources are ordered by priority, name, and the configured relative path 
 
 For each participating source, `Build-Lineup.ps1` calls `Merge-ChannelForgeLineup`, which:
 
-1. Sorts sources by file path (never by caller-supplied order) and parses each with `Import-ChannelForgeM3UPlaylist`.
+1. Uses configuration order as a path/URL-independent `OrderKey`; local sources are parsed with `Import-ChannelForgeM3UPlaylist`, while remote sources arrive already parsed by `Import-ChannelForgeConfiguredM3USource` through the same streaming core.
 2. Normalizes names (`ConvertTo-ChannelForgeNormalizedChannel`) and resolves aliases (`Resolve-ChannelForgeAlias`).
-3. Deduplicates: a channel sharing a `tvg-id` (or, if no `tvg-id`, the same display name) with an earlier channel is marked `IsDuplicate` and excluded from the output. "Earlier" is decided entirely by the sorted-path parse order from step 1.
+3. Deduplicates: a channel sharing a `tvg-id` (or, if no `tvg-id`, the same display name) with an earlier channel is marked `IsDuplicate` and excluded from the output. "Earlier" is decided entirely by the configuration `OrderKey`, followed by in-file parse order, never by a machine-local path or remote URL.
 4. Assigns channel numbers (`Set-ChannelForgeChannelNumber`) by exact (case-insensitive) match between a channel's `Group` and a `numbering_blocks.json` category. No match means no number, plus a warning — never a guess.
 5. Sorts the final set: numbered channels first by number, then unassigned channels by name.
 
@@ -168,15 +169,15 @@ Every field `Export-ChannelForgeM3UPlaylist` writes is passed through the privat
 
 ### Known limitations
 
-- **HTTP provider/EPG fetch: deferred.** Only local M3U and configured local XMLTV files are read; URL sources are validated but never fetched.
-- **XMLTV: local-only and fail-closed.** A successful build reports `XMLTVStatus: GENERATED` and a project-relative `XMLTVPath`; a deferred remote-only run reports `DEFERRED_REMOTE_ONLY`; malformed input, conflicts, `NeedsReview`, or output failures report `FAILED` and do not claim an old XMLTV file is current.
+- **Remote provider M3U/XMLTV fetch: bounded and fail-closed.** Only HTTPS on port 443 is accepted; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are outside this slice. Malformed input, unsupported content/encoding, bounds failures, conflicts, `NeedsReview`, or output failures report `FAILED` and do not claim an old artifact is current.
+- **Remote fetch cache: disposable and source-specific.** Provider M3U uses `output/cache/remote-m3u/` with a fixed 24-hour TTL, conditional validation, and decompressed-content hash fallback. Corrupt or stale entries are repaired or refetched; they never become a stale success path.
 - **Plex EPG/guide binding: deferred.** `output/merged.m3u` and optional `output/merged.xml` are generated artifacts; downstream Plex binding and automatic refresh remain separate work.
 
 See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthrough of testing a real local playlist in Plex under this Phase 1 boundary.
 
 ## Report redaction
 
-Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG/stream URLs, tokens, account IDs, credentials, local-only file paths, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name, enabled state, and local-playlist state only — never by `url` — and reports the merged playlist's path as a project-relative string (`output/merged.m3u`, never an absolute or UNC path) plus its SHA-256 hash rather than its contents. The Pester suite asserts this directly (`tests/unit/BuildLineupScript.Tests.ps1`) using fixture data shaped like a real token-bearing URL and a real stream URL, so a regression that reintroduces either into a report fails CI.
+Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG/stream URLs, tokens, account IDs, credentials, local-only file paths, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name, enabled state, and local/remote playlist state only — never by `url` — and reports the merged playlist's path as a project-relative string (`output/merged.m3u`, never an absolute or UNC path) plus its SHA-256 hash rather than its contents. Remote acquisition summaries may include only safe operational fields such as an opaque cache key, status, normalized content type, encodings, bounded byte counts, parsed count, and validator-presence booleans. The Pester suite asserts this directly using fixture data shaped like real token-bearing and stream URLs.
 
 This redaction rule does not apply to `output/merged.m3u` itself: stream URLs are the actual playable content of that file, not a secret to strip (see `Export-ChannelForgeM3UPlaylist` and the Channel class's `Url` field).
 

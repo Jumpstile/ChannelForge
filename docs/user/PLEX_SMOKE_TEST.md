@@ -14,7 +14,7 @@ Read [SECURITY.md](../reference/SECURITY.md) and [data/playlists/README.md](../.
 
 ## 1. Get a real local M3U file
 
-You need an `.m3u` file already saved to disk. This guide does not fetch one for you — ChannelForge has no live HTTP fetch yet (see "What won't work yet" below). Export or download one from your existing provider/service however you normally would.
+You need an `.m3u` file already saved to disk. This walkthrough deliberately uses the local-authoritative path; a configured remote provider M3U can instead use ChannelForge's bounded HTTPS/443 acquisition path (see "What won't work yet" below). Export or download the local file from your existing provider/service however you normally would.
 
 ## 2. Place it under `data/playlists/`
 
@@ -96,12 +96,12 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 
 ## What will not work yet
 
-- **No automatic Plex guide binding in this smoke flow.** Build-Lineup can generate `output/merged.xml` from configured local XMLTV sources, but this walkthrough covers M3U playback; remote EPG fetch and downstream guide binding remain deferred.
-- **No live provider or remote EPG fetch.** Only local files are read in this workflow. If your playlist or XMLTV source changes, replace the local file and re-run the build.
+- **No automatic Plex guide binding in this smoke flow.** Build-Lineup can generate `output/merged.xml` from validated local or remote XMLTV sources, but this walkthrough covers M3U playback; downstream guide binding remains deferred.
+- **This workflow uses local input.** Remote provider/XMLTV acquisition is a separate bounded HTTPS/443 path with no credentials, redirects, proxies, retries, remote ZIP, or stale/offline success.
 - **No automatic Plex refresh.** Re-running `Build-Lineup.ps1` regenerates `output/merged.m3u` and any successful local XMLTV output; refreshing Plex's channel list or guide afterward is a manual step in Plex's tuner settings.
 
 ## If something goes wrong
 
 - `Refusing to read from outside the approved location` — your `local_playlist` value doesn't resolve under `data/playlists/`. Fix the path; don't work around the check.
-- `Provider source '...' has a malformed or unsupported URL` — every source's `url` field still goes through the same validation as the live-fetch path will eventually use, even though nothing fetches it yet. Use a well-formed `https://` URL.
+- `Provider source '...' has a malformed or unsupported URL` — every source's `url` field goes through the same trust-boundary validation used by the bounded remote-fetch path. Use a well-formed `https://` URL.
 - No channels in `merged.m3u`, or fewer than expected — check that the source is `enabled: true` and `local_playlist` is set; a source missing either is skipped, not an error, and won't show up in the channel count.

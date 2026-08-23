@@ -1,5 +1,5 @@
 {
-  "_comment": "Template for a real provider config. Copy this file to provider.local.json (ignored by Git) and replace the placeholder values with your real provider URLs. Never commit the copy. local_playlist is optional (issue #7 Phase 1): a path under data/playlists/ to a local .m3u file for that source. See data/playlists/README.md and docs/user/PLEX_SMOKE_TEST.md.",
+  "_comment": "Template for a real provider config. Copy this file to provider.local.json (ignored by Git) and replace the placeholder values with your real provider URLs. Never commit the copy. local_playlist is optional: when present it is the authoritative path under data/playlists/; when omitted, Build-Lineup uses the bounded remote HTTPS/443 M3U path. See data/playlists/README.md and docs/user/PLEX_SMOKE_TEST.md.",
   "provider": "your-provider-name",
   "base_url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN",
   "sources": [
