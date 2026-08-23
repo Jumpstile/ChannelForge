@@ -135,8 +135,12 @@ AfterAll {
 Describe 'Remote M3U disposable fetch cache' {
     It 'writes decompressed payload bytes and serves a fresh cache hit without network access' {
         $cacheRoot = Join-Path $TestDrive 'fresh'
-        $rawETag = '"fixture-v1"'
-        $firstPayload = New-CachePayload -ETag $rawETag
+        $rawETag = '"cache-private-etag-sentinel"'
+        $lastModified = [datetimeoffset]::Parse('2026-08-20T12:34:56Z')
+        $expectedLastModifiedUtc = $lastModified.ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture)
+        $firstPayload = New-CachePayload -ETag $rawETag -LastModified $lastModified
         Set-CacheMockQueue @($firstPayload)
         $firstStatus = [ordered]@{}
         $first = @(Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot -AcquisitionStatus $firstStatus)
@@ -146,16 +150,34 @@ Describe 'Remote M3U disposable fetch cache' {
 
         Test-Json -Json (Get-Content -LiteralPath $metadataPath -Raw) -SchemaFile $schemaPath | Should -BeTrue
         $metadata.ETag | Should -Be $rawETag
+        $metadata.LastModified | Should -Not -BeNullOrEmpty
+        ([datetimeoffset]::Parse([string]$metadata.LastModified)).ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture) | Should -Be $expectedLastModifiedUtc
+        $rawLastModified = [string]$metadata.LastModified
         $metadata.PayloadFile | Should -Match '^payload-[0-9a-f]{64}\.m3u$'
         $metadata.PSObject.Properties.Name | Should -Not -Contain 'Url'
         $metadata.PSObject.Properties.Name | Should -Not -Contain 'ETagValue'
         (Get-Content -LiteralPath $metadataPath -Raw) | Should -Not -Match 'https?://'
+        $metadata.CacheKey | Should -Not -Match ([regex]::Escape($rawETag))
+        $metadata.CacheKey | Should -Not -Match ([regex]::Escape($rawLastModified))
         $cachePaths = @(
             Get-ChildItem -LiteralPath $cacheRoot -File -Recurse |
                 ForEach-Object { $_.FullName }
         ) -join ([Environment]::NewLine)
         $cachePaths | Should -Not -Match ([regex]::Escape($rawETag))
+        $cachePaths | Should -Not -Match ([regex]::Escape($rawLastModified))
         ($firstStatus | ConvertTo-Json -Depth 8 -Compress) | Should -Not -Match ([regex]::Escape($rawETag))
+        ($firstStatus | ConvertTo-Json -Depth 8 -Compress) | Should -Not -Match ([regex]::Escape($rawLastModified))
+        $firstStatus.HasETag | Should -BeTrue
+        $firstStatus.HasLastModified | Should -BeTrue
+        $firstChannelsJson = @(
+            $first | ForEach-Object {
+                $_ | ConvertTo-Json -Depth 10 -Compress
+            }
+        ) -join ([Environment]::NewLine)
+        $firstChannelsJson | Should -Not -Match ([regex]::Escape($rawETag))
+        $firstChannelsJson | Should -Not -Match ([regex]::Escape($rawLastModified))
         $firstPayload.Disposed | Should -BeTrue
 
         $secondStatus = [ordered]@{}
@@ -163,6 +185,18 @@ Describe 'Remote M3U disposable fetch cache' {
         Get-ChannelProjection $second | Should -Be (Get-ChannelProjection $first)
         $secondStatus.Outcome | Should -Be 'CacheHit'
         $secondStatus.Reason | Should -Be 'FreshWithinTtl'
+        $secondStatus.HasETag | Should -BeTrue
+        $secondStatus.HasLastModified | Should -BeTrue
+        $secondStatusJson = $secondStatus | ConvertTo-Json -Depth 8 -Compress
+        $secondStatusJson | Should -Not -Match ([regex]::Escape($rawETag))
+        $secondStatusJson | Should -Not -Match ([regex]::Escape($rawLastModified))
+        $secondChannelsJson = @(
+            $second | ForEach-Object {
+                $_ | ConvertTo-Json -Depth 10 -Compress
+            }
+        ) -join ([Environment]::NewLine)
+        $secondChannelsJson | Should -Not -Match ([regex]::Escape($rawETag))
+        $secondChannelsJson | Should -Not -Match ([regex]::Escape($rawLastModified))
         @($global:ChannelForgeRemoteM3UCacheObservedCalls).Count | Should -Be 1
     }
 
@@ -266,16 +300,37 @@ Describe 'Remote M3U disposable fetch cache' {
 
     It 'fails closed when stale refresh fails instead of returning stale channels' {
         $cacheRoot = Join-Path $TestDrive 'failed-refresh'
-        $firstPayload = New-CachePayload -ETag '"fixture-v1"'
+        $rawETag = '"diagnostic-etag-sentinel"'
+        $lastModified = [datetimeoffset]::Parse('2026-08-21T07:28:00Z')
+        $expectedLastModifiedUtc = $lastModified.ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture)
+        $firstPayload = New-CachePayload -ETag $rawETag -LastModified $lastModified
         Set-CacheMockQueue @($firstPayload)
         $null = @(Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot)
-        Set-CacheStale (Get-CacheMetadataPath $cacheRoot)
+        $metadataPath = Get-CacheMetadataPath $cacheRoot
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+        $metadata.ETag | Should -Be $rawETag
+        $metadata.LastModified | Should -Not -BeNullOrEmpty
+        ([datetimeoffset]::Parse([string]$metadata.LastModified)).ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture) | Should -Be $expectedLastModifiedUtc
+        $rawLastModified = [string]$metadata.LastModified
+        Set-CacheStale $metadataPath
         Mock -CommandName Invoke-ChannelForgePinnedHttpM3UAcquisition -ModuleName ChannelForge -MockWith {
             throw 'deterministic M3U refresh failure'
         }
 
-        { Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot } |
-            Should -Throw '*deterministic M3U refresh failure*'
+        $diagnostic = try {
+            Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot
+            ''
+        }
+        catch {
+            $_.Exception.ToString()
+        }
+        $diagnostic | Should -Match 'deterministic M3U refresh failure'
+        $diagnostic | Should -Not -Match ([regex]::Escape($rawETag))
+        $diagnostic | Should -Not -Match ([regex]::Escape($rawLastModified))
     }
 
     It 'refetches after malformed metadata and corrupt payload, without leaking stream URLs' {
