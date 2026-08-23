@@ -135,7 +135,8 @@ AfterAll {
 Describe 'Remote M3U disposable fetch cache' {
     It 'writes decompressed payload bytes and serves a fresh cache hit without network access' {
         $cacheRoot = Join-Path $TestDrive 'fresh'
-        $firstPayload = New-CachePayload -ETag '"fixture-v1"'
+        $rawETag = '"fixture-v1"'
+        $firstPayload = New-CachePayload -ETag $rawETag
         Set-CacheMockQueue @($firstPayload)
         $firstStatus = [ordered]@{}
         $first = @(Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot -AcquisitionStatus $firstStatus)
@@ -144,10 +145,17 @@ Describe 'Remote M3U disposable fetch cache' {
         $schemaPath = Join-Path $RepoRoot 'schemas\remote_m3u_fetch_cache.schema.json'
 
         Test-Json -Json (Get-Content -LiteralPath $metadataPath -Raw) -SchemaFile $schemaPath | Should -BeTrue
+        $metadata.ETag | Should -Be $rawETag
         $metadata.PayloadFile | Should -Match '^payload-[0-9a-f]{64}\.m3u$'
         $metadata.PSObject.Properties.Name | Should -Not -Contain 'Url'
         $metadata.PSObject.Properties.Name | Should -Not -Contain 'ETagValue'
         (Get-Content -LiteralPath $metadataPath -Raw) | Should -Not -Match 'https?://'
+        $cachePaths = @(
+            Get-ChildItem -LiteralPath $cacheRoot -File -Recurse |
+                ForEach-Object { $_.FullName }
+        ) -join ([Environment]::NewLine)
+        $cachePaths | Should -Not -Match ([regex]::Escape($rawETag))
+        ($firstStatus | ConvertTo-Json -Depth 8 -Compress) | Should -Not -Match ([regex]::Escape($rawETag))
         $firstPayload.Disposed | Should -BeTrue
 
         $secondStatus = [ordered]@{}
