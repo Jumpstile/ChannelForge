@@ -44,7 +44,9 @@ BeforeAll {
             [Parameter(Mandatory)]
             [string]$FixturePath,
 
-            [string]$RawETag = ''
+            [string]$RawETag = '',
+
+            [string]$RawLastModified = ''
         )
 
         $global:ChannelForgeBuildFixturePath = $FixturePath
@@ -64,9 +66,12 @@ BeforeAll {
                 $AcquisitionStatus['DecompressedBytes'] = 1
                 $AcquisitionStatus['ChannelCount'] = $channels.Count
                 $AcquisitionStatus['HasETag'] = -not [string]::IsNullOrWhiteSpace($RawETag)
-                $AcquisitionStatus['HasLastModified'] = $false
+                $AcquisitionStatus['HasLastModified'] = -not [string]::IsNullOrWhiteSpace($RawLastModified)
                 if (-not [string]::IsNullOrWhiteSpace($RawETag)) {
                     $AcquisitionStatus['ETag'] = $RawETag
+                }
+                if (-not [string]::IsNullOrWhiteSpace($RawLastModified)) {
+                    $AcquisitionStatus['LastModified'] = $RawLastModified
                 }
             }
             return $channels
@@ -80,8 +85,9 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
         New-BuildFixture -Root $root -Sources @(
             @{ name = 'Remote'; group = 'General'; url = 'https://example.invalid/iptv/fixture'; enabled = $true }
         )
-        $rawETag = '"validator-only-cache-fixture"'
-        Set-RemoteBuildMock -FixturePath $script:FixturePlaylist -RawETag $rawETag
+        $rawETag = '"build-report-etag-sentinel"'
+        $rawLastModified = '2026-08-22T12:34:56.0000000+00:00'
+        Set-RemoteBuildMock -FixturePath $script:FixturePlaylist -RawETag $rawETag -RawLastModified $rawLastModified
 
         & $script:ScriptPath -Root $root
 
@@ -95,6 +101,11 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
         $summary.M3URemoteSourceCount | Should -Be 1
         $summary.M3UAcquisitionStatus[0].Outcome | Should -Be 'Fetched'
         $summary.M3UAcquisitionStatus[0].CacheKey | Should -Match '^[0-9a-f]{64}$'
+        $summary.M3UAcquisitionStatus[0].HasETag | Should -BeTrue
+        $summary.M3UAcquisitionStatus[0].HasLastModified | Should -BeTrue
+        $summaryStatusJson = $summary.M3UAcquisitionStatus[0] | ConvertTo-Json -Depth 10 -Compress
+        $summaryStatusJson | Should -Not -Match ([regex]::Escape($rawETag))
+        $summaryStatusJson | Should -Not -Match ([regex]::Escape($rawLastModified))
         foreach ($raw in @(
             (Get-Content -LiteralPath $summaryPath -Raw),
             (Get-Content -LiteralPath $planPath -Raw)
@@ -102,6 +113,8 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
             $raw | Should -Not -Match 'https?://'
             $raw | Should -Not -Match 'live/'
             $raw | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
+            $raw | Should -Not -Match ([regex]::Escape($rawETag))
+            $raw | Should -Not -Match ([regex]::Escape($rawLastModified))
         }
         $outputFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'output') -File -Recurse)
         $outputText = @(
@@ -110,8 +123,11 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
             }
         ) -join ([Environment]::NewLine)
         $outputText | Should -Not -Match ([regex]::Escape($rawETag))
+        $outputText | Should -Not -Match ([regex]::Escape($rawLastModified))
         (@($outputFiles | ForEach-Object { $_.FullName }) -join ([Environment]::NewLine)) |
             Should -Not -Match ([regex]::Escape($rawETag))
+        (@($outputFiles | ForEach-Object { $_.FullName }) -join ([Environment]::NewLine)) |
+            Should -Not -Match ([regex]::Escape($rawLastModified))
     }
 
     It 'produces byte-identical merged output for identical local and remote M3U bytes' {
