@@ -51,13 +51,57 @@ function Compare-ChannelForgeBuildText {
     return [System.StringComparer]::Ordinal.Compare($leftText, $rightText)
 }
 
+function Select-ChannelForgeEpgConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$EpgDirectory,
+
+        [Parameter(Mandatory)]
+        [string]$SchemaPath
+    )
+
+    $defaultPath = Join-Path $EpgDirectory 'epg_sources.json'
+    $localPath = Join-Path $EpgDirectory 'epg_sources.local.json'
+
+    if (Test-Path -LiteralPath $localPath) {
+        if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
+            throw 'Local EPG configuration path exists but is not a file; refusing to use the tracked default.'
+        }
+
+        try {
+            $schemaValid = Test-Json -Path $localPath -SchemaFile $SchemaPath -ErrorAction Stop
+            if (-not $schemaValid) {
+                throw 'Schema validation returned false.'
+            }
+        }
+        catch {
+            # The local file is user intent. Once present, any malformed or
+            # schema-invalid content must block the build rather than silently
+            # switching to the tracked example/default configuration.
+            throw 'Local EPG configuration is invalid; refusing to use the tracked default.'
+        }
+
+        return [pscustomobject]@{
+            Path   = [System.IO.Path]::GetFullPath($localPath)
+            Source = 'LocalOverride'
+        }
+    }
+
+    return [pscustomobject]@{
+        Path   = [System.IO.Path]::GetFullPath($defaultPath)
+        Source = 'Default'
+    }
+}
+
 $dataDir = Join-Path $Root "data"
 $outDir = Join-Path $Root "output"
 $reportDir = Join-Path $outDir "reports"
 $cacheRoot = Join-Path $outDir "cache\remote-xmltv"
 $m3uCacheRoot = Join-Path $outDir "cache\remote-m3u"
 $playlistDir = Join-Path $dataDir "playlists"
-$epgConfigPath = Join-Path $dataDir "epg/epg_sources.json"
+$epgDirectory = Join-Path $dataDir 'epg'
+$epgSchemaPath = Join-Path $ModuleRoot 'schemas/epg_sources.schema.json'
 
 # Path-safety guardrail: generated artifacts may only land inside output/.
 Assert-ChannelForgeWritePath -Path $outDir -AllowedRoot $outDir
@@ -161,10 +205,15 @@ $resolvedProviderPath = Resolve-ChannelForgeProviderConfigPath `
     -OverridePath $ProviderPath
 
 # Provider and EPG source files go through their centralized readers so URL
-# trust-boundary validation remains in one place. URL values are never written
-# to reports or included in build decisions beyond being classified as remote.
+# trust-boundary validation remains in one place. A present local EPG override
+# is schema-validated before reading and is never replaced by the default after
+# selection. URL values are never written to reports or included in build
+# decisions beyond being classified as remote.
 $providerSources = @(Read-ChannelForgeProvider -Path $resolvedProviderPath)
 $providerConfig = Read-JsonFile $resolvedProviderPath
+$epgSelection = Select-ChannelForgeEpgConfig -EpgDirectory $epgDirectory -SchemaPath $epgSchemaPath
+$epgConfigPath = $epgSelection.Path
+$epgConfigSource = $epgSelection.Source
 $epgSources = @(Read-ChannelForgeEpgSource -Path $epgConfigPath)
 $locals = Read-JsonFile (Join-Path $dataDir "lineup/locals.json")
 $blocks = Read-JsonFile (Join-Path $dataDir "lineup/numbering_blocks.json")
@@ -524,6 +573,7 @@ $summary = [ordered]@{
     Provider                       = Get-SafeReportText $providerConfig.provider
     M3USources                     = $providerSources.Count
     EPGSources                     = $epgSources.Count
+    EPGConfigSource                 = $epgConfigSource
     LocalChannels                  = @($locals.locals).Count
     NumberingBlocks                = @($blocks.blocks).Count
     M3UStatus                      = $m3uStatus
@@ -570,6 +620,7 @@ $md = @()
 $md += "# ChannelForge Build Summary"
 $md += ""
 $md += "Generated: $($summary.GeneratedAt)"
+$md += "EPG configuration: $epgConfigSource"
 $md += ""
 
 if ($m3uGenerated) {
