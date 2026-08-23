@@ -10,7 +10,7 @@ Accepted
 
 **This ADR does not re-decide any of that.** ADR 0009 owns the authority model. This ADR is an implementation-scope extension: it works out, specifically for provider/EPG fetch (Milestone 4) and in light of [ADR 0012](0012-performance-and-scaling-targets.md)'s build-time targets, what "source snapshots and caches" concretely means for ChannelForge's fetch pipeline — key format, change-detection method, expiry defaults, and storage location — without introducing a new authority category or altering ADR 0009's boundaries.
 
-ChannelForge's current pipeline (`Merge-ChannelForgeLineup`) fully re-parses and re-processes every configured local source on every run; there is no cache anywhere in `src/` today (confirmed by search). That remains correct for the Milestone 0-3 local-file scope. Milestone 4 adds HTTP fetch, at which point "redownload and reparse everything, every time" starts to threaten ADR 0012's build-time budget as source counts or EPG windows grow — which is the specific problem this ADR addresses.
+ChannelForge's local pipeline (`Merge-ChannelForgeLineup`) still fully re-parses and re-processes every configured local source on every run. Milestone 4 remote XMLTV and provider M3U acquisition use the disposable fetch-cache boundary specified here; "redownload and reparse everything, every time" would otherwise threaten ADR 0012's build-time budget as source counts or EPG windows grow — which is the specific problem this ADR addresses.
 
 ADR 0005 (evidence over assumptions) and ADR 0001 (source of truth) both bear on this: a cache is, by definition, data that might be stale relative to the true source. A caching design must make staleness visible rather than silently trusting old data as if it were fresh evidence.
 
@@ -32,7 +32,7 @@ This ADR's scope is **(c) only**: the disposable fetch cache for provider/EPG so
 
 ### Fetch cache design
 
-- **Provider source metadata** (parsed contents of a fetched M3U/JSON provider listing) may be cached between runs, keyed by source URL/path plus a content fingerprint.
+- **Provider source metadata** (parsed contents of a fetched M3U/JSON provider listing) may be cached between runs, keyed by an opaque source/policy identity plus a content fingerprint; the provider URL is never persisted in cache metadata or reports.
 - **EPG source data** (parsed XMLTV/JSON programme data) may be cached the same way, since EPG payloads are typically large relative to how often their content actually changes.
 - Local playlists and local rule files (category a, above) are never cached — reading them is already cheap, and ADR 0001 makes the working tree always authoritative.
 
@@ -51,11 +51,12 @@ This ADR's scope is **(c) only**: the disposable fetch cache for provider/EPG so
 
 **Safe invalidation:**
 
-- Every cache entry has a maximum age after which it is treated as expired even without a change-detection check. This first remote XMLTV slice fixes the EPG TTL at six hours; it does not expose runtime TTL configuration.
+- Every cache entry has a maximum age after which it is treated as expired even without a change-detection check. The remote XMLTV namespace fixes the EPG TTL at six hours and the remote M3U namespace fixes the provider TTL at 24 hours; neither exposes runtime TTL configuration.
 - A cache entry whose recorded parser/schema version doesn't match the current version is invalidated unconditionally.
 - Falling back to a full fetch when a cache entry is missing, expired, mismatched, or corrupt is a safe automatic repair under ADR 0004 and requires no user approval.
 - Cache storage lives under a clearly disposable location (e.g. `output/cache/`, not `data/`), consistent with category (c) above, so deleting it entirely is always a safe, supported recovery action.
 - For this XMLTV slice, a fully validated cache entry whose `ValidatedAtUtc` age is strictly less than the fixed six-hour EPG TTL is fresh and may satisfy acquisition without network access. An age greater than or equal to six hours requires successful remote validation or a complete remote fetch.
+- For the remote M3U slice, a fully validated cache entry whose `ValidatedAtUtc` age is strictly less than the fixed 24-hour provider TTL is fresh and may satisfy acquisition without network access. An age greater than or equal to 24 hours requires successful remote validation or a complete remote fetch. The `output/cache/remote-m3u/` namespace stores bounded decompressed M3U bytes only; those bytes may contain sensitive playable or tokenized stream URLs and remain disposable local data.
 - A stale entry is never an offline fallback. A `304` response may reuse the local payload only after the cache metadata and payload have both validated; if the local payload is missing or invalid, exactly one unconditional repair fetch is permitted. A failed repair resolves to `Failed` and cannot publish stale data.
 - Cache metadata is operational evidence only. Timestamps, validators, cache keys, hit states, and subordinate cache reasons must never affect deterministic Programme values, evidence used for merge decisions, or generated artifacts.
 

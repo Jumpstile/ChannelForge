@@ -20,7 +20,7 @@ your provider's M3U file              ChannelForge                 what you get
 You need:
 
 - **PowerShell 7.6 or newer, Core edition**, **Git**, and **Pester 5.7.1**.
-- A real M3U playlist file already saved to disk (exported or downloaded from your provider however you normally would — ChannelForge doesn't fetch it for you yet).
+- Either a real M3U playlist file already saved to disk for the local-authoritative path, or a provider configuration with a supported remote HTTPS/443 M3U URL. This walkthrough uses the local path so it is safe to run without a live provider.
 
 Full install steps and a troubleshooting table are in [INSTALL.md](../reference/INSTALL.md) — this page won't repeat them, only summarize:
 
@@ -39,7 +39,7 @@ A clean test run (`0` failures) means your environment matches what ChannelForge
 
 The short version: copy `data/providers/provider.example.json` to `data/providers/provider.local.json`, edit the copy with your real source(s), and ChannelForge will automatically use it instead of the tracked example — no flag, no edit to anything tracked. See [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md) for the full walkthrough, including what to do if you have more than one local config and how to avoid leaking secrets into reports.
 
-## Step 2: Place your playlist file
+## Step 2: Place your playlist file (local option)
 
 Copy your `.m3u` file into `data/playlists/`, with a filename ending in `.local.m3u` (that suffix is what keeps Git from ever tracking it):
 
@@ -49,7 +49,7 @@ data/playlists/sports.local.m3u
 
 A real playlist file contains real stream URLs — treat it exactly like a password. Never commit it, paste it into an issue, or share it in chat.
 
-Your `provider.local.json` source entry then needs `local_playlist` pointing at this file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
+Your `provider.local.json` source entry then needs `local_playlist` pointing at this file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)). When `local_playlist` is omitted, an enabled source can instead use the configured remote M3U URL through the bounded HTTPS/443 path and disposable 24-hour cache; local input remains authoritative when both are present.
 
 ## Step 3: Run the build
 
@@ -80,7 +80,7 @@ Here's a real `build-summary.json` from a successful run with one source and two
   "GeneratedAt": "2026-06-30T17:34:56",
   "Provider": "my-provider",
   "M3USources": 1,
-  "EPGSources": 1,
+  "EPGSources": 0,
   "LocalChannels": 1,
   "NumberingBlocks": 1,
   "M3UGenerated": true,
@@ -89,17 +89,17 @@ Here's a real `build-summary.json` from a successful run with one source and two
   "ChannelCount": 2,
   "DuplicateCount": 0,
   "WarningCount": 0,
-  "XMLTVStatus": "DEFERRED_REMOTE_ONLY",
+  "XMLTVStatus": "NOT_CONFIGURED",
   "XMLTVGenerated": false,
   "XMLTVPath": null,
   "XMLTVSha256": null,
-  "XMLTVDeferredReason": "Remote XMLTV acquisition is deferred; no local XMLTV source was processed.",
+  "XMLTVDeferredReason": "No enabled XMLTV source is configured.",
   "XMLTVFailureReason": null,
   "Status": "M3U_GENERATED"
 }
 ```
 
-The signals that this M3U-only run succeeded are `"M3UGenerated": true`, `"Status": "M3U_GENERATED"`, a `ChannelCount` greater than zero, and a `M3USha256` value. Because the example uses only a remote EPG URL, `"XMLTVStatus": "DEFERRED_REMOTE_ONLY"` and `"XMLTVGenerated": false` are expected. An enabled local XMLTV path instead produces `XMLTVStatus: GENERATED` and `XMLTVPath: output/merged.xml`.
+The signals that this M3U-only run succeeded are `"M3UGenerated": true`, `"Status": "M3U_GENERATED"`, a `ChannelCount` greater than zero, and a `M3USha256` value. This example intentionally has no enabled XMLTV source. An enabled local XMLTV path or a supported remote HTTPS XMLTV source instead produces `XMLTVStatus: GENERATED` and `XMLTVPath: output/merged.xml` after validation and deterministic merge/export.
 
 The matching `lineup-plan.md` for the same run:
 
@@ -112,11 +112,11 @@ Merged M3U: output/merged.m3u (2 channels, 0 duplicates excluded, 0 warnings, SH
 
 ## XMLTV Result
 
-- XMLTV output: deferred. Remote XMLTV acquisition is deferred; no local XMLTV source was processed.
+- XMLTV output: deferred. No enabled XMLTV source is configured.
 
 Known limitations:
 
-- Live HTTP provider/EPG fetch: deferred. Only local M3U and configured local XMLTV files are read.
+- Remote provider/EPG acquisition: bounded HTTPS on port 443 only; no redirects, proxies, credentials, retries, or stale/offline success.
 - Plex EPG/guide binding: deferred; generated XMLTV is a separate output.
 
 ## Provider M3U Sources

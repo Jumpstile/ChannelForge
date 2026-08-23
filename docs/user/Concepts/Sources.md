@@ -7,17 +7,17 @@ A **source** is one entry in your provider configuration — typically one categ
 - A `name` and `group` label (display only — see [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md#how-to-avoid-exposing-credentials) for why these aren't secret-safe).
 - A `url` (the provider URL for this category — treated as a secret).
 - An `enabled` flag.
-- An optional `local_playlist` path, pointing at an `.m3u` file already saved to disk.
+- An optional `local_playlist` path, pointing at an `.m3u` file already saved to disk. When present, it is authoritative over the URL.
 
 ## Which sources participate in a build today
 
-A source is included in `output/merged.m3u` only if it is **both** `enabled: true` **and** has a `local_playlist` set. A source missing either is silently skipped — not an error. This is intentional, not a bug: ChannelForge has no live HTTP fetch yet (see [Current Limitations](../CURRENT_LIMITATIONS.md)), so a source with no local file genuinely has nothing to read.
+A source is included in `output/merged.m3u` when it is `enabled: true` and has either a safe local playlist path or a supported remote URL. A local playlist is authoritative when both are present. An enabled source with neither a usable local path nor a supported remote URL fails closed; it is never silently skipped. Remote acquisition is bounded HTTPS on port 443 and uses the same streaming parser as local input.
 
 `output/reports/lineup-plan.md`'s "Provider M3U Sources" section lists every configured source and its enabled/playlist state, so you can always see why a source was or wasn't included.
 
 ## EPG sources are separate
 
-Your provider's M3U sources (above) are a different list from EPG sources (`data/epg/epg_sources.json` or a local equivalent), which describe guide-data inputs rather than channel playlists. Enabled local XMLTV path entries are imported through the local XMLTV pipeline; remote URL entries are read and validated but not fetched. See [XMLTV](XMLTV.md) for the current boundary.
+Your provider's M3U sources (above) are a different list from EPG sources (`data/epg/epg_sources.json` or a local equivalent), which describe guide-data inputs rather than channel playlists. Enabled local XMLTV path entries and supported remote HTTPS XMLTV entries use the XMLTV pipeline; M3U and XMLTV remain separate source types. See [XMLTV](XMLTV.md) for the current boundary.
 
 ## Where to go next
 

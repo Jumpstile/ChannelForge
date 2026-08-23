@@ -55,6 +55,7 @@ $dataDir = Join-Path $Root "data"
 $outDir = Join-Path $Root "output"
 $reportDir = Join-Path $outDir "reports"
 $cacheRoot = Join-Path $outDir "cache\remote-xmltv"
+$m3uCacheRoot = Join-Path $outDir "cache\remote-m3u"
 $playlistDir = Join-Path $dataDir "playlists"
 $epgConfigPath = Join-Path $dataDir "epg/epg_sources.json"
 
@@ -62,7 +63,50 @@ $epgConfigPath = Join-Path $dataDir "epg/epg_sources.json"
 Assert-ChannelForgeWritePath -Path $outDir -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $reportDir -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $cacheRoot -AllowedRoot $outDir
-New-Item -ItemType Directory -Force -Path $outDir, $reportDir, $cacheRoot | Out-Null
+Assert-ChannelForgeWritePath -Path $m3uCacheRoot -AllowedRoot $outDir
+New-Item -ItemType Directory -Force -Path $outDir, $reportDir, $cacheRoot, $m3uCacheRoot | Out-Null
+
+$m3uPath = Join-Path $outDir 'merged.m3u'
+$m3uTempPath = Join-Path $outDir 'merged.m3u.tmp'
+$m3uRollbackDir = Join-Path $outDir 'm3u-rollback'
+$m3uRollbackPath = Join-Path $m3uRollbackDir 'merged.m3u.previous'
+$m3uRollbackRelativePath = 'output/m3u-rollback/merged.m3u.previous'
+Assert-ChannelForgeWritePath -Path $m3uPath -AllowedRoot $outDir
+Assert-ChannelForgeWritePath -Path $m3uTempPath -AllowedRoot $outDir
+Assert-ChannelForgeWritePath -Path $m3uRollbackDir -AllowedRoot $outDir
+Assert-ChannelForgeWritePath -Path $m3uRollbackPath -AllowedRoot $outDir
+$m3uPreviousOutputPresent = Test-Path -LiteralPath $m3uPath -PathType Leaf
+$m3uPreviousOutputPreserved = $false
+
+if (Test-Path -LiteralPath $m3uTempPath -PathType Leaf) {
+    try {
+        Remove-Item -LiteralPath $m3uTempPath -Force -ErrorAction Stop
+    }
+    catch {
+        throw 'Previous M3U staging output could not be cleared safely.'
+    }
+}
+
+if ($m3uPreviousOutputPresent) {
+    try {
+        New-Item -ItemType Directory -Force -Path $m3uRollbackDir | Out-Null
+        if (Test-Path -LiteralPath $m3uRollbackPath -PathType Leaf) {
+            [System.IO.File]::Replace($m3uPath, $m3uRollbackPath, $null)
+        }
+        else {
+            [System.IO.File]::Move($m3uPath, $m3uRollbackPath)
+        }
+
+        if (Test-Path -LiteralPath $m3uPath -PathType Leaf) {
+            throw 'Public M3U publication path remained after quarantine.'
+        }
+
+        $m3uPreviousOutputPreserved = $true
+    }
+    catch {
+        throw 'Previous M3U publication could not be quarantined safely.'
+    }
+}
 
 $xmltvPath = Join-Path $outDir 'merged.xml'
 $xmltvTempPath = Join-Path $outDir 'merged.xml.tmp'
@@ -132,43 +176,149 @@ $planPath = Join-Path $reportDir "lineup-plan.md"
 Assert-ChannelForgeWritePath -Path $summaryPath -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $planPath -AllowedRoot $outDir
 
-# M3U generation remains unchanged in scope: only enabled sources with a
-# local_playlist participate. Remote provider acquisition is not attempted.
-$playlistSources = @($providerSources | Where-Object { $_.Enabled -and $_.LocalPlaylist })
+$m3uStatus = 'NOT_CONFIGURED'
 $m3uGenerated = $false
 $m3uRelativePath = $null
 $m3uHash = $null
+$m3uFailureReason = $null
+$m3uRemoteSourceCount = @($providerSources | Where-Object {
+    $_.Enabled -and [string]::IsNullOrWhiteSpace([string]$_.LocalPlaylist) -and
+    -not [string]::IsNullOrWhiteSpace([string]$_.Url)
+}).Count
+$m3uDisabledSourceCount = @($providerSources | Where-Object { -not $_.Enabled }).Count
+$m3uActiveSourceCount = @($providerSources | Where-Object { $_.Enabled }).Count
+$m3uAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
 $channelCount = 0
 $duplicateCount = 0
 $warningCount = 0
 
-if ($playlistSources.Count -gt 0) {
-    $mergeSource = @($playlistSources | ForEach-Object {
-        $resolvedPlaylistPath = Join-Path $Root $_.LocalPlaylist
-        Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+if ($m3uActiveSourceCount -gt 0) {
+    $m3uFailureStage = 'acquisition'
+    try {
+        $mergeSource = [System.Collections.Generic.List[object]]::new()
+        for ($sourceIndex = 0; $sourceIndex -lt $providerSources.Count; $sourceIndex++) {
+            $source = $providerSources[$sourceIndex]
+            if (-not $source.Enabled) {
+                continue
+            }
 
-        [pscustomobject]@{
-            Path     = $resolvedPlaylistPath
-            Provider = $providerConfig.provider
-            Playlist = $_.Name
+            # Configuration order is deterministic source truth. It is used
+            # instead of absolute local paths or remote URLs as the merge key.
+            $orderKey = '{0:D8}' -f $sourceIndex
+            if (-not [string]::IsNullOrWhiteSpace([string]$source.LocalPlaylist)) {
+                $resolvedPlaylistPath = Join-Path $Root $source.LocalPlaylist
+                Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+                [void]$mergeSource.Add([pscustomobject]@{
+                    Path      = $resolvedPlaylistPath
+                    Provider  = $providerConfig.provider
+                    Playlist  = $source.Name
+                    OrderKey  = $orderKey
+                })
+                continue
+            }
+
+            if ([string]::IsNullOrWhiteSpace([string]$source.Url)) {
+                throw 'An enabled provider source has neither a local playlist nor a supported remote URL.'
+            }
+
+            $acquisitionStatus = [ordered]@{}
+            $remoteChannels = @(Import-ChannelForgeConfiguredM3USource `
+                -Source ([pscustomobject]@{
+                    Name       = $source.Name
+                    Url        = $source.Url
+                    ProviderId = $providerConfig.provider
+                }) `
+                -Provider $providerConfig.provider `
+                -CacheRoot $m3uCacheRoot `
+                -AcquisitionStatus $acquisitionStatus)
+
+            [void]$mergeSource.Add([pscustomobject]@{
+                Channels  = $remoteChannels
+                Provider  = $providerConfig.provider
+                Playlist  = $source.Name
+                OrderKey  = $orderKey
+            })
+
+            if ($acquisitionStatus.Count -gt 0) {
+                [void]$m3uAcquisitionStatuses.Add([pscustomobject][ordered]@{
+                    ProviderId        = Get-SafeReportText $acquisitionStatus['ProviderId']
+                    SourceId           = Get-SafeReportText $acquisitionStatus['SourceId']
+                    Outcome            = [string]$acquisitionStatus['Outcome']
+                    Reason             = [string]$acquisitionStatus['Reason']
+                    CacheKey           = [string]$acquisitionStatus['CacheKey']
+                    HttpStatus         = $acquisitionStatus['StatusCode']
+                    ContentType        = [string]$acquisitionStatus['ContentType']
+                    ContentEncodings   = @($acquisitionStatus['ContentEncodings'])
+                    RawContentLength   = $acquisitionStatus['RawContentLength']
+                    DecompressedBytes  = $acquisitionStatus['DecompressedBytes']
+                    ParsedChannelCount = $acquisitionStatus['ChannelCount']
+                    HasETag            = [bool]$acquisitionStatus['HasETag']
+                    HasLastModified    = [bool]$acquisitionStatus['HasLastModified']
+                })
+            }
         }
-    })
 
-    $mergeResult = Merge-ChannelForgeLineup `
-        -Source $mergeSource `
-        -AliasPath $aliasPath `
-        -NumberingBlocksPath $numberingBlocksPath
+        if ($mergeSource.Count -eq 0) {
+            throw 'No enabled provider M3U source could be acquired.'
+        }
 
-    $m3uPath = Join-Path $outDir "merged.m3u"
-    Assert-ChannelForgeWritePath -Path $m3uPath -AllowedRoot $outDir
-    $mergeResult.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uPath
+        $m3uFailureStage = 'merge'
+        $mergeResult = Merge-ChannelForgeLineup `
+            -Source @($mergeSource.ToArray()) `
+            -AliasPath $aliasPath `
+            -NumberingBlocksPath $numberingBlocksPath
 
-    $m3uGenerated = $true
-    $m3uRelativePath = "output/merged.m3u"
-    $m3uHash = (Get-FileHash -LiteralPath $m3uPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    $channelCount = $mergeResult.Channels.Count
-    $duplicateCount = $mergeResult.DuplicateCount
-    $warningCount = $mergeResult.WarningCount
+        $m3uFailureStage = 'export'
+        $mergeResult.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath
+        if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
+            throw 'M3U exporter did not produce the staged output.'
+        }
+
+        $m3uHash = (Get-FileHash -LiteralPath $m3uTempPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $m3uFailureStage = 'publish'
+        if (Test-Path -LiteralPath $m3uPath -PathType Leaf) {
+            throw 'Public M3U publication path was recreated before promotion.'
+        }
+        [System.IO.File]::Move($m3uTempPath, $m3uPath)
+
+        $m3uStatus = 'GENERATED'
+        $m3uGenerated = $true
+        $m3uRelativePath = 'output/merged.m3u'
+        $channelCount = $mergeResult.Channels.Count
+        $duplicateCount = $mergeResult.DuplicateCount
+        $warningCount = $mergeResult.WarningCount
+    }
+    catch {
+        if ($m3uFailureStage -eq 'acquisition' -and
+            $_.Exception.Message -like '*approved location*') {
+            throw
+        }
+
+        $m3uStatus = 'FAILED'
+        $m3uGenerated = $false
+        $m3uRelativePath = $null
+        $m3uHash = $null
+        if ($m3uFailureStage -eq 'acquisition') {
+            $m3uFailureReason = 'Configured provider M3U input could not be acquired or parsed.'
+        }
+        elseif ($m3uFailureStage -eq 'merge') {
+            $m3uFailureReason = 'Acquired provider M3U channels could not be merged deterministically.'
+        }
+        elseif ($m3uFailureStage -eq 'export') {
+            $m3uFailureReason = 'Merged provider M3U channels could not be serialized.'
+        }
+        elseif ($m3uFailureStage -eq 'publish') {
+            $m3uFailureReason = 'Merged M3U output could not be promoted safely.'
+        }
+        else {
+            $m3uFailureReason = 'Provider M3U build processing failed.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $m3uTempPath -PathType Leaf) {
+            Remove-Item -LiteralPath $m3uTempPath -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 $xmltvStatus = 'NOT_CONFIGURED'
@@ -326,19 +476,24 @@ else {
         $xmltvGenerated = $false
         $xmltvRelativePath = $null
         $xmltvHash = $null
-        $xmltvFailureReason = switch ($xmltvFailureStage) {
-            'import'  {
-                $hasRemoteXmltvSource = @($xmltvSources | Where-Object {
-                    [string]::Equals([string]$_.SourceKind, 'remote', [System.StringComparison]::Ordinal)
-                }).Count -gt 0
-                if ($hasRemoteXmltvSource) { 'Configured XMLTV input could not be imported.' }
-                else { 'Configured local XMLTV input could not be imported.' }
-                break
-            }
-            'merge'   { 'Imported XMLTV programmes could not be merged deterministically.'; break }
-            'export'  { 'Merged XMLTV programmes could not be serialized.'; break }
-            'publish' { 'XMLTV output could not be promoted safely.'; break }
-            default   { 'XMLTV build processing failed.'; break }
+        if ($xmltvFailureStage -eq 'import') {
+            $hasRemoteXmltvSource = @($xmltvSources | Where-Object {
+                [string]::Equals([string]$_.SourceKind, 'remote', [System.StringComparison]::Ordinal)
+            }).Count -gt 0
+            if ($hasRemoteXmltvSource) { $xmltvFailureReason = 'Configured XMLTV input could not be imported.' }
+            else { $xmltvFailureReason = 'Configured local XMLTV input could not be imported.' }
+        }
+        elseif ($xmltvFailureStage -eq 'merge') {
+            $xmltvFailureReason = 'Imported XMLTV programmes could not be merged deterministically.'
+        }
+        elseif ($xmltvFailureStage -eq 'export') {
+            $xmltvFailureReason = 'Merged XMLTV programmes could not be serialized.'
+        }
+        elseif ($xmltvFailureStage -eq 'publish') {
+            $xmltvFailureReason = 'XMLTV output could not be promoted safely.'
+        }
+        else {
+            $xmltvFailureReason = 'XMLTV build processing failed.'
         }
     }
     finally {
@@ -348,7 +503,7 @@ else {
     }
 }
 
-$overallStatus = if ($xmltvStatus -eq 'FAILED') {
+$overallStatus = if ($m3uStatus -eq 'FAILED' -or $xmltvStatus -eq 'FAILED') {
     'FAILED'
 }
 elseif ($m3uGenerated -and $xmltvGenerated) {
@@ -371,12 +526,21 @@ $summary = [ordered]@{
     EPGSources                     = $epgSources.Count
     LocalChannels                  = @($locals.locals).Count
     NumberingBlocks                = @($blocks.blocks).Count
+    M3UStatus                      = $m3uStatus
     M3UGenerated                   = $m3uGenerated
     M3UPath                        = $m3uRelativePath
     M3USha256                      = $m3uHash
+    M3URemoteSourceCount           = $m3uRemoteSourceCount
+    M3UDisabledSourceCount         = $m3uDisabledSourceCount
+    M3UActiveSourceCount           = $m3uActiveSourceCount
     ChannelCount                   = $channelCount
     DuplicateCount                = $duplicateCount
     WarningCount                   = $warningCount
+    M3UFailureReason               = $m3uFailureReason
+    M3UAcquisitionStatus           = @($m3uAcquisitionStatuses.ToArray())
+    M3UPreviousOutputPresent       = $m3uPreviousOutputPresent
+    M3UPreviousOutputPreserved     = $m3uPreviousOutputPreserved
+    M3URollbackPath                = if ($m3uPreviousOutputPreserved) { $m3uRollbackRelativePath } else { $null }
     XMLTVStatus                    = $xmltvStatus
     XMLTVGenerated                 = $xmltvGenerated
     XMLTVPath                      = $xmltvRelativePath
@@ -411,8 +575,11 @@ $md += ""
 if ($m3uGenerated) {
     $md += "Merged M3U: $m3uRelativePath ($channelCount channels, $duplicateCount duplicates excluded, $warningCount warnings, SHA-256 $m3uHash)"
 }
+elseif ($m3uStatus -eq 'FAILED') {
+    $md += "Merged M3U: FAILED. $m3uFailureReason"
+}
 else {
-    $md += 'Merged M3U: not generated. No provider source has a local_playlist configured yet (HTTP fetch is deferred).'
+    $md += 'Merged M3U: deferred. No enabled provider source is configured.'
 }
 
 $md += ""
@@ -439,14 +606,14 @@ if ($xmltvPreviousOutputPreserved) {
 
 $md += ""
 $md += "Known limitations:"
-$md += '- Remote XMLTV acquisition: bounded HTTPS XMLTV only; cache, refresh, and other network sources remain deferred.'
-$md += '- Cache, scheduled refresh, provider adapters, and GUI workflows: deferred.'
+$md += '- Remote XMLTV and provider M3U acquisition: bounded HTTPS only; no redirects, proxies, credentials, retries, or live-network CI.'
+$md += '- Scheduled refresh, durable source snapshots, and GUI workflows: deferred.'
 $md += '- Plex EPG/guide binding: deferred; generated XMLTV is a separate output.'
 $md += ""
 $md += "## Provider M3U Sources"
 foreach ($s in $providerSources) {
     $state = if ($s.Enabled) { 'enabled' } else { 'disabled' }
-    $playlistState = if ($s.LocalPlaylist) { 'local playlist configured' } else { 'no local playlist' }
+    $playlistState = if ($s.LocalPlaylist) { 'local playlist configured' } else { 'remote playlist configured' }
     $md += "- $(Get-SafeReportText $s.Name) ($state, $playlistState)"
 }
 $md += ""
@@ -467,9 +634,10 @@ foreach ($b in $blocks.blocks) {
 
 $md -join "`n" | Set-Content -LiteralPath $planPath -Encoding UTF8
 
-if ($xmltvStatus -eq 'FAILED') {
-    Write-Host "ChannelForge build failed: $xmltvFailureReason" -ForegroundColor Red
-    throw $xmltvFailureReason
+if ($m3uStatus -eq 'FAILED' -or $xmltvStatus -eq 'FAILED') {
+    $failureMessage = if ($m3uStatus -eq 'FAILED') { $m3uFailureReason } else { $xmltvFailureReason }
+    Write-Host "ChannelForge build failed: $failureMessage" -ForegroundColor Red
+    throw $failureMessage
 }
 
 Write-Host "ChannelForge build completed." -ForegroundColor Green

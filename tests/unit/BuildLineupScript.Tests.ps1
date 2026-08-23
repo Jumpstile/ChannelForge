@@ -1,16 +1,43 @@
 BeforeAll {
     $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:ScriptPath = Join-Path $RepoRoot 'scripts\Build-Lineup.ps1'
+    $global:ChannelForgeBuildFixturePath = Join-Path $RepoRoot 'tests\fixtures\tiny.m3u'
+    Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
+    Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+        param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+        $channels = @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
+        if ($null -ne $AcquisitionStatus) {
+            $AcquisitionStatus['ProviderId'] = $Provider
+            $AcquisitionStatus['SourceId'] = $Source.Name
+            $AcquisitionStatus['Outcome'] = 'Fetched'
+            $AcquisitionStatus['Reason'] = 'FreshFetched'
+            $AcquisitionStatus['CacheKey'] = ('b' * 64)
+            $AcquisitionStatus['StatusCode'] = 200
+            $AcquisitionStatus['ContentType'] = 'application/vnd.apple.mpegurl'
+            $AcquisitionStatus['ContentEncodings'] = @()
+            $AcquisitionStatus['RawContentLength'] = $null
+            $AcquisitionStatus['DecompressedBytes'] = 0
+            $AcquisitionStatus['ChannelCount'] = $channels.Count
+            $AcquisitionStatus['HasETag'] = $false
+            $AcquisitionStatus['HasLastModified'] = $false
+        }
+        return $channels
+    }
 }
 
 Describe 'Build-Lineup.ps1 (no local playlists configured)' {
     BeforeAll {
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+            param($Source,$Provider)
+            return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
+        }
         $script:FixtureRoot = Join-Path $TestDrive 'project'
         $dataDir = Join-Path $script:FixtureRoot 'data'
 
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'rules') | Out-Null
 
         @{
             provider = 'fixture-provider'
@@ -36,6 +63,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
                 @{ start = 100; end = 199; category = 'Sports'; notes = 'fixture block' }
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+        @{ aliases = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'rules\aliases.json') -Encoding UTF8
 
         & $script:ScriptPath -Root $script:FixtureRoot
     }
@@ -45,24 +73,25 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         Test-Path -LiteralPath $summaryPath -PathType Leaf | Should -BeTrue
     }
 
-    It 'reports M3U and XMLTV as not generated, with a clear deferred reason for XMLTV' {
+    It 'reports the remote M3U as generated and XMLTV as not configured' {
         $summaryPath = Join-Path $script:FixtureRoot 'output\reports\build-summary.json'
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
 
-        $summary.M3UGenerated | Should -BeFalse
-        $summary.M3UPath | Should -BeNullOrEmpty
-        $summary.M3USha256 | Should -BeNullOrEmpty
+        $summary.M3UGenerated | Should -BeTrue
+        $summary.M3UStatus | Should -Be 'GENERATED'
+        $summary.M3UPath | Should -Be 'output/merged.m3u'
+        $summary.M3USha256 | Should -Not -BeNullOrEmpty
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVStatus | Should -Be 'NOT_CONFIGURED'
         $summary.XMLTVDeferredReason | Should -Match 'No enabled XMLTV'
-        $summary.Status | Should -Be 'SOURCE_OF_TRUTH_VALIDATED'
+        $summary.Status | Should -Be 'M3U_GENERATED'
     }
 
-    It 'does not claim output files exist that were never generated' {
+    It 'claims only the generated M3U output and not an XMLTV output' {
         $summaryPath = Join-Path $script:FixtureRoot 'output\reports\build-summary.json'
         $raw = Get-Content -LiteralPath $summaryPath -Raw
 
-        $raw | Should -Not -Match 'merged\.m3u'
+        $raw | Should -Match 'merged\.m3u'
         $raw | Should -Not -Match 'merged\.xmltv'
     }
 
@@ -70,9 +99,9 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
         $plan = Get-Content -LiteralPath $planPath -Raw
 
-        $plan | Should -Match 'Merged M3U: not generated'
+        $plan | Should -Match 'Merged M3U: output/merged\.m3u'
         $plan | Should -Match 'XMLTV output: deferred'
-        $plan | Should -Match 'Remote XMLTV acquisition: bounded HTTPS XMLTV only'
+        $plan | Should -Match 'Remote XMLTV and provider M3U acquisition: bounded HTTPS only'
         $plan | Should -Match 'Plex EPG/guide binding: deferred'
     }
 
@@ -96,7 +125,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
         $plan = Get-Content -LiteralPath $planPath -Raw
 
-        $plan | Should -Match 'Sports \(enabled, no local playlist\)'
+        $plan | Should -Match 'Sports \(enabled, remote playlist configured\)'
     }
 
     It 'does not leak full provider or EPG URLs into the machine-readable summary' {
@@ -118,6 +147,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
 Describe 'Build-Lineup.ps1 (with local playlists configured)' {
     BeforeAll {
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith { return @() }
         $script:FixtureRoot = Join-Path $TestDrive 'project-with-playlists'
         $dataDir = Join-Path $script:FixtureRoot 'data'
         $playlistDir = Join-Path $dataDir 'playlists'
@@ -365,6 +395,13 @@ Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
 }
 
 Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
+    BeforeEach {
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+            param($Source,$Provider)
+            return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
+        }
+    }
+
     BeforeAll {
         function New-MinimalProviderFixtureRoot {
             param([string]$RootName)
@@ -375,10 +412,12 @@ Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
             New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
             New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
             New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+            New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'rules') | Out-Null
 
             @{ epg_sources = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
             @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
-            @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+            @{ blocks = @(@{ start = 1; end = 9999; category = 'General'; notes = 'fixture' }) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+            @{ aliases = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'rules\aliases.json') -Encoding UTF8
 
             return $fixtureRoot
         }
@@ -451,6 +490,13 @@ Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
 }
 
 Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
+    BeforeEach {
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+            param($Source,$Provider)
+            return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
+        }
+    }
+
     It 'never writes a provider URL, account ID, or token to the console' {
         $fixtureRoot = Join-Path $TestDrive 'console-output-project'
         $dataDir = Join-Path $fixtureRoot 'data'
@@ -458,6 +504,7 @@ Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'providers') | Out-Null
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'epg') | Out-Null
         New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'lineup') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $dataDir 'rules') | Out-Null
 
         @{
             provider = 'fixture-provider'
@@ -469,7 +516,8 @@ Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
         @{ epg_sources = @(@{ name = 'x'; priority = 1; url = 'https://example.invalid/epg/ACCOUNT_ID/API_TOKEN/y.xml'; enabled = $false; role = 'primary' }) } |
             ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
         @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
-        @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+        @{ blocks = @(@{ start = 1; end = 9999; category = 'General'; notes = 'fixture' }) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+        @{ aliases = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'rules\aliases.json') -Encoding UTF8
 
         $output = & $script:ScriptPath -Root $fixtureRoot *>&1 | Out-String
 

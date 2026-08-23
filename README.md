@@ -94,7 +94,7 @@ Working today:
 
 - M3U playlist parsing
 
-- Deterministic merged M3U output from local playlists (alias resolution, numbering, dedup), plus Build-Lineup integration for configured local XMLTV `.xml`, `.gz`, and single-entry `.zip` sources with source-aware programme binding/merge and deterministic XMLTV output; remote acquisition remains deferred
+- Deterministic merged M3U output from local playlists or configured remote provider M3U sources (alias resolution, numbering, dedup), plus Build-Lineup integration for configured local and bounded remote XMLTV sources with source-aware programme binding/merge and deterministic XMLTV output
 
 - `BuildContext` domain object
 
