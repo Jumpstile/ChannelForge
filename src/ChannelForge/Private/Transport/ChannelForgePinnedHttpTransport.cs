@@ -48,6 +48,57 @@ namespace ChannelForge.Private.Transport
         MetadataOnly = 1
     }
 
+    public sealed class ChannelForgeHttpConditionalRequest
+    {
+        public const int MaximumValidatorLength = 1024;
+
+        public string IfNoneMatch { get; }
+        public DateTimeOffset? IfModifiedSince { get; }
+
+        public ChannelForgeHttpConditionalRequest(
+            string ifNoneMatch,
+            DateTimeOffset? ifModifiedSince)
+        {
+            IfNoneMatch = NormalizeEntityTag(ifNoneMatch);
+            IfModifiedSince = ifModifiedSince?.ToUniversalTime();
+
+            if (string.IsNullOrWhiteSpace(IfNoneMatch) && !IfModifiedSince.HasValue)
+            {
+                throw new ArgumentException("A conditional request requires a validator.");
+            }
+        }
+
+        private static string NormalizeEntityTag(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var normalized = value.Trim();
+            if (normalized.Length > MaximumValidatorLength ||
+                normalized.IndexOfAny(new[] { '\r', '\n' }) >= 0)
+            {
+                throw new ArgumentException("The ETag validator is not safe.", nameof(value));
+            }
+
+            foreach (var character in normalized)
+            {
+                if (char.IsControl(character))
+                {
+                    throw new ArgumentException("The ETag validator is not safe.", nameof(value));
+                }
+            }
+
+            if (!EntityTagHeaderValue.TryParse(normalized, out _))
+            {
+                throw new ArgumentException("The ETag validator is invalid.", nameof(value));
+            }
+
+            return normalized;
+        }
+    }
+
     public sealed class ChannelForgeHttpAcquisitionOptions
     {
         public const long HardMaximumRawResponseBytes = 256L * 1024L * 1024L;
@@ -58,6 +109,7 @@ namespace ChannelForge.Private.Transport
         public bool AllowMissingContentType { get; }
         public long MaxRawResponseBytes { get; }
         public ChannelForgeHttpStatusPolicy StatusPolicy { get; }
+        public ChannelForgeHttpConditionalRequest ConditionalRequest { get; }
 
         public ChannelForgeHttpAcquisitionOptions(
             string sourceId,
@@ -65,6 +117,23 @@ namespace ChannelForge.Private.Transport
             bool allowMissingContentType,
             long maxRawResponseBytes,
             ChannelForgeHttpStatusPolicy statusPolicy)
+            : this(
+                sourceId,
+                allowedContentTypes,
+                allowMissingContentType,
+                maxRawResponseBytes,
+                statusPolicy,
+                null)
+        {
+        }
+
+        public ChannelForgeHttpAcquisitionOptions(
+            string sourceId,
+            IEnumerable<string> allowedContentTypes,
+            bool allowMissingContentType,
+            long maxRawResponseBytes,
+            ChannelForgeHttpStatusPolicy statusPolicy,
+            ChannelForgeHttpConditionalRequest conditionalRequest)
         {
             SourceId = NormalizeSourceId(sourceId);
             AllowedContentTypes = NormalizeContentTypes(allowedContentTypes);
@@ -83,6 +152,7 @@ namespace ChannelForge.Private.Transport
 
             MaxRawResponseBytes = maxRawResponseBytes;
             StatusPolicy = statusPolicy;
+            ConditionalRequest = conditionalRequest;
         }
 
         private static string NormalizeSourceId(string value)
@@ -153,6 +223,8 @@ namespace ChannelForge.Private.Transport
         public long? ContentLength { get; }
         public bool HasPayload { get; }
         public Stream ResponseStream { get; }
+        public string ETag { get; }
+        public DateTimeOffset? LastModified { get; }
 
         internal ChannelForgeHttpsPayload(
             string sourceId,
@@ -164,6 +236,33 @@ namespace ChannelForge.Private.Transport
             bool hasPayload,
             Stream responseStream,
             ChannelForgeAcquisitionLease acquisitionLease)
+            : this(
+                sourceId,
+                statusCode,
+                statusDisposition,
+                contentType,
+                contentEncodings,
+                contentLength,
+                hasPayload,
+                responseStream,
+                acquisitionLease,
+                null,
+                null)
+        {
+        }
+
+        internal ChannelForgeHttpsPayload(
+            string sourceId,
+            int statusCode,
+            ChannelForgeHttpStatusDisposition statusDisposition,
+            string contentType,
+            IReadOnlyList<string> contentEncodings,
+            long? contentLength,
+            bool hasPayload,
+            Stream responseStream,
+            ChannelForgeAcquisitionLease acquisitionLease,
+            string etag,
+            DateTimeOffset? lastModified)
         {
             SourceId = sourceId;
             StatusCode = statusCode;
@@ -173,6 +272,8 @@ namespace ChannelForge.Private.Transport
             ContentLength = contentLength;
             HasPayload = hasPayload;
             ResponseStream = responseStream;
+            ETag = etag;
+            LastModified = lastModified?.ToUniversalTime();
             lease = acquisitionLease;
         }
 
@@ -604,7 +705,7 @@ namespace ChannelForge.Private.Transport
     public static class ChannelForgePinnedHttpTransport
     {
         public const string ContractName = "ChannelForgePinnedHttpTransport";
-        public const int ContractVersion = 4;
+        public const int ContractVersion = 5;
 
         public const string InvalidEndpointCategory = "InvalidEndpoint";
         public const string DnsFailureCategory = "DnsFailure";
@@ -821,6 +922,19 @@ namespace ChannelForge.Private.Transport
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, endpoint.RequestUri))
                 {
+                    if (options.ConditionalRequest != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(options.ConditionalRequest.IfNoneMatch))
+                        {
+                            request.Headers.IfNoneMatch.ParseAdd(options.ConditionalRequest.IfNoneMatch);
+                        }
+
+                        if (options.ConditionalRequest.IfModifiedSince.HasValue)
+                        {
+                            request.Headers.IfModifiedSince = options.ConditionalRequest.IfModifiedSince;
+                        }
+                    }
+
                     response = await client.SendAsync(
                             request,
                             HttpCompletionOption.ResponseHeadersRead,
@@ -835,6 +949,13 @@ namespace ChannelForge.Private.Transport
                     "Headers");
 
                 var statusCode = (int)response.StatusCode;
+                var responseETag = response.Headers.ETag?.ToString();
+                DateTimeOffset? responseLastModified = null;
+                if (response.Content != null && response.Content.Headers.LastModified.HasValue)
+                {
+                    responseLastModified = response.Content.Headers.LastModified.Value.ToUniversalTime();
+                }
+
                 if (statusCode == 304)
                 {
                     if (options.StatusPolicy != ChannelForgeHttpStatusPolicy.Allow304MetadataOnly)
@@ -861,7 +982,9 @@ namespace ChannelForge.Private.Transport
                         null,
                         false,
                         null,
-                        null);
+                        null,
+                        responseETag,
+                        responseLastModified);
                 }
 
                 if (statusCode != 200)
@@ -917,7 +1040,9 @@ namespace ChannelForge.Private.Transport
                     contentLength,
                     true,
                     boundedStream,
-                    lease);
+                    lease,
+                    responseETag,
+                    responseLastModified);
             }
             catch (ChannelForgePinnedHttpTransportException)
             {

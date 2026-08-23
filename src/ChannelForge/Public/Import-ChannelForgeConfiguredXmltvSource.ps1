@@ -4,7 +4,14 @@ function Import-ChannelForgeConfiguredXmltvSource {
         [Parameter(Mandatory, Position = 0)]
         [psobject]$Source,
 
-        [long]$MaxDocumentBytes = 268435456
+        [long]$MaxDocumentBytes = 268435456,
+
+        [long]$MaxRawResponseBytes = 268435456,
+
+        [AllowEmptyString()]
+        [string]$CacheRoot = '',
+
+        [System.Collections.IDictionary]$AcquisitionStatus
     )
 
     if ($null -eq $Source) {
@@ -41,34 +48,125 @@ function Import-ChannelForgeConfiguredXmltvSource {
             throw 'Configured EPG source is unsupported.'
         }
 
-        $opened = $null
-        try {
-            $opened = Open-ChannelForgeRemoteXmltvSourceStream `
-                -Source $Source `
-                -MaxDocumentBytes $MaxDocumentBytes
+        $useCache = -not [string]::IsNullOrWhiteSpace($CacheRoot)
+        $cacheRetryUsed = $false
+        $forceUnconditional = $false
 
-            return @(Read-ChannelForgeXmltvDocument `
-                -Stream $opened.Stream `
-                -SourceId $sourceId `
-                -SourcePath '' `
-                -SourceKind 'remote' `
-                -SourceReference $opened.SourceReference `
-                -Compression $opened.Compression `
-                -TransportContractVersion $opened.TransportContract `
-                -HttpStatusCode $opened.StatusCode `
-                -ContentType $opened.ContentType `
-                -ContentEncodings $opened.ContentEncodings `
-                -RawContentLength $opened.RawContentLength `
-                -MaxDocumentBytes $MaxDocumentBytes)
-        }
-        finally {
-            if ($null -ne $opened) {
-                if ($null -ne $opened.Stream) {
-                    try { $opened.Stream.Dispose() } catch { }
+        while ($true) {
+            $opened = $null
+            $parserCompleted = $false
+            try {
+                if ($useCache) {
+                    $opened = Open-ChannelForgeRemoteXmltvSourceStreamWithCache `
+                        -Source $Source `
+                        -CacheRoot $CacheRoot `
+                        -MaxDocumentBytes $MaxDocumentBytes `
+                        -MaxRawResponseBytes $MaxRawResponseBytes `
+                        -ForceUnconditional:$forceUnconditional
+                }
+                else {
+                    $opened = Open-ChannelForgeRemoteXmltvSourceStream `
+                        -Source $Source `
+                        -MaxDocumentBytes $MaxDocumentBytes `
+                        -MaxRawResponseBytes $MaxRawResponseBytes
                 }
 
-                foreach ($resource in @($opened.Resources)) {
-                    try { $resource.Dispose() } catch { }
+                $programmes = @(Read-ChannelForgeXmltvDocument `
+                    -Stream $opened.Stream `
+                    -SourceId $sourceId `
+                    -SourcePath '' `
+                    -SourceKind 'remote' `
+                    -SourceReference $opened.SourceReference `
+                    -Compression $opened.Compression `
+                    -TransportContractVersion $opened.TransportContract `
+                    -HttpStatusCode $opened.StatusCode `
+                    -ContentType $opened.ContentType `
+                    -ContentEncodings $opened.ContentEncodings `
+                    -RawContentLength $opened.RawContentLength `
+                    -MaxDocumentBytes $MaxDocumentBytes)
+                $parserCompleted = $true
+
+                if ($null -ne $opened.Stream) {
+                    $opened.Stream.Dispose()
+                }
+
+                if ($null -ne $opened.CacheWrite) {
+                    $reason = [string]$opened.CacheReason
+                    $payloadHash = $opened.CacheWrite.Tee.GetHashHex()
+                    if (-not [string]::IsNullOrWhiteSpace([string]$opened.CacheWrite.PreviousPayloadHash) -and
+                        $opened.CacheWrite.PreviousPayloadHash -ceq $payloadHash) {
+                        $reason = 'HashMatched200'
+                    }
+                    $opened.CacheReason = $reason
+                    Write-ChannelForgeRemoteXmltvFetchCache `
+                        -CacheWrite $opened.CacheWrite `
+                        -Programmes $programmes `
+                        -SourceId $sourceId `
+                        -MaxDocumentBytes $MaxDocumentBytes `
+                        -Reason $reason | Out-Null
+                }
+                elseif ($null -ne $opened.CacheValidation) {
+                    Update-ChannelForgeRemoteXmltvFetchCacheValidation `
+                        -CacheEntry $opened.CacheEntry `
+                        -ETag ([string]$opened.CacheValidation.ETag) `
+                        -LastModified $opened.CacheValidation.LastModified `
+                        -StatusCode 304 | Out-Null
+                }
+
+                if ($null -ne $AcquisitionStatus) {
+                    $AcquisitionStatus.Clear()
+                    $AcquisitionStatus['Outcome'] = if ($opened.PSObject.Properties.Name -contains 'CacheOutcome') {
+                        [string]$opened.CacheOutcome
+                    }
+                    else {
+                        'Fetched'
+                    }
+                    $AcquisitionStatus['Reason'] = if ($opened.PSObject.Properties.Name -contains 'CacheReason') {
+                        [string]$opened.CacheReason
+                    }
+                    else {
+                        'FreshFetched'
+                    }
+                    $AcquisitionStatus['CacheKey'] = if ($opened.PSObject.Properties.Name -contains 'CacheKey') {
+                        [string]$opened.CacheKey
+                    }
+                    else {
+                        $null
+                    }
+                }
+
+                return $programmes
+            }
+            catch {
+                if (-not $parserCompleted -and
+                    $useCache -and
+                    -not $cacheRetryUsed -and
+                    $null -ne $opened -and
+                    $opened.PSObject.Properties.Name -contains 'CacheOutcome' -and
+                    [string]$opened.CacheOutcome -eq 'CacheHit') {
+                    $cacheRetryUsed = $true
+                    if ($null -ne $opened.CacheEntry) {
+                        if ($null -ne $opened.Stream) {
+                            try { $opened.Stream.Dispose() } catch { }
+                            $opened.Stream = $null
+                        }
+                        Remove-ChannelForgeRemoteXmltvFetchCacheEntry -CacheEntry $opened.CacheEntry
+                    }
+                    $forceUnconditional = $true
+                    continue
+                }
+
+                throw
+            }
+            finally {
+                if ($null -ne $opened) {
+                    if ($null -ne $opened.Stream) {
+                        try { $opened.Stream.Dispose() } catch { }
+                    }
+
+                    foreach ($resource in @($opened.Resources)) {
+                        try { $resource.Dispose() } catch { }
+                    }
                 }
             }
         }

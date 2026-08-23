@@ -54,13 +54,15 @@ function Compare-ChannelForgeBuildText {
 $dataDir = Join-Path $Root "data"
 $outDir = Join-Path $Root "output"
 $reportDir = Join-Path $outDir "reports"
+$cacheRoot = Join-Path $outDir "cache\remote-xmltv"
 $playlistDir = Join-Path $dataDir "playlists"
 $epgConfigPath = Join-Path $dataDir "epg/epg_sources.json"
 
 # Path-safety guardrail: generated artifacts may only land inside output/.
 Assert-ChannelForgeWritePath -Path $outDir -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $reportDir -AllowedRoot $outDir
-New-Item -ItemType Directory -Force -Path $outDir, $reportDir | Out-Null
+Assert-ChannelForgeWritePath -Path $cacheRoot -AllowedRoot $outDir
+New-Item -ItemType Directory -Force -Path $outDir, $reportDir, $cacheRoot | Out-Null
 
 $xmltvPath = Join-Path $outDir 'merged.xml'
 $xmltvTempPath = Join-Path $outDir 'merged.xml.tmp'
@@ -190,6 +192,7 @@ $xmltvConflictCount = 0
 # paths may be used to open a file, but never influence artifacts, warnings,
 # identifiers, or decisions.
 $xmltvSourceRecords = [System.Collections.Generic.List[object]]::new()
+$xmltvAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
 $sourceEnumerationIndex = 0
 foreach ($source in $epgSources) {
     $sourceProperties = @($source.PSObject.Properties.Name)
@@ -264,7 +267,19 @@ else {
         $allProgrammes = [System.Collections.Generic.List[object]]::new()
 
         foreach ($source in $xmltvSources) {
-            $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource -Source $source)
+            $acquisitionStatus = [ordered]@{}
+            $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource `
+                -Source $source `
+                -CacheRoot $cacheRoot `
+                -AcquisitionStatus $acquisitionStatus)
+            if ($acquisitionStatus.Count -gt 0) {
+                [void]$xmltvAcquisitionStatuses.Add([pscustomobject][ordered]@{
+                    SourceId = [string]$source.Name
+                    Outcome  = [string]$acquisitionStatus['Outcome']
+                    Reason   = [string]$acquisitionStatus['Reason']
+                    CacheKey = [string]$acquisitionStatus['CacheKey']
+                })
+            }
             foreach ($programme in $sourceProgrammes) {
                 [void]$allProgrammes.Add($programme)
             }
@@ -375,6 +390,7 @@ $summary = [ordered]@{
     XMLTVConflictCount             = $xmltvConflictCount
     XMLTVDeferredReason            = $xmltvDeferredReason
     XMLTVFailureReason             = $xmltvFailureReason
+    XMLTVAcquisitionStatus          = @($xmltvAcquisitionStatuses.ToArray())
     XMLTVPreviousOutputPresent     = $xmltvPreviousOutputPresent
     XMLTVPreviousOutputPreserved   = $xmltvPreviousOutputPreserved
     XMLTVRollbackPath               = if ($xmltvPreviousOutputPreserved) { $xmltvRollbackRelativePath } else { $null }
