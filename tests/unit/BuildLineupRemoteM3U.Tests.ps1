@@ -42,7 +42,9 @@ BeforeAll {
     function Set-RemoteBuildMock {
         param(
             [Parameter(Mandatory)]
-            [string]$FixturePath
+            [string]$FixturePath,
+
+            [string]$RawETag = ''
         )
 
         $global:ChannelForgeBuildFixturePath = $FixturePath
@@ -61,8 +63,11 @@ BeforeAll {
                 $AcquisitionStatus['RawContentLength'] = $null
                 $AcquisitionStatus['DecompressedBytes'] = 1
                 $AcquisitionStatus['ChannelCount'] = $channels.Count
-                $AcquisitionStatus['HasETag'] = $false
+                $AcquisitionStatus['HasETag'] = -not [string]::IsNullOrWhiteSpace($RawETag)
                 $AcquisitionStatus['HasLastModified'] = $false
+                if (-not [string]::IsNullOrWhiteSpace($RawETag)) {
+                    $AcquisitionStatus['ETag'] = $RawETag
+                }
             }
             return $channels
         }
@@ -75,7 +80,8 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
         New-BuildFixture -Root $root -Sources @(
             @{ name = 'Remote'; group = 'General'; url = 'https://example.invalid/iptv/fixture'; enabled = $true }
         )
-        Set-RemoteBuildMock -FixturePath $script:FixturePlaylist
+        $rawETag = '"validator-only-cache-fixture"'
+        Set-RemoteBuildMock -FixturePath $script:FixturePlaylist -RawETag $rawETag
 
         & $script:ScriptPath -Root $root
 
@@ -97,6 +103,15 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
             $raw | Should -Not -Match 'live/'
             $raw | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
         }
+        $outputFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'output') -File -Recurse)
+        $outputText = @(
+            $outputFiles | ForEach-Object {
+                Get-Content -LiteralPath $_.FullName -Raw
+            }
+        ) -join ([Environment]::NewLine)
+        $outputText | Should -Not -Match ([regex]::Escape($rawETag))
+        (@($outputFiles | ForEach-Object { $_.FullName }) -join ([Environment]::NewLine)) |
+            Should -Not -Match ([regex]::Escape($rawETag))
     }
 
     It 'produces byte-identical merged output for identical local and remote M3U bytes' {
