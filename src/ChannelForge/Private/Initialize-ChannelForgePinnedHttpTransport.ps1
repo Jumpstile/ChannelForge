@@ -139,6 +139,10 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         [System.Reflection.BindingFlags]::Static -bor
         [System.Reflection.BindingFlags]::DeclaredOnly
 
+    $instanceFlags = [System.Reflection.BindingFlags]::Public -bor
+        [System.Reflection.BindingFlags]::Instance -bor
+        [System.Reflection.BindingFlags]::DeclaredOnly
+
     $internalStaticFlags = [System.Reflection.BindingFlags]::NonPublic -bor
         [System.Reflection.BindingFlags]::Static -bor
         [System.Reflection.BindingFlags]::DeclaredOnly
@@ -178,11 +182,11 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         }
     }
 
-    if ($contractVersion -ne 4) {
+    if ($contractVersion -ne 5) {
         return [pscustomobject]@{
             Valid = $false
             Category = 'ConflictingContract'
-            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '4'."
+            Detail = "the loaded helper contract version '$contractVersion' is not the expected version '5'."
         }
     }
 
@@ -212,6 +216,10 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         'ChannelForge.Private.Transport.ChannelForgeHttpAcquisitionOptions',
         $false,
         $false)
+    $conditionalRequestType = $Type.Assembly.GetType(
+        'ChannelForge.Private.Transport.ChannelForgeHttpConditionalRequest',
+        $false,
+        $false)
     $payloadType = $Type.Assembly.GetType(
         'ChannelForge.Private.Transport.ChannelForgeHttpsPayload',
         $false,
@@ -224,12 +232,37 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         'ChannelForge.Private.Transport.ChannelForgeHttpStatusDisposition',
         $false,
         $false)
+    $conditionalRequestProperties = if ($null -ne $acquisitionOptionsType) {
+        @($acquisitionOptionsType.GetProperty('ConditionalRequest', $instanceFlags))
+    }
+    else {
+        @()
+    }
+    $payloadETagProperty = if ($null -ne $payloadType) {
+        $payloadType.GetProperty('ETag', $instanceFlags)
+    }
+    else {
+        $null
+    }
+    $payloadLastModifiedProperty = if ($null -ne $payloadType) {
+        $payloadType.GetProperty('LastModified', $instanceFlags)
+    }
+    else {
+        $null
+    }
     if ($null -eq $acquisitionOptionsType -or
         -not $acquisitionOptionsType.IsPublic -or
         -not $acquisitionOptionsType.IsClass -or
+        $null -eq $conditionalRequestType -or
+        -not $conditionalRequestType.IsPublic -or
+        -not $conditionalRequestType.IsClass -or
+        $conditionalRequestProperties.Count -ne 1 -or
+        $conditionalRequestProperties[0].PropertyType -ne $conditionalRequestType -or
         $null -eq $payloadType -or
         -not $payloadType.IsPublic -or
         -not $payloadType.IsClass -or
+        $null -eq $payloadETagProperty -or
+        $null -eq $payloadLastModifiedProperty -or
         $null -eq $statusPolicyType -or
         -not $statusPolicyType.IsPublic -or
         -not $statusPolicyType.IsEnum -or
@@ -239,7 +272,7 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         return [pscustomobject]@{
             Valid = $false
             Category = 'ContractMismatch'
-            Detail = 'the loaded helper does not expose the required v4 acquisition types.'
+            Detail = 'the loaded helper does not expose the required v5 acquisition types.'
         }
     }
 
@@ -342,6 +375,7 @@ function Get-ChannelForgePinnedHttpTransportContractState {
         ContractVersion = $contractVersion
         EndpointMethod = $endpointMethods[0]
         EndpointResultType = $endpointResultType
+        ConditionalRequestType = $conditionalRequestType
         CapabilityMethod = $capabilityMethods[0]
         HandlerFactoryMethod = $factoryMethods[0]
         AcquisitionMethod = $acquisitionMethods[0]
@@ -504,7 +538,7 @@ function New-ChannelForgePinnedHttpTransportResult {
 
     return [pscustomobject]@{
         Type = $Type
-        ContractVersion = 4
+        ContractVersion = 5
         LoadMode = $LoadMode
         CompilerWarnings = @($CompilerWarnings)
         HandlerFactoryMethod = $HandlerFactoryMethod

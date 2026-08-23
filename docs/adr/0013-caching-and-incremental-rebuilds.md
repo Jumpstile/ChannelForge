@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -51,10 +51,13 @@ This ADR's scope is **(c) only**: the disposable fetch cache for provider/EPG so
 
 **Safe invalidation:**
 
-- Every cache entry has a maximum age (proposed default: 24 hours for provider listings, 6 hours for EPG data, both configurable) after which it is treated as expired even without a change-detection check.
+- Every cache entry has a maximum age after which it is treated as expired even without a change-detection check. This first remote XMLTV slice fixes the EPG TTL at six hours; it does not expose runtime TTL configuration.
 - A cache entry whose recorded parser/schema version doesn't match the current version is invalidated unconditionally.
 - Falling back to a full fetch when a cache entry is missing, expired, mismatched, or corrupt is a safe automatic repair under ADR 0004 and requires no user approval.
 - Cache storage lives under a clearly disposable location (e.g. `output/cache/`, not `data/`), consistent with category (c) above, so deleting it entirely is always a safe, supported recovery action.
+- For this XMLTV slice, a fully validated cache entry whose `ValidatedAtUtc` age is strictly less than the fixed six-hour EPG TTL is fresh and may satisfy acquisition without network access. An age greater than or equal to six hours requires successful remote validation or a complete remote fetch.
+- A stale entry is never an offline fallback. A `304` response may reuse the local payload only after the cache metadata and payload have both validated; if the local payload is missing or invalid, exactly one unconditional repair fetch is permitted. A failed repair resolves to `Failed` and cannot publish stale data.
+- Cache metadata is operational evidence only. Timestamps, validators, cache keys, hit states, and subordinate cache reasons must never affect deterministic Programme values, evidence used for merge decisions, or generated artifacts.
 
 ### Guardrail: caching must not create a degraded success path
 

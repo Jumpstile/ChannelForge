@@ -62,8 +62,8 @@ function New-ChannelForgeXmltvEvidenceRecord {
             throw 'Remote XMLTV evidence SourceReference is not safe.'
         }
 
-        if ($TransportContractVersion -ne 4) {
-            throw 'Remote XMLTV evidence requires transport contract version 4.'
+        if ($TransportContractVersion -ne 5) {
+            throw 'Remote XMLTV evidence requires transport contract version 5.'
         }
 
         if ($HttpStatusCode -ne 200) {

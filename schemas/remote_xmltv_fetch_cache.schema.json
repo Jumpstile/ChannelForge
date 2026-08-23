@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/remote_xmltv_fetch_cache.schema.json",
+  "title": "ChannelForge disposable remote XMLTV fetch-cache metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "CacheFormatVersion",
+    "CacheVersion",
+    "KeyAlgorithm",
+    "KeyVersion",
+    "CacheKey",
+    "SourceId",
+    "Format",
+    "TransportContractVersion",
+    "ParserCacheVersion",
+    "MaxDecompressedBytes",
+    "ContentType",
+    "ContentEncodings",
+    "PayloadFile",
+    "PayloadByteCount",
+    "PayloadSha256",
+    "RawContentLength",
+    "ProgrammeCount",
+    "ChannelCount",
+    "FetchedAtUtc",
+    "ValidatedAtUtc",
+    "TtlSeconds",
+    "ETag",
+    "LastModified",
+    "SourceHttpStatusCode",
+    "LastValidationStatus",
+    "OperationalReason"
+  ],
+  "properties": {
+    "CacheFormatVersion": { "const": 1 },
+    "CacheVersion": { "const": "remote-xmltv-cache-v1" },
+    "KeyAlgorithm": { "const": "sha256" },
+    "KeyVersion": { "const": 1 },
+    "CacheKey": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "SourceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\r\\n\\t/\\\\?@#]+$"
+    },
+    "Format": { "const": "xmltv" },
+    "TransportContractVersion": { "const": 5 },
+    "ParserCacheVersion": { "const": "xmltv-parser-cache-v1" },
+    "MaxDecompressedBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ContentType": {
+      "enum": ["application/xml", "text/xml"]
+    },
+    "ContentEncodings": {
+      "type": "array",
+      "items": {
+        "enum": ["", "identity", "gzip", "x-gzip"]
+      }
+    },
+    "PayloadFile": {
+      "type": "string",
+      "pattern": "^payload-[0-9a-f]{64}\\.xml$"
+    },
+    "PayloadByteCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "PayloadSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "RawContentLength": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "ProgrammeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ChannelCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "FetchedAtUtc": { "type": "string", "format": "date-time" },
+    "ValidatedAtUtc": { "type": "string", "format": "date-time" },
+    "TtlSeconds": { "const": 21600 },
+    "ETag": {
+      "type": ["string", "null"],
+      "maxLength": 1024
+    },
+    "LastModified": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "SourceHttpStatusCode": { "const": 200 },
+    "LastValidationStatus": { "enum": [200, 304] },
+    "OperationalReason": {
+      "enum": [
+        "FreshFetched",
+        "HashMatched200",
+        "InvalidatedThenFetched",
+        "Validated304"
+      ]
+    }
+  }
+}

@@ -17,7 +17,7 @@ param(
     [string]$ModulePath,
 
     [Parameter(Mandatory)]
-    [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
+    [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v4', 'shape-mismatch', 'multiple', 'initialize')]
     [string]$Scenario
 )
 
@@ -180,8 +180,8 @@ namespace ChannelForge.Private.Transport {
             break
         }
 
-        'conflicting-v2' {
-            $source = 'namespace ChannelForge.Private.Transport { public static class ChannelForgePinnedHttpTransport { public const string ContractName = "ChannelForgePinnedHttpTransport"; public const int ContractVersion = 2; public static bool HasRequiredCapabilities() { return true; } } }'
+        'conflicting-v4' {
+            $source = 'namespace ChannelForge.Private.Transport { public static class ChannelForgePinnedHttpTransport { public const string ContractName = "ChannelForgePinnedHttpTransport"; public const int ContractVersion = 4; public static bool HasRequiredCapabilities() { return true; } } }'
             $null = @(Add-Type -TypeDefinition $source -Language CSharp -PassThru)
             $result = Invoke-Initializer
             Write-ChildResult ([pscustomobject]@{ Success = $false; UnexpectedSuccess = $true; Mode = $result.LoadMode })
@@ -197,7 +197,7 @@ namespace ChannelForge.Private.Transport {
     public sealed class ChannelForgeValidatedEndpoint { }
     public static class ChannelForgePinnedHttpTransport {
         public const string ContractName = "ChannelForgePinnedHttpTransport";
-        public const int ContractVersion = 4;
+        public const int ContractVersion = 5;
         public static Task<ChannelForgeValidatedEndpoint> ValidateEndpointAsync(string value, CancellationToken cancellationToken) { return Task.FromResult<ChannelForgeValidatedEndpoint>(null); }
         public static bool HasRequiredCapabilities() { return true; }
     }
@@ -275,7 +275,7 @@ catch {
             [string]$ModulePath,
 
             [Parameter(Mandatory)]
-            [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
+            [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v4', 'shape-mismatch', 'multiple', 'initialize')]
             [string]$Scenario
         )
 
@@ -320,7 +320,7 @@ function Invoke-PinnedTransportChild {
         [string]$ModulePath,
 
         [Parameter(Mandatory)]
-        [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v2', 'shape-mismatch', 'multiple', 'initialize')]
+        [ValidateSet('import-only', 'compile', 'reimport', 'preloaded-matching', 'conflicting', 'conflicting-v4', 'shape-mismatch', 'multiple', 'initialize')]
         [string]$Scenario
     )
 
@@ -378,7 +378,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 4
+        $result.ContractVersion | Should -Be 5
         $result.Capability | Should -BeTrue
         $result.FirstHelperCount | Should -Be 1
         $result.SecondHelperCount | Should -Be 1
@@ -393,18 +393,18 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Success | Should -BeTrue
         $result.FirstMode | Should -Be 'Compiled'
         $result.SecondMode | Should -Be 'Reused'
-        $result.ContractVersion | Should -Be 4
+        $result.ContractVersion | Should -Be 5
         $result.HelperCount | Should -Be 1
     }
 
-    It 'reuses an already-loaded matching v4 helper' {
+    It 'reuses an already-loaded matching v5 helper' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'preloaded-matching'
 
         $result.Success | Should -BeTrue
         $result.Mode | Should -Be 'Reused'
         $result.TypeName | Should -Be 'ChannelForge.Private.Transport.ChannelForgePinnedHttpTransport'
-        $result.ContractVersion | Should -Be 4
+        $result.ContractVersion | Should -Be 5
         $result.HelperCount | Should -Be 1
     }
 
@@ -418,9 +418,9 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Message | Should -Match 'ConflictingContract'
     }
 
-    It 'fails closed when a v2 helper contract is already loaded' {
+    It 'fails closed when a v4 helper contract is already loaded' {
         $modulePath = New-PinnedTransportTestModuleCopy
-        $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'conflicting-v2'
+        $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'conflicting-v4'
 
         $result.Success | Should -BeFalse
         $result.UnexpectedSuccess | Should -BeNullOrEmpty
@@ -428,7 +428,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
         $result.Message | Should -Match 'ConflictingContract'
     }
 
-    It 'fails closed when a v4 helper has a mismatched endpoint contract shape' {
+    It 'fails closed when a v5 helper has a mismatched endpoint contract shape' {
         $modulePath = New-PinnedTransportTestModuleCopy
         $result = Invoke-PinnedTransportChild -ModulePath $modulePath -Scenario 'shape-mismatch'
 
@@ -504,6 +504,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
     It 'fails before compilation when the runtime capability seam reports unsupported' {
         InModuleScope ChannelForge {
             Mock Test-ChannelForgePinnedHttpTransportRuntimeCapability { return $false }
+            Mock Get-ChannelForgePinnedHttpTransportLoadedType { return @() }
             Mock Add-Type { throw 'Add-Type must not be called for an unsupported runtime.' }
 
             { Initialize-ChannelForgePinnedHttpTransport } | Should -Throw '*RuntimeUnsupported*'
@@ -532,7 +533,7 @@ Describe 'ChannelForge pinned transport lazy-loader foundation' {
                     Valid = $true
                     Category = $null
                     Detail = $null
-                    ContractVersion = 4
+                    ContractVersion = 5
                     CapabilityMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
                     HandlerFactoryMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
                     AcquisitionMethod = [string].GetMethod('IsNullOrEmpty', [Type[]]@([string]))
