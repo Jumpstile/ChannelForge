@@ -54,11 +54,14 @@ Every change should be reviewed for:
 
 ## Release Discipline
 
-No release is ready until:
+The [Go / No-Go Checklist](engineering/GoNoGoChecklist.md) is the canonical
+release gate and decision record. For a release candidate:
 
-- CI is green.
-- Relevant tests pass locally.
-- Bug sweep is complete.
-- Vulnerability sweep is complete.
-- Documentation is current.
-- Release checklist is complete.
+- Complete the canonical checklist and the [release evidence
+  template](docs/templates/release-checklist.md).
+- Record the exact candidate commit SHA, version/tag, CI run, and supporting
+  review evidence.
+- Have the Product Owner / Engineering Manager record the GO/NO-GO decision.
+
+A green CI run, pull-request approval, or merged pull request is review and
+merge evidence; none is release approval by itself.
