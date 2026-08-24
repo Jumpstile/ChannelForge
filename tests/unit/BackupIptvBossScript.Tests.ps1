@@ -4,6 +4,13 @@ BeforeAll {
 }
 
 Describe 'Backup-IPTVBoss.ps1' {
+    It 'requires an explicit source path instead of using a machine-specific NAS default' {
+        $fixtureRoot = Join-Path $TestDrive 'explicit-source-required'
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*must be supplied explicitly*'
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'backups') | Should -BeFalse
+    }
+
     It 'throws and writes nothing when the source data path is missing' {
         $fixtureRoot = Join-Path $TestDrive 'missing-source'
         $missingSource = Join-Path $TestDrive 'missing-source\iptvboss-data'

@@ -10,6 +10,7 @@ ChannelForge is an evidence-driven PowerShell project for building accurate, tru
    - Confirm the working directory is the intended ChannelForge repository.
    - Check `git status`.
    - Check `git remote -v`.
+   - Confirm the checkout is local and read [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
    - Confirm expected project files are present, including `README.md`, `CONSTITUTION.md`, `AI_COLLABORATION.md`, `ROADMAP.md`, `src/`, and `docs/`.
 2. Read [CONSTITUTION.md](CONSTITUTION.md).
 3. Read [AI_COLLABORATION.md](AI_COLLABORATION.md).
@@ -26,6 +27,7 @@ ChannelForge is an evidence-driven PowerShell project for building accurate, tru
 - Repository docs are the engineering source of truth.
 - ADRs preserve accepted architecture decisions.
 - GitHub Issues are project memory for bugs, feature requests, release blockers, follow-ups, and decisions that need tracking.
+- GitHub is authoritative for history and cross-machine handoffs; active engineering uses an independent local clone or worktree, never a shared NAS Git checkout.
 - Generated outputs are disposable artifacts unless a governing document says otherwise.
 
 ## Before Implementation

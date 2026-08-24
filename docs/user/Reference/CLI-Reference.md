@@ -39,7 +39,7 @@ Loads the ChannelForge module directly, useful if you want to call individual fu
 
 ## Other scripts
 
-The repository has additional scripts (`Backup-IPTVBoss.ps1`, `Validate-Config.ps1`, `Validate-ConfigSchemas.ps1`, and other `Validate-*.ps1` quality-gate scripts) that are primarily developer/CI tooling rather than part of the everyday user workflow. See the [Developer Guide](../../developer/DEVELOPER_GUIDE.md#ci-quality-gates) if you need them.
+The repository has additional scripts (`Backup-IPTVBoss.ps1`, `Validate-Config.ps1`, `Validate-ConfigSchemas.ps1`, and other `Validate-*.ps1` quality-gate scripts) that are primarily developer/CI tooling rather than part of the everyday user workflow. `Backup-IPTVBoss.ps1` requires an explicit `-IPTVBossData` source path; it has no machine-specific NAS default. See the [Developer Guide](../../developer/DEVELOPER_GUIDE.md#ci-quality-gates) if you need them.
 
 ## Where to go next
 

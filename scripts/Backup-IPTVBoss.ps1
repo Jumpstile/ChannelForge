@@ -1,6 +1,6 @@
 param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
-    [string]$IPTVBossData = "/srv/dev-disk-by-uuid-4d39f891-6950-43f3-9ac1-ba3dd583c8e8/appdata/iptvboss/data",
+    [string]$IPTVBossData = '',
     [switch]$Force,
     # Exposed for deterministic testing of the overwrite guard below; normal
     # use should rely on the default (the current time).
@@ -16,6 +16,9 @@ Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Forc
 
 # Fail safe: never tar a path that does not exist. A missing source would
 # otherwise let tar silently produce an empty or misleading archive.
+if ([string]::IsNullOrWhiteSpace($IPTVBossData)) {
+    throw 'IPTVBoss data path must be supplied explicitly; no machine-specific NAS default is used.'
+}
 Assert-ChannelForgePathExists -Path $IPTVBossData -PathType Container -Description 'IPTVBoss data path'
 
 # Defense in depth: reject backing up an entire drive root or a well-known

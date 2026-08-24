@@ -22,6 +22,18 @@ Repository docs, ADRs, source data, and tests are the authoritative engineering 
 
 ChannelForge must remain understandable, buildable, and governable from the repository itself. Local machine state, external applications, private configuration, and generated artifacts may support workflows, but they must not be required to understand project rules or accepted architecture.
 
+### GitHub authority and local workspaces
+
+GitHub is authoritative for versioned ChannelForge history and cross-machine
+engineering handoff. Every machine and agent uses its own local clone or local
+worktree. Pushed GitHub review branches are the only cross-machine handoff.
+NAS, UNC, mapped-drive, synchronized, and SMB paths may hold backups, source
+data, generated artifacts, repository mirrors, or an explicitly authorized
+runtime deployment, but they must not be active shared Git worktrees. Existing
+dirty or inaccessible NAS worktrees, including the previously used
+`Y:\ChannelForge` path, are preserved and de-authorized without deletion,
+cleanup, reset, rename, or rewrite. See [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
+
 ### Trust but continuously verify
 
 ChannelForge should be trusted because it verifies itself. Passing tests, green CI, documented decisions, review checklists, and repeatable outputs are part of the product.

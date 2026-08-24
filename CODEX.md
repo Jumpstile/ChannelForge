@@ -19,6 +19,7 @@ Before any engineering session:
 
 - [ ] Confirm the working directory is the ChannelForge repository.
 - [ ] Run `git status` and `git remote -v`.
+- [ ] Confirm the checkout is local and follows [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md); do not use a shared NAS Git worktree.
 - [ ] Confirm `src/`, `tests/`, `docs/`, and `data/` are present.
 - [ ] Review open GitHub Issues relevant to the planned work.
 - [ ] Identify the source of truth for the change.

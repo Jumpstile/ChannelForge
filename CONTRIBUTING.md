@@ -8,14 +8,21 @@ If onboarding has not been completed, stop and start there.
 
 ## Workflow
 
-1. Open or identify a GitHub Issue for the work.
-2. Confirm the evidence and acceptance criteria.
-3. Create a focused branch.
-4. Make the smallest change that solves the issue.
-5. Update tests and documentation.
-6. Run relevant checks.
-7. Commit only intentional files.
-8. Push and let CI verify the change.
+1. Start from a verified local clone or local Git worktree. Do not use a
+   shared mapped-drive or UNC checkout; see [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
+2. Open or identify a GitHub Issue for the work.
+3. Confirm the evidence and acceptance criteria.
+4. Create a focused branch.
+5. Make the smallest change that solves the issue.
+6. Update tests and documentation.
+7. Run relevant checks.
+8. Commit only intentional files.
+9. Push the review branch only when the cross-machine handoff is authorized,
+   then let CI verify the change.
+
+GitHub is authoritative. Existing NAS checkouts, including the previously used
+`Y:\ChannelForge` path, are preserved but de-authorized for engineering work.
+Do not edit, stage, reset, clean, rename, delete, or publish from them.
 
 ## Documentation Sources
 

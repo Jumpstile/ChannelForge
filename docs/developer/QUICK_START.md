@@ -12,7 +12,7 @@ Developers and contributors setting up the repository for the first time.
 
 ## Before you begin
 
-Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7.6 or newer, Core edition, Git, Pester 5.7.1, and a local clone of the repository. Then read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md).
+Complete the setup in [INSTALL.md](../reference/INSTALL.md): PowerShell 7.6 or newer, Core edition, Git, Pester 5.7.1, and a local clone of the repository. Use an independent local clone or worktree, not a shared mapped-drive or UNC Git checkout; see [ADR 0015](../adr/0015-local-worktrees-and-github-handoffs.md). Then read [ONBOARDING.md](../../ONBOARDING.md) and [FIRST_READ.md](FIRST_READ.md).
 
 ## 1. Open PowerShell 7.6
 

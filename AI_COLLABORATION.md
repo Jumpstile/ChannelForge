@@ -37,6 +37,7 @@ Codex is the implementation engineer. Codex is best used for:
 - Ask questions when the repository does not answer a material question.
 - Keep changes scoped to the task.
 - Do not silently overwrite user work.
+- Work only from an independently verified local clone or worktree. GitHub review branches are the only cross-machine handoff; shared NAS Git worktrees are not authoritative.
 - Do not commit, push, create branches, or create releases unless explicitly asked.
 - Do not print secrets or private provider URLs.
 - Treat GitHub Issues as project memory.
@@ -54,6 +55,7 @@ Codex is the implementation engineer. Codex is best used for:
 Before implementation:
 
 - Identify the source of truth.
+- Verify the local repository root, remote, branch, HEAD, and status. Treat existing mapped-drive or UNC checkouts as preserved non-authoritative data.
 - Read the relevant docs and surrounding files.
 - Check whether an issue already captures the work.
 - Treat repository docs as the engineering source of truth and the GitHub Wiki as the user-facing knowledge base.
