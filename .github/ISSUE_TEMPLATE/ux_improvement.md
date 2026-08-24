@@ -2,7 +2,7 @@
 name: UX improvement
 about: Improve clarity, workflow, safety, or beginner experience.
 title: "ux: "
-labels: ux, needs-review
+labels: "type:ux, component:ux, status:needs-design"
 ---
 
 ## User workflow
@@ -26,3 +26,14 @@ How should the user preview, approve, verify, or recover?
 - [ ]
 - [ ]
 - [ ]
+
+## Issue governance
+
+Apply the [Issue Governance Standard](../../docs/reference/ISSUE_GOVERNANCE.md)
+during triage:
+
+- Priority label:
+- Component label(s):
+- Status label:
+- Milestone:
+- Related issues or pull requests:

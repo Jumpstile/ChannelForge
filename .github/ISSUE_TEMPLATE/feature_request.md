@@ -2,7 +2,7 @@
 name: Feature request
 about: Propose a new capability or workflow.
 title: "feature: "
-labels: feature, needs-review
+labels: "type:feature, status:needs-design"
 ---
 
 ## Problem
@@ -22,6 +22,17 @@ What repository evidence, user need, or prior decision supports this?
 - [ ]
 - [ ]
 - [ ]
+
+## Issue governance
+
+Apply the [Issue Governance Standard](../../docs/reference/ISSUE_GOVERNANCE.md)
+during triage:
+
+- Priority label:
+- Component label(s):
+- Status label:
+- Milestone:
+- Related issues or pull requests:
 
 ## Documentation impact
 

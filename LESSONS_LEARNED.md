@@ -48,7 +48,9 @@ Tracked provider and EPG files were replaced with `https://example.invalid/...` 
 
 **How do we prevent it from happening again?**
 
-Run secret scanning in CI, treat provider URLs as secrets, keep real provider data in local-only files, and capture security findings as GitHub Issues with the `security` label.
+Run secret scanning in CI, treat provider URLs as secrets, keep real provider
+data in local-only files, and capture security findings as GitHub Issues with
+`type:security` and `component:security` labels.
 
 **History remediation decision (2026-06-30, Issue #19):**
 
