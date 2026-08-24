@@ -102,7 +102,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $plan | Should -Match 'Merged M3U: output/merged\.m3u'
         $plan | Should -Match 'XMLTV output: deferred'
         $plan | Should -Match 'Remote XMLTV and provider M3U acquisition: bounded HTTPS only'
-        $plan | Should -Match 'Plex EPG/guide binding: deferred'
+        $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
     }
 
     It 'does not leak full provider or EPG URLs into the human-readable report' {
@@ -347,6 +347,32 @@ Describe 'Build-Lineup.ps1 (local_playlist path-safety guardrail)' {
 }
 
 Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
+    It 'fails closed before creating reports when an enabled source has no usable location' {
+        $fixtureRoot = Join-Path $TestDrive 'missing-provider-location-project'
+        $dataDir = Join-Path $fixtureRoot 'data'
+
+        New-Item -ItemType Directory -Force -Path `
+            (Join-Path $dataDir 'providers'),
+            (Join-Path $dataDir 'epg'),
+            (Join-Path $dataDir 'lineup'),
+            (Join-Path $dataDir 'rules') | Out-Null
+
+        @{
+            provider = 'fixture'
+            sources  = @(
+                @{ name = 'NoLocation'; group = 'News'; url = ''; enabled = $true }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'providers\mybunny.json') -Encoding UTF8
+
+        @{ epg_sources = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'epg\epg_sources.json') -Encoding UTF8
+        @{ locals = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\locals.json') -Encoding UTF8
+        @{ blocks = @() } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $dataDir 'lineup\numbering_blocks.json') -Encoding UTF8
+
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*malformed or unsupported URL*'
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -PathType Leaf | Should -BeFalse
+    }
+
     It 'throws when a provider source has a malformed URL, via the centralized Read-ChannelForgeProvider reader' {
         $fixtureRoot = Join-Path $TestDrive 'invalid-url-project'
         $dataDir = Join-Path $fixtureRoot 'data'
@@ -641,7 +667,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
         $summary.Status | Should -Be 'M3U_XMLTV_GENERATED'
         $plan | Should -Match 'Generated XMLTV: output/merged.xml'
-        $plan | Should -Match 'Plex EPG/guide binding: deferred'
+        $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
         $plan | Should -Not -Match 'https?://'
         $plan | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
         $plan | Should -Not -Match '[A-Z]:\\|^\\\\'

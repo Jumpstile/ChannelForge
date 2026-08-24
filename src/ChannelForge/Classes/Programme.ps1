@@ -1,5 +1,9 @@
 class Programme {
     [string]$ChannelId
+    # Canonical XMLTV processing keeps ChannelId normalized for existing
+    # source-scoped output contracts. Guide binding uses this raw value so
+    # ordinal M3U/XMLTV identity comparison cannot be weakened by trimming.
+    [string]$RawChannelId
     [datetimeoffset]$Start
     [datetimeoffset]$End
     [string]$Title
@@ -15,6 +19,7 @@ class Programme {
 
     Programme() {
         $this.ChannelId = ''
+        $this.RawChannelId = ''
         $this.Start = [datetimeoffset]::MinValue
         $this.End = [datetimeoffset]::MinValue
         $this.Title = ''

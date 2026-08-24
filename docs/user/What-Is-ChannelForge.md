@@ -25,7 +25,7 @@ ChannelForge is **Early Alpha**. There is no installer and no GUI yet — everyt
 
 - **No graphical interface.** Command line / PowerShell only.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
-- **No automatic guide binding.** ChannelForge can generate validated deterministic M3U/XMLTV outputs, but downstream guide binding and automatic Plex refresh remain separate.
+- **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.
 
 See [Current Limitations](CURRENT_LIMITATIONS.md) for the full, task-oriented breakdown of implemented vs. planned, or the [repository README](../../README.md#current-status) and [ROADMAP](../../ROADMAP.md) for the exact engineering-level state — this page only summarizes for a first-time reader.

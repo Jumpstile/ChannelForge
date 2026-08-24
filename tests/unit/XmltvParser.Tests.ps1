@@ -87,4 +87,23 @@ Describe 'Import-ChannelForgeXmltvSource' {
         $readerSource | Should -Match 'XmlResolver.*\$null'
         $readerSource | Should -Not -Match 'XmlDocument|Select-Xml|ReadOuterXml'
     }
+
+    It 'preserves raw XMLTV channel identity for exact guide binding evidence' {
+        $path = Join-Path $TestDrive 'raw-channel-id.xml'
+        @'
+<tv>
+  <channel id="guide.us "><display-name>Guide</display-name></channel>
+  <programme channel="guide.us " start="20260815090000 +0000" stop="20260815100000 +0000">
+    <title>Guide</title>
+  </programme>
+</tv>
+'@ | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+
+        $programmes = @(Import-ChannelForgeXmltvSource -Path $path -SourceId 'raw-id-fixture')
+
+        $programmes.Count | Should -Be 1
+        $programmes[0].ChannelId | Should -Be 'guide.us'
+        $programmes[0].RawChannelId | Should -Be 'guide.us '
+        $programmes[0].Evidence.ChannelIdOccurrences[0].Id | Should -Be 'guide.us '
+    }
 }
