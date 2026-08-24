@@ -117,7 +117,7 @@ Merged M3U: output/merged.m3u (2 channels, 0 duplicates excluded, 0 warnings, SH
 Known limitations:
 
 - Remote provider/EPG acquisition: bounded HTTPS on port 443 only; no redirects, proxies, credentials, retries, or stale/offline success.
-- Plex EPG/guide binding: deferred; generated XMLTV is a separate output.
+- Target-specific Plex EPG/guide assignment: deferred; exact M3U/XMLTV identity bindings are reported separately and generated XMLTV remains a separate output.
 
 ## Provider M3U Sources
 
@@ -147,4 +147,4 @@ If your real run's `build-summary.json` matches this shape — `M3UGenerated: tr
 
 - `Refusing to read from outside the approved location` — a path in your config points outside the folder it's allowed to (most often a `local_playlist` value). Fix the path; this check exists to stop accidental or malicious path traversal.
 - `Multiple local provider files found` — you have more than one `data/providers/*.local.json`. Keep exactly one, or see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md#advanced-pointing-at-a-specific-file) for the explicit override.
-- No channels in `merged.m3u` — check your source is `enabled: true` and has a `local_playlist` set; a source missing either is silently skipped (not an error) in the current build pipeline.
+- No channels in `merged.m3u` — check your source is `enabled: true` and has either a usable `local_playlist` or a supported remote `url`; an enabled source missing both fails closed with a configuration error instead of being silently skipped. This validation occurs before the build reports are created.

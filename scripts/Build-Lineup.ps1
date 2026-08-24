@@ -36,6 +36,132 @@ function Get-SafeReportText {
     return $text
 }
 
+function Get-SafeReportIdentityText {
+    param([object]$Value)
+
+    # Preserve leading/trailing identity characters for exact-guide evidence;
+    # only the safety check is shared with ordinary report text.
+    $text = if ($null -eq $Value) { '' } else { [string]$Value }
+    if ($text -match '(?i)(https?://|ftp://|file://|[a-z]:[\\/]|^\\\\|ACCOUNT_ID|API_TOKEN|PASSWORD|TOKEN|SECRET)') {
+        return '[redacted]'
+    }
+
+    return $text
+}
+
+function ConvertTo-SafeChannelForgeIdentityEvidence {
+    param(
+        [AllowNull()]
+        [object]$Evidence
+    )
+
+    if ($null -eq $Evidence) {
+        return $null
+    }
+
+    $sourceKind = if ($null -ne $Evidence.PSObject.Properties['SourceKind']) {
+        [string]$Evidence.SourceKind
+    }
+    else {
+        'local'
+    }
+    $sourceReference = if ($null -ne $Evidence.PSObject.Properties['SourceReference']) {
+        Get-SafeReportText $Evidence.SourceReference
+    }
+    else {
+        $null
+    }
+
+    return [ordered]@{
+        EvidenceType   = Get-SafeReportText $Evidence.EvidenceType
+        SourceId       = Get-SafeReportText $Evidence.SourceId
+        SourceKind     = Get-SafeReportText $sourceKind
+        SourceReference = $sourceReference
+        Compression    = Get-SafeReportText $Evidence.Compression
+        ProgrammeCount = $Evidence.ProgrammeCount
+        ChannelCount   = $Evidence.ChannelCount
+        DocumentBytes  = $Evidence.DocumentBytes
+    }
+}
+
+function ConvertTo-SafeChannelForgeIdentityCandidates {
+    param(
+        [AllowEmptyCollection()]
+        [object[]]$Candidates
+    )
+
+    return @($Candidates | ForEach-Object {
+            [ordered]@{
+                SourceId         = Get-SafeReportText $_.SourceId
+                XmltvChannelId   = Get-SafeReportIdentityText $_.XmltvChannelId
+                DeclarationCount = $_.DeclarationCount
+                ProgrammeCount   = $_.ProgrammeCount
+                Evidence         = @($_.Evidence | ForEach-Object {
+                        ConvertTo-SafeChannelForgeIdentityEvidence -Evidence $_
+                    })
+            }
+        })
+}
+
+function ConvertTo-SafeChannelForgeIdentityRecord {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Record
+    )
+
+    $safe = [ordered]@{
+        Status = Get-SafeReportText $Record.Status
+        Reason = Get-SafeReportText $Record.Reason
+    }
+
+    if ($null -ne $Record.PSObject.Properties['M3UChannel']) {
+        $channel = $Record.M3UChannel
+        $safe.M3UChannel = [ordered]@{
+            TvgId          = Get-SafeReportIdentityText $Record.TvgId
+            DisplayName    = Get-SafeReportText $Record.DisplayName
+            AssignedNumber = if ($null -eq $channel.AssignedNumber) { $null } else { $channel.AssignedNumber }
+            Provider       = Get-SafeReportText $channel.Provider
+            Playlist       = Get-SafeReportText $channel.Playlist
+        }
+    }
+    elseif ($null -ne $Record.PSObject.Properties['TvgId']) {
+        $safe.TvgId = Get-SafeReportIdentityText $Record.TvgId
+        $safe.DisplayName = Get-SafeReportText $Record.DisplayName
+    }
+
+    if ($null -ne $Record.PSObject.Properties['XmltvChannelId']) {
+        $safe.XmltvChannelId = Get-SafeReportIdentityText $Record.XmltvChannelId
+    }
+    if ($null -ne $Record.PSObject.Properties['XmltvSourceId']) {
+        $safe.XmltvSourceId = Get-SafeReportText $Record.XmltvSourceId
+    }
+    if ($null -ne $Record.PSObject.Properties['Candidates']) {
+        $safe.Candidates = ConvertTo-SafeChannelForgeIdentityCandidates -Candidates @($Record.Candidates)
+    }
+    if ($null -ne $Record.PSObject.Properties['Evidence']) {
+        $safe.Evidence = @($Record.Evidence | ForEach-Object {
+                ConvertTo-SafeChannelForgeIdentityEvidence -Evidence $_
+            })
+    }
+
+    if ($null -ne $Record.PSObject.Properties['M3UIdentityCollision']) {
+        $collision = $Record.M3UIdentityCollision
+        $safe.M3UIdentityCollision = [ordered]@{
+            IdentityKey = Get-SafeReportText $collision.IdentityKey
+            Channels    = @($collision.Channels | ForEach-Object {
+                    [ordered]@{
+                        TvgId       = Get-SafeReportIdentityText $_.TvgId
+                        DisplayName = Get-SafeReportText $_.DisplayName
+                        Provider    = Get-SafeReportText $_.Provider
+                        Playlist    = Get-SafeReportText $_.Playlist
+                    }
+                })
+        }
+    }
+
+    return [pscustomobject]$safe
+}
+
 function Compare-ChannelForgeBuildText {
     param(
         [AllowNull()]
@@ -240,6 +366,7 @@ $m3uAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
 $channelCount = 0
 $duplicateCount = 0
 $warningCount = 0
+$mergedM3UChannels = @()
 
 if ($m3uActiveSourceCount -gt 0) {
     $m3uFailureStage = 'acquisition'
@@ -333,6 +460,7 @@ if ($m3uActiveSourceCount -gt 0) {
         $m3uStatus = 'GENERATED'
         $m3uGenerated = $true
         $m3uRelativePath = 'output/merged.m3u'
+        $mergedM3UChannels = @($mergeResult.Channels)
         $channelCount = $mergeResult.Channels.Count
         $duplicateCount = $mergeResult.DuplicateCount
         $warningCount = $mergeResult.WarningCount
@@ -385,6 +513,12 @@ $xmltvProgrammeCount = 0
 $xmltvBindingCount = 0
 $xmltvDuplicateGroupCount = 0
 $xmltvConflictCount = 0
+$m3uXmltvBindingStatus = 'NOT_EVALUATED'
+$m3uXmltvBindingReason = 'M3U/XMLTV identity binding was not evaluated.'
+$m3uXmltvExactBindings = @()
+$m3uXmltvUnboundChannels = @()
+$m3uXmltvReviewNeeded = @()
+$m3uXmltvOrphanedXmltvChannels = @()
 
 # Keep the raw configured path separately from the resolved access path. A
 # rooted path is deliberately excluded from the ordering key: machine-local
@@ -499,6 +633,33 @@ else {
             throw 'XMLTV merge contains conflicts or NeedsReview records.'
         }
 
+        $xmltvFailureStage = 'identity-binding'
+        if ($m3uGenerated) {
+            $identityBindingResult = Resolve-ChannelForgeM3UXmltvBinding `
+                -Channel $mergedM3UChannels `
+                -Programme @($allProgrammes.ToArray()) `
+                -M3UIdentityCollisions @($mergeResult.IdentityCollisions)
+
+            $m3uXmltvBindingStatus = [string]$identityBindingResult.Status
+            $m3uXmltvBindingReason = 'Only exact, unambiguous tvg-id/XMLTV channel-id matches are publishable bindings.'
+            $m3uXmltvExactBindings = @($identityBindingResult.ExactBindings | ForEach-Object {
+                    ConvertTo-SafeChannelForgeIdentityRecord -Record $_
+                })
+            $m3uXmltvUnboundChannels = @($identityBindingResult.UnboundChannels | ForEach-Object {
+                    ConvertTo-SafeChannelForgeIdentityRecord -Record $_
+                })
+            $m3uXmltvReviewNeeded = @($identityBindingResult.ReviewNeeded | ForEach-Object {
+                    ConvertTo-SafeChannelForgeIdentityRecord -Record $_
+                })
+            $m3uXmltvOrphanedXmltvChannels = @($identityBindingResult.OrphanedXmltvChannels | ForEach-Object {
+                    ConvertTo-SafeChannelForgeIdentityRecord -Record $_
+                })
+        }
+        else {
+            $m3uXmltvBindingStatus = 'NOT_EVALUATED'
+            $m3uXmltvBindingReason = 'M3U output was not generated; XMLTV identity binding remains unbound.'
+        }
+
         $xmltvFailureStage = 'export'
         Export-ChannelForgeXmltv `
             -MergeResult $xmltvMergeResult `
@@ -537,6 +698,9 @@ else {
         }
         elseif ($xmltvFailureStage -eq 'export') {
             $xmltvFailureReason = 'Merged XMLTV programmes could not be serialized.'
+        }
+        elseif ($xmltvFailureStage -eq 'identity-binding') {
+            $xmltvFailureReason = 'M3U/XMLTV identity binding could not be evaluated safely.'
         }
         elseif ($xmltvFailureStage -eq 'publish') {
             $xmltvFailureReason = 'XMLTV output could not be promoted safely.'
@@ -602,6 +766,16 @@ $summary = [ordered]@{
     XMLTVBindingCount              = $xmltvBindingCount
     XMLTVDuplicateGroupCount       = $xmltvDuplicateGroupCount
     XMLTVConflictCount             = $xmltvConflictCount
+    M3UXmltvBindingStatus           = $m3uXmltvBindingStatus
+    M3UXmltvBindingReason           = $m3uXmltvBindingReason
+    M3UXmltvExactBindingCount       = @($m3uXmltvExactBindings).Count
+    M3UXmltvUnboundChannelCount     = @($m3uXmltvUnboundChannels).Count
+    M3UXmltvReviewNeededCount       = @($m3uXmltvReviewNeeded).Count
+    M3UXmltvOrphanedXmltvCount      = @($m3uXmltvOrphanedXmltvChannels).Count
+    M3UXmltvExactBindings            = $m3uXmltvExactBindings
+    M3UXmltvUnboundChannels          = $m3uXmltvUnboundChannels
+    M3UXmltvReviewNeeded             = $m3uXmltvReviewNeeded
+    M3UXmltvOrphanedXmltvChannels    = $m3uXmltvOrphanedXmltvChannels
     XMLTVDeferredReason            = $xmltvDeferredReason
     XMLTVFailureReason             = $xmltvFailureReason
     XMLTVAcquisitionStatus          = @($xmltvAcquisitionStatuses.ToArray())
@@ -614,8 +788,8 @@ $summary = [ordered]@{
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
 
 # Generated reports contain only safe labels, counts, relative output names,
-# and hashes. Provider/EPG URLs, local paths, credentials, and evidence are
-# deliberately excluded.
+# redacted identity provenance, and hashes. Provider/EPG URLs, local paths,
+# credentials, and raw source evidence are deliberately excluded.
 $md = @()
 $md += "# ChannelForge Build Summary"
 $md += ""
@@ -655,11 +829,32 @@ if ($xmltvPreviousOutputPreserved) {
     $md += 'Prior XMLTV artifact: preserved for rollback/inspection only.'
 }
 
+$md += ''
+$md += '## M3U/XMLTV Identity Binding'
+$md += "Status: $m3uXmltvBindingStatus. $m3uXmltvBindingReason"
+$md += "Exact bindings: $(@($m3uXmltvExactBindings).Count); unbound M3U channels: $(@($m3uXmltvUnboundChannels).Count); review-needed identities: $(@($m3uXmltvReviewNeeded).Count); XMLTV-only channels: $(@($m3uXmltvOrphanedXmltvChannels).Count)."
+foreach ($binding in @($m3uXmltvExactBindings)) {
+    $md += "- EXACT: tvg-id '$($binding.M3UChannel.TvgId)' -> XMLTV channel '$($binding.XmltvChannelId)' (source '$($binding.XmltvSourceId)')."
+}
+foreach ($unbound in @($m3uXmltvUnboundChannels)) {
+    $md += "- UNBOUND: tvg-id '$($unbound.M3UChannel.TvgId)' / $($unbound.M3UChannel.DisplayName) ($($unbound.Reason))."
+}
+foreach ($review in @($m3uXmltvReviewNeeded)) {
+    $md += "- REVIEW NEEDED: tvg-id '$($review.M3UChannel.TvgId)' / $($review.M3UChannel.DisplayName) ($($review.Reason)); no candidate was selected."
+    if ($null -ne $review.PSObject.Properties['M3UIdentityCollision']) {
+        $collisionIds = @($review.M3UIdentityCollision.Channels | ForEach-Object { "'$($_.TvgId)'" }) -join ', '
+        $md += "- M3U COLLISION: normalized identity '$($review.M3UIdentityCollision.IdentityKey)' includes raw tvg-ids $collisionIds; no binding was selected."
+    }
+}
+foreach ($orphan in @($m3uXmltvOrphanedXmltvChannels)) {
+    $md += "- XMLTV-ONLY: channel '$($orphan.XmltvChannelId)' ($($orphan.Reason))."
+}
+
 $md += ""
 $md += "Known limitations:"
 $md += '- Remote XMLTV and provider M3U acquisition: bounded HTTPS only; no redirects, proxies, credentials, retries, or live-network CI.'
 $md += '- Scheduled refresh, durable source snapshots, and GUI workflows: deferred.'
-$md += '- Plex EPG/guide binding: deferred; generated XMLTV is a separate output.'
+$md += '- Target-specific EPG assignment and automatic Plex refresh: deferred; exact M3U/XMLTV identity bindings are reported separately and generated M3U/XMLTV remain separate outputs.'
 $md += ""
 $md += "## Provider M3U Sources"
 foreach ($s in $providerSources) {

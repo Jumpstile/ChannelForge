@@ -24,6 +24,7 @@ Describe 'New-ChannelForgeProgramme' {
 
         $programme.GetType().Name | Should -Be 'Programme'
         $programme.ChannelId | Should -Be 'news.us'
+        $programme.RawChannelId | Should -Be 'news.us'
         $programme.Start | Should -Be $start
         $programme.End | Should -Be $end
         $programme.Title | Should -Be 'Morning News'
@@ -47,6 +48,7 @@ Describe 'New-ChannelForgeProgramme' {
             -Categories @(' News ', '', '   ')
 
         $programme.ChannelId | Should -Be 'news.us'
+        $programme.RawChannelId | Should -Be ' news.us '
         $programme.Title | Should -Be 'Morning News'
         $programme.Subtitle | Should -Be ''
         $programme.Description | Should -Be ''

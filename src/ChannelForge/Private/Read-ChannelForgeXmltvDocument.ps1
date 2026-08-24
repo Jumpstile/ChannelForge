@@ -92,6 +92,7 @@ function Read-ChannelForgeXmltvDocument {
     $reader = $null
     $programmes = [System.Collections.Generic.List[Programme]]::new()
     $channelIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $channelIdOccurrences = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::Ordinal)
     $sawRoot = $false
 
     try {
@@ -122,7 +123,16 @@ function Read-ChannelForgeXmltvDocument {
                         throw 'XMLTV channel elements require a non-empty id attribute.'
                     }
 
-                    [void]$channelIds.Add($channelId.Trim())
+                    # Preserve the XMLTV id exactly for guide binding. The
+                    # Programme domain object still retains its historical
+                    # normalized ChannelId for canonical XMLTV processing.
+                    [void]$channelIds.Add($channelId)
+                    if ($channelIdOccurrences.ContainsKey($channelId)) {
+                        $channelIdOccurrences[$channelId]++
+                    }
+                    else {
+                        $channelIdOccurrences[$channelId] = 1
+                    }
                 }
 
                 'programme' {
@@ -284,6 +294,13 @@ function Read-ChannelForgeXmltvDocument {
                 [Programme]$Right
             )
 
+            $leftRawChannelId = if ($null -ne $Left.PSObject.Properties['RawChannelId'] -and
+                -not [string]::IsNullOrEmpty($Left.RawChannelId)) { $Left.RawChannelId } else { $Left.ChannelId }
+            $rightRawChannelId = if ($null -ne $Right.PSObject.Properties['RawChannelId'] -and
+                -not [string]::IsNullOrEmpty($Right.RawChannelId)) { $Right.RawChannelId } else { $Right.ChannelId }
+            $result = [System.StringComparer]::Ordinal.Compare($leftRawChannelId, $rightRawChannelId)
+            if ($result -ne 0) { return $result }
+
             $result = [System.StringComparer]::Ordinal.Compare($Left.ChannelId, $Right.ChannelId)
             if ($result -ne 0) { return $result }
 
@@ -311,6 +328,19 @@ function Read-ChannelForgeXmltvDocument {
         }
 
         $programmes.Sort($comparison)
+        $orderedChannelIds = [System.Collections.Generic.List[string]]::new()
+        foreach ($channelId in @($channelIdOccurrences.Keys)) {
+            [void]$orderedChannelIds.Add([string]$channelId)
+        }
+        $orderedChannelIds.Sort([System.StringComparer]::Ordinal)
+        $orderedChannelIdOccurrences = [System.Collections.Generic.List[object]]::new()
+        foreach ($channelId in @($orderedChannelIds.ToArray())) {
+            [void]$orderedChannelIdOccurrences.Add([pscustomobject][ordered]@{
+                    Id              = $channelId
+                    OccurrenceCount = [int]$channelIdOccurrences[$channelId]
+                })
+        }
+
         $evidenceParameters = @{
             SourceId       = $SourceId
             SourcePath     = $SourcePath
@@ -324,6 +354,7 @@ function Read-ChannelForgeXmltvDocument {
             RawContentLength = $RawContentLength
             ProgrammeCount  = $programmes.Count
             ChannelCount    = $channelIds.Count
+            ChannelIdOccurrences = @($orderedChannelIdOccurrences.ToArray())
             DocumentBytes   = $documentBytes
         }
         $evidence = New-ChannelForgeXmltvEvidenceRecord @evidenceParameters

@@ -1,0 +1,11 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="zeta.us" tvg-name="Zeta" group-title="News",Zeta Exact
+https://example.invalid/live/zeta
+#EXTINF:-1 tvg-name="Missing ID" group-title="News",Missing Tvg Id
+https://example.invalid/live/missing-id
+#EXTINF:-1 tvg-id="missing.us" tvg-name="Missing Guide" group-title="News",Missing Guide
+https://example.invalid/live/missing-guide
+#EXTINF:-1 tvg-id="ambiguous.us" tvg-name="Ambiguous" group-title="News",Ambiguous Guide
+https://example.invalid/live/ambiguous
+#EXTINF:-1 tvg-id="alpha.us" tvg-name="Alpha" group-title="News",Alpha Exact
+https://example.invalid/live/alpha

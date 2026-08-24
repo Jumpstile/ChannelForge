@@ -77,6 +77,9 @@ Describe 'Merge-ChannelForgeLineup' {
         $result.DuplicateCount | Should -Be 1
         $result.Duplicates[0].TvgId | Should -Be 'espn.us'
         $result.Duplicates[0].IsDuplicate | Should -BeTrue
+        $result.IdentityCollisions.Count | Should -Be 1
+        $result.IdentityCollisions[0].IdentityKey | Should -Be 'id:espn.us'
+        @($result.IdentityCollisions[0].Channels.TvgId) | Should -Be @('espn.us', 'espn.us')
 
         # The first occurrence (from sources-a.m3u, sorted before sources-dup.m3u
         # by path) survives with its own stream URL, not the duplicate's.
