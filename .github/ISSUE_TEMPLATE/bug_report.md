@@ -2,7 +2,7 @@
 name: Bug report
 about: Report behavior that is incorrect, unsafe, or surprising.
 title: "bug: "
-labels: bug, needs-review
+labels: "type:bug, status:needs-investigation"
 ---
 
 ## What happened?
@@ -30,3 +30,14 @@ Explain whether this affects correctness, security, user experience, or producti
 ## Tests
 
 List tests that currently fail or should be added.
+
+## Issue governance
+
+Apply the [Issue Governance Standard](../../docs/reference/ISSUE_GOVERNANCE.md)
+during triage:
+
+- Priority label:
+- Component label(s):
+- Status label:
+- Milestone:
+- Related issues or pull requests:
