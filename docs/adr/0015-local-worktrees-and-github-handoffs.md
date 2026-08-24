@@ -26,6 +26,11 @@ renaming, cleaning, resetting, or rewriting them.
 - Every machine and agent works from its own independent local clone or local
   Git worktree. Before work begins, verify the repository root, remote, branch,
   exact HEAD, and status.
+- The canonical desktop engineering checkout example is
+  `C:\REPOS\ChannelForge`. A second-machine validation checkout example is
+  `E:\REPOS\ChannelForge`. These are independent local-clone examples, not
+  shared paths; record and verify the actual local repository root used for
+  each validation.
 - A pushed GitHub review or feature branch is the only cross-machine handoff.
   A receiving machine fetches the exact ref or SHA into its own local checkout;
   it does not copy a working directory or use a shared NAS checkout.

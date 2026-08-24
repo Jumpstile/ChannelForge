@@ -1,14 +1,18 @@
 # ChannelForge Auto-Update System
 
-Status: review blockers fixed, pending re-review before merge
+Status: merged standard and helper; current implementation documented below
 
 ChannelForge uses a **manual, backup-first auto-update model**.
 
 The updater checks GitHub Releases, reports whether a newer version exists, creates backups before replacement, validates downloaded release assets, and tells the user to restart after update.
 
-## Current review status
+## Current implementation status
 
-Independent Claude and Codex reviews found real blockers on the first pass. All four have been fixed and retested against a real GitHub Releases API (both the true no-release 404 case for this repo and a simulated update using a real external release as a stand-in fixture). Do not merge until a re-review confirms the fixes.
+The initial backup-first updater standard and standalone helper were merged in
+[PR #23](https://github.com/Jumpstile/ChannelForge/pull/23). The implementation
+and test coverage described below are the current repository state. Future
+changes require normal scoped review and CI; this document is not release
+certification or release evidence.
 
 1. **No-release handling -- fixed**
    - `Get-ChannelForgeLatestReleaseInfo` catches a 404 from the releases/latest endpoint and returns `Found = $false` instead of throwing.
