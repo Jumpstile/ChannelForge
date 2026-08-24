@@ -20,6 +20,7 @@ List the issue, ADR, tests, docs, or command output that supports this change.
 - [ ] Bug sweep completed or explicitly not needed.
 - [ ] Vulnerability sweep completed or explicitly not needed.
 - [ ] Release notes impact reviewed.
+- [ ] Any release impact is evaluated against `engineering/GoNoGoChecklist.md`; PR approval and green CI are not release approval.
 
 ## Risk
 
