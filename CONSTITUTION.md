@@ -58,9 +58,9 @@ The user experience is not decoration. Clear messages, predictable workflows, sa
 
 Lessons learned, ADRs, issues, checklists, and release notes preserve project memory. Important discoveries should become durable artifacts.
 
-### Repository docs and Wiki
+### Repository docs and user documentation
 
-Repository docs are the engineering source of truth. The GitHub Wiki is the user-facing knowledge base. Engineering rules, ADRs, security policy, and release gates belong in the repository; user walkthroughs, screenshots, troubleshooting, and examples belong in the Wiki. User-facing changes must review both documentation sets and record the outcome in issue, pull request, or release evidence.
+Repository docs are the engineering source of truth. [`docs/user/`](docs/user/README.md) is the user-facing knowledge base. Engineering rules, ADRs, security policy, and release gates belong in the repository; user walkthroughs, screenshots, troubleshooting, and examples belong in `docs/user/`. User-facing changes must review both documentation sets and record the outcome in issue, pull request, or release evidence.
 
 ## Roles
 

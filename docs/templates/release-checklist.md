@@ -15,7 +15,7 @@ Use this checklist before tagging or publishing a release.
 - [ ] Bug sweep completed.
 - [ ] Vulnerability sweep completed.
 - [ ] Repository documentation reviewed.
-- [ ] Wiki documentation reviewed for user-facing changes.
+- [ ] `docs/user/` documentation reviewed for user-facing changes.
 - [ ] ADRs updated if architecture changed.
 - [ ] Open release blockers reviewed.
 

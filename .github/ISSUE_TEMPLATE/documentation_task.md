@@ -7,7 +7,7 @@ labels: documentation, needs-review
 
 ## Documentation area
 
-Choose repository docs, GitHub Wiki, or both. Repository docs are the engineering source of truth; the Wiki is the user-facing knowledge base.
+Choose repository docs, `docs/user/`, or both. Repository docs are the engineering source of truth; `docs/user/` is the user-facing knowledge base.
 
 Name the page, workflow, or audience.
 
@@ -26,5 +26,5 @@ Describe the change.
 ## Done when
 
 - [ ] Repository docs reviewed or updated.
-- [ ] Wiki docs reviewed, updated, or tracked as follow-up.
+- [ ] `docs/user/` reviewed, updated, or tracked as follow-up.
 - [ ] Documentation status is current.
