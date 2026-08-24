@@ -123,13 +123,15 @@ function Read-ChannelForgeXmltvDocument {
                         throw 'XMLTV channel elements require a non-empty id attribute.'
                     }
 
-                    $normalizedChannelId = $channelId.Trim()
-                    [void]$channelIds.Add($normalizedChannelId)
-                    if ($channelIdOccurrences.ContainsKey($normalizedChannelId)) {
-                        $channelIdOccurrences[$normalizedChannelId]++
+                    # Preserve the XMLTV id exactly for guide binding. The
+                    # Programme domain object still retains its historical
+                    # normalized ChannelId for canonical XMLTV processing.
+                    [void]$channelIds.Add($channelId)
+                    if ($channelIdOccurrences.ContainsKey($channelId)) {
+                        $channelIdOccurrences[$channelId]++
                     }
                     else {
-                        $channelIdOccurrences[$normalizedChannelId] = 1
+                        $channelIdOccurrences[$channelId] = 1
                     }
                 }
 
@@ -291,6 +293,13 @@ function Read-ChannelForgeXmltvDocument {
                 [Programme]$Left,
                 [Programme]$Right
             )
+
+            $leftRawChannelId = if ($null -ne $Left.PSObject.Properties['RawChannelId'] -and
+                -not [string]::IsNullOrEmpty($Left.RawChannelId)) { $Left.RawChannelId } else { $Left.ChannelId }
+            $rightRawChannelId = if ($null -ne $Right.PSObject.Properties['RawChannelId'] -and
+                -not [string]::IsNullOrEmpty($Right.RawChannelId)) { $Right.RawChannelId } else { $Right.ChannelId }
+            $result = [System.StringComparer]::Ordinal.Compare($leftRawChannelId, $rightRawChannelId)
+            if ($result -ne 0) { return $result }
 
             $result = [System.StringComparer]::Ordinal.Compare($Left.ChannelId, $Right.ChannelId)
             if ($result -ne 0) { return $result }

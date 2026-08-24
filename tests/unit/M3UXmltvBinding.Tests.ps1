@@ -42,6 +42,55 @@ Describe 'Resolve-ChannelForgeM3UXmltvBinding' {
         }
     }
 
+    It 'uses raw ordinal identity and rejects whitespace, case, and confusable variants' {
+        $start = [datetimeoffset]::new(2026, 8, 15, 9, 0, 0, [timespan]::Zero)
+        $unicodeConfusable = 'guid' + [char]0x0435 + '.us'
+        $cases = @(
+            [pscustomobject]@{ Name = 'XMLTV trailing whitespace'; M3U = 'guide.us'; XMLTV = 'guide.us ' }
+            [pscustomobject]@{ Name = 'XMLTV leading whitespace'; M3U = 'guide.us'; XMLTV = ' guide.us' }
+            [pscustomobject]@{ Name = 'M3U trailing whitespace'; M3U = 'guide.us '; XMLTV = 'guide.us' }
+            [pscustomobject]@{ Name = 'M3U leading whitespace'; M3U = ' guide.us'; XMLTV = 'guide.us' }
+            [pscustomobject]@{ Name = 'case mismatch'; M3U = 'GUIDE.US'; XMLTV = 'guide.us' }
+            [pscustomobject]@{ Name = 'Unicode confusable'; M3U = $unicodeConfusable; XMLTV = 'guide.us' }
+        )
+
+        foreach ($case in $cases) {
+            $channel = New-ChannelForgeChannel `
+                -Provider 'fixture-provider' `
+                -Playlist 'ordinal-fixture' `
+                -OriginalName 'Guide' `
+                -DisplayName 'Guide' `
+                -TvgId $case.M3U `
+                -Url 'https://example.invalid/live/guide'
+            $programme = New-ChannelForgeProgramme `
+                -ChannelId $case.XMLTV `
+                -Start $start `
+                -End $start.AddHours(1) `
+                -Title 'Guide' `
+                -SourceId 'fixture-guide'
+
+            $result = Resolve-ChannelForgeM3UXmltvBinding -Channel @($channel) -Programme @($programme)
+
+            $result.ExactBindingCount | Should -Be 0 -Because $case.Name
+            @($result.UnboundChannels | Where-Object {
+                    [string]::Equals([string]$_.TvgId, [string]$case.M3U, [System.StringComparison]::Ordinal)
+                }).Count | Should -Be 1 -Because $case.Name
+        }
+
+        $exactChannel = New-ChannelForgeChannel -OriginalName 'Guide' -DisplayName 'Guide' -TvgId 'guide.us ' -Url 'https://example.invalid/live/guide'
+        $exactProgramme = New-ChannelForgeProgramme `
+            -ChannelId 'guide.us ' `
+            -Start $start `
+            -End $start.AddHours(1) `
+            -Title 'Guide' `
+            -SourceId 'fixture-guide'
+        $exactResult = Resolve-ChannelForgeM3UXmltvBinding -Channel @($exactChannel) -Programme @($exactProgramme)
+
+        $exactResult.ExactBindingCount | Should -Be 1
+        $exactResult.ExactBindings[0].TvgId | Should -Be 'guide.us '
+        $exactResult.ExactBindings[0].XmltvChannelId | Should -Be 'guide.us '
+    }
+
     It 'keeps a channel with no tvg-id explicitly unbound' {
         $result = Resolve-ChannelForgeM3UXmltvBinding -Channel $script:Channels -Programme $script:Programmes
         $unbound = @($result.UnboundChannels | Where-Object Reason -eq 'MissingTvgId')

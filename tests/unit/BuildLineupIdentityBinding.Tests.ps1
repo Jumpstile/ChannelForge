@@ -6,6 +6,11 @@ BeforeAll {
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
 
     function New-IdentityBindingBuildRoot {
+        param(
+            [AllowNull()]
+            [object]$PlaylistContent = $null
+        )
+
         $fixtureRoot = Join-Path $TestDrive 'identity-binding-build'
         $dataDir = Join-Path $fixtureRoot 'data'
         $playlistDir = Join-Path $dataDir 'playlists'
@@ -17,7 +22,12 @@ BeforeAll {
             (Join-Path $dataDir 'rules'),
             $playlistDir | Out-Null
 
-        Copy-Item -LiteralPath $script:IdentityPlaylistPath -Destination (Join-Path $playlistDir 'playlist.m3u')
+        if ($null -eq $PlaylistContent) {
+            Copy-Item -LiteralPath $script:IdentityPlaylistPath -Destination (Join-Path $playlistDir 'playlist.m3u')
+        }
+        else {
+            $PlaylistContent | Set-Content -LiteralPath (Join-Path $playlistDir 'playlist.m3u') -Encoding utf8NoBOM
+        }
         Copy-Item -LiteralPath $script:IdentityGuidePath -Destination (Join-Path $dataDir 'epg\guide.xml')
 
         @{
@@ -73,5 +83,36 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $m3u | Should -Match 'tvg-id="alpha.us"'
         $xmltv | Should -Match '<channel id='
         $xmltv | Should -Not -Match 'tvg-id='
+    }
+
+    It 'does not exact-bind a normalized pre-dedup M3U collision through Build-Lineup' {
+        $playlist = @(
+            '#EXTM3U'
+            '#EXTINF:-1 tvg-id="zeta.us" group-title="News",Zeta Primary'
+            'https://example.invalid/live/zeta-primary'
+            '#EXTINF:-1 tvg-id=" ZETA.US " group-title="News",Zeta Colliding'
+            'https://example.invalid/live/zeta-colliding'
+        ) -join "`n"
+        $fixtureRoot = New-IdentityBindingBuildRoot -PlaylistContent $playlist
+
+        & $script:BuildScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $review = @($summary.M3UXmltvReviewNeeded | Where-Object {
+                $_.M3UChannel.TvgId -ceq 'zeta.us'
+            })
+
+        $summary.M3UXmltvExactBindingCount | Should -Be 0
+        $review.Count | Should -Be 1
+        $review[0].Reason | Should -Be 'MultipleM3UChannelsShareNormalizedIdentity'
+        @($review[0].M3UIdentityCollision.Channels).Count | Should -Be 2
+        @($review[0].M3UIdentityCollision.Channels.TvgId) | Should -Be @('zeta.us', ' ZETA.US ')
+        $plan | Should -Match 'M3U COLLISION'
+        $plan | Should -Match ' ZETA\.US '
+
+        $merged = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -Raw
+        ([regex]::Matches($merged, '#EXTINF:')).Count | Should -Be 1
+        $merged | Should -Match 'tvg-id="zeta.us"'
     }
 }
