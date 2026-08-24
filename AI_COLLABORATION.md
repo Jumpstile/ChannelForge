@@ -56,7 +56,7 @@ Before implementation:
 - Identify the source of truth.
 - Read the relevant docs and surrounding files.
 - Check whether an issue already captures the work.
-- Treat repository docs as the engineering source of truth and the GitHub Wiki as the user-facing knowledge base.
+- Treat repository docs as the engineering source of truth and [`docs/user/`](docs/user/README.md) as the user-facing knowledge base. Follow [DOCUMENTATION.md](DOCUMENTATION.md) and [DOCS_AND_WIKI.md](docs/reference/DOCS_AND_WIKI.md) for the current publication model.
 
 During implementation:
 

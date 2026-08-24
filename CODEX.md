@@ -37,7 +37,7 @@ Before any engineering session:
 
 ## Documentation Synchronization
 
-When user-facing behavior changes, both repository docs and the GitHub Wiki must be reviewed. Record the outcome in the issue or pull request. See [DOCUMENTATION.md](DOCUMENTATION.md) and [DOCS_AND_WIKI.md](docs/reference/DOCS_AND_WIKI.md).
+When user-facing behavior changes, review both repository engineering docs and [`docs/user/`](docs/user/README.md). Record the outcome in the issue or pull request. See [DOCUMENTATION.md](DOCUMENTATION.md) and [DOCS_AND_WIKI.md](docs/reference/DOCS_AND_WIKI.md).
 
 ## Role
 

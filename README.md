@@ -142,7 +142,7 @@ Core project governance and engineering memory:
 
 - [Release checklist](docs/templates/release-checklist.md)
 
-- [Repository docs and GitHub Wiki](docs/reference/DOCS_AND_WIKI.md)
+- [Repository docs and user documentation](docs/reference/DOCS_AND_WIKI.md)
 
 ---
 
