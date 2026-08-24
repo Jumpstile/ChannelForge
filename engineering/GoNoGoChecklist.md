@@ -20,6 +20,17 @@ decision, but they do not self-authorize a release.
 
 - [ ] Release issue, pull request, and evidence record are linked.
 
+- [ ] Validation used an independent local clone or local Git worktree, not a
+      shared SMB/NAS Git worktree.
+
+- [ ] Local branch, exact HEAD, origin ref, clean status, and expected ancestry
+      or baseline are recorded.
+
+- [ ] Any NAS or mapped paths used for data, outputs, caches, staging, evidence,
+      backups, packages, mirrors, or deployment are identified by role and
+      pass their canonical-containment checks; they are not Git-worktree
+      evidence.
+
 ## Engineering
 
 - [ ] Full test suite passes locally.

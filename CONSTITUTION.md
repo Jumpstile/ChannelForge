@@ -10,7 +10,7 @@ When repository guidance appears to conflict, apply it in this order:
 
 1. Owner directives and repository governance, including this Constitution.
 2. Accepted ADRs and security or release policies.
-3. Standing engineering workflow policies, including the local-worktree and GitHub-handoff policy in issue #92.
+3. Standing engineering workflow policies, including the [local-worktree and GitHub-handoff policy](docs/adr/0015-local-worktrees-and-github-handoffs.md) tracked by issue #92.
 4. Role-specific entrypoint instructions such as `CHATGPT.md`, `CLAUDE.md`, and `CODEX.md`.
 5. Task-specific issue and pull-request instructions.
 6. Historical notes and examples.
@@ -34,6 +34,9 @@ Repository docs, ADRs, source data, and tests are the authoritative engineering 
 ### Repository Independence
 
 ChannelForge must remain understandable, buildable, and governable from the repository itself. Local machine state, external applications, private configuration, and generated artifacts may support workflows, but they must not be required to understand project rules or accepted architecture.
+
+Workspace authority and the treatment of historical NAS/shared-worktree guidance
+are defined by [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
 
 ### Trust but continuously verify
 

@@ -12,10 +12,17 @@ does not replace that checklist or authorize a release.
 - CI workflow run(s):
 - Release issue or pull request:
 - Evidence record:
+- Validation checkout path:
+- Local branch and exact HEAD:
+- Origin ref and expected baseline:
 
 ## Build and Tests
 
 - [ ] Working tree is clean.
+- [ ] Validation used an independent local clone or local Git worktree, not a
+      shared SMB/NAS Git worktree.
+- [ ] Any NAS or mapped paths used by the candidate are classified by role and
+      pass canonical-containment checks; they are not Git-worktree evidence.
 - [ ] Full test suite passes locally.
 - [ ] CI is green.
 - [ ] Secret scanning passes.
