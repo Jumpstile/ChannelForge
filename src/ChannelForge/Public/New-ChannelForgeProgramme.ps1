@@ -45,6 +45,7 @@ function New-ChannelForgeProgramme {
     }
 
     $programme = [Programme]::new()
+    $programme.RawChannelId = $ChannelId
     $programme.ChannelId = $ChannelId.Trim()
     $programme.Start = $Start
     $programme.End = $End

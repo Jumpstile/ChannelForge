@@ -36,6 +36,19 @@ function Get-SafeReportText {
     return $text
 }
 
+function Get-SafeReportIdentityText {
+    param([object]$Value)
+
+    # Preserve leading/trailing identity characters for exact-guide evidence;
+    # only the safety check is shared with ordinary report text.
+    $text = if ($null -eq $Value) { '' } else { [string]$Value }
+    if ($text -match '(?i)(https?://|ftp://|file://|[a-z]:[\\/]|^\\\\|ACCOUNT_ID|API_TOKEN|PASSWORD|TOKEN|SECRET)') {
+        return '[redacted]'
+    }
+
+    return $text
+}
+
 function ConvertTo-SafeChannelForgeIdentityEvidence {
     param(
         [AllowNull()]
@@ -80,7 +93,7 @@ function ConvertTo-SafeChannelForgeIdentityCandidates {
     return @($Candidates | ForEach-Object {
             [ordered]@{
                 SourceId         = Get-SafeReportText $_.SourceId
-                XmltvChannelId   = Get-SafeReportText $_.XmltvChannelId
+                XmltvChannelId   = Get-SafeReportIdentityText $_.XmltvChannelId
                 DeclarationCount = $_.DeclarationCount
                 ProgrammeCount   = $_.ProgrammeCount
                 Evidence         = @($_.Evidence | ForEach-Object {
@@ -104,7 +117,7 @@ function ConvertTo-SafeChannelForgeIdentityRecord {
     if ($null -ne $Record.PSObject.Properties['M3UChannel']) {
         $channel = $Record.M3UChannel
         $safe.M3UChannel = [ordered]@{
-            TvgId          = Get-SafeReportText $Record.TvgId
+            TvgId          = Get-SafeReportIdentityText $Record.TvgId
             DisplayName    = Get-SafeReportText $Record.DisplayName
             AssignedNumber = if ($null -eq $channel.AssignedNumber) { $null } else { $channel.AssignedNumber }
             Provider       = Get-SafeReportText $channel.Provider
@@ -112,12 +125,12 @@ function ConvertTo-SafeChannelForgeIdentityRecord {
         }
     }
     elseif ($null -ne $Record.PSObject.Properties['TvgId']) {
-        $safe.TvgId = Get-SafeReportText $Record.TvgId
+        $safe.TvgId = Get-SafeReportIdentityText $Record.TvgId
         $safe.DisplayName = Get-SafeReportText $Record.DisplayName
     }
 
     if ($null -ne $Record.PSObject.Properties['XmltvChannelId']) {
-        $safe.XmltvChannelId = Get-SafeReportText $Record.XmltvChannelId
+        $safe.XmltvChannelId = Get-SafeReportIdentityText $Record.XmltvChannelId
     }
     if ($null -ne $Record.PSObject.Properties['XmltvSourceId']) {
         $safe.XmltvSourceId = Get-SafeReportText $Record.XmltvSourceId
@@ -129,6 +142,21 @@ function ConvertTo-SafeChannelForgeIdentityRecord {
         $safe.Evidence = @($Record.Evidence | ForEach-Object {
                 ConvertTo-SafeChannelForgeIdentityEvidence -Evidence $_
             })
+    }
+
+    if ($null -ne $Record.PSObject.Properties['M3UIdentityCollision']) {
+        $collision = $Record.M3UIdentityCollision
+        $safe.M3UIdentityCollision = [ordered]@{
+            IdentityKey = Get-SafeReportText $collision.IdentityKey
+            Channels    = @($collision.Channels | ForEach-Object {
+                    [ordered]@{
+                        TvgId       = Get-SafeReportIdentityText $_.TvgId
+                        DisplayName = Get-SafeReportText $_.DisplayName
+                        Provider    = Get-SafeReportText $_.Provider
+                        Playlist    = Get-SafeReportText $_.Playlist
+                    }
+                })
+        }
     }
 
     return [pscustomobject]$safe
@@ -609,7 +637,8 @@ else {
         if ($m3uGenerated) {
             $identityBindingResult = Resolve-ChannelForgeM3UXmltvBinding `
                 -Channel $mergedM3UChannels `
-                -Programme @($allProgrammes.ToArray())
+                -Programme @($allProgrammes.ToArray()) `
+                -M3UIdentityCollisions @($mergeResult.IdentityCollisions)
 
             $m3uXmltvBindingStatus = [string]$identityBindingResult.Status
             $m3uXmltvBindingReason = 'Only exact, unambiguous tvg-id/XMLTV channel-id matches are publishable bindings.'
@@ -812,6 +841,10 @@ foreach ($unbound in @($m3uXmltvUnboundChannels)) {
 }
 foreach ($review in @($m3uXmltvReviewNeeded)) {
     $md += "- REVIEW NEEDED: tvg-id '$($review.M3UChannel.TvgId)' / $($review.M3UChannel.DisplayName) ($($review.Reason)); no candidate was selected."
+    if ($null -ne $review.PSObject.Properties['M3UIdentityCollision']) {
+        $collisionIds = @($review.M3UIdentityCollision.Channels | ForEach-Object { "'$($_.TvgId)'" }) -join ', '
+        $md += "- M3U COLLISION: normalized identity '$($review.M3UIdentityCollision.IdentityKey)' includes raw tvg-ids $collisionIds; no binding was selected."
+    }
 }
 foreach ($orphan in @($m3uXmltvOrphanedXmltvChannels)) {
     $md += "- XMLTV-ONLY: channel '$($orphan.XmltvChannelId)' ($($orphan.Reason))."

@@ -60,9 +60,16 @@ function Merge-ChannelForgeLineup {
     $seenKeys = [System.Collections.Generic.HashSet[string]]::new()
     $survivors = [System.Collections.Generic.List[Channel]]::new()
     $duplicates = [System.Collections.Generic.List[Channel]]::new()
+    $identityGroups = [System.Collections.Generic.Dictionary[string, object]]::new(
+        [System.StringComparer]::Ordinal)
 
     foreach ($ch in $channels) {
         $key = if ($ch.TvgId) { "id:$($ch.TvgId.Trim().ToLowerInvariant())" } else { "name:$($ch.DisplayName.Trim().ToLowerInvariant())" }
+
+        if (-not $identityGroups.ContainsKey($key)) {
+            $identityGroups[$key] = [System.Collections.Generic.List[Channel]]::new()
+        }
+        [void]$identityGroups[$key].Add($ch)
 
         if ($seenKeys.Contains($key)) {
             $ch.IsDuplicate = $true
@@ -73,6 +80,25 @@ function Merge-ChannelForgeLineup {
 
         [void]$seenKeys.Add($key)
         $survivors.Add($ch)
+    }
+
+    # Keep the existing normalized deduplication behavior, but expose the
+    # complete pre-dedup population to the guide-binding boundary. A survivor
+    # must not become ExactBound when another raw M3U record collapsed into
+    # the same lineup identity key.
+    $orderedIdentityKeys = [System.Collections.Generic.List[string]]::new()
+    foreach ($identityKey in @($identityGroups.Keys)) {
+        if ($identityGroups[$identityKey].Count -gt 1) {
+            [void]$orderedIdentityKeys.Add([string]$identityKey)
+        }
+    }
+    $orderedIdentityKeys.Sort([System.StringComparer]::Ordinal)
+    $identityCollisions = [System.Collections.Generic.List[object]]::new()
+    foreach ($identityKey in @($orderedIdentityKeys.ToArray())) {
+        [void]$identityCollisions.Add([pscustomobject][ordered]@{
+                IdentityKey = $identityKey
+                Channels    = @($identityGroups[$identityKey].ToArray())
+            })
     }
 
     if (-not (Test-Path -LiteralPath $NumberingBlocksPath -PathType Leaf)) {
@@ -94,6 +120,7 @@ function Merge-ChannelForgeLineup {
         Channels       = $ordered
         DuplicateCount = $duplicates.Count
         Duplicates     = @($duplicates)
+        IdentityCollisions = @($identityCollisions.ToArray())
         WarningCount   = @($channels | Where-Object { $_.Warnings.Count -gt 0 }).Count
     }
 }

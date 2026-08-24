@@ -9,7 +9,13 @@ function Resolve-ChannelForgeM3UXmltvBinding {
         [Parameter(Mandatory, Position = 1)]
         [AllowNull()]
         [AllowEmptyCollection()]
-        [object[]]$Programme
+        [object[]]$Programme,
+
+        # Merge-ChannelForgeLineup keeps its existing normalized dedup
+        # semantics, but supplies the pre-dedup collision groups here so a
+        # survivor can never be published as an exact guide binding alone.
+        [AllowEmptyCollection()]
+        [object[]]$M3UIdentityCollisions = @()
     )
 
     function Get-IdentityText {
@@ -22,7 +28,10 @@ function Resolve-ChannelForgeM3UXmltvBinding {
             return ''
         }
 
-        return ([string]$Value).Trim()
+        # Guide identity equality is raw ordinal. Validation may reject an
+        # all-whitespace value, but this helper must not change the value used
+        # as an M3U tvg-id/XMLTV channel-id comparison key.
+        return [string]$Value
     }
 
     function Get-EvidenceIdentityKey {
@@ -187,6 +196,23 @@ function Resolve-ChannelForgeM3UXmltvBinding {
     $programmeCountsByCandidateKey = [System.Collections.Generic.Dictionary[string, int]]::new(
         [System.StringComparer]::Ordinal)
     $processedEvidenceKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $m3uCollisionByChannel = [System.Collections.Generic.Dictionary[Channel, object]]::new()
+
+    foreach ($collision in @($M3UIdentityCollisions)) {
+        if ($null -eq $collision -or
+            $null -eq $collision.PSObject.Properties['Channels'] -or
+            @($collision.Channels).Count -lt 2) {
+            throw 'M3U identity collision evidence must contain at least two channels.'
+        }
+
+        foreach ($collisionChannel in @($collision.Channels)) {
+            if ($collisionChannel -isnot [Channel]) {
+                throw 'M3U identity collision evidence requires Channel domain objects.'
+            }
+
+            $m3uCollisionByChannel[$collisionChannel] = $collision
+        }
+    }
 
     function Add-CandidateOccurrence {
         param(
@@ -299,7 +325,13 @@ function Resolve-ChannelForgeM3UXmltvBinding {
         }
 
         $sourceId = Get-IdentityText $programmeValue.SourceId
-        $programmeChannelId = Get-IdentityText $programmeValue.ChannelId
+        $programmeChannelId = if ($null -ne $programmeValue.PSObject.Properties['RawChannelId'] -and
+            -not [string]::IsNullOrEmpty($programmeValue.RawChannelId)) {
+            Get-IdentityText $programmeValue.RawChannelId
+        }
+        else {
+            Get-IdentityText $programmeValue.ChannelId
+        }
         if ([string]::IsNullOrWhiteSpace($sourceId) -or
             [string]::IsNullOrWhiteSpace($programmeChannelId)) {
             throw 'M3U/XMLTV binding requires non-empty Programme SourceId and ChannelId values.'
@@ -432,6 +464,22 @@ function Resolve-ChannelForgeM3UXmltvBinding {
             @()
         }
         $candidateRecords = ConvertTo-CandidateRecords -Candidates $xmltvCandidates
+
+        if ($m3uCollisionByChannel.ContainsKey($channelRecord.Channel)) {
+            $collision = $m3uCollisionByChannel[$channelRecord.Channel]
+            [void]$reviewNeeded.Add([pscustomobject][ordered]@{
+                    M3UChannel             = $channelRecord.Channel
+                    TvgId                  = $tvgId
+                    DisplayName            = $channelRecord.DisplayName
+                    Status                 = 'NeedsReview'
+                    Publishable            = $false
+                    Reason                 = 'MultipleM3UChannelsShareNormalizedIdentity'
+                    Candidates             = $candidateRecords
+                    Evidence               = @($candidateRecords | ForEach-Object { $_.Evidence })
+                    M3UIdentityCollision   = $collision
+                })
+            continue
+        }
 
         $m3uIdentityCount = $m3uChannelsById[$tvgId].Count
         if ($m3uIdentityCount -gt 1) {

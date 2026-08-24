@@ -104,4 +104,4 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 
 - `Refusing to read from outside the approved location` — your `local_playlist` value doesn't resolve under `data/playlists/`. Fix the path; don't work around the check.
 - `Provider source '...' has a malformed or unsupported URL` — every source's `url` field goes through the same trust-boundary validation used by the bounded remote-fetch path. Use a well-formed `https://` URL.
-- No channels in `merged.m3u`, or fewer than expected — check that each enabled source has either a usable `local_playlist` or a supported remote `url`; a source missing both fails the build closed instead of being silently skipped, and the failure is recorded in the build reports.
+- No channels in `merged.m3u`, or fewer than expected — check that each enabled source has either a usable `local_playlist` or a supported remote `url`; a source missing both fails closed with a configuration error instead of being silently skipped. This validation occurs before the build reports are created.
