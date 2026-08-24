@@ -45,7 +45,12 @@ Developers and maintainers.
 
 ## Release gates
 
-Before release, complete the [Go/No-Go Checklist](../../engineering/GoNoGoChecklist.md): full test suite passing, CI green, security and vulnerability sweeps complete, backup/restore tested, documentation current.
+Before tagging or publishing a release candidate, complete the canonical
+[Go/No-Go Checklist](../../engineering/GoNoGoChecklist.md), including its
+engineering, security, safety, documentation, and user-experience gates. A
+green CI run or merged pull request is review and merge evidence, not release
+approval. The Product Owner / Engineering Manager records the GO/NO-GO decision
+with the exact candidate identity and evidence.
 
 ## Checklist discipline
 

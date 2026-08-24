@@ -86,7 +86,7 @@ During review:
 
 ## Descent
 
-Before merge or release:
+Before merge:
 
 - [ ] CI is green.
 
@@ -96,11 +96,22 @@ Before merge or release:
 
 - [ ] Generated output behavior is reviewed.
 
-- [ ] No release-blocking TODOs remain.
+- [ ] No merge-blocking TODOs remain.
+
+A green CI run and a merged pull request are review and merge evidence; they do
+not authorize a release.
 
 ## Landing
 
 For release:
+
+- [ ] The canonical [Go / No-Go Checklist](GoNoGoChecklist.md) is complete.
+
+- [ ] The exact candidate commit SHA, version/tag, CI run, and evidence record
+      are recorded.
+
+- [ ] The Product Owner / Engineering Manager has recorded the GO/NO-GO
+      decision.
 
 - [ ] Version is correct.
 

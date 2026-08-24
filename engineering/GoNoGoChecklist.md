@@ -4,6 +4,22 @@ A release is not ready because it works locally.
 
 A release is ready only when we are willing to stand behind it.
 
+This is the canonical release gate and decision checklist. Pull-request review
+and CI results are merge evidence; they do not replace this checklist or
+authorize a release. The Product Owner / Engineering Manager records the final
+GO/NO-GO decision. Contributors and agents may gather evidence and recommend a
+decision, but they do not self-authorize a release.
+
+## Candidate identity
+
+- [ ] Release-candidate commit SHA is recorded.
+
+- [ ] Version and tag are recorded.
+
+- [ ] CI workflow run and relevant local test environment are recorded.
+
+- [ ] Release issue, pull request, and evidence record are linked.
+
 ## Engineering
 
 - [ ] Full test suite passes locally.
