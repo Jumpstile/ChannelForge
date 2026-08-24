@@ -102,7 +102,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $plan | Should -Match 'Merged M3U: output/merged\.m3u'
         $plan | Should -Match 'XMLTV output: deferred'
         $plan | Should -Match 'Remote XMLTV and provider M3U acquisition: bounded HTTPS only'
-        $plan | Should -Match 'Plex EPG/guide binding: deferred'
+        $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
     }
 
     It 'does not leak full provider or EPG URLs into the human-readable report' {
@@ -641,7 +641,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
         $summary.Status | Should -Be 'M3U_XMLTV_GENERATED'
         $plan | Should -Match 'Generated XMLTV: output/merged.xml'
-        $plan | Should -Match 'Plex EPG/guide binding: deferred'
+        $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
         $plan | Should -Not -Match 'https?://'
         $plan | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
         $plan | Should -Not -Match '[A-Z]:\\|^\\\\'

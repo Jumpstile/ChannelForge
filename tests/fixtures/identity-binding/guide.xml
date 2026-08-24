@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge identity-binding fixture">
+  <channel id="zeta.us">
+    <display-name>Zeta Exact</display-name>
+  </channel>
+  <channel id="orphan.us">
+    <display-name>Guide Only</display-name>
+  </channel>
+  <channel id="ambiguous.us">
+    <display-name>Ambiguous One</display-name>
+  </channel>
+  <channel id="ambiguous.us">
+    <display-name>Ambiguous Two</display-name>
+  </channel>
+  <channel id="alpha.us">
+    <display-name>Alpha Exact</display-name>
+  </channel>
+  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us">
+    <title>Zeta Morning</title>
+  </programme>
+  <programme start="20260824090000 +0000" stop="20260824100000 +0000" channel="ambiguous.us">
+    <title>Ambiguous Morning</title>
+  </programme>
+  <programme start="20260824100000 +0000" stop="20260824110000 +0000" channel="alpha.us">
+    <title>Alpha Morning</title>
+  </programme>
+</tv>
