@@ -17,8 +17,8 @@ A successful local or remote XMLTV build reports `XMLTVStatus: GENERATED`, `XMLT
 ## What this means in practice
 
 - `output/merged.m3u` remains the channel-list output; `output/merged.xml` is the separate guide-data output.
-- XMLTV bindings remain source-scoped; this slice does not perform fuzzy station matching or bind XMLTV to M3U `Channel.TvgId` values.
-- Downstream Plex guide binding and automatic refresh remain separate work.
+- XMLTV bindings remain source-scoped. ChannelForge now reports exact, ordinal M3U `Channel.TvgId` to XMLTV channel-id matches separately from the canonical `merged.m3u` and `merged.xml` outputs. Missing IDs, missing XMLTV identities, duplicate/ambiguous IDs, and XMLTV-only channels remain explicit report records; no fuzzy station matching is performed.
+- Downstream target-specific Plex guide assignment and automatic refresh remain separate work.
 
 ## Where to go next
 

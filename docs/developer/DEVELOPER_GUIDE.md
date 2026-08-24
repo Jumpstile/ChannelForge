@@ -171,7 +171,7 @@ Every field `Export-ChannelForgeM3UPlaylist` writes is passed through the privat
 
 - **Remote provider M3U/XMLTV fetch: bounded and fail-closed.** Only HTTPS on port 443 is accepted; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are outside this slice. Malformed input, unsupported content/encoding, bounds failures, conflicts, `NeedsReview`, or output failures report `FAILED` and do not claim an old artifact is current.
 - **Remote fetch cache: disposable and source-specific.** Provider M3U uses `output/cache/remote-m3u/` with a fixed 24-hour TTL, conditional validation, and decompressed-content hash fallback. Corrupt or stale entries are repaired or refetched; they never become a stale success path.
-- **Plex EPG/guide binding: deferred.** `output/merged.m3u` and optional `output/merged.xml` are generated artifacts; downstream Plex binding and automatic refresh remain separate work.
+- **Target-specific Plex EPG/guide assignment: deferred.** `output/merged.m3u` and optional `output/merged.xml` are generated artifacts; exact M3U/XMLTV identity bindings are reported separately, while downstream Plex assignment and automatic refresh remain separate work.
 
 See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthrough of testing a real local playlist in Plex under this Phase 1 boundary.
 

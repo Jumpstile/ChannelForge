@@ -92,6 +92,7 @@ function Read-ChannelForgeXmltvDocument {
     $reader = $null
     $programmes = [System.Collections.Generic.List[Programme]]::new()
     $channelIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $channelIdOccurrences = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::Ordinal)
     $sawRoot = $false
 
     try {
@@ -122,7 +123,14 @@ function Read-ChannelForgeXmltvDocument {
                         throw 'XMLTV channel elements require a non-empty id attribute.'
                     }
 
-                    [void]$channelIds.Add($channelId.Trim())
+                    $normalizedChannelId = $channelId.Trim()
+                    [void]$channelIds.Add($normalizedChannelId)
+                    if ($channelIdOccurrences.ContainsKey($normalizedChannelId)) {
+                        $channelIdOccurrences[$normalizedChannelId]++
+                    }
+                    else {
+                        $channelIdOccurrences[$normalizedChannelId] = 1
+                    }
                 }
 
                 'programme' {
@@ -311,6 +319,19 @@ function Read-ChannelForgeXmltvDocument {
         }
 
         $programmes.Sort($comparison)
+        $orderedChannelIds = [System.Collections.Generic.List[string]]::new()
+        foreach ($channelId in @($channelIdOccurrences.Keys)) {
+            [void]$orderedChannelIds.Add([string]$channelId)
+        }
+        $orderedChannelIds.Sort([System.StringComparer]::Ordinal)
+        $orderedChannelIdOccurrences = [System.Collections.Generic.List[object]]::new()
+        foreach ($channelId in @($orderedChannelIds.ToArray())) {
+            [void]$orderedChannelIdOccurrences.Add([pscustomobject][ordered]@{
+                    Id              = $channelId
+                    OccurrenceCount = [int]$channelIdOccurrences[$channelId]
+                })
+        }
+
         $evidenceParameters = @{
             SourceId       = $SourceId
             SourcePath     = $SourcePath
@@ -324,6 +345,7 @@ function Read-ChannelForgeXmltvDocument {
             RawContentLength = $RawContentLength
             ProgrammeCount  = $programmes.Count
             ChannelCount    = $channelIds.Count
+            ChannelIdOccurrences = @($orderedChannelIdOccurrences.ToArray())
             DocumentBytes   = $documentBytes
         }
         $evidence = New-ChannelForgeXmltvEvidenceRecord @evidenceParameters

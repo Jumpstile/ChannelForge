@@ -35,6 +35,9 @@ function New-ChannelForgeXmltvEvidenceRecord {
         [Parameter(Mandatory)]
         [int]$ChannelCount,
 
+        [AllowEmptyCollection()]
+        [object[]]$ChannelIdOccurrences = @(),
+
         [Parameter(Mandatory)]
         [long]$DocumentBytes
     )
@@ -45,6 +48,43 @@ function New-ChannelForgeXmltvEvidenceRecord {
 
     if ($ProgrammeCount -lt 0 -or $ChannelCount -lt 0 -or $DocumentBytes -lt 0) {
         throw 'XMLTV evidence counts and byte totals cannot be negative.'
+    }
+
+    $normalizedChannelIdOccurrences = [System.Collections.Generic.List[object]]::new()
+    $seenChannelIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($occurrence in @($ChannelIdOccurrences)) {
+        if ($null -eq $occurrence -or
+            $null -eq $occurrence.PSObject.Properties['Id'] -or
+            $null -eq $occurrence.PSObject.Properties['OccurrenceCount']) {
+            throw 'XMLTV evidence channel identity occurrences must contain Id and OccurrenceCount.'
+        }
+
+        $channelId = if ($null -eq $occurrence.Id) { '' } else { ([string]$occurrence.Id).Trim() }
+        $occurrenceCount = [int]$occurrence.OccurrenceCount
+        if ([string]::IsNullOrWhiteSpace($channelId) -or $occurrenceCount -le 0) {
+            throw 'XMLTV evidence channel identity occurrences must contain a non-empty Id and positive OccurrenceCount.'
+        }
+
+        if (-not $seenChannelIds.Add($channelId)) {
+            throw "XMLTV evidence contains duplicate channel identity '$channelId'."
+        }
+
+        [void]$normalizedChannelIdOccurrences.Add([pscustomobject][ordered]@{
+                Id              = $channelId
+                OccurrenceCount = $occurrenceCount
+            })
+    }
+
+    $normalizedChannelIdOccurrences.Sort([System.Comparison[object]]{
+            param($left, $right)
+            return [System.StringComparer]::Ordinal.Compare(
+                [string]$left.Id,
+                [string]$right.Id)
+        })
+
+    if ($normalizedChannelIdOccurrences.Count -gt 0 -and
+        $ChannelCount -ne $normalizedChannelIdOccurrences.Count) {
+        throw 'XMLTV evidence ChannelCount must equal the number of unique channel identity occurrences.'
     }
 
     if ($SourceKind -eq 'local') {
@@ -99,6 +139,8 @@ function New-ChannelForgeXmltvEvidenceRecord {
     $record.Compression = $Compression
     $record.ProgrammeCount = $ProgrammeCount
     $record.ChannelCount = $ChannelCount
+    $record.ChannelIds = @($normalizedChannelIdOccurrences | ForEach-Object { $_.Id })
+    $record.ChannelIdOccurrences = @($normalizedChannelIdOccurrences.ToArray())
     $record.DocumentBytes = $DocumentBytes
 
     if ($SourceKind -eq 'remote') {

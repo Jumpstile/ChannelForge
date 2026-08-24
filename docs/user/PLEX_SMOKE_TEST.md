@@ -96,7 +96,7 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 
 ## What will not work yet
 
-- **No automatic Plex guide binding in this smoke flow.** Build-Lineup can generate `output/merged.xml` from validated local or remote XMLTV sources, but this walkthrough covers M3U playback; downstream guide binding remains deferred.
+- **No automatic target-specific Plex guide assignment in this smoke flow.** Build-Lineup can generate `output/merged.xml` and report exact M3U/XMLTV identity bindings from validated local or remote XMLTV sources, but this walkthrough covers M3U playback; configure Plex's guide path separately.
 - **This workflow uses local input.** Remote provider/XMLTV acquisition is a separate bounded HTTPS/443 path with no credentials, redirects, proxies, retries, remote ZIP, or stale/offline success.
 - **No automatic Plex refresh.** Re-running `Build-Lineup.ps1` regenerates `output/merged.m3u` and any successful local XMLTV output; refreshing Plex's channel list or guide afterward is a manual step in Plex's tuner settings.
 
@@ -104,4 +104,4 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 
 - `Refusing to read from outside the approved location` — your `local_playlist` value doesn't resolve under `data/playlists/`. Fix the path; don't work around the check.
 - `Provider source '...' has a malformed or unsupported URL` — every source's `url` field goes through the same trust-boundary validation used by the bounded remote-fetch path. Use a well-formed `https://` URL.
-- No channels in `merged.m3u`, or fewer than expected — check that the source is `enabled: true` and `local_playlist` is set; a source missing either is skipped, not an error, and won't show up in the channel count.
+- No channels in `merged.m3u`, or fewer than expected — check that each enabled source has either a usable `local_playlist` or a supported remote `url`; a source missing both fails the build closed instead of being silently skipped, and the failure is recorded in the build reports.
