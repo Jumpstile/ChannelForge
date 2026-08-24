@@ -26,7 +26,7 @@ Developers and maintainers.
 ## Documentation
 
 - A feature is incomplete until a careful beginner can understand what it does, why it matters, how to use it, what success looks like, and how to recover from failure.
-- Repository docs are the engineering source of truth; the GitHub Wiki is the user-facing knowledge base (see [DOCS_AND_WIKI.md](../reference/DOCS_AND_WIKI.md)).
+- Repository docs are the engineering source of truth; [`docs/user/`](../user/README.md) is the user-facing knowledge base (see [DOCS_AND_WIKI.md](../reference/DOCS_AND_WIKI.md)).
 - Documentation changes land in the same change as the behavior they describe.
 
 ## Security

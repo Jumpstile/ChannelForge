@@ -21,11 +21,11 @@ If onboarding has not been completed, stop and start there.
 
 Repository docs are the engineering source of truth. Architecture decisions, security rules, release gates, templates, and contributor workflow belong in versioned repository files.
 
-The GitHub Wiki is the user-facing knowledge base. It should explain first-run setup, common workflows, screenshots, troubleshooting, and examples for users.
+The [`docs/user/`](docs/user/README.md) directory is the user-facing knowledge base. It should explain first-run setup, common workflows, screenshots, troubleshooting, and examples for users.
 
-When both need updates, update repository docs first, then update the Wiki.
+When both need updates, update repository docs first, then update `docs/user/`.
 
-For user-facing changes, issue and pull request completion summaries must state the repository docs review result and the Wiki review result. Use [DOCUMENTATION.md](DOCUMENTATION.md) and [Documentation Governance Standard](docs/reference/DOCS_AND_WIKI.md) as the guide.
+For user-facing changes, issue and pull request completion summaries must state the repository docs review result and the `docs/user/` review result. Use [DOCUMENTATION.md](DOCUMENTATION.md) and [Documentation Governance Standard](docs/reference/DOCS_AND_WIKI.md) as the guide.
 
 ## Commit Rules
 
