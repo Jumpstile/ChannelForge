@@ -41,6 +41,6 @@ When user-facing behavior changes, review both repository engineering docs and [
 
 ## Role
 
-See [AI_COLLABORATION.md](AI_COLLABORATION.md) for the implementation engineer role.
+This entrypoint maps to the implementation and validation contributor role defined in [CONSTITUTION.md](CONSTITUTION.md) and [AI_COLLABORATION.md](AI_COLLABORATION.md).
 
-Reading the repository, making scoped code or documentation changes, running tests, reporting evidence, and preparing commits when explicitly requested are the primary contributions expected from this role. Do not commit, push, create branches, or create releases without explicit instruction.
+Reading the repository, making scoped code or documentation changes, running tests, reporting exact evidence, and independently validating an assigned branch or commit are the primary contributions expected from this role. Do not commit, push, create branches, merge, or create releases without explicit instruction.

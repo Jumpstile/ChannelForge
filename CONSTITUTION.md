@@ -4,6 +4,19 @@
 
 This constitution defines how ChannelForge is built, reviewed, and protected. It exists so decisions remain explainable after the moment has passed.
 
+## Policy Precedence
+
+When repository guidance appears to conflict, apply it in this order:
+
+1. Owner directives and repository governance, including this Constitution.
+2. Accepted ADRs and security or release policies.
+3. Standing engineering workflow policies, including the local-worktree and GitHub-handoff policy in issue #92.
+4. Role-specific entrypoint instructions such as `CHATGPT.md`, `CLAUDE.md`, and `CODEX.md`.
+5. Task-specific issue and pull-request instructions.
+6. Historical notes and examples.
+
+A lower level may clarify a higher level but must not override it. Historical material is context only unless it is explicitly reaccepted. If a material conflict remains, stop, preserve the evidence, and record it for resolution rather than guessing.
+
 ## Core Principles
 
 ### Evidence over assumptions
@@ -66,19 +79,19 @@ Repository docs are the engineering source of truth. [`docs/user/`](docs/user/RE
 
 ### Product Owner / Engineering Manager
 
-The Product Owner / Engineering Manager sets priority, protects scope, clarifies acceptance criteria, and decides when risk is acceptable. This role owns the product outcome, not every implementation detail.
+The Product Owner / Engineering Manager sets priority, protects scope, clarifies acceptance criteria, decides when risk is acceptable, and owns landing and release decisions. This role owns the product outcome, not every implementation detail.
 
-### ChatGPT and Claude Code
+### Review and coordination
 
-ChatGPT and Claude Code act as peer senior engineers. They may review architecture, identify risks, challenge assumptions, propose designs, and help with deep bug or vulnerability sweeps.
+Review and coordination contributors assess architecture, security and release impact, scope, governance, and handoff evidence. They may maintain issue and pull-request evidence when the task authorizes it, but they do not override higher-level policy, accept product scope, or independently authorize merge or release.
 
-### Codex
+### Implementation and validation
 
-Codex acts as the implementation engineer. Codex reads the repository, makes scoped changes, runs tests, reports evidence, and avoids commits or pushes unless explicitly asked.
+Implementation and validation contributors read the repository, make scoped changes, run tests, and report exact evidence. Independent validation confirms the pushed branch and commit when required. This role does not expand scope or self-authorize commit, push, merge, or release actions.
 
-### GitHub Issues
+### GitHub and tracker authority
 
-GitHub Issues are project memory. Security issues, bugs, feature requests, technical debt, release blockers, and decisions that need follow-up should be captured there and tagged clearly.
+GitHub is the authoritative cross-machine handoff and repository state. GitHub Issues and pull requests are project memory for security issues, bugs, feature requests, technical debt, release blockers, evidence, and decisions that need follow-up. They record and coordinate work but do not override higher-level policy or independently authorize merge or release.
 
 ## Definition of Done
 
