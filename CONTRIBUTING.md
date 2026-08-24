@@ -16,6 +16,9 @@ If onboarding has not been completed, stop and start there.
 6. Run relevant checks.
 7. Commit only intentional files.
 8. Push and let CI verify the change.
+9. Obtain review and merge through the authorized repository process; a green CI run is evidence, not release approval.
+
+This is the normal workflow for an authorized contributor. It does not itself authorize an AI collaborator to create a branch, commit, push, merge, or release; those action boundaries are defined in [AI_COLLABORATION.md](AI_COLLABORATION.md).
 
 ## Documentation Sources
 

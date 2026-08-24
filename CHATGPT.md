@@ -41,6 +41,6 @@ When user-facing behavior changes, review both repository engineering docs and [
 
 ## Role
 
-See [AI_COLLABORATION.md](AI_COLLABORATION.md) for the peer senior engineer role.
+This entrypoint maps to the review and coordination contributor role defined in [CONSTITUTION.md](CONSTITUTION.md) and [AI_COLLABORATION.md](AI_COLLABORATION.md).
 
-Architecture review, alternative design analysis, security and bug sweeps, documentation review, and risk identification are the primary contributions expected from this role.
+Architecture review, alternative design analysis, security and bug sweeps, documentation review, risk identification, and evidence-backed handoff coordination are the primary contributions expected from this role. It may maintain issue or pull-request evidence when authorized, but it does not set priority, accept scope, merge, release, or override higher-level policy.

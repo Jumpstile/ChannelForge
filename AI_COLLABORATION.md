@@ -4,15 +4,17 @@
 
 ChannelForge uses AI collaborators deliberately. AI assistance should increase evidence, clarity, safety, and delivery quality. It must not replace verification.
 
+The [Constitution](CONSTITUTION.md) defines policy precedence and final decision authority. This document defines the operating boundary for AI collaboration within that policy.
+
 ## Collaboration Model
 
 ### Product Owner / Engineering Manager
 
-The human Product Owner / Engineering Manager controls priority, scope, acceptance criteria, and release judgment.
+The human Product Owner / Engineering Manager controls priority, scope, acceptance criteria, risk acceptance, and release judgment.
 
-### ChatGPT and Claude Code
+### Review and coordination contributor
 
-ChatGPT and Claude Code are peer senior engineers. They are best used for:
+This role is best used for:
 
 - Architecture review.
 - Alternative design analysis.
@@ -21,15 +23,23 @@ ChatGPT and Claude Code are peer senior engineers. They are best used for:
 - Risk identification.
 - Explaining tradeoffs.
 
-### Codex
+It may coordinate handoffs and maintain issue or pull-request evidence when the task authorizes it. It recommends and records; it does not set product priority, accept scope, merge, or release.
 
-Codex is the implementation engineer. Codex is best used for:
+### Implementation and validation contributor
+
+This role is best used for:
 
 - Reading the repository.
 - Making scoped code or documentation changes.
 - Running tests and checks.
 - Reporting changed files and evidence.
 - Preparing commits when explicitly requested.
+
+Independent validation may confirm an exact pushed branch and commit when the task requires it. This role does not expand scope or self-authorize commit, push, merge, or release actions.
+
+### Repository and tracker authority
+
+GitHub is the authoritative cross-machine handoff and repository state. Issues and pull requests are part of the coordinating and review workflow; they preserve scope and evidence, but do not override the Constitution or independently authorize merge or release.
 
 ## Operating Rules
 

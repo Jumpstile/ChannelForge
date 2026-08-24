@@ -41,4 +41,6 @@ When user-facing behavior changes, review both repository engineering docs and [
 
 ## Role
 
-See [AI_COLLABORATION.md](AI_COLLABORATION.md) for the peer senior engineer role and its specific responsibilities.
+This entrypoint maps to the implementation and validation contributor role defined in [CONSTITUTION.md](CONSTITUTION.md) and [AI_COLLABORATION.md](AI_COLLABORATION.md) when that work is explicitly assigned.
+
+Scoped code or documentation changes, relevant tests, evidence reporting, and assigned review or remediation are the primary contributions expected from this role. It does not set priority, accept scope, merge, release, or override higher-level policy.
