@@ -85,4 +85,8 @@ Status: `Complete`
 
 ## Issue Tracking
 
-User documentation work should be tracked in GitHub Issues with documentation labels. User-facing issue completion summaries should explicitly state the repository docs and `docs/user/` review result.
+User documentation work should be tracked in GitHub Issues with the
+`type:documentation` and appropriate `component:*` labels. Priority, status,
+milestone, and relationship decisions follow the [Issue Governance
+Standard](ISSUE_GOVERNANCE.md). User-facing issue completion summaries should
+explicitly state the repository docs and `docs/user/` review result.

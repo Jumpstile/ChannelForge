@@ -8,7 +8,8 @@ If onboarding has not been completed, stop and start there.
 
 ## Workflow
 
-1. Open or identify a GitHub Issue for the work.
+1. Open or identify a GitHub Issue for the work and apply the [Issue Governance
+   Standard](docs/reference/ISSUE_GOVERNANCE.md).
 2. Confirm the evidence and acceptance criteria.
 3. Create a focused branch.
 4. Make the smallest change that solves the issue.

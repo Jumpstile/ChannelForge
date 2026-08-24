@@ -1,8 +1,8 @@
 ---
 name: Documentation task
-about: Improve repository docs or future Wiki content.
+about: Improve repository or user-facing documentation.
 title: "docs: "
-labels: documentation, needs-review
+labels: "type:documentation, component:docs, status:needs-design"
 ---
 
 ## Documentation area
@@ -13,7 +13,10 @@ Name the page, workflow, or audience.
 
 ## Documentation status
 
-For Wiki work, use one status: `Not enabled`, `Planned`, `Drafted`, `Published`, or `Needs update`.
+Use the repository documentation status values from [Documentation Governance
+Standard](../../docs/reference/DOCS_AND_WIKI.md): `Not started`, `In Progress`,
+`Complete`, or `Needs update`. The current user-facing publication surface is
+versioned repository documentation in `docs/user/`.
 
 ## Problem
 
@@ -28,3 +31,14 @@ Describe the change.
 - [ ] Repository docs reviewed or updated.
 - [ ] `docs/user/` reviewed, updated, or tracked as follow-up.
 - [ ] Documentation status is current.
+
+## Issue governance
+
+Apply the [Issue Governance Standard](../../docs/reference/ISSUE_GOVERNANCE.md)
+during triage:
+
+- Priority label:
+- Component label(s):
+- Status label:
+- Milestone:
+- Related issues or pull requests:

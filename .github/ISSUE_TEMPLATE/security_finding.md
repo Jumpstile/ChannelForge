@@ -2,7 +2,7 @@
 name: Security finding
 about: Report a security issue, secret exposure, or hardening need.
 title: "security: "
-labels: security, needs-review
+labels: "type:security, component:security, status:needs-investigation"
 ---
 
 ## Finding
@@ -27,3 +27,14 @@ Describe the safest proposed fix.
 - [ ] Tests pass.
 - [ ] Documentation updated.
 - [ ] Credential rotation considered if exposure occurred.
+
+## Issue governance
+
+Apply the [Issue Governance Standard](../../docs/reference/ISSUE_GOVERNANCE.md)
+during triage:
+
+- Priority label:
+- Component label(s):
+- Status label:
+- Milestone:
+- Related issues or pull requests:
