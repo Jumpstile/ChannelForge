@@ -8,16 +8,20 @@ If onboarding has not been completed, stop and start there.
 
 ## Workflow
 
-1. Open or identify a GitHub Issue for the work and apply the [Issue Governance
+1. Start from an independent local clone or local Git worktree. Do not use a
+   shared SMB/NAS Git worktree; see [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
+2. Open or identify a GitHub Issue for the work and apply the [Issue Governance
    Standard](docs/reference/ISSUE_GOVERNANCE.md).
-2. Confirm the evidence and acceptance criteria.
-3. Create a focused branch.
-4. Make the smallest change that solves the issue.
-5. Update tests and documentation.
-6. Run relevant checks.
-7. Commit only intentional files.
-8. Push and let CI verify the change.
-9. Obtain review and merge through the authorized repository process; a green CI run is evidence, not release approval.
+3. Confirm the evidence and acceptance criteria.
+4. Create a focused branch.
+5. Make the smallest change that solves the issue.
+6. Update tests and documentation.
+7. Run relevant checks.
+8. Commit only intentional files.
+9. Push the review branch only when the cross-machine handoff is authorized,
+   then let CI verify the change.
+10. Obtain review and merge through the authorized repository process; a green
+    CI run is evidence, not release approval.
 
 This is the normal workflow for an authorized contributor. It does not itself authorize an AI collaborator to create a branch, commit, push, merge, or release; those action boundaries are defined in [AI_COLLABORATION.md](AI_COLLABORATION.md).
 

@@ -64,6 +64,9 @@ GitHub is the authoritative cross-machine handoff and repository state. Issues a
 Before implementation:
 
 - Identify the source of truth.
+- Verify the repository root, remote, branch, exact HEAD, and clean status from
+  an independent local clone or local Git worktree. Cross-machine handoff uses
+  a pushed GitHub ref; do not use a shared SMB/NAS Git worktree. See [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
 - Read the relevant docs and surrounding files.
 - Check whether an issue already captures the work.
 - Treat repository docs as the engineering source of truth and [`docs/user/`](docs/user/README.md) as the user-facing knowledge base. Follow [DOCUMENTATION.md](DOCUMENTATION.md) and [DOCS_AND_WIKI.md](docs/reference/DOCS_AND_WIKI.md) for the current publication model.

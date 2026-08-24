@@ -10,6 +10,8 @@ ChannelForge is an evidence-driven PowerShell project for building accurate, tru
    - Confirm the working directory is the intended ChannelForge repository.
    - Check `git status`.
    - Check `git remote -v`.
+   - Confirm the checkout is an independent local clone or local Git worktree;
+     do not use a shared SMB/NAS Git worktree. Read [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
    - Confirm expected project files are present, including `README.md`, `CONSTITUTION.md`, `AI_COLLABORATION.md`, `ROADMAP.md`, `src/`, and `docs/`.
 2. Read [CONSTITUTION.md](CONSTITUTION.md).
 3. Read [AI_COLLABORATION.md](AI_COLLABORATION.md).
