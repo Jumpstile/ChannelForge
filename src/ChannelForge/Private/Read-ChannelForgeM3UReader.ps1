@@ -47,44 +47,56 @@ function Read-ChannelForgeM3UReader {
             }
 
             $displayName = ''
+            $rawDisplayName = ''
             $commaIndex = $trimmed.LastIndexOf(',')
             if ($commaIndex -ge 0 -and $commaIndex -lt ($trimmed.Length - 1)) {
                 $displayName = $trimmed.Substring($commaIndex + 1).Trim()
+                $rawDisplayName = $trimmed.Substring($commaIndex + 1)
             }
 
             if ([string]::IsNullOrWhiteSpace($displayName)) {
                 $displayName = 'Unknown Channel'
             }
 
-            $tvgId = ''
-            $tvgName = ''
-            $logo = ''
-            $group = ''
+$tvgId = ''
+$tvgIdPresence = 'Missing'
+$tvgName = ''
+$logo = ''
+$group = ''
+$channelNumber = ''
 
-            if ($trimmed -match 'tvg-id="([^"]*)"') {
-                $tvgId = $Matches[1]
-            }
+if ($trimmed -match '(?i)tvg-id="([^"]*)"') {
+    $tvgIdPresence = 'Present'
+    $tvgId = $Matches[1]
+}
 
-            if ($trimmed -match 'tvg-name="([^"]*)"') {
-                $tvgName = $Matches[1]
-            }
+if ($trimmed -match '(?i)tvg-name="([^"]*)"') {
+    $tvgName = $Matches[1]
+}
 
-            if ($trimmed -match 'tvg-logo="([^"]*)"') {
-                $logo = $Matches[1]
-            }
+if ($trimmed -match '(?i)tvg-logo="([^"]*)"') {
+    $logo = $Matches[1]
+}
 
-            if ($trimmed -match 'group-title="([^"]*)"') {
-                $group = $Matches[1]
-            }
+if ($trimmed -match '(?i)group-title="([^"]*)"') {
+    $group = $Matches[1]
+}
 
-            $pending = [pscustomobject]@{
-                DisplayName = $displayName
-                TvgId       = $tvgId
-                TvgName     = $tvgName
-                Logo        = $logo
-                Group       = $group
-                LineNumber  = $lineNumber
-            }
+if ($trimmed -match '(?i)tvg-chno="([^"]*)"') {
+    $channelNumber = $Matches[1]
+}
+
+$pending = [pscustomobject]@{
+    DisplayName   = $displayName
+    RawDisplayName = $rawDisplayName
+    TvgId         = $tvgId
+    TvgIdPresence = $tvgIdPresence
+    TvgName       = $tvgName
+    Logo          = $logo
+    Group         = $group
+    ChannelNumber = $channelNumber
+    LineNumber    = $lineNumber
+}
             continue
         }
 
@@ -100,19 +112,40 @@ function Read-ChannelForgeM3UReader {
             continue
         }
 
-        $channel = New-ChannelForgeChannel `
-            -Provider $Provider `
-            -Playlist $Playlist `
-            -OriginalName $pending.DisplayName `
-            -DisplayName $pending.DisplayName `
-            -TvgId $pending.TvgId `
-            -TvgName $pending.TvgName `
-            -Logo $pending.Logo `
-            -Group $pending.Group `
-            -Url $trimmed
+$channel = New-ChannelForgeChannel `
+    -Provider $Provider `
+    -Playlist $Playlist `
+    -OriginalName $pending.DisplayName `
+    -DisplayName $pending.DisplayName `
+    -TvgId $pending.TvgId `
+    -TvgName $pending.TvgName `
+    -Logo $pending.Logo `
+    -Group $pending.Group `
+    -Url $trimmed
 
-        [void]$channels.Add($channel)
-        $pending = $null
+# Raw occurrence data is additive evidence for candidate projections.  The
+# Channel runtime object remains the semantic domain contract.
+$channel | Add-Member -NotePropertyName RawTvgIdPresence -NotePropertyValue $pending.TvgIdPresence -Force
+$channel | Add-Member -NotePropertyName RawTvgId -NotePropertyValue $(if ($pending.TvgIdPresence -eq 'Present') { $pending.TvgId } else { $null }) -Force
+$channel | Add-Member -NotePropertyName RawTvgName -NotePropertyValue $pending.TvgName -Force
+$channel | Add-Member -NotePropertyName RawGroupTitle -NotePropertyValue $pending.Group -Force
+$channel | Add-Member -NotePropertyName RawLogo -NotePropertyValue $pending.Logo -Force
+$channel | Add-Member -NotePropertyName RawChannelNumber -NotePropertyValue $pending.ChannelNumber -Force
+$channel | Add-Member -NotePropertyName RawM3UOccurrence -NotePropertyValue ([pscustomobject][ordered]@{
+        Version          = 'blocker-2-contract/v1'
+        LogicalSourceId  = ''
+        RawTvgIdPresence = $pending.TvgIdPresence
+        RawTvgId         = if ($pending.TvgIdPresence -eq 'Present') { $pending.TvgId } else { $null }
+        TvgName          = $pending.TvgName
+        DisplayName      = $pending.RawDisplayName
+        GroupTitle       = $pending.Group
+        Logo             = $pending.Logo
+        ChannelNumber    = $pending.ChannelNumber
+        StreamUrl        = $trimmed
+    }) -Force
+$channel | Add-Member -NotePropertyName SourceLocalOrdinal -NotePropertyValue ($channels.Count) -Force
+[void]$channels.Add($channel)
+$pending = $null
     }
 
     if (-not $sawHeader) {

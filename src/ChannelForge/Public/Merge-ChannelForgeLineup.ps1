@@ -29,6 +29,19 @@ function Merge-ChannelForgeLineup {
 
     $channels = [System.Collections.Generic.List[Channel]]::new()
     foreach ($src in $sortedSource) {
+        $sourceKind = 'M3U'
+        $sourceOrdinal = $channels.Count
+        if ($src.PSObject.Properties.Name -contains 'OrderKey') {
+            $parsedSourceOrdinal = 0
+            if ([int]::TryParse([string]$src.OrderKey, [ref]$parsedSourceOrdinal)) {
+                $sourceOrdinal = $parsedSourceOrdinal
+            }
+        }
+        $logicalSourceId = Get-ChannelForgeLogicalSourceId `
+            -ProviderName ([string]$src.Provider) `
+            -SourceName ([string]$src.Playlist) `
+            -SourceKind $sourceKind `
+            -SourceOrdinal $sourceOrdinal
         $parsed = if ($src.PSObject.Properties.Name -contains 'Channels') {
             @($src.Channels)
         }
@@ -36,6 +49,12 @@ function Merge-ChannelForgeLineup {
             Import-ChannelForgeM3UPlaylist -Path $src.Path -Provider $src.Provider -Playlist $src.Playlist
         }
         foreach ($ch in $parsed) {
+            if ($null -ne $ch.PSObject.Properties['RawM3UOccurrence']) {
+                $ch.RawM3UOccurrence.LogicalSourceId = $logicalSourceId
+            }
+            else {
+                $ch | Add-Member -NotePropertyName LogicalSourceId -NotePropertyValue $logicalSourceId -Force
+            }
             $channels.Add($ch)
         }
     }
@@ -118,6 +137,7 @@ function Merge-ChannelForgeLineup {
 
     return [pscustomobject]@{
         Channels       = $ordered
+        AllChannels    = @($channels.ToArray())
         DuplicateCount = $duplicates.Count
         Duplicates     = @($duplicates)
         IdentityCollisions = @($identityCollisions.ToArray())
