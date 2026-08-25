@@ -26,7 +26,7 @@ This file is governance metadata for the contract revisions in this directory. I
 - Status: NOT FROZEN / PENDING APPROVALS.
 - Entry state: pending, editable in place until this revision is frozen.
 - ContractRevisionId: `blocker-2-contract/v2`
-- RevisionContentId: `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821`
+- RevisionContentId: `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`
 - Candidate commit: pending
 - Accountable owner: ChannelForge Product Owner
 - Approver: ChannelForge Architecture Authority
@@ -40,7 +40,7 @@ This file is governance metadata for the contract revisions in this directory. I
   - ChannelForge Architecture Authority: pending
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Superseded candidate content: RevisionContentId `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`, last published at commit `00e1f27a3258558d1f6051e1f2415012061de685`, received a technical preservation PASS and an OMP Desktop governance PASS for the PART-B corrections it carried. Those results attest that content only. They do not carry to RevisionContentId `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821`, which changes the revision identity model and must be reviewed again.
+- Superseded candidate content: RevisionContentId `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`, last published at commit `00e1f27a3258558d1f6051e1f2415012061de685`, received a technical preservation PASS and an OMP Desktop governance PASS for the PART-B corrections it carried. Those results attest that content only. They do not carry to RevisionContentId `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, which changes the revision identity model and must be reviewed again.
 - Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation, release work, and merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
 
 ## Recording rules
@@ -52,4 +52,11 @@ This file is governance metadata for the contract revisions in this directory. I
 - Appending an attestation fact, or adding a dated correction entry, does not create a new ContractRevisionId.
 - Any change to README.md, PART-A-canonical-foundation.md, PART-B-semantic-schemas.md, PART-C-promotion-recovery.md, or SYMBOL-CLOSURE.md produces a different RevisionContentId and requires a new ContractRevisionId and a new freeze cycle.
 - A candidate or frozen commit SHA is recorded by a later metadata commit, because a commit cannot contain its own identity.
-- RevisionContentId is verified independently: for each of the five normative files take the lowercase SHA-256 of its exact bytes, emit one line per file in ascending file-name byte order as digest, two ASCII spaces, file name, LF, then compute H(contract-revision-content/v1, those bytes) with the PART-A section 3 formula.
+- RevisionContentId is verified independently from any checkout of the five normative files, using the PART-A section 3 formula, with:
+
+```sh
+sha256sum PART-A-canonical-foundation.md PART-B-semantic-schemas.md PART-C-promotion-recovery.md README.md SYMBOL-CLOSURE.md > manifest.txt
+{ printf 'contract-revision-content/v1'; printf '\0'; cat manifest.txt; } | sha256sum
+```
+
+  The listed file order is ascending file-name byte order, and the default sha256sum output line is already the digest, two ASCII spaces, the file name, and one LF.
