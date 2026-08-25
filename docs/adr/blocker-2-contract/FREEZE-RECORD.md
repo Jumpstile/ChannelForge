@@ -1,6 +1,6 @@
 # Blocker #2 contract freeze record
 
-This file is governance metadata for the contract revisions in this directory. It is not part of any revision content, it is excluded from RevisionContentId, and it defines, restates, and weakens no normative rule. The revision identity rules are in README.md under Revision identity and freeze separation. Where this file disagrees with revision content, revision content governs and the entry here is invalid.
+This file is governance metadata for the contract revisions in this directory. It is not part of any revision content and is excluded from RevisionContentId. This file defines and weakens no normative rule. Every rule referenced here is stated normatively in README.md; the text here is operating procedure and is invalid wherever it disagrees. The revision identity rules are in README.md under Revision identity and freeze separation.
 
 ## blocker-2-contract/v1
 
@@ -26,7 +26,7 @@ This file is governance metadata for the contract revisions in this directory. I
 - Status: NOT FROZEN / PENDING APPROVALS.
 - Entry state: pending, editable in place until this revision is frozen.
 - ContractRevisionId: `blocker-2-contract/v2`
-- RevisionContentId: `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`
+- RevisionContentId: `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`
 - Candidate commit: pending
 - Accountable owner: ChannelForge Product Owner
 - Approver: ChannelForge Architecture Authority
@@ -40,7 +40,7 @@ This file is governance metadata for the contract revisions in this directory. I
   - ChannelForge Architecture Authority: pending
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Superseded candidate content: RevisionContentId `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`, last published at commit `00e1f27a3258558d1f6051e1f2415012061de685`, received a technical preservation PASS and an OMP Desktop governance PASS for the PART-B corrections it carried. Those results attest that content only. They do not carry to RevisionContentId `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, which changes the revision identity model and must be reviewed again.
+- Superseded candidate content: RevisionContentId `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, last published at commit `e8ddd909a72f1b9ea25b647eda49be73f0eb0541`, and the earlier candidate contents `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821` and `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`. Any review result recorded for a superseded content attests that content only and does not carry to RevisionContentId `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`.
 - Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation, release work, and merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
 
 ## Recording rules
@@ -59,4 +59,4 @@ sha256sum PART-A-canonical-foundation.md PART-B-semantic-schemas.md PART-C-promo
 { printf 'contract-revision-content/v1'; printf '\0'; cat manifest.txt; } | sha256sum
 ```
 
-  The listed file order is ascending file-name byte order, and the default sha256sum output line is already the digest, two ASCII spaces, the file name, and one LF.
+  The listed file order is ascending file-name byte order, and the default sha256sum output line is already the digest, two ASCII spaces, the file name exactly as listed above with no directory component, and one LF.

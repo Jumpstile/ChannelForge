@@ -32,7 +32,7 @@ PART-B-semantic-schemas.md
 PART-C-promotion-recovery.md
 SYMBOL-CLOSURE.md
 
-RevisionContentId uses this contract's own hash discipline and no other scheme. RevisionContentManifest is UTF-8 text containing one line per normative file, in ascending file-name byte order, where each line is the lowercase 64-hex SHA-256 of that file's exact bytes, two ASCII spaces, the file name, and one LF. RevisionContentId is H(contract-revision-content/v1, RevisionContentManifest), where H is the single hash formula defined in PART-A section 3, D is the exact ASCII domain string contract-revision-content/v1, and B is the exact RevisionContentManifest bytes. This definition introduces no new hash formula, no alternative byte layout, and no second hashing scheme.
+RevisionContentId uses this contract's own hash discipline and no other scheme. RevisionContentManifest is UTF-8 text containing one line per normative file, in ascending file-name byte order, where each line is the lowercase 64-hex SHA-256 of that file's exact bytes, two ASCII spaces, the file name exactly as listed above with no directory component, and one LF. RevisionContentId is H(contract-revision-content/v1, RevisionContentManifest), where H is the single hash formula defined in PART-A section 3, D is the exact ASCII domain string contract-revision-content/v1, and B is the exact RevisionContentManifest bytes. This definition introduces no new hash formula, no alternative byte layout, and no second hashing scheme.
 
 contract-revision-content/v1 is a governance-level domain. The inventory in PART-A section 3 is described there as the exhaustive v2 semantic domain inventory, and its exhaustiveness is over contract-semantic domains only, meaning the domains of hashes over lineup, candidate, review, decision, output, state, journal, and pointer content. contract-revision-content/v1 is outside that scope. It is not a semantic hash domain, it never appears in a semantic projection, a hash dependency graph, a manifest field, or an accepted-state field, it identifies artifact revisions only, and it neither extends nor amends the PART-A inventory.
 
@@ -50,7 +50,7 @@ blocker-2-contract/v1 identity is exact under this model. Its RevisionContentId 
 
 This binding is immutable. Governance metadata can neither re-point nor retire the binding between a frozen ContractRevisionId and its RevisionContentId. An attestation of a frozen revision is append-only: it may be extended by a new dated entry, and any correction must be a new dated entry that cites the superseded value, never an edit in place. Metadata that contradicts a binding stated in revision content is invalid, and the binding in revision content governs.
 
-Freeze state is never asserted by revision content. The freeze state of any revision in this directory is recorded only in FREEZE-RECORD.md.
+Revision content records no freeze approval, reviewer result, approval date, or frozen commit SHA. Those attestation facts are recorded only in FREEZE-RECORD.md. Revision content may state conditional authority rules that depend on freeze state, including the rules in this section.
 
 ## Governance and freeze control
 
@@ -58,11 +58,11 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. blocker-2-contract/v1 remains the current frozen revision until blocker-2-contract/v2 completes all required approvals and FREEZE-RECORD.md records the frozen commit SHA and the RevisionContentId of blocker-2-contract/v2. blocker-2-contract/v1 is superseded only when blocker-2-contract/v2 becomes frozen.
+Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v2 only when blocker-2-contract/v2 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point.
 
 Until blocker-2-contract/v2 becomes frozen:
 
-- blocker-2-contract/v1 remains the current frozen authority.
+- Authority remains with blocker-2-contract/v1 under the rules of this section.
 - blocker-2-contract/v2 remains a proposed revision and is not implementation authority.
 - Implementation that depends on the corrected blocker-2-contract/v2 raw occurrence projection remains paused.
 - Unrelated implementation work may continue against blocker-2-contract/v1 only where it does not depend on the amended contract semantics.
@@ -85,7 +85,7 @@ Every implementation or release work item must reference the frozen ContractRevi
 
 ### blocker-2-contract/v2
 
-Prior revision: blocker-2-contract/v1, frozen commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c.
+Prior revision: blocker-2-contract/v1, RevisionContentId 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c.
 
 Defect corrected: v1 PART-B section 5 excluded only the digest field itself from the RawM3UOccurrenceDigest projection, while SourceLocalOrdinal was a declared RawM3UOccurrence property and the first key of the canonical ordinal sort tuple. Ordinal assignment and digest computation therefore each required the other, and no conforming implementation existed. v1 also asserted that equal complete raw occurrences have identical digests, which is unsatisfiable while a per-occurrence ordinal is a digest input, and it never defined the RawXMLTVOccurrenceDigest or RawProgrammeDigest projections even though both XMLTV ordinal sort tuples use those digests as the final tie-breaker.
 
@@ -93,7 +93,7 @@ Bounded delta:
 
 1. PART-B section 5 excludes SourceLocalOrdinal from the RawM3UOccurrenceDigest projection and states that projection exactly.
 2. PART-B section 6 excludes StructuralOccurrenceOrdinal from the RawXMLTVOccurrenceDigest and RawProgrammeDigest projections and states both projections exactly.
-3. README records the revision identifier, this revision history, and the ratifications below. It states no schema definition and no freeze status.
+3. README records the revision identifier, this revision history, and the ratifications below. It states no schema definition, no approval result, and no freeze approval fact.
 4. README adds Revision identity and freeze separation, which defines revision content, RevisionContentId, the role of ContractRevisionId, and the separation of freeze attestation into FREEZE-RECORD.md. This resolves the blocker-2-contract/v1 ambiguity in which two different five-file contents both claimed one revision identifier.
 
 Preserved without change: every canonical sort tuple in PART-B section 5 and section 6, duplicate detection and DuplicateCount semantics, exact raw evidence with Missing, empty, and whitespace-only distinctions, guide binding as exact raw ordinal equality, the EntryId, BindingKey, programme identity, StructuralEvidenceHash, and GuideCandidateIdRecord inputs, every other schema, enum, property order, and projection, all canonical byte and serialization rules, all paths, the journal and recovery protocol, the fault hook inventory, the acceptance test catalog, and all governance rules.
