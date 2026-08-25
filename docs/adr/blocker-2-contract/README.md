@@ -10,6 +10,7 @@ The source contract is the published standalone contract in GitHub issue #60, co
 - [PART-B-semantic-schemas.md](./PART-B-semantic-schemas.md) — M3U, XMLTV, candidate, review, decision, and accepted-state projections.
 - [PART-C-promotion-recovery.md](./PART-C-promotion-recovery.md) — immutable promotion, journal protocol, recovery classification, fault hooks, and tests.
 - [SYMBOL-CLOSURE.md](./SYMBOL-CLOSURE.md) — the additive closure definitions and the validation inventory.
+- [FREEZE-RECORD.md](./FREEZE-RECORD.md) — governance metadata that attests freeze approvals. It is not part of revision content and is excluded from RevisionContentId.
 
 The three contract parts are read together. A later part cannot weaken an earlier definition. The closure document is normative only for the symbols it defines; it does not redesign or regenerate the contract.
 
@@ -21,13 +22,37 @@ Every referenced hash domain, enum, schema, property order, projection, and reco
 
 No product implementation, database, scheduler, GUI, provider adapter, NAS behavior, or release certification is included in this artifact.
 
+## Revision identity and freeze separation
+
+A contract revision is identified by its normative content only. The normative revision content of this artifact is exactly these five files:
+
+README.md
+PART-A-canonical-foundation.md
+PART-B-semantic-schemas.md
+PART-C-promotion-recovery.md
+SYMBOL-CLOSURE.md
+
+RevisionContentId is the git tree object identity of exactly those five files, each with mode 100644, sorted by file name, with no other entry. It is reproduced from any commit that contains this artifact by listing those five blobs and writing that tree. The enclosing commit, its parents, the branch name, and any additional file in this directory do not participate in RevisionContentId.
+
+ContractRevisionId is the durable name of one immutable RevisionContentId. One ContractRevisionId denotes exactly one RevisionContentId. If any byte of any of the five normative files changes, the result is a different revision that requires a new ContractRevisionId. The same ContractRevisionId is never reused for a second content.
+
+A revision never states its own RevisionContentId. That value is computed from the final content and is recorded only in governance metadata, exactly as a canonical object never contains its own hash.
+
+FREEZE-RECORD.md is governance metadata. It attests approvals for a named ContractRevisionId and its RevisionContentId. It is excluded from revision content, it defines and restates no normative rule, and it can never weaken a definition in the five normative files.
+
+Governance metadata may be appended or corrected without creating a new ContractRevisionId only when the change records attestation facts: reviewer identity, review outcome, approval date, the frozen commit SHA, the RevisionContentId under attestation, or a superseded marker. Every other change requires a new ContractRevisionId and a new freeze cycle, including any change to this section, the review sequence, ownership, approver authority, change-control rules, the freeze definition, the scope boundary, the symbol-closure rule, or any normative text in PART-A, PART-B, PART-C, or SYMBOL-CLOSURE.
+
+blocker-2-contract/v1 identity is exact under this model. Its RevisionContentId is e3a341826f5080f378316ed333d221246f1f5660, the five-file content committed at af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Commit 8ded7836ade413434f3398a43e8f71a3edcf3774 appended the v1 freeze attestation to README.md and therefore produced a different five-file content whose tree is a4035d032277cd2835733510e3838665bf377e84. That second content is not a second blocker-2-contract/v1. The appended text is governance metadata, it is reclassified as such, and it is transcribed into FREEZE-RECORD.md. blocker-2-contract/v1 denotes tree e3a341826f5080f378316ed333d221246f1f5660 only, and no v1 normative byte is modified by this revision.
+
+Freeze state is never asserted by revision content. The freeze state of any revision in this directory is recorded only in FREEZE-RECORD.md.
+
 ## Governance and freeze control
 
 Accountable owner: ChannelForge Product Owner. The owner is accountable for contract scope, reviewer coordination, supersession, and freeze approval.
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2. This identifier denotes the exact five-file v2 contents at the canonical artifact location; a branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, frozen at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. blocker-2-contract/v1 remains the current frozen revision until blocker-2-contract/v2 completes all required approvals and the freeze approval record below identifies the frozen commit SHA of blocker-2-contract/v2. blocker-2-contract/v1 is superseded only when blocker-2-contract/v2 becomes frozen.
+Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, whose RevisionContentId is e3a341826f5080f378316ed333d221246f1f5660 as committed at af9d5da3dc81fc4d484a9f475bc0da884d0d880c. blocker-2-contract/v1 remains the current frozen revision until blocker-2-contract/v2 completes all required approvals and FREEZE-RECORD.md records the frozen commit SHA and the RevisionContentId of blocker-2-contract/v2. blocker-2-contract/v1 is superseded only when blocker-2-contract/v2 becomes frozen.
 
 Until blocker-2-contract/v2 becomes frozen:
 
@@ -50,27 +75,6 @@ Implementation is unblocked only when a versioned contract revision exists, all 
 
 Every implementation or release work item must reference the frozen ContractRevisionId. Implementation is prohibited against a draft, a superseded revision, or an amendment that has not completed the required approvals and freeze. This governance artifact remains review evidence only and is not release certification or release evidence.
 
-## Freeze approval record
-
-- ContractRevisionId: `blocker-2-contract/v2`
-- Contract artifact location: `docs/adr/blocker-2-contract/`
-- Prior ContractRevisionId: `blocker-2-contract/v1`
-- Prior frozen commit SHA: `af9d5da3dc81fc4d484a9f475bc0da884d0d880c`
-- Prior freeze approval date: 2026-08-25
-- Accountable owner: ChannelForge Product Owner
-- Approver: ChannelForge Architecture Authority
-- Independent reviewers:
-  - OMP Desktop — independent specification and consistency reviewer
-  - OMP Arcade — independent adversarial, determinism, and recovery reviewer
-- Approval results:
-  - Technical preservation review: pending
-  - OMP Desktop: pending
-  - OMP Arcade: pending
-  - ChannelForge Architecture Authority: pending
-- Freeze approval date: pending
-- Frozen commit SHA: pending
-- Freeze status: NOT FROZEN / PENDING APPROVALS. blocker-2-contract/v1 remains the current frozen revision and its freeze remains in force until blocker-2-contract/v2 is frozen. Implementation, release work, and PR merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
-
 ## Revision history
 
 ### blocker-2-contract/v2
@@ -83,7 +87,8 @@ Bounded delta:
 
 1. PART-B section 5 excludes SourceLocalOrdinal from the RawM3UOccurrenceDigest projection and states that projection exactly.
 2. PART-B section 6 excludes StructuralOccurrenceOrdinal from the RawXMLTVOccurrenceDigest and RawProgrammeDigest projections and states both projections exactly.
-3. README records the revision identifier, freeze metadata, this revision history, and the ratifications below. It states no schema definition.
+3. README records the revision identifier, this revision history, and the ratifications below. It states no schema definition and no freeze status.
+4. README adds Revision identity and freeze separation, which defines revision content, RevisionContentId, the role of ContractRevisionId, and the separation of freeze attestation into FREEZE-RECORD.md. This resolves the blocker-2-contract/v1 ambiguity in which two different five-file contents both claimed one revision identifier.
 
 Preserved without change: every canonical sort tuple in PART-B section 5 and section 6, duplicate detection and DuplicateCount semantics, exact raw evidence with Missing, empty, and whitespace-only distinctions, guide binding as exact raw ordinal equality, the EntryId, BindingKey, programme identity, StructuralEvidenceHash, and GuideCandidateIdRecord inputs, every other schema, enum, property order, and projection, all canonical byte and serialization rules, all paths, the journal and recovery protocol, the fault hook inventory, the acceptance test catalog, and all governance rules.
 
