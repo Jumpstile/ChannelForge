@@ -23,11 +23,13 @@ No product implementation, database, scheduler, GUI, provider adapter, NAS behav
 
 ## Governance and freeze control
 
-The Accountable Contract Owner is the ChannelForge Product Owner recorded for issue #60. The owner is accountable for contract scope, reviewer coordination, supersession, and freeze approval; a freeze is invalid until a named owner is recorded.
+Accountable owner: ChannelForge Product Owner. The owner is accountable for contract scope, reviewer coordination, supersession, and freeze approval.
 
-The canonical artifact location is this directory: docs/adr/blocker-2-contract/. The frozen revision identifier is ContractRevisionId = blocker-2-contract/<full 40-hex Git commit SHA>, where the SHA is the commit that contains the exact frozen contents of README.md, PART-A-canonical-foundation.md, PART-B-semantic-schemas.md, PART-C-promotion-recovery.md, and SYMBOL-CLOSURE.md. A branch name, issue comment number, draft, or working-tree state is not a frozen revision identifier.
+Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-The supersession and change-control authority is the Accountable Contract Owner acting with Architecture Acceptance and Governance Review. Any proposed change must identify the prior ContractRevisionId, describe the targeted delta, and produce a new versioned revision. No amendment may silently modify a frozen revision.
+Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v1. This identifier denotes the exact five-file v1 contents at the canonical artifact location; a branch name, draft, or working-tree state is not a revision identifier.
+
+The supersession and change-control authority is the Accountable Contract Owner acting with the Approver. Any proposed change must identify the prior ContractRevisionId, describe the targeted delta, and produce a new versioned revision. No amendment may silently modify a frozen revision.
 
 The mandatory review sequence is ordered as follows:
 
