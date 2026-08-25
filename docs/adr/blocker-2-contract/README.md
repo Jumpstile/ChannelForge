@@ -98,4 +98,4 @@ Ratifications:
 These findings are recorded for a later revision. They are not part of the blocker-2-contract/v2 delta, they change no normative definition in this revision, and both were present in blocker-2-contract/v1.
 
 - PART-B section 5 and section 6 state that exact duplicate multiplicity is stored in DuplicateCount, but DuplicateCount is not a declared property of RawM3UOccurrence, RawXMLTVChannelOccurrence, or RawProgrammeOccurrence, so its storage location is undefined. The blocker-2-contract/v2 digest input lists exclude it explicitly, so no digest projection in this revision is ambiguous.
-- The Journal property order is stated in both PART-C and SYMBOL-CLOSURE.md with identical field sequences. The restatement is consistent, but it is a second statement of one property order under the symbol-closure rule.
+- The Journal field sequence is restated in PART-C and in SYMBOL-CLOSURE.md section 5. Both statements list identical fields in identical order, so the restatement is consistent, but it is a second statement of one schema under the symbol-closure rule.
