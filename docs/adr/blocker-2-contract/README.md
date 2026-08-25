@@ -42,3 +42,19 @@ The mandatory review sequence is ordered as follows:
 Implementation is unblocked only when a versioned contract revision exists, all required reviewers have approved it, freeze approval is recorded, and the frozen ContractRevisionId is referenced by the implementation work. Any contract modification after freeze automatically invalidates the freeze and requires the review sequence and freeze approval to run again for the new revision.
 
 Every implementation or release work item must reference the frozen ContractRevisionId. Implementation is prohibited against a draft, a superseded revision, or an amendment that has not completed the required approvals and freeze. This governance artifact remains review evidence only and is not release certification or release evidence.
+
+## Freeze approval record
+
+- ContractRevisionId: `blocker-2-contract/v1`
+- Contract artifact location: `docs/adr/blocker-2-contract/`
+- Accountable owner: ChannelForge Product Owner
+- Approver: ChannelForge Architecture Authority
+- Independent reviewers:
+  - OMP Desktop — independent specification and consistency reviewer
+  - OMP Arcade — independent adversarial, determinism, and recovery reviewer
+- Approval results:
+  - OMP Desktop: PASS / approved
+  - OMP Arcade: PASS / approved
+  - ChannelForge Architecture Authority: PASS / approved
+- Approval date: 2026-08-25
+- Frozen commit SHA: `af9d5da3dc81fc4d484a9f475bc0da884d0d880c`
