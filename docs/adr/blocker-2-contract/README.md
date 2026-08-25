@@ -2,7 +2,7 @@
 
 This directory is the stable repository artifact for the accepted Blocker #2 design. It is design/review evidence only. It authorizes no implementation, branch, pull request, merge, deployment, or release decision.
 
-The source contract is the published standalone contract in GitHub issue #60, comment 5410735336. PART-A, PART-B, and PART-C are verbatim section moves from that contract; the contract wording is not rewritten. SYMBOL-CLOSURE.md contains only the nine known closure definitions requested after architectural acceptance. In blocker-2-contract/v2, PART-B section 5 and section 6 carry the bounded raw occurrence digest amendment recorded under Revision history; no other contract wording is rewritten.
+The source contract is the published standalone contract in GitHub issue #60, comment 5410735336. PART-A and PART-C remain verbatim section moves from that contract. PART-B remains verbatim except for the bounded section 5 and section 6 raw occurrence digest amendments recorded under Revision history. No other contract wording is rewritten. SYMBOL-CLOSURE.md contains only the nine known closure definitions requested after architectural acceptance.
 
 ## File map
 
@@ -27,7 +27,14 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2. This identifier denotes the exact five-file v2 contents at the canonical artifact location; a branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, frozen at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c, and it is superseded by this revision.
+Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2. This identifier denotes the exact five-file v2 contents at the canonical artifact location; a branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, frozen at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. blocker-2-contract/v1 remains the current frozen revision until blocker-2-contract/v2 completes all required approvals and the freeze approval record below identifies the frozen commit SHA of blocker-2-contract/v2. blocker-2-contract/v1 is superseded only when blocker-2-contract/v2 becomes frozen.
+
+Until blocker-2-contract/v2 becomes frozen:
+
+- blocker-2-contract/v1 remains the current frozen authority.
+- blocker-2-contract/v2 remains a proposed revision and is not implementation authority.
+- Implementation that depends on the corrected blocker-2-contract/v2 raw occurrence projection remains paused.
+- Unrelated implementation work may continue against blocker-2-contract/v1 only where it does not depend on the amended contract semantics.
 
 The supersession and change-control authority is the Accountable Contract Owner acting with the Approver. Any proposed change must identify the prior ContractRevisionId, describe the targeted delta, and produce a new versioned revision. No amendment may silently modify a frozen revision.
 
@@ -62,7 +69,7 @@ Every implementation or release work item must reference the frozen ContractRevi
   - ChannelForge Architecture Authority: pending
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Freeze status: not frozen. The blocker-2-contract/v1 freeze is invalidated by this revision. Implementation, release work, and PR merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA.
+- Freeze status: NOT FROZEN / PENDING APPROVALS. blocker-2-contract/v1 remains the current frozen revision and its freeze remains in force until blocker-2-contract/v2 is frozen. Implementation, release work, and PR merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
 
 ## Revision history
 
@@ -85,3 +92,10 @@ Ratifications:
 - The raw occurrence hash domain identifiers raw-m3u-occurrence/v2, raw-xmltv-occurrence/v2, and raw-programme/v2 are retained unchanged under blocker-2-contract/v2. The corrected projections are distinguished by ContractRevisionId, not by new domain strings, so the PART-A exhaustive v2 semantic domain inventory is unchanged.
 - Hash values computed under the corrected projections differ from values computed under the v1 wording, which changes EntryId, BindingId, BuildIdentity, CandidateManifestHash, and candidate namespace directory names. No accepted generation, pointer, journal, or previous-generation artifact exists, so no persisted-state migration is required and no compatibility shim is authorized.
 - Retaining the digest as the leading key of the M3U ordinal sort tuple is ratified. Every remaining tuple key is a declared raw occurrence property, so the digest is redundant for total ordering, but EntryId already binds RawM3UOccurrenceDigest, so a future digest revision changes entry identity whether or not ordinals are renumbered. Keeping the tuple verbatim preserves the frozen ordering text, keeps the decisive comparison on fixed lowercase 64-hex ASCII, and keeps the delta bounded to the digest projections.
+
+## Follow-up findings
+
+These findings are recorded for a later revision. They are not part of the blocker-2-contract/v2 delta, they change no normative definition in this revision, and both were present in blocker-2-contract/v1.
+
+- PART-B section 5 and section 6 state that exact duplicate multiplicity is stored in DuplicateCount, but DuplicateCount is not a declared property of RawM3UOccurrence, RawXMLTVChannelOccurrence, or RawProgrammeOccurrence, so its storage location is undefined. The blocker-2-contract/v2 digest input lists exclude it explicitly, so no digest projection in this revision is ambiguous.
+- The Journal property order is stated in both PART-C and SYMBOL-CLOSURE.md with identical field sequences. The restatement is consistent, but it is a second statement of one property order under the symbol-closure rule.
