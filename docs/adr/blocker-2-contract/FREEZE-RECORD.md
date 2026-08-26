@@ -26,7 +26,7 @@ This file is governance metadata for the contract revisions in this directory. I
 - Status: NOT FROZEN / PENDING APPROVALS.
 - Entry state: pending, editable in place until this revision is frozen.
 - ContractRevisionId: `blocker-2-contract/v2`
-- RevisionContentId: `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`
+- RevisionContentId: `ad08519caf9cff1e9b91df44e38c17151a3aaf1df9a29f24c20a58b7b141c899`
 - Candidate commit: pending
 - Accountable owner: ChannelForge Product Owner
 - Approver: ChannelForge Architecture Authority
@@ -40,7 +40,7 @@ This file is governance metadata for the contract revisions in this directory. I
   - ChannelForge Architecture Authority: pending
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Superseded candidate content: RevisionContentId `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, last published at commit `e8ddd909a72f1b9ea25b647eda49be73f0eb0541`, and the earlier candidate contents `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821` and `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`. Any review result recorded for a superseded content attests that content only and does not carry to RevisionContentId `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`.
+- Superseded candidate content: RevisionContentId `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`, last published at commit `dc59792638e25ef45de0b5c227ac7358722e6e2e`, and the earlier candidate contents `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821`, and `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`. Any review result recorded for a superseded content attests that content only and does not carry to RevisionContentId `ad08519caf9cff1e9b91df44e38c17151a3aaf1df9a29f24c20a58b7b141c899`.
 - Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation, release work, and merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
 
 ## Recording rules

@@ -42,7 +42,7 @@ ContractRevisionId is the durable name of one immutable RevisionContentId. One C
 
 A revision never states its own RevisionContentId. That value is computed from the final content and is recorded only in governance metadata, exactly as a canonical object never contains its own hash.
 
-FREEZE-RECORD.md is governance metadata. It attests approvals for a named ContractRevisionId and its RevisionContentId. It is excluded from revision content, it defines and restates no normative rule, and it can never weaken a definition in the five normative files.
+FREEZE-RECORD.md is governance metadata. It attests approvals for a named ContractRevisionId and its RevisionContentId. It is excluded from revision content. FREEZE-RECORD.md defines and weakens no normative rule. It may restate normative operating rules for execution and verification, but README.md and the normative contract parts govern wherever the metadata differs.
 
 Governance metadata may be appended or corrected without creating a new ContractRevisionId only when the change records attestation facts: reviewer identity, review outcome, approval date, the frozen commit SHA, the RevisionContentId under attestation, or a superseded marker. Every other change requires a new ContractRevisionId and a new freeze cycle, including any change to this section, the review sequence, ownership, approver authority, change-control rules, the freeze definition, the scope boundary, the symbol-closure rule, or any normative text in PART-A, PART-B, PART-C, or SYMBOL-CLOSURE.
 
