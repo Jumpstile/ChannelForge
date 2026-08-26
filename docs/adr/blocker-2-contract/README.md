@@ -95,6 +95,7 @@ These findings are recorded for a later revision. They are not part of the block
 
 - PART-B section 5 and section 6 state that exact duplicate multiplicity is stored in DuplicateCount, but DuplicateCount is not a declared property of RawM3UOccurrence, RawXMLTVChannelOccurrence, or RawProgrammeOccurrence, so its storage location is undefined. The blocker-2-contract/v7 digest input lists exclude it explicitly, so no digest projection in this revision is ambiguous.
 - The Journal field sequence is restated in PART-C and in SYMBOL-CLOSURE.md section 5. Both statements list identical fields in identical order, so the restatement is consistent, but it is a second statement of one schema under the symbol-closure rule.
+- Acceptance/promotion semantic-domain closure debt inherited from frozen v6: pointer/v2, accepted-state/v2, active-m3u/v2, active-xmltv/v2, previous-m3u/v2, previous-xmltv/v2, decision-m3u/v2, decision-xmltv/v2, generation-manifest/v2, and previous-output-manifest/v2. Their complete projections and/or byte-input definitions remain unresolved. They belong to acceptance/promotion surfaces outside candidate-only PR #1; proposal-3 and proposed v7 do not claim to close them, and candidate-only PR #1 does not consume them. Later acceptance/promotion implementation MUST NOT claim full contract compliance for any listed domain until that domain is normatively closed. These identifiers and their /v2 names are not defined or redesigned by this proposal.
 
 
 ## Proposal-3 amendment scope
