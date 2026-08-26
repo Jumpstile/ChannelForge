@@ -18,8 +18,14 @@ function Publish-ChannelForgeCandidateNamespace {
     Assert-ChannelForgeWritePath -Path $StagingPath -AllowedRoot $OutputRoot
     Assert-ChannelForgeWritePath -Path $finalPath -AllowedRoot $OutputRoot
     New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
+    if (-not (Test-ChannelForgeCandidateNamespace -Directory $StagingPath -ManifestHash $CandidateManifestHash -AllowStagingName)) {
+        throw 'Candidate namespace staging validation failed.'
+    }
 
     if (Test-Path -LiteralPath $finalPath) {
+        if (-not (Test-ChannelForgeCandidateNamespace -Directory $finalPath -ManifestHash $CandidateManifestHash)) {
+            throw "Candidate namespace collision failed final validation: $finalPath"
+        }
         if (-not (Test-Path -LiteralPath $finalPath -PathType Container)) {
             throw "Candidate namespace collision is not a directory: $finalPath"
         }
