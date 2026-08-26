@@ -72,15 +72,20 @@ This file is governance metadata for the contract revisions in this directory. I
 
 ## blocker-2-contract/v6
 
-- Status: NOT FROZEN / PENDING APPROVALS.
+- Status: FROZEN.
+- Entry state: immutable, append-only.
 - ProposalId: `blocker-2-contract/proposal-2`
 - ContractRevisionId: `blocker-2-contract/v6`
 - RevisionContentId: `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`
-- Candidate commit: pending
-- Approval results: pending for all required reviewers.
-- Freeze approval date: pending
-- Frozen commit SHA: pending
-- Effect while pending: blocker-2-contract/v1 remains the frozen authority until blocker-2-contract/v6 freezes.
+- Approved candidate commit: `e63281b76ec7e26bfff85ff744c5c0a608de824e`
+- Approval results:
+  - Desktop OMP final freeze review: PASS
+  - ChannelForge Architecture Authority: PASS
+  - OMP Arcade independent review: PASS
+- OMP Arcade approval: "OMP Arcade approves blocker-2-contract/v6 at RevisionContentId e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447 for freeze."
+- Freeze approval date: 2026-08-26
+- Freeze metadata attestation commit: pending final metadata commit SHA
+- Authority effect: blocker-2-contract/v6 is the current frozen authority. blocker-2-contract/v1 is historical frozen authority superseded by v6 upon this valid freeze record.
 
 ## Recording rules
 
