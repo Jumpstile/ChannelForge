@@ -21,6 +21,20 @@ This file is governance metadata for the contract revisions in this directory. I
 - Version control pointers, non-normative: content commit `af9d5da3dc81fc4d484a9f475bc0da884d0d880c`, content tree `e3a341826f5080f378316ed333d221246f1f5660`, attestation commit `8ded7836ade413434f3398a43e8f71a3edcf3774`.
 - Provenance note: this attestation was originally appended to README.md by commit `8ded7836ade413434f3398a43e8f71a3edcf3774`, which produced a different five-file content with tree pointer `a4035d032277cd2835733510e3838665bf377e84`. Under the revision identity model that appended text is governance metadata. It is transcribed here, and blocker-2-contract/v1 denotes RevisionContentId `9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d` only.
 
+### Dated correction — 2026-08-26
+
+- Corrected field: v1 authority boundary.
+- Superseded value: `Status: FROZEN. Current authority until blocker-2-contract/v2 is frozen.`
+- Corrected value: `Status: FROZEN. Current authority until blocker-2-contract/v6 is frozen.`
+- Reason: blocker-2-contract/v2 is abandoned and never froze; the active pending candidate is v6.
+
+### Dated correction — 2026-08-26
+
+- Corrected field: v1 status entry.
+- Superseded value: `Status: FROZEN. Current authority until blocker-2-contract/v6 is frozen.`
+- Corrected value: `Status: FROZEN`
+- Reason: a frozen entry is immutable and append-only; the authority boundary is recorded by the pending candidate entry, not inside the frozen v1 status line.
+
 ## blocker-2-contract/v2
 
 - Status: ABANDONED PROPOSAL HISTORY / NEVER FROZEN.
