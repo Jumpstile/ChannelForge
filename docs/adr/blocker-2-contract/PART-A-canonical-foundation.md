@@ -132,6 +132,48 @@ previous-m3u/v2
 previous-xmltv/v2
 journal/v2
 
+
+## 3.1 Central contract version registry
+
+The central contract version registry is the sole authority for every canonical string field named Version and every version constituent of BuildIdentity. Implementations MUST NOT derive a version value from a branch name, hash-domain suffix, declaration order, enum ordinal, ContractRevisionId, or an unrecorded convention. A registry value MAY intentionally equal ContractVersion, a semantic hash-domain identifier, or another existing identifier because the registry explicitly assigns it.
+
+ContractVersion is the exact string blocker-2-contract/v7. Every canonical string field named exactly Version equals ContractVersion unless explicitly excepted below. Journal.Version is the sole exception and is the literal integer 2.
+
+IdentityRulesVersion is the exact string lineup-history-v1.
+
+The Version registry entries are:
+
+- SafeTvgNameInput.Version = ContractVersion.
+- RawM3UOccurrence.Version = ContractVersion.
+- EntryId input Version = ContractVersion.
+- M3UIdentityCollisions.Version = ContractVersion.
+- RawXMLTVChannelOccurrence.Version = ContractVersion.
+- RawProgrammeOccurrence.Version = ContractVersion.
+- BindingRecord.Version = ContractVersion.
+- CandidateManifest.Version = ContractVersion.
+- DecisionManifest.Version = ContractVersion.
+- AcceptedState.Version = ContractVersion.
+- AcceptedOutputManifest.Version = ContractVersion.
+- GenerationManifest.Version = ContractVersion.
+- accepted pointer Version = ContractVersion.
+- StructuralEvidenceInput.Version = ContractVersion.
+- CollisionIdentity.Version = ContractVersion.
+- CollisionEvidenceInput.Version = ContractVersion.
+
+BuildIdentity version registry entries are:
+
+- BuildIdentity.ContractVersion = ContractVersion.
+- CandidateManifest.ContractVersion = ContractVersion.
+- M3UParserContractVersion = m3u-parser-v1.
+- XMLTVParserContractVersion = xmltv-parser-v1.
+- M3USerializerVersion = m3u-serializer-v1.
+- XMLTVSerializerVersion = xmltv-serializer-v1.
+- GuideBindingContractVersion = guide-binding-exact-ordinal-v1.
+
+These version literals are not semantic hash domains. Existing semantic hash-domain identifiers remain exactly those listed in the semantic domain inventory above.
+
+SelectedLogicalSourceIds is a required array of unique lowercase 64-hex LogicalSourceId strings sorted by ascending ordinal ASCII bytes; it is never null or omitted. InputArtifactHashes is a required array of ArtifactHashRecord objects sorted by LogicalSourceId ordinal bytes, then ArtifactKind rank, then ArtifactHash ordinal bytes; duplicate (LogicalSourceId, ArtifactKind) pairs are invalid. ArtifactHashRecord property order is LogicalSourceId, ArtifactKind, ArtifactHash. ArtifactKind is the closed enum M3U=1, XMLTV=2. ArtifactHash is a required lowercase 64-hex hash in the explicitly declared input domain.
+
 Every semantic hash field names its domain and projection. A semantic hash excludes absolute paths, relative storage paths, directory names, file identity, volume identity, timestamps, lock identity, transaction IDs, stage names, backup names, and audit-only metadata unless this contract explicitly says otherwise. Therefore identical logical input produces identical semantic bytes and hashes on different filesystems.
 
 Operational filesystem metadata is separate. FileIdentity is:
