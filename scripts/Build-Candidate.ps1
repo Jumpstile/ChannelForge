@@ -4,7 +4,8 @@ param(
     [string]$M3UPath,
     [string]$XMLTVPath,
     [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'output'),
-    [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant())
+    [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
+    [string]$FaultHook = ''
 )
  $ErrorActionPreference = 'Stop'
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
@@ -139,12 +140,20 @@ foreach ($helper in @(
  }
  $reviewBytes = $utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $review))
 $reviewMdBytes = [System.Text.UTF8Encoding]::new($false).GetBytes("# ChannelForge Candidate Review`n`nCandidate manifest: $manifestHash`nReviews: $(@($manifest.ReviewRecords).Count)`n")
- Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.m3u') -Bytes $m3uBytes -HookPrefix 'CandidateStageWrite.M3U' | Out-Null
- if ($null -ne $xmltvBytes) {
-     Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.xml') -Bytes $xmltvBytes -HookPrefix 'CandidateStageWrite.XMLTV' | Out-Null
- }
- Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.json') -Bytes $reviewBytes -HookPrefix 'CandidateStageWrite.ReviewJSON' | Out-Null
- Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.md') -Bytes $reviewMdBytes -HookPrefix 'CandidateStageWrite.ReviewMarkdown' | Out-Null
- Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' | Out-Null
-$finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash
-[pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest }
+try {
+    Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.m3u') -Bytes $m3uBytes -HookPrefix 'CandidateStageWrite.M3U' -FaultHook $FaultHook | Out-Null
+    if ($null -ne $xmltvBytes) {
+        Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.xml') -Bytes $xmltvBytes -HookPrefix 'CandidateStageWrite.XMLTV' -FaultHook $FaultHook | Out-Null
+    }
+    Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.json') -Bytes $reviewBytes -HookPrefix 'CandidateStageWrite.ReviewJSON' -FaultHook $FaultHook | Out-Null
+    Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.md') -Bytes $reviewMdBytes -HookPrefix 'CandidateStageWrite.ReviewMarkdown' -FaultHook $FaultHook | Out-Null
+    Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
+    $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
+    [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest }
+}
+catch {
+    if (Test-Path -LiteralPath $txRoot) {
+        Remove-Item -LiteralPath $txRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    throw
+}
