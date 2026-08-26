@@ -37,7 +37,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-StreamFingerprint {
         param([AllowNull()][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{
-                Version   = 'blocker-2-contract/v1'
+                Version   = 'stream-fingerprint-v2'
                 StreamUrl = if ($null -eq $Channel) { '' } else { [string]$Channel.Url }
             })
     }
@@ -45,7 +45,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-PresentationFingerprint {
         param([Parameter(Mandatory)][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{
-                Version       = 'blocker-2-contract/v1'
+                Version       = 'safe-tvg-name-fingerprint-v2'
                 TvgName       = [string]$Channel.TvgName
                 DisplayName   = [string]$Channel.DisplayName
                 GroupTitle    = [string]$Channel.Group
@@ -87,7 +87,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
             [AllowNull()][object]$CollisionEvidence
         )
         $recordWithoutIds = [ordered]@{
-            Version = 'blocker-2-contract/v1'
+            Version = 'binding-record-v2'
             BindingKind = $BindingKind
             EntryId = $EntryId
             BindingKey = $BindingKey
@@ -102,7 +102,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         }
         $bindingId = Get-ChannelForgeDomainHash -Domain 'binding-record/v2' -InputObject $recordWithoutIds
         $record = [ordered]@{
-            Version = 'blocker-2-contract/v1'
+            Version = 'binding-record-v2'
             BindingId = $bindingId
             BindingKind = $BindingKind
             EntryId = $EntryId
@@ -192,7 +192,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                     elseif ($missingCount -eq 0) { 'PresentCollision' }
                     else { 'MixedMissingAndPresent' }
             $base = [ordered]@{
-                Version = 'blocker-2-contract/v1'
+                Version = 'collision-evidence-v2'
                 HistoryKey = if ($null -eq $collision.IdentityKey) { $null } else { [string]$collision.IdentityKey }
                 CollisionKind = $kind
                 RawIdentityDigests = @($digests)
@@ -328,7 +328,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     }
     $sourceIds = @($SelectedSourceIds | Sort-Object -Unique)
     $buildInput = [ordered]@{
-        ContractVersion       = 'blocker-2-contract/v1'
+        ContractVersion       = 'blocker-2-contract/v6'
         IdentityRulesVersion  = 'lineup-history-v1'
         SelectedSourceIds     = $sourceIds
         InputArtifactHashes   = $inputArtifacts
@@ -361,8 +361,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
     }
 
     $manifest = [ordered]@{
-        Version               = 'blocker-2-contract/v1'
-        ContractVersion       = 'blocker-2-contract/v1'
+        Version               = 'candidate-manifest-v2'
+        ContractVersion       = 'blocker-2-contract/v6'
         BuildIdentity         = $buildIdentity
         IdentityRulesVersion  = 'lineup-history-v1'
         SelectedSources       = $sourceIds

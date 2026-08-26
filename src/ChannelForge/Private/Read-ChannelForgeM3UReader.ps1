@@ -132,7 +132,7 @@ $channel | Add-Member -NotePropertyName RawGroupTitle -NotePropertyValue $pendin
 $channel | Add-Member -NotePropertyName RawLogo -NotePropertyValue $pending.Logo -Force
 $channel | Add-Member -NotePropertyName RawChannelNumber -NotePropertyValue $pending.ChannelNumber -Force
 $channel | Add-Member -NotePropertyName RawM3UOccurrence -NotePropertyValue ([pscustomobject][ordered]@{
-        Version          = 'blocker-2-contract/v1'
+        Version          = 'raw-m3u-occurrence/v2'
         LogicalSourceId  = ''
         RawTvgIdPresence = $pending.TvgIdPresence
         RawTvgId         = if ($pending.TvgIdPresence -eq 'Present') { $pending.TvgId } else { $null }
