@@ -38,11 +38,11 @@ contract-revision-content/v1 is a governance-level domain. The inventory in PART
 
 The enclosing commit, its parents, the branch name, the version control system, and any additional file in this directory do not participate in RevisionContentId. Version control object identifiers such as commit, tree, and blob hashes are convenience pointers only. They are never the revision identity, and a pointer that disagrees with RevisionContentId is invalid.
 
-ContractRevisionId is the durable name of one immutable RevisionContentId. One ContractRevisionId denotes exactly one RevisionContentId. If any byte of any of the five normative files changes, the result is a different revision that requires a new ContractRevisionId. The same ContractRevisionId is never reused for a second content.
+ContractRevisionId is the durable name of one immutable RevisionContentId. One ContractRevisionId denotes exactly one RevisionContentId. If any byte of any of the five normative files changes, the result is a different revision that requires a new ContractRevisionId. The same ContractRevisionId is never reused for a second content. ProposalId identifies an in-progress contract proposal series and may point to successive candidate contents while the proposal is NOT FROZEN. ProposalId is not implementation authority and is not a ContractRevisionId. A ContractRevisionId is minted only when one exact RevisionContentId is submitted as an immutable approval and freeze candidate. Once minted, it can never be rebound to different normative content.
 
 A revision never states its own RevisionContentId. That value is computed from the final content and is recorded only in governance metadata, exactly as a canonical object never contains its own hash.
 
-FREEZE-RECORD.md is governance metadata. It attests approvals for a named ContractRevisionId and its RevisionContentId. It is excluded from revision content. FREEZE-RECORD.md defines and weakens no normative rule. It may restate normative operating rules for execution and verification, but README.md and the normative contract parts govern wherever the metadata differs.
+FREEZE-RECORD.md is governance metadata. It attests approvals for a named ContractRevisionId and its RevisionContentId. It is excluded from revision content. FREEZE-RECORD.md defines and weakens no normative rule. It may restate normative operating rules for execution and verification, but README.md or the normative contract parts govern wherever the metadata differs.
 
 Governance metadata may be appended or corrected without creating a new ContractRevisionId only when the change records attestation facts: reviewer identity, review outcome, approval date, the frozen commit SHA, the RevisionContentId under attestation, or a superseded marker. Every other change requires a new ContractRevisionId and a new freeze cycle, including any change to this section, the review sequence, ownership, approver authority, change-control rules, the freeze definition, the scope boundary, the symbol-closure rule, or any normative text in PART-A, PART-B, PART-C, or SYMBOL-CLOSURE.
 
@@ -58,13 +58,13 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. The contract revision identifier is ContractRevisionId = blocker-2-contract/v2, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not a revision identifier. The immediately prior revision is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v2 only when blocker-2-contract/v2 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point.
+Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-2. The proposed ContractRevisionId for this exact content is blocker-2-contract/v3, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v3 only when blocker-2-contract/v3 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier blocker-2-contract/v2 label identifies abandoned proposal history only and is not implementation authority.
 
-Until blocker-2-contract/v2 becomes frozen:
+Until blocker-2-contract/v3 becomes frozen:
 
 - Authority remains with blocker-2-contract/v1 under the rules of this section.
-- blocker-2-contract/v2 remains a proposed revision and is not implementation authority.
-- Implementation that depends on the corrected blocker-2-contract/v2 raw occurrence projection remains paused.
+- blocker-2-contract/v3 remains a proposed revision and is not implementation authority; its ProposalId is blocker-2-contract/proposal-2.
+- Implementation that depends on the corrected occurrence projection remains paused.
 - Unrelated implementation work may continue against blocker-2-contract/v1 only where it does not depend on the amended contract semantics.
 
 The supersession and change-control authority is the Accountable Contract Owner acting with the Approver. Any proposed change must identify the prior ContractRevisionId, describe the targeted delta, and produce a new versioned revision. No amendment may silently modify a frozen revision.

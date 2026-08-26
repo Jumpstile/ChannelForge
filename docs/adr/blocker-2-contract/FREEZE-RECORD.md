@@ -23,29 +23,33 @@ This file is governance metadata for the contract revisions in this directory. I
 
 ## blocker-2-contract/v2
 
+- Status: ABANDONED PROPOSAL HISTORY / NEVER FROZEN.
+- Entry state: historical proposal record; not implementation authority.
+- Historical label: `blocker-2-contract/v2`
+- ProposalId: `blocker-2-contract/proposal-2`
+- Candidate contents: `ea89f296…`, `e3550af7…`, `9c875701…`, `e08338a3…`, `ad08519c…` (all abandoned; none is a ContractRevisionId).
+- Freeze approval date: not applicable
+- Frozen commit SHA: none; blocker-2-contract/v2 never froze
+- Effect: blocker-2-contract/v2 never became frozen authority. Its candidate contents are superseded or abandoned proposal contents only. None is implementation authority. blocker-2-contract/v1 remains the frozen authority until a later minted ContractRevisionId freezes.
+
+## blocker-2-contract/v3
+
 - Status: NOT FROZEN / PENDING APPROVALS.
-- Entry state: pending, editable in place until this revision is frozen.
-- ContractRevisionId: `blocker-2-contract/v2`
-- RevisionContentId: `ad08519caf9cff1e9b91df44e38c17151a3aaf1df9a29f24c20a58b7b141c899`
+- Entry state: pending, editable in place until this proposal is minted and frozen.
+- ProposalId: `blocker-2-contract/proposal-2`
+- ContractRevisionId: `blocker-2-contract/v3`
+- RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
 - Candidate commit: pending
 - Accountable owner: ChannelForge Product Owner
 - Approver: ChannelForge Architecture Authority
-- Independent reviewers:
-  - OMP Desktop, independent specification and consistency reviewer
-  - OMP Arcade, independent adversarial, determinism, and recovery reviewer
-- Approval results:
-  - Technical preservation review: pending
-  - OMP Desktop: pending
-  - OMP Arcade: pending
-  - ChannelForge Architecture Authority: pending
+- Approval results: technical preservation review pending; OMP Desktop pending; OMP Arcade pending; ChannelForge Architecture Authority pending
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Superseded candidate content: RevisionContentId `e08338a3a5c9e76ec82ff161f49bff4135b00948d3a75ef1aece7d546f03a874`, last published at commit `dc59792638e25ef45de0b5c227ac7358722e6e2e`, and the earlier candidate contents `9c8757017ef313decd7c72bfef27d77183d5acaba838457f5b3083b14ebbdda6`, `e3550af7aea7190cfa19dae73ecb2d6a9e93abeaf93c2e75493785b66dd1f821`, and `ea89f2961ce17af9b995ab1b328db06e38e216026d15ca5cbe932e6be97ffd92`. Any review result recorded for a superseded content attests that content only and does not carry to RevisionContentId `ad08519caf9cff1e9b91df44e38c17151a3aaf1df9a29f24c20a58b7b141c899`.
-- Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation, release work, and merges against blocker-2-contract/v2 remain prohibited until every approval above is recorded and this record names the frozen commit SHA of blocker-2-contract/v2.
+- Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation and merges against blocker-2-contract/v3 remain prohibited until all approvals and freeze recording complete.
 
 ## Recording rules
 
-- This file records attestation facts only: reviewer identity, review outcome, approval date, the RevisionContentId under attestation, candidate or frozen commit SHA, version control pointers, and superseded markers.
+- This file records attestation facts and subordinate operating procedures for recording and verifying those facts: reviewer identity, review outcome, approval date, the RevisionContentId under attestation, candidate or frozen commit SHA, version control pointers, and superseded markers.
 - An entry for a PENDING revision may be edited in place until that revision is frozen.
 - An entry for a FROZEN revision is immutable and append-only. Its ContractRevisionId, RevisionContentId, approval results, and approval date are never edited in place, and the binding between a frozen ContractRevisionId and its RevisionContentId is never re-pointed or retired here.
 - A correction to a frozen entry is recorded as a new dated correction entry that names the corrected field, the superseded value, and the corrected value. The superseded value remains readable.
