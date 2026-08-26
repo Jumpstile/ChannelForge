@@ -4,51 +4,145 @@ function Get-ChannelForgeRawM3UProjection {
         [Parameter(Mandatory)][Channel[]]$Channel,
         [string]$LogicalSourceId = ''
     )
+
+    # SourceLocalOrdinal is assigned only after the single ordinal-free raw
+    # digest has been computed and the frozen tuple has been sorted. Keep the
+    # Channel reference internal; it is not hashed or published.
     $records = [System.Collections.Generic.List[object]]::new()
+    $whitespacePattern = '^[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+$'
+
     foreach ($channelValue in @($Channel)) {
         if ($null -eq $channelValue) { continue }
-        $hasRawIdentity = $null -ne $channelValue.PSObject.Properties['RawTvgIdPresence']
-        $tvgId = if ($hasRawIdentity -and $null -ne $channelValue.PSObject.Properties['RawTvgId']) {
+        $hasRawPresence = $null -ne $channelValue.PSObject.Properties['RawTvgIdPresence']
+        $hasRawValue = $null -ne $channelValue.PSObject.Properties['RawTvgId']
+        $rawTvgId = if ($hasRawValue) {
             $channelValue.RawTvgId
         }
-        elseif ($null -eq $channelValue.TvgId) { $null } else { [string]$channelValue.TvgId }
-        $sourceId = if ([string]::IsNullOrWhiteSpace($LogicalSourceId)) { Get-ChannelForgeLogicalSourceId -ProviderName ([string]$channelValue.Provider) -SourceName ([string]$channelValue.Playlist) -SourceKind 'M3U' } else { $LogicalSourceId }
-        $presence = if ($hasRawIdentity) {
+        elseif ($hasRawPresence -and [string]$channelValue.RawTvgIdPresence -eq 'Missing') {
+            $null
+        }
+        elseif ($null -eq $channelValue.TvgId) {
+            $null
+        }
+        else {
+            [string]$channelValue.TvgId
+        }
+        $presence = if ($hasRawPresence) {
             [string]$channelValue.RawTvgIdPresence
         }
-        elseif ($null -eq $tvgId) { 'Missing' }
-        elseif ($tvgId.Length -eq 0) { 'Empty' }
-        elseif ($tvgId -match '^[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+$') { 'WhitespaceOnly' }
-        else { 'Present' }
-        $rawValue = if ($presence -eq 'Missing') { $null } else { $tvgId }
-        $rawIdentityDigest = if ($presence -eq 'Missing') { $null } else { Get-ChannelForgeDomainHash -Domain 'raw-identity/v2' -InputObject ([ordered]@{ Version='raw-identity-v2'; Presence=$presence; RawValue=$rawValue }) }
-        $base = [ordered]@{
-            Version='raw-m3u-occurrence-v2'; LogicalSourceId=$sourceId; RawTvgIdPresence=$presence; RawTvgId=$rawValue; RawIdentityDigest=$rawIdentityDigest
-            TvgName=[string]$channelValue.TvgName; DisplayName=[string]$channelValue.DisplayName; GroupTitle=[string]$channelValue.Group; Logo=[string]$channelValue.Logo; ChannelNumber=$channelValue.AssignedNumber; StreamUrl=[string]$channelValue.Url
-            SafeDisplayFingerprint=Get-ChannelForgeDomainHash -Domain 'safe-display-fingerprint/v2' -InputObject ([ordered]@{ Version='safe-display-fingerprint-v2'; Value=[string]$channelValue.DisplayName })
-            SafeGroupFingerprint=Get-ChannelForgeDomainHash -Domain 'safe-group-fingerprint/v2' -InputObject ([ordered]@{ Version='safe-group-fingerprint-v2'; Value=[string]$channelValue.Group })
-            SafeTvgNameFingerprint=Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{ Version='safe-tvg-name-fingerprint-v2'; Value=[string]$channelValue.TvgName; PolicyResult='Text' })
-            StreamFingerprint=Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{ Version='stream-fingerprint-v2'; Presence='Present'; StreamUrl=[string]$channelValue.Url })
+        elseif ($null -eq $rawTvgId) {
+            'Missing'
         }
-        $records.Add([pscustomobject][ordered]@{ Base=$base; BaseDigest=(Get-ChannelForgeDomainHash -Domain 'raw-m3u-occurrence/v2' -InputObject $base); Channel=$channelValue; SourceLocalOrdinal=0 })
-    }
-    foreach ($group in @($records | Group-Object { $_.Base.LogicalSourceId })) {
-        $ordered = @($group.Group | Sort-Object BaseDigest)
-        for ($i=0; $i -lt $ordered.Count; $i++) { $ordered[$i].SourceLocalOrdinal=$i }
-    }
-    $result=[System.Collections.Generic.List[object]]::new()
-    foreach ($record in @($records | Sort-Object @{Expression={ [string]$_.Base.LogicalSourceId }}, @{Expression={ [int]$_.SourceLocalOrdinal }}, BaseDigest)) {
-        $p=[ordered]@{}
-        foreach ($key in @($record.Base.Keys)) { $p[$key]=$record.Base[$key] }
-        $p.SourceLocalOrdinal=[int]$record.SourceLocalOrdinal
-        $digest=Get-ChannelForgeDomainHash -Domain 'raw-m3u-occurrence/v2' -InputObject $p
-        $history=$null
-        if ($null -ne $p.RawTvgId) {
-            $history=[regex]::Replace(([string]$p.RawTvgId).Normalize([Text.NormalizationForm]::FormC), '^[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+|[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+$', '').ToLowerInvariant()
-            if ($history.Length -eq 0) { $history=$null }
+        else {
+            'Present'
         }
-        $entryInput=[ordered]@{ Version='entry-id-v2'; EntryKind=if($null -eq $history){'MissingIdCandidate'}else{'StableHistory'}; LogicalSourceId=$p.LogicalSourceId; HistoryKey=$history; RawIdentityDigest=$p.RawIdentityDigest; IdentityOccurrenceOrdinal=0; SourceLocalOrdinal=$p.SourceLocalOrdinal; StructuralEvidenceHash=$null; StructuralOccurrenceOrdinal=$null }
-        $result.Add([pscustomobject][ordered]@{ Version='raw-m3u-occurrence-v2'; EntryId=(Get-ChannelForgeDomainHash -Domain 'entry-id/v2' -InputObject $entryInput); LogicalSourceId=$p.LogicalSourceId; SourceLocalOrdinal=$p.SourceLocalOrdinal; HistoryKey=$history; HistoryIdentityStatus=if($null -eq $history){'MissingId'}else{'StableUnique'}; RawTvgIdPresence=$p.RawTvgIdPresence; RawTvgId=$p.RawTvgId; TvgName=$p.TvgName; DisplayName=$p.DisplayName; GroupTitle=$p.GroupTitle; Logo=$p.Logo; ChannelNumber=$p.ChannelNumber; StreamFingerprint=$p.StreamFingerprint; RawM3UOccurrenceDigest=$digest; Channel=$record.Channel })
+        if ($presence -notin @('Missing', 'Present')) {
+            throw "Raw M3U tvg-id presence '$presence' is invalid."
+        }
+        if ($presence -eq 'Missing') { $rawTvgId = $null }
+
+        $sourceId = if ([string]::IsNullOrEmpty($LogicalSourceId)) {
+            Get-ChannelForgeLogicalSourceId -ProviderName ([string]$channelValue.Provider) -SourceName ([string]$channelValue.Playlist) -SourceKind 'M3U'
+        }
+        else {
+            $LogicalSourceId
+        }
+        $getRawProperty = {
+            param([string]$Name, [object]$Fallback)
+            $property = $channelValue.PSObject.Properties[$Name]
+            if ($null -ne $property) { return $property.Value }
+            return $Fallback
+        }
+        $tvgName = [string](& $getRawProperty 'RawTvgName' $channelValue.TvgName)
+        $displayName = [string](& $getRawProperty 'RawDisplayName' $channelValue.DisplayName)
+        $groupTitle = [string](& $getRawProperty 'RawGroupTitle' $channelValue.Group)
+        $logo = [string](& $getRawProperty 'RawLogo' $channelValue.Logo)
+        $channelNumber = & $getRawProperty 'RawChannelNumber' $channelValue.AssignedNumber
+        if ($null -ne $channelNumber) { $channelNumber = [string]$channelNumber }
+        $streamUrl = [string]$channelValue.Url
+
+        # Exact frozen digest projection: ten fields, in this order.
+        $projection = [ordered]@{
+            Version          = 'raw-m3u-occurrence-v2'
+            LogicalSourceId  = [string]$sourceId
+            RawTvgIdPresence = $presence
+            RawTvgId         = $rawTvgId
+            TvgName          = $tvgName
+            DisplayName      = $displayName
+            GroupTitle       = $groupTitle
+            Logo             = $logo
+            ChannelNumber    = $channelNumber
+            StreamUrl        = $streamUrl
+        }
+        $digest = Get-ChannelForgeDomainHash -Domain 'raw-m3u-occurrence/v2' -InputObject $projection
+        [void]$records.Add([pscustomobject][ordered]@{
+                Projection = $projection
+                Digest = $digest
+                Channel = $channelValue
+                SourceLocalOrdinal = 0
+            })
+    }
+
+    foreach ($group in @($records | Group-Object { [string]$_.Projection.LogicalSourceId })) {
+        $ordered = [System.Collections.Generic.List[object]]::new()
+        foreach ($record in @($group.Group)) { [void]$ordered.Add($record) }
+        $ordered.Sort([System.Comparison[object]]{
+                param($left, $right)
+                $lp = $left.Projection
+                $rp = $right.Projection
+                $comparison = [System.StringComparer]::Ordinal.Compare([string]$left.Digest, [string]$right.Digest)
+                if ($comparison -ne 0) { return $comparison }
+                $leftRank = if ([string]$lp.RawTvgIdPresence -eq 'Missing') { 0 } else { 1 }
+                $rightRank = if ([string]$rp.RawTvgIdPresence -eq 'Missing') { 0 } else { 1 }
+                if ($leftRank -ne $rightRank) { return $leftRank - $rightRank }
+                foreach ($field in @('RawTvgId', 'TvgName', 'DisplayName', 'GroupTitle', 'Logo', 'ChannelNumber', 'StreamUrl')) {
+                    $comparison = [System.StringComparer]::Ordinal.Compare([string]$lp[$field], [string]$rp[$field])
+                    if ($comparison -ne 0) { return $comparison }
+                }
+                return 0
+            })
+        for ($index = 0; $index -lt $ordered.Count; $index++) {
+            $ordered[$index].SourceLocalOrdinal = $index
+        }
+    }
+
+    $result = [System.Collections.Generic.List[object]]::new()
+    foreach ($record in @($records | Sort-Object `
+                @{ Expression = { [string]$_.Projection.LogicalSourceId } }, `
+                @{ Expression = { [int]$_.SourceLocalOrdinal } }, `
+                @{ Expression = { [string]$_.Digest } })) {
+        $projection = $record.Projection
+        $history = $null
+        if ([string]$projection.RawTvgIdPresence -eq 'Present') {
+            $history = ([string]$projection.RawTvgId).Normalize([Text.NormalizationForm]::FormC)
+            $history = [regex]::Replace($history, '^[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+|[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u205F\u3000]+$', '')
+            $history = $history.ToLowerInvariant()
+            if ($history.Length -eq 0) { $history = $null }
+        }
+        $entryInput = [ordered]@{
+            Version = 'entry-id-v2'
+            LogicalSourceId = [string]$projection.LogicalSourceId
+            SourceLocalOrdinal = [int]$record.SourceLocalOrdinal
+            RawM3UOccurrenceDigest = [string]$record.Digest
+        }
+        [void]$result.Add([pscustomobject][ordered]@{
+                Version = 'raw-m3u-occurrence-v2'
+                EntryId = Get-ChannelForgeDomainHash -Domain 'entry-id/v2' -InputObject $entryInput
+                LogicalSourceId = [string]$projection.LogicalSourceId
+                SourceLocalOrdinal = [int]$record.SourceLocalOrdinal
+                HistoryKey = $history
+                HistoryIdentityStatus = if ($null -eq $history) { 'MissingId' } else { 'StableUnique' }
+                RawTvgIdPresence = [string]$projection.RawTvgIdPresence
+                RawTvgId = $projection.RawTvgId
+                TvgName = [string]$projection.TvgName
+                DisplayName = [string]$projection.DisplayName
+                GroupTitle = [string]$projection.GroupTitle
+                Logo = [string]$projection.Logo
+                ChannelNumber = $projection.ChannelNumber
+                StreamUrl = [string]$projection.StreamUrl
+                RawM3UOccurrenceDigest = [string]$record.Digest
+                Channel = $record.Channel
+            })
     }
     return @($result.ToArray())
 }
