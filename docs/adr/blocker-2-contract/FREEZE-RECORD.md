@@ -72,15 +72,25 @@ This file is governance metadata for the contract revisions in this directory. I
 
 ## blocker-2-contract/v6
 
-- Status: NOT FROZEN / PENDING APPROVALS.
+- Status: FROZEN.
 - ProposalId: `blocker-2-contract/proposal-2`
 - ContractRevisionId: `blocker-2-contract/v6`
 - RevisionContentId: `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`
-- Candidate commit: pending
-- Approval results: pending for all required reviewers.
-- Freeze approval date: pending
-- Frozen commit SHA: pending
-- Effect while pending: blocker-2-contract/v1 remains the frozen authority until blocker-2-contract/v6 freezes.
+- Approved candidate commit: e63281b76ec7e26bfff85ff744c5c0a608de824e
+- Approval results: recorded in the v6 freeze record.
+- Freeze approval date: 2026-08-26
+- Frozen commit SHA: e63281b76ec7e26bfff85ff744c5c0a608de824e
+- Effect: blocker-2-contract/v6 is the current frozen authority.
+
+## blocker-2-contract/v7
+
+- Status: NOT FROZEN / PENDING APPROVALS.
+- Entry state: pending proposal candidate.
+- ProposalId: `blocker-2-contract/proposal-3`
+- Proposed ContractRevisionId: `blocker-2-contract/v7`
+- RevisionContentId: `ef9589ca64ccd5a3fa4ef2fce551ef929417371fb1e677cc9713d9b0ddae6b16`
+- Prior frozen authority: blocker-2-contract/v6 at RevisionContentId `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`.
+- Effect while pending: blocker-2-contract/v6 remains the current frozen authority.
 
 ## Recording rules
 
