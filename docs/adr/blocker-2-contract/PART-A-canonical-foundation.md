@@ -97,7 +97,7 @@ For domain D and canonical bytes B, H(D,B) is lowercase SHA-256 over UTF-8 bytes
 The exhaustive v2 semantic domain inventory is:
 
 pointer/v2
-logical-source-key/v2
+LogicalSourceKey is the exact length-prefixed tuple representation defined in section 4; it is not a semantic hash and has no logical-source-key/v2 domain.
 logical-source-id/v2
 entry-id/v2
 review-id/v2

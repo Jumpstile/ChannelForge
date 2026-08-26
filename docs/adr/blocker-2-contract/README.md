@@ -114,4 +114,4 @@ These findings are recorded for a later revision. They are not part of the block
 
 ## Proposal-3 amendment scope
 
-This proposal defines the central contract-version registry and closes the BuildIdentityInput schema. It is not a ContractRevisionId, is not implementation authority, and is not frozen. The proposed content must complete technical, adversarial, governance, and Architecture Authority review before v7 is minted.
+This proposal defines the central contract-version registry, closes the BuildIdentityInput schema, removes the unused logical-source-key/v2 domain, and closes the candidate guide and review artifact domains. It is not a ContractRevisionId, is not implementation authority, and is not frozen. The proposed content must complete technical, adversarial, governance, and Architecture Authority review before v7 is minted.
