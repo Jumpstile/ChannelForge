@@ -149,6 +149,8 @@ The Version registry entries are:
 - M3UIdentityCollisions.Version = ContractVersion.
 - RawXMLTVChannelOccurrence.Version = ContractVersion.
 - RawProgrammeOccurrence.Version = ContractVersion.
+- GuideCandidateOccurrence.Version = ContractVersion.
+- Candidate review JSON Version = ContractVersion.
 - BindingRecord.Version = ContractVersion.
 - CandidateManifest.Version = ContractVersion.
 - DecisionManifest.Version = ContractVersion.

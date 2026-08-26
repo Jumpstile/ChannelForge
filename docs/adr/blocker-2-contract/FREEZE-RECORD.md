@@ -88,7 +88,7 @@ This file is governance metadata for the contract revisions in this directory. I
 - Entry state: pending proposal candidate.
 - ProposalId: `blocker-2-contract/proposal-3`
 - Proposed ContractRevisionId: `blocker-2-contract/v7`
-- RevisionContentId: `0b7ff8bf506acf2ea6c3bb5c17573f0f1f12f3ecdff420d665dbd1eb3ede382a`
+- RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
 - Prior frozen authority: blocker-2-contract/v6 at RevisionContentId `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`.
 - Effect while pending: blocker-2-contract/v6 remains the current frozen authority.
 

@@ -157,7 +157,7 @@ The following symbols each have exactly one definition in this artifact director
 
 ## 10. Central version registry closure
 
-The version literals and BuildIdentityInput closure are defined exactly once in PART-A section 3.1 and are referenced by the schemas. This section adds no alternate values.
+The version literals and BuildIdentityInput closure are defined exactly once in PART-A section 3.1 and are referenced by the schemas. This section adds no alternate values. GuideCandidateOccurrence.Version and candidate review JSON Version are included in that complete registry.
 
 ## 10. Candidate artifact domain closure
 
