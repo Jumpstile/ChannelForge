@@ -34,18 +34,23 @@ This file is governance metadata for the contract revisions in this directory. I
 
 ## blocker-2-contract/v3
 
-- Status: NOT FROZEN / PENDING APPROVALS.
-- Entry state: pending, editable in place until this proposal is minted and frozen.
+- Status: ABANDONED / NEVER FROZEN.
 - ProposalId: `blocker-2-contract/proposal-2`
 - ContractRevisionId: `blocker-2-contract/v3`
 - RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
+- Reason: normative README content retained stale ContractRevisionId v2 references. None is implementation authority.
+
+## blocker-2-contract/v4
+
+- Status: NOT FROZEN / PENDING APPROVALS.
+- ProposalId: `blocker-2-contract/proposal-2`
+- ContractRevisionId: `blocker-2-contract/v4`
+- RevisionContentId: `53611b1a7e3cb175030082c11e8d55d7399919413e48b90d5f59cb91fb0c0158`
 - Candidate commit: pending
-- Accountable owner: ChannelForge Product Owner
-- Approver: ChannelForge Architecture Authority
-- Approval results: technical preservation review pending; OMP Desktop pending; OMP Arcade pending; ChannelForge Architecture Authority pending
+- Approval results: pending for all required reviewers.
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Effect while pending: blocker-2-contract/v1 remains the frozen authority. Implementation and merges against blocker-2-contract/v3 remain prohibited until all approvals and freeze recording complete.
+- Effect while pending: blocker-2-contract/v1 remains the frozen authority until blocker-2-contract/v4 freezes.
 
 ## Recording rules
 
