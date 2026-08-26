@@ -40,8 +40,9 @@ function Get-ChannelForgeRawXmltvProjection {
     }
     function Get-ChannelSortKey {
         param([Parameter(Mandatory)][object]$Projection)
+        $presenceRank = if ([string]$Projection.RawChannelIdPresence -eq 'Missing') { '0' } else { '1' }
         return @(
-            (if ([string]$Projection.RawChannelIdPresence -eq 'Missing') { '0' } else { '1' })
+            $presenceRank
             [string]$Projection.RawChannelId
             (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.DisplayNameNodes))
             (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.IconNodes))
@@ -51,8 +52,9 @@ function Get-ChannelForgeRawXmltvProjection {
     }
     function Get-ProgrammeSortKey {
         param([Parameter(Mandatory)][object]$Projection)
+        $presenceRank = if ([string]$Projection.RawProgrammeChannelIdPresence -eq 'Missing') { '0' } else { '1' }
         return @(
-            (if ([string]$Projection.RawProgrammeChannelIdPresence -eq 'Missing') { '0' } else { '1' })
+            $presenceRank
             [string]$Projection.RawProgrammeChannelId
             [string]$Projection.StartRaw
             [string]$Projection.StopRaw
