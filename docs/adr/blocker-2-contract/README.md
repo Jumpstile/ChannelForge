@@ -58,12 +58,12 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-2. The proposed ContractRevisionId for this exact content is blocker-2-contract/v3, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v3 only when blocker-2-contract/v3 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
+Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-2. The proposed ContractRevisionId for this exact content is blocker-2-contract/v4, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v4 only when blocker-2-contract/v4 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
 
-Until blocker-2-contract/v3 becomes frozen:
+Until blocker-2-contract/v4 becomes frozen:
 
 - Authority remains with blocker-2-contract/v1 under the rules of this section.
-- blocker-2-contract/v3 remains a proposed revision and is not implementation authority; its ProposalId is blocker-2-contract/proposal-2.
+- blocker-2-contract/v4 remains a proposed revision and is not implementation authority; its ProposalId is blocker-2-contract/proposal-2.
 - Implementation that depends on the corrected occurrence projection remains paused.
 - Unrelated implementation work may continue against blocker-2-contract/v1 only where it does not depend on the amended contract semantics.
 

@@ -40,12 +40,20 @@ This file is governance metadata for the contract revisions in this directory. I
 - RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
 - Reason: normative README content retained stale ContractRevisionId v2 references. None is implementation authority.
 
+## blocker-2-contract/v3
+
+- Status: ABANDONED / NEVER FROZEN.
+- ProposalId: `blocker-2-contract/proposal-2`
+- ContractRevisionId: `blocker-2-contract/v3`
+- RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
+- Reason: normative README content retained stale ContractRevisionId v2 references. None is implementation authority.
+
 ## blocker-2-contract/v4
 
 - Status: NOT FROZEN / PENDING APPROVALS.
 - ProposalId: `blocker-2-contract/proposal-2`
 - ContractRevisionId: `blocker-2-contract/v4`
-- RevisionContentId: `53611b1a7e3cb175030082c11e8d55d7399919413e48b90d5f59cb91fb0c0158`
+- RevisionContentId: `a8ab3473fec6b544d696976199b38e198274ffd93042087aa37f5359c7054fa6`
 - Candidate commit: pending
 - Approval results: pending for all required reviewers.
 - Freeze approval date: pending
