@@ -649,7 +649,7 @@ else {
         $xmltvBytes = [System.IO.File]::ReadAllBytes($xmltvTempPath)
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateXmltvPath; Bytes = $xmltvBytes; HookPrefix = 'CandidateStageWrite.XMLTV' } | Out-Null
+            -Arguments @{ Path = $candidateXmltvPath; Bytes = $xmltvBytes; HookPrefix = 'CandidateStageWrite.XMLTV'; FaultHook = $FaultHook } | Out-Null
         Remove-Item -LiteralPath $xmltvTempPath -Force
         $xmltvHash = (Get-FileHash -LiteralPath $candidateXmltvPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
@@ -744,7 +744,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
                 -Arguments @{ InputObject = $manifestObject }))
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest' } | Out-Null
+            -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest'; FaultHook = $FaultHook } | Out-Null
 
         $reviewObject = [ordered]@{
             Version                = 'blocker-2-contract/v1'
@@ -765,7 +765,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
                 -Arguments @{ InputObject = $reviewObject }))
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateReviewJsonPath; Bytes = $reviewBytes; HookPrefix = 'CandidateStageWrite.ReviewJSON' } | Out-Null
+            -Arguments @{ Path = $candidateReviewJsonPath; Bytes = $reviewBytes; HookPrefix = 'CandidateStageWrite.ReviewJSON'; FaultHook = $FaultHook } | Out-Null
 
         $reviewMarkdown = @(
             '# ChannelForge Lineup Change Review',
@@ -782,11 +782,11 @@ if ($m3uGenerated -or $xmltvGenerated) {
         $reviewMarkdownBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes($reviewMarkdown + "`n")
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateReviewMarkdownPath; Bytes = $reviewMarkdownBytes; HookPrefix = 'CandidateStageWrite.ReviewMarkdown' } | Out-Null
+            -Arguments @{ Path = $candidateReviewMarkdownPath; Bytes = $reviewMarkdownBytes; HookPrefix = 'CandidateStageWrite.ReviewMarkdown'; FaultHook = $FaultHook } | Out-Null
 
         $candidateNamespacePath = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Publish-ChannelForgeCandidateNamespace' `
-            -Arguments @{ OutputRoot = $outDir; StagingPath = $candidateStagingRoot; CandidateManifestHash = $candidateManifestHash }
+            -Arguments @{ OutputRoot = $outDir; StagingPath = $candidateStagingRoot; CandidateManifestHash = $candidateManifestHash; FaultHook = $FaultHook }
         $candidateNamespacePath = [string]@($candidateNamespacePath)[-1]
         $candidatePublished = $true
         $m3uRelativePath = if ($m3uGenerated) {
