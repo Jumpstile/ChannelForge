@@ -747,7 +747,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
             -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest'; FaultHook = $FaultHook } | Out-Null
 
         $reviewObject = [ordered]@{
-            Version                = 'blocker-2-contract/v1'
+            Version                = 'candidate-review-json-v2'
             BuildIdentity          = $candidateBuildIdentity
             CandidateManifestHash  = $candidateManifestHash
             BindingRecords         = @($manifestResult.BindingProjection)
