@@ -2,7 +2,7 @@
 
 This directory is the stable repository artifact for the accepted Blocker #2 design. It is design/review evidence only. It authorizes no implementation, branch, pull request, merge, deployment, or release decision.
 
-The source contract is the published standalone contract in GitHub issue #60, comment 5410735336. PART-A and PART-C remain verbatim section moves from that contract. PART-B remains verbatim except for the bounded section 5 and section 6 raw occurrence digest amendments recorded under Revision history. No other contract wording is rewritten. SYMBOL-CLOSURE.md contains only the nine known closure definitions requested after architectural acceptance.
+This artifact records a bounded proposal-3 amendment to the frozen blocker-2-contract/v6 baseline. Unchanged definitions are inherited from v6 unless explicitly amended in Revision history or Proposal-3 amendment scope. It is design/review evidence only and authorizes no implementation, merge, deployment, or release decision.
 
 ## File map
 
@@ -99,4 +99,4 @@ These findings are recorded for a later revision. They are not part of the block
 
 ## Proposal-3 amendment scope
 
-Proposal-3 defines a bounded v6-to-v7 amendment. Unchanged definitions are inherited from v6 unless explicitly amended in Revision history or Proposal-3 amendment scope. This artifact is not a ContractRevisionId, is not implementation authority, and is not frozen.
+This proposal defines the central contract-version registry, closes the BuildIdentityInput schema, removes the unused logical-source-key/v2 domain, and closes the candidate guide and review artifact domains. It is not a ContractRevisionId, is not implementation authority, and is not frozen. The proposed content must complete technical, adversarial, governance, and Architecture Authority review before v7 is minted.
