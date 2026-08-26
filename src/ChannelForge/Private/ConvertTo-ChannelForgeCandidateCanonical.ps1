@@ -21,8 +21,32 @@ function Get-ChannelForgeCandidateCanonicalHash {
 
 function Invoke-ChannelForgeCandidateHook {
     param([Parameter(Mandatory)][string]$HookName, [string]$FaultHook = '')
-    if ([string]::Equals($FaultHook, $HookName, [System.StringComparison]::Ordinal)) {
-        throw "ChannelForge.TestFaultInjected:$HookName"
+    $frozenHookNames = [ordered]@{
+        C01 = 'CandidateStageWrite.Manifest.Write'
+        C02 = 'CandidateStageWrite.Manifest.Flush'
+        C03 = 'CandidateStageWrite.Manifest.ReopenHash'
+        C04 = 'CandidateStageWrite.M3U.Write'
+        C05 = 'CandidateStageWrite.M3U.Flush'
+        C06 = 'CandidateStageWrite.M3U.ReopenHash'
+        C07 = 'CandidateStageWrite.XMLTV.Write'
+        C08 = 'CandidateStageWrite.XMLTV.Flush'
+        C09 = 'CandidateStageWrite.XMLTV.ReopenHash'
+        C10 = 'CandidateStageWrite.ReviewJSON.Write'
+        C11 = 'CandidateStageWrite.ReviewJSON.Flush'
+        C12 = 'CandidateStageWrite.ReviewJSON.ReopenHash'
+        C13 = 'CandidateStageWrite.ReviewMarkdown.Write'
+        C14 = 'CandidateStageWrite.ReviewMarkdown.Flush'
+        C15 = 'CandidateStageWrite.ReviewMarkdown.ReopenHash'
+    }
+    $triggerName = $FaultHook
+    foreach ($entry in $frozenHookNames.GetEnumerator()) {
+        if ([string]::Equals($FaultHook, $entry.Key, [System.StringComparison]::Ordinal)) {
+            $triggerName = $entry.Value
+            break
+        }
+    }
+    if ([string]::Equals($HookName, $triggerName, [System.StringComparison]::Ordinal)) {
+        throw "ChannelForge.TestFaultInjected:$FaultHook"
     }
 }
 

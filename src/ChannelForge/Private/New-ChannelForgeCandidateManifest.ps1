@@ -221,7 +221,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 $presence = [string]$first.RawChannelIdPresence
                 $digests = @($members | ForEach-Object { [string]$_.RawXMLTVOccurrenceDigest } | Sort-Object -Unique)
                 $ordinals = @($members | ForEach-Object { [int]$_.StructuralOccurrenceOrdinal } | Sort-Object -Unique)
-                [ordered]@{
+                [pscustomobject][ordered]@{
                     Presence = $presence
                     Value = if ($presence -eq 'Missing') { $null } else { [string]$first.RawChannelId }
                     OccurrenceCount = $members.Count
@@ -235,11 +235,14 @@ function ConvertTo-ChannelForgeCandidateManifest {
 
     $bindingProjection = [System.Collections.Generic.List[object]]::new()
     $matchedXmltvKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    $bindingCandidates = @(
+    $bindingCandidates = if ($null -eq $IdentityBindingResult) {
+        @()
+    }
+    else {
         @($IdentityBindingResult.ExactBindings) +
         @($IdentityBindingResult.UnboundChannels) +
         @($IdentityBindingResult.ReviewNeeded)
-    )
+    }
     foreach ($occurrence in @($orderedM3U)) {
         if ($null -eq $occurrence.Channel) { continue }
         $binding = @($bindingCandidates | Where-Object {
@@ -248,10 +251,16 @@ function ConvertTo-ChannelForgeCandidateManifest {
             }) | Select-Object -First 1
         $xmlId = if ($null -ne $binding -and $null -ne $binding.PSObject.Properties['XmltvChannelId']) { [string]$binding.XmltvChannelId } else { $null }
         $xmlSource = if ($null -ne $binding -and $null -ne $binding.PSObject.Properties['XmltvSourceId']) { [string]$binding.XmltvSourceId } else { $null }
+        $xmlSourceLogicalId = if ($null -ne $xmlSource -and $xmlSource -ne '') {
+            Get-ChannelForgeDomainHash -Domain 'logical-source-id/v2' -InputObject ([ordered]@{
+                Version = 'lineup-history-v1'
+                SourceId = $xmlSource
+            })
+        } else { '' }
         $xmlMatches = @($xmltvChannels | Where-Object {
                 [string]$_.RawChannelIdPresence -eq 'Present' -and
                 $null -ne $xmlId -and [string]$_.RawChannelId -ceq $xmlId -and
-                [string]$_.LogicalSourceId -eq $xmlSource
+                ([string]$_.LogicalSourceId -eq $xmlSource -or [string]$_.LogicalSourceId -eq $xmlSourceLogicalId)
             })
         $candidateOrdinals = @($xmlMatches | ForEach-Object {
                 [void]$matchedXmltvKeys.Add("$($_.LogicalSourceId)`u{001f}$($_.StructuralOccurrenceOrdinal)")
