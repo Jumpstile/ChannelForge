@@ -40,25 +40,33 @@ This file is governance metadata for the contract revisions in this directory. I
 - RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
 - Reason: normative README content retained stale ContractRevisionId v2 references. None is implementation authority.
 
-## blocker-2-contract/v3
+## blocker-2-contract/v4
 
 - Status: ABANDONED / NEVER FROZEN.
 - ProposalId: `blocker-2-contract/proposal-2`
-- ContractRevisionId: `blocker-2-contract/v3`
-- RevisionContentId: `4567328e3d45be3e03495abe41cabdb7ec7e716c8fc858c4ec942eca0cf5a607`
-- Reason: normative README content retained stale ContractRevisionId v2 references. None is implementation authority.
+- ContractRevisionId: `blocker-2-contract/v4`
+- RevisionContentId: `a8ab3473fec6b544d696976199b38e198274ffd93042087aa37f5359c7054fa6`
+- Reason: v4 retained stale v3 ContractRevisionId labels in normative README content. None is implementation authority.
 
-## blocker-2-contract/v4
+## blocker-2-contract/v5
+
+- Status: ABANDONED / NEVER FROZEN.
+- ProposalId: `blocker-2-contract/proposal-2`
+- ContractRevisionId: `blocker-2-contract/v5`
+- RevisionContentId: `a8ab3473fec6b544d696976199b38e198274ffd93042087aa37f5359c7054fa6`
+- Reason: v5 reused content identity after further normative relabeling was required. None is implementation authority.
+
+## blocker-2-contract/v6
 
 - Status: NOT FROZEN / PENDING APPROVALS.
 - ProposalId: `blocker-2-contract/proposal-2`
-- ContractRevisionId: `blocker-2-contract/v4`
-- RevisionContentId: `a8ab3473fec6b544d696976199b38e198274ffd93042087aa37f5359c7054fa6`
+- ContractRevisionId: `blocker-2-contract/v6`
+- RevisionContentId: `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`
 - Candidate commit: pending
 - Approval results: pending for all required reviewers.
 - Freeze approval date: pending
 - Frozen commit SHA: pending
-- Effect while pending: blocker-2-contract/v1 remains the frozen authority until blocker-2-contract/v4 freezes.
+- Effect while pending: blocker-2-contract/v1 remains the frozen authority until blocker-2-contract/v6 freezes.
 
 ## Recording rules
 
