@@ -58,7 +58,7 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-3. The proposed ContractRevisionId for this exact content is blocker-2-contract/v7, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v6, whose RevisionContentId is e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447, approved at candidate commit e63281b76ec7e26bfff85ff744c5c0a608de824e. Authority transfers to blocker-2-contract/v7 only when blocker-2-contract/v7 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
+Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-3. The proposed ContractRevisionId for this exact content is blocker-2-contract/v7, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v6, whose RevisionContentId is e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447, approved at candidate commit e63281b76ec7e26bfff85ff744c5c0a608de824e. Authority transfers to blocker-2-contract/v7 only when blocker-2-contract/v7 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is historical and already superseded; it is not part of this authority transition. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
 
 Until blocker-2-contract/v7 becomes frozen:
 
@@ -85,7 +85,7 @@ Every implementation or release work item must reference the frozen ContractRevi
 
 ### blocker-2-contract/v7
 
-Prior revision: blocker-2-contract/v1, RevisionContentId 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c.
+Prior revision: blocker-2-contract/v6, RevisionContentId e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447, approved at candidate commit e63281b76ec7e26bfff85ff744c5c0a608de824e.
 
 Actual v6 -> v7 amendment: the central contract-version registry and exact ContractVersion, Version, IdentityRulesVersion, parser, serializer, and guide-binding version rules; the exact BuildIdentityInput schema; SelectedLogicalSourceIds closure; InputArtifactHashes and ArtifactHashRecord closure for exact parser-input M3U/XMLTV bytes; removal of unused logical-source-key/v2; exact GuideCandidateOccurrence projection; exact candidate-review-json/v2 and candidate-review-markdown/v2 bytes and hashes; acyclic review-artifact/CandidateManifest dependency using BuildIdentity; stable C01-C17 hook identifiers with an explicit dependency-based candidate publication order; and the PART-C version-validation reference to the central registry. The raw M3U/XMLTV digest corrections are inherited unchanged from v6, not newly introduced by v7. All other semantic domains, schemas, enums, paths, serialization, recovery, and carried acceptance/promotion closure debt remain unchanged.
 
@@ -99,4 +99,4 @@ These findings are recorded for a later revision. They are not part of the block
 
 ## Proposal-3 amendment scope
 
-This proposal defines the central contract-version registry, closes the BuildIdentityInput schema, removes the unused logical-source-key/v2 domain, and closes the candidate guide and review artifact domains. It is not a ContractRevisionId, is not implementation authority, and is not frozen. The proposed content must complete technical, adversarial, governance, and Architecture Authority review before v7 is minted.
+Proposal-3 defines a bounded v6-to-v7 amendment. Unchanged definitions are inherited from v6 unless explicitly amended in Revision history or Proposal-3 amendment scope. This artifact is not a ContractRevisionId, is not implementation authority, and is not frozen.
