@@ -1,6 +1,6 @@
 # Blocker #2 contract freeze record
 
-This file is governance metadata for the contract revisions in this directory. It is not part of any revision content and is excluded from RevisionContentId. This file defines and weakens no normative rule. Every rule referenced here is stated normatively in README.md; the text here is operating procedure and is invalid wherever it disagrees. The revision identity rules are in README.md under Revision identity and freeze separation.
+This file is governance metadata for the contract revisions in this directory. It is not part of any revision content and is excluded from RevisionContentId. This file defines and weakens no normative rule. Every rule referenced here is stated normatively in README.md or the normative contract parts; the text here is operating procedure and is invalid wherever it disagrees. The revision identity rules are in README.md under Revision identity and freeze separation.
 
 ## blocker-2-contract/v1
 
