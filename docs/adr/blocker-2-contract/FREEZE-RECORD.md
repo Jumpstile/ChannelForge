@@ -4,7 +4,7 @@ This file is governance metadata for the contract revisions in this directory. I
 
 ## blocker-2-contract/v1
 
-- Status: FROZEN. Current authority until blocker-2-contract/v6 is frozen.
+- Status: FROZEN
 - Entry state: immutable, append-only.
 - ContractRevisionId: `blocker-2-contract/v1`
 - RevisionContentId: `9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d`
