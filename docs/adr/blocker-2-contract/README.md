@@ -58,12 +58,12 @@ Accountable owner: ChannelForge Product Owner. The owner is accountable for cont
 
 Approver: ChannelForge Architecture Authority. The approver grants architecture acceptance and freeze approval after the required technical, adversarial, and governance reviews are complete.
 
-Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-2. The proposed ContractRevisionId for this exact content is blocker-2-contract/v6, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v1, whose RevisionContentId is 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c. Authority transfers to blocker-2-contract/v6 only when blocker-2-contract/v6 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
+Canonical artifact location: docs/adr/blocker-2-contract/. ProposalId = blocker-2-contract/proposal-3. The proposed ContractRevisionId for this exact content is blocker-2-contract/v7, and its normative content is defined by Revision identity and freeze separation above. A branch name, draft, or working-tree state is not an identifier. The immediately prior frozen authority is blocker-2-contract/v6, whose RevisionContentId is e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447, approved at candidate commit e63281b76ec7e26bfff85ff744c5c0a608de824e. Authority transfers to blocker-2-contract/v7 only when blocker-2-contract/v7 completes all required approvals and FREEZE-RECORD.md records its frozen commit SHA and RevisionContentId. blocker-2-contract/v1 is superseded only at that point. The earlier abandoned proposal label identifies abandoned proposal history only and is not implementation authority.
 
-Until blocker-2-contract/v6 becomes frozen:
+Until blocker-2-contract/v7 becomes frozen:
 
 - Authority remains with blocker-2-contract/v1 under the rules of this section.
-- blocker-2-contract/v6 remains a proposed revision and is not implementation authority; its ProposalId is blocker-2-contract/proposal-2.
+- blocker-2-contract/v7 remains a proposed revision and is not implementation authority; its ProposalId is blocker-2-contract/proposal-2.
 - Implementation that depends on the corrected occurrence projection remains paused.
 - Unrelated implementation work may continue against blocker-2-contract/v1 only where it does not depend on the amended contract semantics.
 
@@ -83,7 +83,7 @@ Every implementation or release work item must reference the frozen ContractRevi
 
 ## Revision history
 
-### blocker-2-contract/v6
+### blocker-2-contract/v7
 
 Prior revision: blocker-2-contract/v1, RevisionContentId 9d54cdd12b44196bdfd2f999703d24fbd691a2f584af788ad25a68fdfe63362d, published at commit af9d5da3dc81fc4d484a9f475bc0da884d0d880c.
 
@@ -100,13 +100,18 @@ Preserved without change: every canonical sort tuple in PART-B section 5 and sec
 
 Ratifications:
 
-- The raw occurrence hash domain identifiers raw-m3u-occurrence/v2, raw-xmltv-occurrence/v2, and raw-programme/v2 are retained unchanged under blocker-2-contract/v6. The corrected projections are distinguished by ContractRevisionId, not by new domain strings, so the PART-A exhaustive v2 semantic domain inventory is unchanged.
+- The raw occurrence hash domain identifiers raw-m3u-occurrence/v2, raw-xmltv-occurrence/v2, and raw-programme/v2 are retained unchanged under blocker-2-contract/v7. The corrected projections are distinguished by ContractRevisionId, not by new domain strings, so the PART-A exhaustive v2 semantic domain inventory is unchanged.
 - Hash values computed under the corrected projections differ from values computed under the v1 wording, which changes EntryId, BindingId, BuildIdentity, CandidateManifestHash, and candidate namespace directory names. No accepted generation, pointer, journal, or previous-generation artifact exists, so no persisted-state migration is required and no compatibility shim is authorized.
 - Retaining the digest as the leading key of the M3U ordinal sort tuple is ratified. Every remaining tuple key is a declared raw occurrence property, so the digest is redundant for total ordering, but EntryId already binds RawM3UOccurrenceDigest, so a future digest revision changes entry identity whether or not ordinals are renumbered. Keeping the tuple verbatim preserves the frozen ordering text, keeps the decisive comparison on fixed lowercase 64-hex ASCII, and keeps the delta bounded to the digest projections.
 
 ## Follow-up findings
 
-These findings are recorded for a later revision. They are not part of the blocker-2-contract/v6 delta, they change no normative definition in this revision, and both were present in blocker-2-contract/v1.
+These findings are recorded for a later revision. They are not part of the blocker-2-contract/v7 delta, they change no normative definition in this revision, and both were present in blocker-2-contract/v1.
 
-- PART-B section 5 and section 6 state that exact duplicate multiplicity is stored in DuplicateCount, but DuplicateCount is not a declared property of RawM3UOccurrence, RawXMLTVChannelOccurrence, or RawProgrammeOccurrence, so its storage location is undefined. The blocker-2-contract/v6 digest input lists exclude it explicitly, so no digest projection in this revision is ambiguous.
+- PART-B section 5 and section 6 state that exact duplicate multiplicity is stored in DuplicateCount, but DuplicateCount is not a declared property of RawM3UOccurrence, RawXMLTVChannelOccurrence, or RawProgrammeOccurrence, so its storage location is undefined. The blocker-2-contract/v7 digest input lists exclude it explicitly, so no digest projection in this revision is ambiguous.
 - The Journal field sequence is restated in PART-C and in SYMBOL-CLOSURE.md section 5. Both statements list identical fields in identical order, so the restatement is consistent, but it is a second statement of one schema under the symbol-closure rule.
+
+
+## Proposal-3 amendment scope
+
+This proposal defines the central contract-version registry and closes the BuildIdentityInput schema. It is not a ContractRevisionId, is not implementation authority, and is not frozen. The proposed content must complete technical, adversarial, governance, and Architecture Authority review before v7 is minted.
