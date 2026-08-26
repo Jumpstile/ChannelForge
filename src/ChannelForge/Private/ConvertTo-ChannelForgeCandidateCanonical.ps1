@@ -22,21 +22,21 @@ function Get-ChannelForgeCandidateCanonicalHash {
 function Invoke-ChannelForgeCandidateHook {
     param([Parameter(Mandatory)][string]$HookName, [string]$FaultHook = '')
     $frozenHookNames = [ordered]@{
-        C01 = 'CandidateStageWrite.Manifest.Write'
-        C02 = 'CandidateStageWrite.Manifest.Flush'
-        C03 = 'CandidateStageWrite.Manifest.ReopenHash'
-        C04 = 'CandidateStageWrite.M3U.Write'
-        C05 = 'CandidateStageWrite.M3U.Flush'
-        C06 = 'CandidateStageWrite.M3U.ReopenHash'
-        C07 = 'CandidateStageWrite.XMLTV.Write'
-        C08 = 'CandidateStageWrite.XMLTV.Flush'
-        C09 = 'CandidateStageWrite.XMLTV.ReopenHash'
-        C10 = 'CandidateStageWrite.ReviewJSON.Write'
-        C11 = 'CandidateStageWrite.ReviewJSON.Flush'
-        C12 = 'CandidateStageWrite.ReviewJSON.ReopenHash'
-        C13 = 'CandidateStageWrite.ReviewMarkdown.Write'
-        C14 = 'CandidateStageWrite.ReviewMarkdown.Flush'
-        C15 = 'CandidateStageWrite.ReviewMarkdown.ReopenHash'
+        C01 = 'CandidateStageWrite.Manifest'
+        C02 = 'CandidateStageFlush.Manifest'
+        C03 = 'CandidateStageReopenHash.Manifest'
+        C04 = 'CandidateStageWrite.M3U'
+        C05 = 'CandidateStageFlush.M3U'
+        C06 = 'CandidateStageReopenHash.M3U'
+        C07 = 'CandidateStageWrite.XMLTV'
+        C08 = 'CandidateStageFlush.XMLTV'
+        C09 = 'CandidateStageReopenHash.XMLTV'
+        C10 = 'CandidateStageWrite.ReviewJSON'
+        C11 = 'CandidateStageFlush.ReviewJSON'
+        C12 = 'CandidateStageReopenHash.ReviewJSON'
+        C13 = 'CandidateStageWrite.ReviewMarkdown'
+        C14 = 'CandidateStageFlush.ReviewMarkdown'
+        C15 = 'CandidateStageReopenHash.ReviewMarkdown'
     }
     $triggerName = $FaultHook
     foreach ($entry in $frozenHookNames.GetEnumerator()) {
@@ -52,14 +52,15 @@ function Invoke-ChannelForgeCandidateHook {
 
 function Write-ChannelForgeCandidateArtifact {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][byte[]]$Bytes, [Parameter(Mandatory)][string]$HookPrefix, [string]$FaultHook = '')
-    Invoke-ChannelForgeCandidateHook -HookName "${HookPrefix}.Write" -FaultHook $FaultHook
+    $artifactName = $HookPrefix -replace '^CandidateStageWrite\.', ''
+    Invoke-ChannelForgeCandidateHook -HookName "CandidateStageWrite.$artifactName" -FaultHook $FaultHook
     $stream = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
     try {
         $stream.Write($Bytes, 0, $Bytes.Length)
-        Invoke-ChannelForgeCandidateHook -HookName "${HookPrefix}.Flush" -FaultHook $FaultHook
+        Invoke-ChannelForgeCandidateHook -HookName "CandidateStageFlush.$artifactName" -FaultHook $FaultHook
         $stream.Flush($true)
     } finally { $stream.Dispose() }
-    Invoke-ChannelForgeCandidateHook -HookName "${HookPrefix}.ReopenHash" -FaultHook $FaultHook
+    Invoke-ChannelForgeCandidateHook -HookName "CandidateStageReopenHash.$artifactName" -FaultHook $FaultHook
     $actual = [System.IO.File]::ReadAllBytes($Path)
     if ($actual.Length -ne $Bytes.Length -or -not [System.Linq.Enumerable]::SequenceEqual($actual, $Bytes)) { throw "Candidate artifact verification failed: $Path" }
     return $actual.Length
