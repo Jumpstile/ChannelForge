@@ -84,7 +84,7 @@ This file is governance metadata for the contract revisions in this directory. I
   - OMP Arcade independent review: PASS
 - OMP Arcade approval: "OMP Arcade approves blocker-2-contract/v6 at RevisionContentId e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447 for freeze."
 - Freeze approval date: 2026-08-26
-- Freeze metadata attestation commit: pending final metadata commit SHA
+- Freeze metadata attestation commit: `de5f67d2bd536773e3f6e2fb010bdd62dde4fbb1`
 - Authority effect: blocker-2-contract/v6 is the current frozen authority. blocker-2-contract/v1 is historical frozen authority superseded by v6 upon this valid freeze record.
 
 ## Recording rules
