@@ -1,12 +1,12 @@
 param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
 
-    # Explicit override for the provider config file (issue #20). Resolved
-    # relative to data/providers/ and confined there - see
-    # Resolve-ChannelForgeProviderConfigPath. Highest precedence: when set,
-    # it bypasses *.local.json auto-discovery (and any ambiguity in it)
-    # entirely.
-    [string]$ProviderPath
+    # Explicit override for the provider config file.
+    [string]$ProviderPath,
+
+    # Candidate-only fault injection is test-only and never affects accepted
+    # state. It names one of C01-C15 or the directory move hooks.
+    [string]$FaultHook = ''
 )
 
 $ErrorActionPreference = "Stop"
@@ -432,7 +432,7 @@ if ($m3uActiveSourceCount -gt 0) {
         $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTempPath)
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateM3UPath; Bytes = $m3uBytes; HookPrefix = 'CandidateStageWrite.M3U' } | Out-Null
+            -Arguments @{ Path = $candidateM3UPath; Bytes = $m3uBytes; HookPrefix = 'CandidateStageWrite.M3U'; FaultHook = $FaultHook } | Out-Null
         Remove-Item -LiteralPath $m3uTempPath -Force
         $m3uHash = (Get-FileHash -LiteralPath $candidateM3UPath -Algorithm SHA256).Hash.ToLowerInvariant()
 

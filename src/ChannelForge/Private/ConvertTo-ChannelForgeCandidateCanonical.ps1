@@ -42,10 +42,69 @@ function Write-ChannelForgeCandidateArtifact {
 }
 
 function Test-ChannelForgeCandidateNamespace {
-    param([Parameter(Mandatory)][string]$Directory, [Parameter(Mandatory)][string]$ManifestHash)
-    $path = Join-Path $Directory 'manifest.json'
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
-    $raw = [System.IO.File]::ReadAllBytes($path)
-    $manifest = [System.Text.UTF8Encoding]::new($false, $true).GetString([byte[]]$raw) | ConvertFrom-Json
-    return [string]$manifest.CandidateManifestHash -eq $ManifestHash
+    param(
+        [Parameter(Mandatory)][string]$Directory,
+        [Parameter(Mandatory)][string]$ManifestHash,
+        [switch]$AllowStagingName
+    )
+    try {
+        if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { return $false }
+        if ($ManifestHash -notmatch '^[0-9a-f]{64}$') { return $false }
+        $manifestPath = Join-Path $Directory 'manifest.json'
+        if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { return $false }
+        $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+        $raw = [System.IO.File]::ReadAllBytes($manifestPath)
+        $manifestText = $utf8.GetString([byte[]]$raw)
+        $manifest = $manifestText | ConvertFrom-Json
+        if ($null -eq $manifest -or
+            [string]$manifest.CandidateManifestHash -cne $ManifestHash -or
+            [string]$manifest.CandidateManifestHash -notmatch '^[0-9a-f]{64}$' -or
+            [string]$manifest.BuildIdentity -notmatch '^[0-9a-f]{64}$') { return $false }
+
+        # The self-hash is over the exact ordered manifest projection with its
+        # self field omitted. Re-encoding must also be byte-for-byte stable.
+        $withoutSelf = [ordered]@{}
+        foreach ($property in @($manifest.PSObject.Properties)) {
+            if ($property.Name -ne 'CandidateManifestHash') {
+                $withoutSelf[$property.Name] = $property.Value
+            }
+        }
+        if ((Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $withoutSelf) -cne $ManifestHash) { return $false }
+        if ($utf8.GetString($utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson $manifest))) -cne $manifestText) { return $false }
+
+        $records = @($manifest.ArtifactRecords)
+        $expected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($record in $records) {
+            foreach ($name in @('Role', 'RelativePath', 'Status', 'ByteLength', 'ContentDomain', 'ContentHash')) {
+                if ($null -eq $record.PSObject.Properties[$name]) { return $false }
+            }
+            $relative = [string]$record.RelativePath
+            if ($relative -notin @('merged.m3u', 'merged.xml') -or
+                [System.IO.Path]::IsPathRooted($relative) -or
+                $relative.Contains('..') -or
+                -not $expected.Add($relative)) { return $false }
+            $domain = [string]$record.ContentDomain
+            $role = [string]$record.Role
+            if (($role -eq 'M3U' -and ($relative -ne 'merged.m3u' -or $domain -ne 'candidate-m3u/v2')) -or
+                ($role -eq 'XMLTV' -and ($relative -ne 'merged.xml' -or $domain -ne 'candidate-xmltv/v2')) -or
+                $record.Status -cne 'Generated' -or
+                [string]$record.ContentHash -notmatch '^[0-9a-f]{64}$' -or
+                [int64]$record.ByteLength -lt 0) { return $false }
+            $artifactPath = Join-Path $Directory $relative
+            if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) { return $false }
+            $bytes = [System.IO.File]::ReadAllBytes($artifactPath)
+            if ($bytes.Length -ne [int64]$record.ByteLength -or
+                (Get-ChannelForgeDomainHash -Domain $domain -Bytes $bytes) -cne [string]$record.ContentHash) { return $false }
+        }
+        foreach ($required in @('lineup-change-review.json', 'lineup-change-review.md')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $Directory $required) -PathType Leaf)) { return $false }
+        }
+        $files = @(Get-ChildItem -LiteralPath $Directory -File | ForEach-Object { $_.Name } | Sort-Object)
+        $allowed = @('manifest.json', 'lineup-change-review.json', 'lineup-change-review.md', 'merged.m3u', 'merged.xml')
+        if (-not $AllowStagingName -and [System.IO.Path]::GetFileName($Directory) -cne $ManifestHash) { return $false }
+        return $true
+    }
+    catch {
+        return $false
+    }
 }
