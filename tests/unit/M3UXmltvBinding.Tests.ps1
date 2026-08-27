@@ -198,7 +198,7 @@ Describe 'Resolve-ChannelForgeM3UXmltvBinding' {
             -IdentityBindingResult $binding `
             -SelectedSourceIds @('m3u-source', 'fixture-guide')
         $manifestResult.Manifest.GuideOccurrences[0].PSObject.Properties.Name -join ',' |
-            Should -Be 'Presence,Value,OccurrenceCount,MissingIdentityCount,OccurrenceDigests,OccurrenceOrdinals'
+            Should -Be 'Version,BindingKey,RawIdentityPresence,RawIdentityValue,OccurrenceOrdinal,LogicalSourceId,CandidateOccurrenceCount,GuideCandidateEvidenceDigest'
         $manifestResult.Manifest.BindingRecords[0].PSObject.Properties.Name -join ',' |
             Should -Be 'Version,BindingId,BindingKind,EntryId,BindingKey,M3URawIdPresence,M3URawId,XMLTVIdPresence,XMLTVId,CandidateChannelOccurrenceOrdinals,Status,ReasonCode,CollisionEvidence,BindingRecordDigest'
         @($manifestResult.Manifest.BindingRecords | Where-Object BindingKind -eq 'M3U').Count |
