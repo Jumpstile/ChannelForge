@@ -97,7 +97,7 @@ This file is governance metadata for the contract revisions in this directory. I
 - OMP Arcade approval: "OMP Arcade approves blocker-2-contract/v7 at RevisionContentId c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a for freeze."
 - ChannelForge Architecture Authority approval: "ChannelForge Architecture Authority approves blocker-2-contract/v7 at RevisionContentId c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a for mint and freeze review."
 - Approval date: 2026-08-26
-- Freeze attestation commit: pending final metadata pointer
+- Freeze attestation commit: `9cae7f29690ea5d171a1a10f1538c985db6e2077`
 - Prior frozen authority: blocker-2-contract/v6 at RevisionContentId `e1c310fc27abf21906f24f40f0e341ed07c5ca1bd5ff1f8351768036744ed447`.
 - Authority effect: blocker-2-contract/v7 is the current frozen authority; blocker-2-contract/v6 is historical and superseded by this valid freeze record.
 
