@@ -118,6 +118,24 @@ The resolver only marks one-to-one exact raw-ordinal string-equality `tvg-id`/XM
 
 The focused supplied-count test mutates/removes the underlying source collections after calculation and verifies both serializers retain the supplied values.
 
+## ReviewRecord population boundary
+
+The frozen v7 schema requires `ReviewRecords` structurally in both
+`CandidateManifest` and candidate review JSON, and defines the
+`ReviewRecord` property order and its candidate/accepted-ID constraints. This
+packet confirms only that the field is emitted (as an empty array); it does
+not claim that binding or guide evidence has been transformed into populated
+canonical review records.
+
+The frozen schema does not define a `ReviewRecordDigest` hash domain or
+derivation, an Evidence item property order, or a complete Evidence value
+schema. PR #1 is candidate-only and excludes accepted-state comparison and
+acceptance. Consequently, this repository cannot infer a canonical
+candidate-stage mapping from the available binding evidence without inventing
+normative contract details. ReviewRecord population remains unresolved and
+out of scope pending an authoritative contract clarification; no production
+mapping or acceptance/promotion behavior is changed by PR #1.
+
 ## Namespace isolation
 
 `CandidateNamespaceEvidence.Tests.ps1` snapshots protected state/public surfaces before and after candidate-only build and asserts equality. Candidate namespace publication is the only intended mutation. Review-only namespaces and malformed/extra-artifact namespaces fail validation.
