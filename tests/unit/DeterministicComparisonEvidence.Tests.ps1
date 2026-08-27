@@ -273,9 +273,6 @@ Describe 'candidate build determinism across source order and fixture paths' {
                 $script:Utf8Strict
             )
         }
-
-
-
         $reviewJsonBytes = $first.Artifacts['lineup-change-review.json'].Bytes
         $reviewMarkdownBytes = $first.Artifacts['lineup-change-review.md'].Bytes
         Assert-NoUtf8Bom -Bytes $reviewJsonBytes
