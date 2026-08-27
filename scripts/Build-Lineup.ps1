@@ -40,6 +40,25 @@ function Invoke-ChannelForgePrivateCandidateFunction {
         } $Name $Arguments)
 }
 
+function Get-ChannelForgeCandidateDomainHash {
+    param(
+        [Parameter(Mandatory)][string]$Domain,
+        [Parameter(Mandatory)][byte[]]$Bytes
+    )
+    $domainBytes = [System.Text.Encoding]::UTF8.GetBytes($Domain)
+    $payload = [byte[]]::new($domainBytes.Length + 1 + $Bytes.Length)
+    [System.Buffer]::BlockCopy($domainBytes, 0, $payload, 0, $domainBytes.Length)
+    $payload[$domainBytes.Length] = 0
+    [System.Buffer]::BlockCopy($Bytes, 0, $payload, $domainBytes.Length + 1, $Bytes.Length)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
 function Read-JsonFile {
     param([string]$Path)
     Assert-ChannelForgePathExists -Path $Path -PathType Leaf -Description 'Required source file'
@@ -347,8 +366,9 @@ if ($m3uActiveSourceCount -gt 0) {
         $mergeSource = [System.Collections.Generic.List[object]]::new()
         for ($sourceIndex = 0; $sourceIndex -lt $providerSources.Count; $sourceIndex++) {
             $source = $providerSources[$sourceIndex]
+            do {
             if (-not $source.Enabled) {
-                continue
+                break
             }
 
             # Configuration order is deterministic source truth. It is used
@@ -365,13 +385,9 @@ if ($m3uActiveSourceCount -gt 0) {
                         SourceKind = 'M3U'
                     })
                 $logicalSourceId = [string]($logicalIdValues | Select-Object -Last 1)
-                $inputHashValues = @(Invoke-ChannelForgePrivateCandidateFunction `
-                    -Name 'Get-ChannelForgeDomainHash' `
-                    -Arguments @{
-                        Domain = 'input-m3u/v2'
-                        Bytes = [System.IO.File]::ReadAllBytes($resolvedPlaylistPath)
-                    })
-                $inputHash = [string]($inputHashValues | Select-Object -Last 1)
+                $inputHash = Get-ChannelForgeCandidateDomainHash `
+                    -Domain 'input-m3u/v2' `
+                    -Bytes ([System.IO.File]::ReadAllBytes($resolvedPlaylistPath))
                 [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
                         LogicalSourceId = $logicalSourceId
                         ArtifactKind = 'M3U'
@@ -383,7 +399,7 @@ if ($m3uActiveSourceCount -gt 0) {
                     Playlist  = $source.Name
                     OrderKey  = $orderKey
                 })
-                continue
+                break
             }
 
             if ([string]::IsNullOrWhiteSpace([string]$source.Url)) {
@@ -439,6 +455,7 @@ if ($m3uActiveSourceCount -gt 0) {
                     HasLastModified    = [bool]$acquisitionStatus['HasLastModified']
                 })
             }
+            } while ($false)
         }
 
         if ($mergeSource.Count -eq 0) {
