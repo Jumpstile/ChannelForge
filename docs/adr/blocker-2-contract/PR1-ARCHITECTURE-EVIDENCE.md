@@ -58,7 +58,7 @@ Production remote M3U hashing fails closed unless the computed `input-m3u/v2` va
 | Selected logical source IDs | `SelectedLogicalSourceIds` is sorted and de-duplicated before insertion into the ordered projection. | `DeterministicComparisonEvidence.Tests.ps1` exercises reversed EPG source order while requiring equal `CandidateBuildIdentity`. |
 | Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local M3U hashes from complete file bytes and configured remote M3U/XMLTV hashes from acquisition status; `Build-Candidate.ps1` hashes its local input bytes directly. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
 
-The packet intentionally records the input fields and domains, not a generated hash literal. The evidence tests compare independently produced values and validate the 64-hex shape without fabricating a value.
+The packet does not claim a separately persisted `BuildIdentityInput`; its projection remains local to manifest construction. Unlike the input projection, generated output values are captured concretely in the determinism table above from the two equivalent fixture builds.
 
 ## Raw digest dependencies
 
@@ -124,7 +124,47 @@ The focused supplied-count test mutates/removes the underlying source collection
 
 ## Determinism and byte evidence
 
-`DeterministicComparisonEvidence.Tests.ps1` builds equivalent fixtures with different paths and source ordering and compares BuildIdentity, guide evidence digests, candidate artifacts, review artifacts, manifest bytes/hash, and namespace identity. It also checks UTF-8/BOM/newline/property-order constraints for review artifacts.
+`DeterministicComparisonEvidence.Tests.ps1` builds Build A and Build B from the same logical fixture with different playlist/guide paths and reversed EPG source order. The following values are the actual generated values captured by that test run (not placeholders). Artifact `ContentHash` values are domain-separated hashes from manifest `ArtifactRecords`; `Manifest SHA-256` is the direct SHA-256 of the emitted `manifest.json` bytes; `CandidateManifestHash` is the `candidate-manifest/v2` value and the namespace directory identity.
+
+| Generated value | Build A | Build B | Comparison |
+|---|---|---|---|
+| `BuildIdentity` | `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` | `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` | Equal |
+| `GuideCandidateEvidenceDigest` (ordinal 0) | `5c455a97c5053bfc4f2cab5e5c92cbde7327a39beadd20a6cb0be35cc815ede8` | `5c455a97c5053bfc4f2cab5e5c92cbde7327a39beadd20a6cb0be35cc815ede8` | Equal |
+| `GuideCandidateEvidenceDigest` (ordinal 1) | `0d51455a7d03a3133757bc6643e4366977dd0d5727df6073cdfaac059fa402ec` | `0d51455a7d03a3133757bc6643e4366977dd0d5727df6073cdfaac059fa402ec` | Equal |
+| `NamespaceIdentity` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | Equal; equals `CandidateManifestHash` |
+| `CandidateM3U` (`merged.m3u`) | 242 bytes; `d135af5f631311bea44709224eec8c4815d5979de8165cdda8226de022cc55f3` | 242 bytes; `d135af5f631311bea44709224eec8c4815d5979de8165cdda8226de022cc55f3` | Equal |
+| `CandidateXMLTV` (`merged.xml`) | 1036 bytes; `3893d34656f01aea810178539bbc27735aa3110c436e2000a0fec7e94bf71c6e` | 1036 bytes; `3893d34656f01aea810178539bbc27735aa3110c436e2000a0fec7e94bf71c6e` | Equal |
+| `CandidateReviewJSON` (`lineup-change-review.json`) | 298 bytes; `30a75ecc1ad51017d11890d0c6861aeaf4d6bf4c7aab5a1de87f6471b2ca84ef` | 298 bytes; `30a75ecc1ad51017d11890d0c6861aeaf4d6bf4c7aab5a1de87f6471b2ca84ef` | Equal; domain `candidate-review-json/v2` |
+| `CandidateReviewMarkdown` (`lineup-change-review.md`) | 303 bytes; `7c5c44ff02b87e28b48866560386244ec16776d03e698ac4f0ad4f67dc6e207a` | 303 bytes; `7c5c44ff02b87e28b48866560386244ec16776d03e698ac4f0ad4f67dc6e207a` | Equal; domain `candidate-review-markdown/v2` |
+| `manifest.json` bytes | 6850 bytes | 6850 bytes | Equal |
+| `manifest.json` direct SHA-256 | `836534e461299b3f95d9816406628256c3a0090c70aa8b42e9c860426c2a34ad` | `836534e461299b3f95d9816406628256c3a0090c70aa8b42e9c860426c2a34ad` | Equal |
+| `CandidateManifestHash` (`candidate-manifest/v2`) | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | Equal; determines namespace identity |
+
+The review encoding capture is exact for both builds: JSON is 298 UTF-8 bytes, has no BOM, has no CR, has no LF, and preserves property order `Version, BuildIdentity, ReviewRecords, M3UIdentityCollisions, RawM3UOccurrenceCount, RawXMLTVOccurrenceCount, ExactBindingCount, UnboundCount, ReviewNeededCount, XMLTVOnlyCount`; Markdown is 303 UTF-8 bytes, has no BOM or CR, ends with LF, and does not end with CRLF. The test also compares the complete review JSON/Markdown bytes, not only parsed values.
+
+## Fifteen-row adversarial identity matrix
+
+The repository has direct assertions for the following fifteen rows. Inputs are shown exactly where the test supplies them; no trim, case-fold, or Unicode-normalized value is inferred.
+
+| Row | Adversarial input | Grounded expected result | Evidence |
+|---:|---|---|---|
+| 1 | M3U `guide.us`; XMLTV `guide.us ` (XMLTV trailing whitespace) | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 2 | M3U `guide.us`; XMLTV ` guide.us` (XMLTV leading whitespace) | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 3 | M3U `guide.us ` (M3U trailing whitespace); XMLTV `guide.us` | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 4 | M3U ` guide.us` (M3U leading whitespace); XMLTV `guide.us` | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 5 | M3U `GUIDE.US`; XMLTV `guide.us` (case mismatch) | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 6 | M3U `guid` + Cyrillic `е` + `.us`; XMLTV `guide.us` (Unicode confusable) | No exact binding; one M3U channel remains unbound | `M3UXmltvBinding.Tests.ps1` |
+| 7 | M3U `guide.us `; XMLTV `guide.us ` (same whitespace-preserving raw value) | One exact binding; the raw M3U/XMLTV values remain `guide.us ` | `M3UXmltvBinding.Tests.ps1` |
+| 8 | Fixture M3U record with missing `tvg-id` | `Unbound`, reason `MissingTvgId`, not publishable, empty `TvgId` | `M3UXmltvBinding.Tests.ps1` |
+| 9 | Fixture M3U `missing.us` with no XMLTV channel | `Unbound`, reason `TvgIdNotFoundInXmltv`; it is not exact-bound | `M3UXmltvBinding.Tests.ps1` |
+| 10 | Two XMLTV declarations for `ambiguous.us` | One review-needed record, reason `DuplicateXmltvChannelIdDeclaration`, declaration count 2, not publishable | `M3UXmltvBinding.Tests.ps1` |
+| 11 | XMLTV-only `orphan.us` | `OrphanedXmltv`, reason `NoM3UChannelWithTvgId`, candidate channel count 4 | `M3UXmltvBinding.Tests.ps1` |
+| 12 | Fixture exact pair `alpha.us` | Exact, publishable binding; raw IDs equal | `M3UXmltvBinding.Tests.ps1` |
+| 13 | Fixture exact pair `zeta.us` | Exact, publishable binding; raw IDs equal | `M3UXmltvBinding.Tests.ps1` |
+| 14 | Reverse the complete channel and programme input arrays | Serialized binding-order summary is identical after canonical ordering | `M3UXmltvBinding.Tests.ps1` |
+| 15 | Invoke resolver and compare canonical channels/programmes before and after | Canonical inputs are unchanged; no resolver mutation | `M3UXmltvBinding.Tests.ps1` |
+
+These rows cover the currently grounded adversarial identity cases. No additional unsupported row is silently represented as a pass; the matrix is limited to the fifteen cases directly asserted by the named test.
 
 ## Candidate artifact graph
 
@@ -156,7 +196,7 @@ The implementation has deliberately derived or report-only values adjacent to ca
 
 ## Carried evidence limits
 
-In addition to the frozen-contract debt listed below, this packet does not claim a separately persisted `BuildIdentityInput`, generated hash literals, or acceptance/promotion behavior. The repository exposes the resulting `BuildIdentity` and `CandidateManifestHash`, while the input projection is local to manifest construction. Report timestamps, direct report SHA-256 fields, and redacted report projections are evidence context rather than additional identity inputs.
+In addition to the frozen-contract debt listed below, this packet does not claim a separately persisted `BuildIdentityInput` or acceptance/promotion behavior. The repository exposes the resulting `BuildIdentity` and `CandidateManifestHash`, while the input projection is local to manifest construction. The generated hashes and byte lengths recorded above are evidence from the named deterministic fixture run, not a claim that the input projection is persisted. Report timestamps, direct report SHA-256 fields, and redacted report projections are evidence context rather than additional identity inputs.
 
 ## Carried contract debt
 
@@ -170,4 +210,4 @@ These are carried frozen-contract debt outside candidate-only PR #1 scope. No co
 
 ## Status
 
-The implementation, focused suites, evidence suites, full unit suite, parser, analyzer, and diff checks are green. Exact architecture-packet hash/value capture and final acceptance review remain external review gates.
+The implementation, focused suites, evidence suites, full unit suite, parser, analyzer, and diff checks are green. Deterministic architecture-packet hash/value capture is now recorded above; final acceptance review remains an external review gate.
