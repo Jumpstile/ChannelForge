@@ -63,7 +63,7 @@ function Get-ChannelForgeRawM3UProjection {
 
         # Exact frozen digest projection: ten fields, in this order.
         $projection = [ordered]@{
-            Version          = 'blocker-2-contract/v6'
+            Version          = 'blocker-2-contract/v7'
             LogicalSourceId  = [string]$sourceId
             RawTvgIdPresence = $presence
             RawTvgId         = $rawTvgId
@@ -126,7 +126,7 @@ function Get-ChannelForgeRawM3UProjection {
             RawM3UOccurrenceDigest = [string]$record.Digest
         }
         [void]$result.Add([pscustomobject][ordered]@{
-                Version = 'blocker-2-contract/v6'
+                Version = 'blocker-2-contract/v7'
                 EntryId = Get-ChannelForgeDomainHash -Domain 'entry-id/v2' -InputObject $entryInput
                 LogicalSourceId = [string]$projection.LogicalSourceId
                 SourceLocalOrdinal = [int]$record.SourceLocalOrdinal
