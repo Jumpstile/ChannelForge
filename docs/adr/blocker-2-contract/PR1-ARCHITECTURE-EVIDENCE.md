@@ -44,6 +44,49 @@ C16 proves staging remains unpublished at the before-move boundary. C17 proves f
 ## Input hashes
 
 `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, local/remote equivalence, one-byte mutation, lowercase 64-hex output, and empty-hash rejection. Production remote M3U hashing fails closed unless the computed `input-m3u/v2` value matches `^[0-9a-f]{64}$`.
+## BuildIdentityInput
+
+`New-ChannelForgeCandidateManifest.ps1` constructs the local `$buildInput` projection and hashes it with `candidate-manifest/v2`. The projection is not emitted as a separate artifact; the observable value is `BuildIdentity` in the manifest and review outputs.
+
+| BuildIdentityInput member | Repository evidence | Focused evidence |
+|---|---|---|
+| Contract and identity-rule versions | `$buildInput` sets `ContractVersion = blocker-2-contract/v7` and `IdentityRulesVersion = lineup-history-v1`. | `CandidateVersionRegistryEvidence.Tests.ps1` asserts the frozen-v7 version on emitted projections. |
+| Parser, serializer, and guide-binding versions | `$buildInput` includes the M3U/XMLTV parser and serializer contract versions and `GuideBindingContractVersion = guide-binding-exact-ordinal-v1`. | `CandidateCanonicalization.Tests.ps1` repeats equivalent candidate builds and compares `BuildIdentity`; `DeterministicComparisonEvidence.Tests.ps1` compares identities across fixture paths and source order. |
+| Selected logical source IDs | `SelectedLogicalSourceIds` is sorted and de-duplicated before insertion into the ordered projection. | `DeterministicComparisonEvidence.Tests.ps1` exercises reversed EPG source order while requiring equal `CandidateBuildIdentity`. |
+| Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local `input-m3u/v2` hashes from complete file bytes and remote hashes from acquisition status. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
+
+The packet intentionally records the input fields and domains, not a generated hash literal. The evidence tests compare independently produced values and validate the 64-hex shape without fabricating a value.
+
+## Raw digest dependencies
+
+The raw projections make ordinal dependencies explicit:
+
+| Projection | Digest input implemented | Ordering/consumer relationship |
+|---|---|---|
+| `RawM3UOccurrenceDigest` | The ordered ten-field projection in `Get-ChannelForgeRawM3UProjection.ps1`: Version, LogicalSourceId, RawTvgIdPresence, RawTvgId, TvgName, DisplayName, GroupTitle, Logo, ChannelNumber, and StreamUrl. | The digest is computed before `SourceLocalOrdinal`; records are sorted by digest and raw tie-break fields, then the ordinal is assigned. `EntryId` subsequently hashes logical source, assigned ordinal, and the raw digest. |
+| `RawXMLTVOccurrenceDigest` | `Get-ChannelForgeRawXmltvProjection.ps1::Get-Digest` copies projection properties except `StructuralOccurrenceOrdinal` and digest properties, then hashes with `raw-xmltv-occurrence/v2`. | Channel sort uses raw identity, canonical node/extension bytes, and this digest before assigning `StructuralOccurrenceOrdinal`. |
+| `RawProgrammeDigest` | The same ordinal/self-excluding helper hashes the programme projection with `raw-programme/v2`. | Programme sort uses raw identity, times, canonical programme-node/extension bytes, and this digest before assigning `StructuralOccurrenceOrdinal`. |
+
+`CandidateVersionRegistryEvidence.Tests.ps1` checks that emitted raw occurrence digests are lowercase 64-hex values. `DeterministicComparisonEvidence.Tests.ps1` checks the resulting guide evidence, candidate bytes, manifest bytes, and namespace identity across path and source-order permutations.
+
+## Guide projection
+
+`New-ChannelForgeCandidateManifest.ps1` projects XMLTV channel occurrences into `GuideOccurrences`. It groups by logical source, raw-ID presence, and the raw ID; computes a `binding-key/v2` value from logical source, structural ordinal, raw-ID presence, and raw ID; and emits `Version`, `BindingKey`, `RawIdentityPresence`, `RawIdentityValue`, `OccurrenceOrdinal`, `LogicalSourceId`, `CandidateOccurrenceCount`, and `GuideCandidateEvidenceDigest`. The guide evidence digest input is that ordered set plus the candidate occurrence count; raw XMLTV digest is used upstream for canonical ordering, not silently replaced by a normalized ID.
+
+`M3UXmltvBinding.Tests.ps1` asserts the exact GuideOccurrence property order and that M3U and XMLTV-only binding records are both represented. `DeterministicComparisonEvidence.Tests.ps1` compares every `GuideCandidateEvidenceDigest` and the serialized `GuideOccurrences` projection between equivalent builds.
+
+## BindingKind and Status projection
+
+The candidate manifest's `New-BindingRecord` emits two concrete kinds:
+
+| BindingKind | Construction | Status mapping and count domain |
+|---|---|---|
+| `M3U` | One record for each non-null raw M3U channel occurrence. | Resolver `Exact` becomes `ExactBound`; resolver `NeedsReview` becomes `ReviewNeeded`; absent binding becomes `Unbound`. `UnboundCount` filters this kind explicitly. |
+| `XMLTVOnly` | One record for each XMLTV channel occurrence not matched to an M3U occurrence. | Status is `Unbound` with `MissingM3UId`; `XMLTVOnlyCount` filters this kind explicitly. |
+
+The resolver only marks one-to-one exact raw-ordinal string-equality `tvg-id`/XMLTV `channel id` matches as `Exact` and publishable. Missing IDs, absent matches, duplicate declarations, ambiguous candidates, and M3U identity collisions remain unbound or review-needed. `RejectedXMLTV` is used only as a synthetic count-filter case in `ReviewCountMatrix.Tests.ps1`; the candidate projection does not create such a record.
+
+`M3UXmltvBinding.Tests.ps1` asserts exact, unbound, review-needed, and orphaned results plus the emitted GuideOccurrence/BindingRecord property order. `ReviewCountMatrix.Tests.ps1` proves the disjoint count filters and the fixture matrix (six raw M3U occurrences including a duplicate, five raw XMLTV channels, two exact, two unbound M3U, one review-needed, and three XMLTV-only).
 
 ## Review counts
 
@@ -64,6 +107,39 @@ C16 proves staging remains unpublished at the before-move boundary. C17 proves f
 ## Determinism and byte evidence
 
 `DeterministicComparisonEvidence.Tests.ps1` builds equivalent fixtures with different paths and source ordering and compares BuildIdentity, guide evidence digests, candidate artifacts, review artifacts, manifest bytes/hash, and namespace identity. It also checks UTF-8/BOM/newline/property-order constraints for review artifacts.
+
+## Candidate artifact graph
+
+`New-ChannelForgeCandidateManifest.ps1` records generated output bytes as `ArtifactRecords`; each record carries a role, relative path, `Generated` status, byte length, content domain, and domain-separated content hash. The implemented graph is:
+
+| Artifact role | Relative path | Content domain | Presence |
+|---|---|---|---|
+| `CandidateM3U` | `merged.m3u` | `candidate-m3u/v2` | Present when M3U bytes were generated. |
+| `CandidateXMLTV` | `merged.xml` | `candidate-xmltv/v2` | Present when XMLTV bytes were generated. |
+| `CandidateReviewJSON` | `lineup-change-review.json` | `candidate-review-json/v2` | Required by namespace validation. |
+| `CandidateReviewMarkdown` | `lineup-change-review.md` | `candidate-review-markdown/v2` | Required by namespace validation. |
+
+`manifest.json` is not an `ArtifactRecord`: its `CandidateManifestHash` is separately computed over the ordered manifest with that self field omitted. `Test-ChannelForgeCandidateNamespace` then requires the manifest, the two review artifacts, at least one merged output, an exact allowed file set, and byte length/content-hash agreement for every listed artifact. Publication validates staging, performs the named directory move, and validates the final namespace on the post-move hook path.
+
+`CandidateHookEvidence.Tests.ps1` exercises C01-C15 write/flush/reopen failures, C16/C17 move boundaries and final reopen validation, and invalid/missing/extra artifact rejection. `CandidateNamespaceEvidence.Tests.ps1` proves protected state and public outputs remain byte-identical while a valid candidate namespace is created; it also proves a review-only namespace is rejected. `CandidateCanonicalization.Tests.ps1` proves repeated equivalent builds keep the candidate hash and BuildIdentity equal and that candidate output does not create active merged files.
+
+## Noncanonical and report-only helpers
+
+The implementation has deliberately derived or report-only values adjacent to canonical hash inputs. Evidence for their boundaries is:
+
+| Helper or value | Observed behavior | Boundary |
+|---|---|---|
+| `Get-ChannelForgeRawM3UProjection` history key | For present raw IDs, derives `HistoryKey` by Form-C normalization, edge whitespace removal, and lower-casing; missing or empty results become null. | This helper output is not one of the ten raw M3U digest fields. Resolver tests separately require raw ordinal equality, including case and whitespace distinctions. |
+| `Get-SafeCandidateText` | Redacts URLs, paths, and credential-like labels when constructing candidate presentation/collision fields. | It is not used to construct `$buildInput`; those safe fields can still be part of the separately hashed candidate manifest projection. |
+| `Get-SafeReportText` / `Get-SafeReportIdentityText` | Report text is trimmed and safety-filtered; identity text preserves leading/trailing and case characters so exact-guide evidence remains visible, subject to safety redaction. | These helpers feed Build-Lineup summary/plan projections, not `BuildIdentityInput`. |
+| `ConvertTo-SafeChannelForgeIdentityRecord` and related candidate/evidence helpers | Convert binding results to redacted report records before writing `build-summary.json` and `lineup-plan.md`. | They do not replace the raw binding resolver or candidate manifest binding records. |
+| `GeneratedAt` and direct report SHA-256 fields | `Build-Lineup.ps1` writes wall-clock `GeneratedAt`; report M3U/XMLTV SHA-256 values are computed for summary output. | Neither is a member of `$buildInput`; candidate content hashes remain the domain-separated values in `ArtifactRecords`. |
+
+`M3UXmltvBinding.Tests.ps1` proves that whitespace, case, and Unicode-confusable identity variants do not exact-bind and that the resolver does not mutate canonical inputs. `BuildLineupIdentityBinding.Tests.ps1` proves report redaction; `CandidateCanonicalization.Tests.ps1` proves candidate-only output and candidate-manifest URL exclusion.
+
+## Carried evidence limits
+
+In addition to the frozen-contract debt listed below, this packet does not claim a separately persisted `BuildIdentityInput`, generated hash literals, or acceptance/promotion behavior. The repository exposes the resulting `BuildIdentity` and `CandidateManifestHash`, while the input projection is local to manifest construction. Report timestamps, direct report SHA-256 fields, and redacted report projections are evidence context rather than additional identity inputs.
 
 ## Carried contract debt
 
