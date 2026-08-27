@@ -335,6 +335,7 @@ $m3uRemoteSourceCount = @($providerSources | Where-Object {
 $m3uDisabledSourceCount = @($providerSources | Where-Object { -not $_.Enabled }).Count
 $m3uActiveSourceCount = @($providerSources | Where-Object { $_.Enabled }).Count
 $m3uAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
+$candidateInputArtifactHashes = [System.Collections.Generic.List[object]]::new()
 $channelCount = 0
 $duplicateCount = 0
 $warningCount = 0
@@ -356,6 +357,26 @@ if ($m3uActiveSourceCount -gt 0) {
             if (-not [string]::IsNullOrWhiteSpace([string]$source.LocalPlaylist)) {
                 $resolvedPlaylistPath = Join-Path $Root $source.LocalPlaylist
                 Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+                $logicalIdValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeLogicalSourceId' `
+                    -Arguments @{
+                        ProviderName = [string]$providerConfig.provider
+                        SourceName = [string]$source.Name
+                        SourceKind = 'M3U'
+                    })
+                $logicalSourceId = [string]($logicalIdValues | Select-Object -Last 1)
+                $inputHashValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeDomainHash' `
+                    -Arguments @{
+                        Domain = 'input-m3u/v2'
+                        Bytes = [System.IO.File]::ReadAllBytes($resolvedPlaylistPath)
+                    })
+                $inputHash = [string]($inputHashValues | Select-Object -Last 1)
+                [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                        LogicalSourceId = $logicalSourceId
+                        ArtifactKind = 'M3U'
+                        ArtifactHash = $inputHash
+                    })
                 [void]$mergeSource.Add([pscustomobject]@{
                     Path      = $resolvedPlaylistPath
                     Provider  = $providerConfig.provider
@@ -379,6 +400,20 @@ if ($m3uActiveSourceCount -gt 0) {
                 -Provider $providerConfig.provider `
                 -CacheRoot $m3uCacheRoot `
                 -AcquisitionStatus $acquisitionStatus)
+            $remoteLogicalValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'Get-ChannelForgeLogicalSourceId' `
+                -Arguments @{
+                    ProviderName = [string]$providerConfig.provider
+                    SourceName = [string]$source.Name
+                    SourceKind = 'M3U'
+                })
+            $remoteLogicalSourceId = [string]($remoteLogicalValues | Select-Object -Last 1)
+            $remoteHash = [string]$acquisitionStatus.InputArtifactHash
+            [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                    LogicalSourceId = $remoteLogicalSourceId
+                    ArtifactKind = 'M3U'
+                    ArtifactHash = $remoteHash
+                })
 
             [void]$mergeSource.Add([pscustomobject]@{
                 Channels  = $remoteChannels
@@ -581,6 +616,21 @@ else {
                 -Source $source `
                 -CacheRoot $cacheRoot `
                 -AcquisitionStatus $acquisitionStatus)
+            $xmlLogicalSourceId = [string]@(
+                Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeDomainHash' `
+                    -Arguments @{
+                        Domain = 'logical-source-id/v2'
+                        InputObject = [ordered]@{
+                            Version = 'lineup-history-v1'
+                            SourceId = [string]$source.Name
+                        }
+                    })[-1]
+            [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                    LogicalSourceId = $xmlLogicalSourceId
+                    ArtifactKind = 'XMLTV'
+                    ArtifactHash = [string]$acquisitionStatus.InputArtifactHash
+                })
             if ($acquisitionStatus.Count -gt 0) {
                 [void]$xmltvAcquisitionStatuses.Add([pscustomobject][ordered]@{
                     SourceId = [string]$source.Name
@@ -715,24 +765,62 @@ if ($m3uGenerated -or $xmltvGenerated) {
         else {
             $null
         }
+        $manifestArguments = @{
+            RawM3UOccurrences       = @($m3uRawOccurrences)
+            M3UIdentityCollisions   = @($mergeResult.IdentityCollisions)
+            RawXmltvOccurrences     = @($rawXmltvOccurrences)
+            IdentityBindingResult   = $identityBindingResult
+            M3UBytes                = $candidateM3UBytes
+            XMLTVBytes              = $candidateXMLTVBytes
+            InputArtifactHashes     = @($candidateInputArtifactHashes.ToArray())
+            SelectedSourceIds       = $selectedSourceIds
+        }
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
-            -Arguments @{
-                RawM3UOccurrences       = @($m3uRawOccurrences)
-                M3UIdentityCollisions   = @($mergeResult.IdentityCollisions)
-                RawXmltvOccurrences     = @($rawXmltvOccurrences)
-                IdentityBindingResult   = $identityBindingResult
-                M3UBytes                = $candidateM3UBytes
-                XMLTVBytes              = $candidateXMLTVBytes
-                SelectedSourceIds       = $selectedSourceIds
-            }
+            -Arguments $manifestArguments
         if ($null -eq $manifestResult -or $manifestResult.Count -eq 0) {
             throw 'Candidate manifest construction returned no result.'
         }
         $manifestResult = @($manifestResult)[-1]
         $candidateBuildIdentity = [string]$manifestResult.BuildIdentity
-        $candidateManifestHash = [string]$manifestResult.CandidateManifestHash
+        $counts = $manifestResult.ReviewCounts
 
+        $reviewObject = [ordered]@{
+            Version = 'blocker-2-contract/v7'
+            BuildIdentity = $candidateBuildIdentity
+            ReviewRecords = @($manifestResult.Manifest.ReviewRecords)
+            M3UIdentityCollisions = @($manifestResult.Manifest.M3UIdentityCollisions)
+            RawM3UOccurrenceCount = [int]$counts.RawM3UOccurrenceCount
+            RawXMLTVOccurrenceCount = [int]$counts.RawXMLTVOccurrenceCount
+            ExactBindingCount = [int]$counts.ExactBindingCount
+            UnboundCount = [int]$counts.UnboundCount
+            ReviewNeededCount = [int]$counts.ReviewNeededCount
+            XMLTVOnlyCount = [int]$counts.XMLTVOnlyCount
+        }
+        $reviewBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes(
+            [string](Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'ConvertTo-ChannelForgeCanonicalJson' `
+                -Arguments @{ InputObject = $reviewObject }))
+        $reviewMarkdown = @(
+            '# ChannelForge Lineup Change Review'
+            ''
+            "Build identity: $candidateBuildIdentity"
+            "Exact bindings: $($counts.ExactBindingCount)"
+            "Unbound M3U channels: $($counts.UnboundCount)"
+            "Review-needed identities: $($counts.ReviewNeededCount)"
+            "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
+            ''
+            'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
+        ) -join "`n"
+        $reviewMarkdownBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes($reviewMarkdown + "`n")
+
+        $manifestArguments.ReviewJSONBytes = $reviewBytes
+        $manifestArguments.ReviewMarkdownBytes = $reviewMarkdownBytes
+        $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'ConvertTo-ChannelForgeCandidateManifest' `
+            -Arguments $manifestArguments
+        $manifestResult = @($manifestResult)[-1]
+        $candidateManifestHash = [string]$manifestResult.CandidateManifestHash
         $manifestObject = [ordered]@{}
         foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) {
             $manifestObject[$property.Name] = $property.Value
@@ -742,47 +830,16 @@ if ($m3uGenerated -or $xmltvGenerated) {
             [string](Invoke-ChannelForgePrivateCandidateFunction `
                 -Name 'ConvertTo-ChannelForgeCanonicalJson' `
                 -Arguments @{ InputObject = $manifestObject }))
-        Invoke-ChannelForgePrivateCandidateFunction `
-            -Name 'Write-ChannelForgeCandidateArtifact' `
-            -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest'; FaultHook = $FaultHook } | Out-Null
 
-        $reviewObject = [ordered]@{
-            Version                = 'blocker-2-contract/v6'
-            BuildIdentity          = $candidateBuildIdentity
-            CandidateManifestHash  = $candidateManifestHash
-            BindingRecords         = @($manifestResult.BindingProjection)
-            M3UIdentityCollisions  = @($manifestResult.Manifest.M3UIdentityCollisions)
-            RawM3UOccurrenceCount  = @($m3uRawOccurrences).Count
-            RawXMLTVOccurrenceCount = @($rawXmltvOccurrences).Count
-            ExactBindingCount      = @($m3uXmltvExactBindings).Count
-            UnboundCount            = @($m3uXmltvUnboundChannels).Count
-            ReviewNeededCount      = @($m3uXmltvReviewNeeded).Count
-            XMLTVOnlyCount         = @($m3uXmltvOrphanedXmltvChannels).Count
-        }
-        $reviewBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes(
-            [string](Invoke-ChannelForgePrivateCandidateFunction `
-                -Name 'ConvertTo-ChannelForgeCanonicalJson' `
-                -Arguments @{ InputObject = $reviewObject }))
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
             -Arguments @{ Path = $candidateReviewJsonPath; Bytes = $reviewBytes; HookPrefix = 'CandidateStageWrite.ReviewJSON'; FaultHook = $FaultHook } | Out-Null
-
-        $reviewMarkdown = @(
-            '# ChannelForge Lineup Change Review',
-            '',
-            "Build identity: $candidateBuildIdentity",
-            "Candidate manifest: $candidateManifestHash",
-            "Exact bindings: $(@($m3uXmltvExactBindings).Count)",
-            "Unbound M3U channels: $(@($m3uXmltvUnboundChannels).Count)",
-            "Review-needed identities: $(@($m3uXmltvReviewNeeded).Count)",
-            "XMLTV-only channels: $(@($m3uXmltvOrphanedXmltvChannels).Count)",
-            '',
-            'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
-        ) -join "`n"
-        $reviewMarkdownBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes($reviewMarkdown + "`n")
         Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Write-ChannelForgeCandidateArtifact' `
             -Arguments @{ Path = $candidateReviewMarkdownPath; Bytes = $reviewMarkdownBytes; HookPrefix = 'CandidateStageWrite.ReviewMarkdown'; FaultHook = $FaultHook } | Out-Null
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest'; FaultHook = $FaultHook } | Out-Null
 
         $candidateNamespacePath = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Publish-ChannelForgeCandidateNamespace' `

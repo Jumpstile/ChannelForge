@@ -104,15 +104,18 @@ function Test-ChannelForgeCandidateNamespace {
                 if ($null -eq $record.PSObject.Properties[$name]) { return $false }
             }
             $relative = [string]$record.RelativePath
-            if ($relative -notin @('merged.m3u', 'merged.xml') -or
+            if ($relative -notin @('merged.m3u', 'merged.xml', 'lineup-change-review.json', 'lineup-change-review.md') -or
                 [System.IO.Path]::IsPathRooted($relative) -or
                 $relative.Contains('..') -or
                 -not $expected.Add($relative)) { return $false }
             $domain = [string]$record.ContentDomain
             $role = [string]$record.Role
-            if (($role -eq 'M3U' -and ($relative -ne 'merged.m3u' -or $domain -ne 'candidate-m3u/v2')) -or
-                ($role -eq 'XMLTV' -and ($relative -ne 'merged.xml' -or $domain -ne 'candidate-xmltv/v2')) -or
-                $record.Status -cne 'Generated' -or
+            $mappingValid =
+                ($role -eq 'CandidateM3U' -and $relative -eq 'merged.m3u' -and $domain -eq 'candidate-m3u/v2') -or
+                ($role -eq 'CandidateXMLTV' -and $relative -eq 'merged.xml' -and $domain -eq 'candidate-xmltv/v2') -or
+                ($role -eq 'CandidateReviewJSON' -and $relative -eq 'lineup-change-review.json' -and $domain -eq 'candidate-review-json/v2') -or
+                ($role -eq 'CandidateReviewMarkdown' -and $relative -eq 'lineup-change-review.md' -and $domain -eq 'candidate-review-markdown/v2')
+            if (-not $mappingValid -or $record.Status -cne 'Generated' -or
                 [string]$record.ContentHash -notmatch '^[0-9a-f]{64}$' -or
                 [int64]$record.ByteLength -lt 0) { return $false }
             $artifactPath = Join-Path $Directory $relative
@@ -121,12 +124,13 @@ function Test-ChannelForgeCandidateNamespace {
             if ($bytes.Length -ne [int64]$record.ByteLength -or
                 (Get-ChannelForgeDomainHash -Domain $domain -Bytes $bytes) -cne [string]$record.ContentHash) { return $false }
         }
-        foreach ($required in @('lineup-change-review.json', 'lineup-change-review.md')) {
-            if (-not (Test-Path -LiteralPath (Join-Path $Directory $required) -PathType Leaf)) { return $false }
+        foreach ($required in @('merged.m3u', 'lineup-change-review.json', 'lineup-change-review.md')) {
+            if (-not $expected.Contains($required)) { return $false }
         }
         $files = @(Get-ChildItem -LiteralPath $Directory -File | ForEach-Object { $_.Name } | Sort-Object)
-        $allowed = @('manifest.json', 'lineup-change-review.json', 'lineup-change-review.md', 'merged.m3u', 'merged.xml')
-        if (-not $AllowStagingName -and [System.IO.Path]::GetFileName($Directory) -cne $ManifestHash) { return $false }
+        $allowed = @('manifest.json') + @($expected | Sort-Object)
+        if ((Compare-Object -ReferenceObject $allowed -DifferenceObject $files) -or
+            (-not $AllowStagingName -and [System.IO.Path]::GetFileName($Directory) -cne $ManifestHash)) { return $false }
         return $true
     }
     catch {
