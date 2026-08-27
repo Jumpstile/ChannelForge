@@ -10,8 +10,8 @@ BeforeAll {
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeLogicalSourceId.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawM3UProjection.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawXmltvProjection.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeCandidateReviewCounts.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\New-ChannelForgeCandidateManifest.ps1')
-
     function New-ReviewCountInputs {
         $channels = @(Import-ChannelForgeM3UPlaylist `
             -Path $script:PlaylistFixture `
@@ -107,8 +107,12 @@ Describe 'Frozen v7 candidate-manifest review counts' {
         @($input.RawXmltv).Count | Should -Be 8
         @($input.RawXmltv | Where-Object RawProgrammeChannelIdPresence).Count | Should -Be 3
         @($manifest.Manifest.RawProgrammes).Count | Should -Be 3
-        $manifest.ReviewCounts.RawM3UOccurrenceCount | Should -Be 6
-        $manifest.ReviewCounts.RawXMLTVOccurrenceCount | Should -Be 5
+        $counts = Get-ChannelForgeCandidateReviewCounts `
+            -RawM3UOccurrences $input.RawM3U `
+            -RawXmltvOccurrences $input.RawXmltv `
+            -BindingProjection $manifest.BindingProjection
+        $counts.RawM3UOccurrenceCount | Should -Be 6
+        $counts.RawXMLTVOccurrenceCount | Should -Be 5
     }
 
     It 'reports each frozen v7 binding count category from the binding projection' {
@@ -121,10 +125,16 @@ Describe 'Frozen v7 candidate-manifest review counts' {
             -IdentityBindingResult $input.Binding `
             -SelectedSourceIds @('m3u-source', 'fixture-guide')
 
-        $manifest.ReviewCounts.ExactBindingCount | Should -Be 2
-        $manifest.ReviewCounts.UnboundCount | Should -Be 2
-        $manifest.ReviewCounts.ReviewNeededCount | Should -Be 1
-        $manifest.ReviewCounts.XMLTVOnlyCount | Should -Be 3
+        $counts = Get-ChannelForgeCandidateReviewCounts `
+            -RawM3UOccurrences @($input.RawM3U | Where-Object { -not $_.Channel.IsDuplicate }) `
+            -RawXmltvOccurrences $input.RawXmltv `
+            -BindingProjection $manifest.BindingProjection
+        [string]::Join(',', @($counts.PSObject.Properties.Name)) |
+            Should -Be 'RawM3UOccurrenceCount,RawXMLTVOccurrenceCount,ExactBindingCount,UnboundCount,ReviewNeededCount,XMLTVOnlyCount'
+        $counts.ExactBindingCount | Should -Be 2
+        $counts.UnboundCount | Should -Be 2
+        $counts.ReviewNeededCount | Should -Be 1
+        $counts.XMLTVOnlyCount | Should -Be 3
 
         @($manifest.Manifest.BindingRecords | Where-Object BindingKind -eq 'M3U').Count | Should -Be 5
         @($manifest.Manifest.BindingRecords | Where-Object Status -eq 'ExactBound').Count | Should -Be 2
@@ -144,18 +154,46 @@ Describe 'Frozen v7 candidate-manifest review counts' {
             BindingKind = 'RejectedXMLTV'
             Status = 'Unbound'
         }
-        $projectionWithRejected = @($manifest.Manifest.BindingRecords) + $rejectedXmltv
+        $counts = Get-ChannelForgeCandidateReviewCounts `
+            -RawM3UOccurrences $input.RawM3U `
+            -RawXmltvOccurrences $input.RawXmltv `
+            -BindingProjection $manifest.BindingProjection
+        $projectionWithRejected = @($manifest.BindingProjection) + $rejectedXmltv
 
         # Frozen-v7 count domains are intentionally disjoint: an unbound count
         # is M3U-kind only, while XMLTV-only count is XMLTVOnly-kind only.
         @($projectionWithRejected | Where-Object {
                 $_.BindingKind -eq 'M3U' -and $_.Status -eq 'Unbound'
-            }).Count | Should -Be $manifest.ReviewCounts.UnboundCount
+            }).Count | Should -Be $counts.UnboundCount
         @($projectionWithRejected | Where-Object {
                 $_.BindingKind -eq 'XMLTVOnly'
-            }).Count | Should -Be $manifest.ReviewCounts.XMLTVOnlyCount
+            }).Count | Should -Be $counts.XMLTVOnlyCount
         @($projectionWithRejected | Where-Object BindingKind -eq 'RejectedXMLTV').Count | Should -Be 1
     }
+    It 'consumes supplied review counts without recomputing them in the manifest serializer' {
+        $input = New-ReviewCountInputs
+        $supplied = [pscustomobject][ordered]@{
+            RawM3UOccurrenceCount   = 101
+            RawXMLTVOccurrenceCount = 102
+            ExactBindingCount       = 103
+            UnboundCount            = 104
+            ReviewNeededCount       = 105
+            XMLTVOnlyCount          = 106
+        }
+
+        $manifest = ConvertTo-ChannelForgeCandidateManifest `
+            -RawM3UOccurrences $input.RawM3U `
+            -RawXmltvOccurrences $input.RawXmltv `
+            -IdentityBindingResult $input.Binding `
+            -SelectedSourceIds @('m3u-source', 'fixture-guide') `
+            -ReviewCounts $supplied
+
+        [string]::Join(',', @($manifest.ReviewCounts.PSObject.Properties.Name)) |
+            Should -Be 'RawM3UOccurrenceCount,RawXMLTVOccurrenceCount,ExactBindingCount,UnboundCount,ReviewNeededCount,XMLTVOnlyCount'
+        $manifest.ReviewCounts.RawM3UOccurrenceCount | Should -Be 101
+        $manifest.ReviewCounts.XMLTVOnlyCount | Should -Be 106
+    }
+
 }
 
 Describe 'Build-Lineup frozen v7 review artifacts' {

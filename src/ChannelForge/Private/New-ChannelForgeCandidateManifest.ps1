@@ -30,7 +30,10 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [byte[]]$ReviewMarkdownBytes,
 
         [AllowEmptyCollection()]
-        [string[]]$SelectedSourceIds = @()
+        [string[]]$SelectedSourceIds = @(),
+
+        [AllowNull()]
+        [object]$ReviewCounts
     )
 
     function Get-SafeCandidateText {
@@ -461,21 +464,11 @@ function ConvertTo-ChannelForgeCandidateManifest {
         ArtifactRecords       = @($artifactRecords.ToArray())
     }
     $manifestHash = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $manifest
-    $reviewCounts = [pscustomobject][ordered]@{
-        RawM3UOccurrenceCount = [int]@($RawM3UOccurrences).Count
-        RawXMLTVOccurrenceCount = [int]@($xmltvChannels).Count
-        ExactBindingCount = [int]@($bindingProjection | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
-        UnboundCount = [int]@($bindingProjection | Where-Object {
-                [string]$_.BindingKind -eq 'M3U' -and [string]$_.Status -eq 'Unbound'
-            }).Count
-        ReviewNeededCount = [int]@($bindingProjection | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
-        XMLTVOnlyCount = [int]@($bindingProjection | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
-    }
     return [pscustomobject][ordered]@{
-        Manifest             = [pscustomobject]$manifest
+        Manifest              = [pscustomobject]$manifest
         CandidateManifestHash = $manifestHash
-        BuildIdentity        = $buildIdentity
-        BindingProjection    = @($bindingProjection.ToArray())
-        ReviewCounts         = $reviewCounts
+        BuildIdentity         = $buildIdentity
+        BindingProjection     = @($bindingProjection.ToArray())
+        ReviewCounts          = $ReviewCounts
     }
 }

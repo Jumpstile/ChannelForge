@@ -786,7 +786,14 @@ if ($m3uGenerated -or $xmltvGenerated) {
         }
         $manifestResult = @($manifestResult)[-1]
         $candidateBuildIdentity = [string]$manifestResult.BuildIdentity
-        $counts = $manifestResult.ReviewCounts
+        $counts = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Get-ChannelForgeCandidateReviewCounts' `
+            -Arguments @{
+                RawM3UOccurrences = @($m3uRawOccurrences)
+                RawXmltvOccurrences = @($rawXmltvOccurrences)
+                BindingProjection = @($manifestResult.BindingProjection)
+            }
+        $counts = @($counts)[-1]
 
         $reviewObject = [ordered]@{
             Version = 'blocker-2-contract/v7'
@@ -819,6 +826,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
 
         $manifestArguments.ReviewJSONBytes = $reviewBytes
         $manifestArguments.ReviewMarkdownBytes = $reviewMarkdownBytes
+        $manifestArguments.ReviewCounts = $counts
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
             -Arguments $manifestArguments
