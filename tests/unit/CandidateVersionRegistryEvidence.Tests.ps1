@@ -97,6 +97,20 @@ Describe 'candidate-side frozen-v7 Version registry evidence' {
             -IdentityBindingResult $script:Binding `
             -SelectedSourceIds @('m3u-source', 'fixture-guide')
         $manifest = $manifestResult.Manifest
+        # These four rows are hash inputs rather than independently emitted
+        # objects. Assert their enclosing values so the mapping covers the
+        # inputs without confusing a domain version with the registry version.
+        @($manifest.Entries | ForEach-Object { $_.PresentationFingerprint }) |
+            Where-Object { $_ } | Should -Not -BeNullOrEmpty
+        @($script:RawM3U | ForEach-Object { $_.EntryId }) |
+            Should -Match '^[0-9a-f]{64}$'
+        @($script:RawXMLTV | ForEach-Object {
+                if ($_.RawChannelIdPresence) { $_.RawXMLTVOccurrenceDigest }
+                else { $_.RawProgrammeDigest }
+            }) | Should -Match '^[0-9a-f]{64}$'
+        [string]$manifest.M3UIdentityCollisions[0].HistoryKey | Should -Be 'id:fixture-collision'
+        [string]$manifest.M3UIdentityCollisions[0].CollisionEvidenceDigest |
+            Should -Match '^[0-9a-f]{64}$'
 
         # RawM3UOccurrence is emitted by the reader and by its canonical
         # projection; both are checked because the reader object is input
