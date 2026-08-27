@@ -78,6 +78,23 @@ The raw projections make ordinal dependencies explicit:
 
 `M3UXmltvBinding.Tests.ps1` asserts the exact GuideOccurrence property order and that M3U and XMLTV-only binding records are both represented. `DeterministicComparisonEvidence.Tests.ps1` compares every `GuideCandidateEvidenceDigest` and the serialized `GuideOccurrences` projection between equivalent builds.
 
+## Parser identity disposition
+
+`ParserIdentityDisposition.Tests.ps1` is the focused permanent parser evidence for the three distinct M3U and XMLTV representations. It writes each representation as a standalone input, invokes the public local-file importer, records the outcome and termination layer, and does not invoke binding or candidate projection for rejected XMLTV input.
+
+| Input representation | Parser result | Grounded disposition |
+|---|---|---|
+| M3U with no `tvg-id` attribute | Returned from M3U parser | `RawTvgIdPresence = Missing`, `RawTvgId = null`, runtime `TvgId = ''`. |
+| M3U `tvg-id=""` | Returned from M3U parser | `RawTvgIdPresence = Present`, `RawTvgId = ''`, runtime `TvgId = ''`. |
+| M3U `tvg-id="   "` | Returned from M3U parser | `RawTvgIdPresence = Present`, `RawTvgId` and runtime `TvgId` preserve three spaces. |
+| XMLTV channel with no `id` attribute | Rejected by `Read-ChannelForgeXmltvDocument` | Error: `XMLTV channel elements require a non-empty id attribute.` No downstream `BindingKind` or `Status` claim is made. |
+| XMLTV channel `id=""` | Rejected by `Read-ChannelForgeXmltvDocument` | Same parser error and boundary; no downstream `BindingKind` or `Status` claim is made. |
+| XMLTV channel `id="   "` | Rejected by `Read-ChannelForgeXmltvDocument` | Same parser error and boundary; no downstream `BindingKind` or `Status` claim is made. |
+
+The XMLTV termination layer is extracted from the caught error's actual `ScriptStackTrace` frame (`Read-ChannelForgeXmltvDocument`), rather than inferred from a later resolver result. The test therefore makes no `Unbound`, `ReviewNeeded`, `XMLTVOnly`, or other downstream disposition claim for invalid XMLTV IDs.
+
+Related executable identity evidence remains in the existing focused tests: `M3UXmltvBinding.Tests.ps1` covers case mismatch (and leading/trailing whitespace plus confusable variants), duplicate XMLTV declarations, XMLTV-only `orphan.us`, and reversed-input permutation; `BuildLineupIdentityBinding.Tests.ps1` covers the normalized M3U collision (`zeta.us` and ` ZETA.US `) and its review-needed result; `ReviewCountMatrix.Tests.ps1` covers the disjoint `XMLTVOnly` and `ReviewNeeded` count domains and the synthetic `RejectedXMLTV` exclusion. Those tests provide one review-needed record per exercised duplicate/collision case; no same-run multiple-review-needed fixture is claimed here.
+
 ## BindingKind and Status projection
 
 The candidate manifest's `New-BindingRecord` emits two concrete kinds:
