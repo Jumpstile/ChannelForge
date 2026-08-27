@@ -69,7 +69,7 @@ BeforeAll {
                 $AcquisitionStatus['ContentType'] = 'application/vnd.apple.mpegurl'
                 $AcquisitionStatus['ContentEncodings'] = @()
                 $AcquisitionStatus['RawContentLength'] = $null
-                $AcquisitionStatus['DecompressedBytes'] = 1
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
                 $AcquisitionStatus['ChannelCount'] = $channels.Count
                 $AcquisitionStatus['HasETag'] = -not [string]::IsNullOrWhiteSpace($RawETag)
                 $AcquisitionStatus['HasLastModified'] = -not [string]::IsNullOrWhiteSpace($RawLastModified)
