@@ -92,7 +92,7 @@ function Get-ChannelForgeRawXmltvProjection {
                 $presence = [string](Get-PropertyValue $occurrence 'RawChannelIdPresence' $(if ($null -eq $rawId) { 'Missing' } else { 'Present' }))
                 if ($presence -eq 'Missing') { $rawId = $null }
                 $projection = [pscustomobject][ordered]@{
-                    Version = 'blocker-2-contract/v6'
+                    Version = 'blocker-2-contract/v7'
                     LogicalSourceId = Get-LogicalSourceId $occurrence $evidence
                     StructuralOccurrenceOrdinal = 0
                     RawChannelIdPresence = $presence
@@ -113,7 +113,7 @@ function Get-ChannelForgeRawXmltvProjection {
                 $presence = [string](Get-PropertyValue $occurrence 'RawProgrammeChannelIdPresence' $(if ($null -eq $rawId) { 'Missing' } else { 'Present' }))
                 if ($presence -eq 'Missing') { $rawId = $null }
                 $projection = [pscustomobject][ordered]@{
-                    Version = 'blocker-2-contract/v6'
+                    Version = 'blocker-2-contract/v7'
                     LogicalSourceId = Get-LogicalSourceId $occurrence $evidence
                     StructuralOccurrenceOrdinal = 0
                     RawProgrammeChannelIdPresence = $presence
@@ -146,7 +146,7 @@ function Get-ChannelForgeRawXmltvProjection {
         if ($null -eq $evidence) {
             $rawId = Get-PropertyValue $value 'RawChannelId' $value.ChannelId
             $projection = [pscustomobject][ordered]@{
-            Version = 'blocker-2-contract/v6'
+            Version = 'blocker-2-contract/v7'
                 LogicalSourceId = Get-LogicalSourceId $value $null
                 StructuralOccurrenceOrdinal = 0
                 RawProgrammeChannelIdPresence = if ($null -eq $rawId) { 'Missing' } else { 'Present' }
