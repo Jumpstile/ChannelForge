@@ -3,6 +3,10 @@ BeforeAll {
     $script:BuildScriptPath = Join-Path $RepoRoot 'scripts\Build-Lineup.ps1'
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
     $script:FixturePath = Join-Path $RepoRoot 'tests\fixtures\xmltv\sample.xml'
+    $global:ChannelForgeRemoteXmltvFixtureHash = & (Get-Module ChannelForge) {
+        param($bytes)
+        Get-ChannelForgeDomainHash -Domain 'input-xmltv/v2' -Bytes $bytes
+    } ([IO.File]::ReadAllBytes($script:FixturePath))
 
     function Get-CandidateArtifactPath {
         param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Name)
@@ -51,7 +55,13 @@ BeforeAll {
         }
         else {
             Mock -CommandName Import-ChannelForgeConfiguredXmltvSource `
-                -MockWith { $global:ChannelForgeBuildRemoteProgrammes }
+                -MockWith {
+                    param($Source,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+                    if ($null -ne $AcquisitionStatus) {
+                        $AcquisitionStatus['InputArtifactHash'] = $global:ChannelForgeRemoteXmltvFixtureHash
+                    }
+                    return $global:ChannelForgeBuildRemoteProgrammes
+                }
         }
 
         # Build-Lineup imports the already-loaded module with -Force. Suppress

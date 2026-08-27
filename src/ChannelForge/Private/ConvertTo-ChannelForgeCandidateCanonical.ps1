@@ -124,7 +124,10 @@ function Test-ChannelForgeCandidateNamespace {
             if ($bytes.Length -ne [int64]$record.ByteLength -or
                 (Get-ChannelForgeDomainHash -Domain $domain -Bytes $bytes) -cne [string]$record.ContentHash) { return $false }
         }
-        foreach ($required in @('merged.m3u', 'lineup-change-review.json', 'lineup-change-review.md')) {
+        if (-not $expected.Contains('merged.m3u') -and -not $expected.Contains('merged.xml')) {
+            return $false
+        }
+        foreach ($required in @('lineup-change-review.json', 'lineup-change-review.md')) {
             if (-not $expected.Contains($required)) { return $false }
         }
         $files = @(Get-ChildItem -LiteralPath $Directory -File | ForEach-Object { $_.Name } | Sort-Object)
