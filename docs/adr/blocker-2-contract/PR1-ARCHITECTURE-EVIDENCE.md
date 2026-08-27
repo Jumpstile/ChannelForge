@@ -60,6 +60,23 @@ Production remote M3U hashing fails closed unless the computed `input-m3u/v2` va
 
 The packet does not claim a separately persisted `BuildIdentityInput`; its projection remains local to manifest construction. Unlike the input projection, generated output values are captured concretely in the determinism table above from the two equivalent fixture builds.
 
+## Cross-machine BuildIdentity disposition
+
+The earlier Desktop/Arcade mismatch was an evidence-fixture portability defect. `DeterministicComparisonEvidence.Tests.ps1` originally wrote here-string contents directly, so parser-input bytes inherited checkout EOLs. LF and CRLF are distinct raw inputs under v7 and therefore correctly produce distinct input hashes and identities. Production does not normalize these bytes.
+
+The corrected fixture explicitly joins logical lines with LF and appends one LF. The corrected Desktop run produced:
+
+| BuildIdentityInput item | Value |
+|---|---|
+| Canonical byte length | 1157 |
+| Direct SHA-256 | `876c269a709158f91155b0f905635d465b4c8dddf335c96c9fa9736d88935a83` |
+| BuildIdentity | `089d4e1b212515715546cbe2409fb59742d0fe61bbeec74d4b05ebaa7fc01dcd` |
+| M3U fixture bytes | 216 bytes; `960717803a0119ab2d2674e026cfaf7f3071405b78bf7004302a8954b840f306` |
+| Alpha XMLTV fixture bytes | 297 bytes; `b7ab0c30543f1870d6dc134591ba8510f110c064155bdef3da842bb5680d8c3a` |
+| Zeta XMLTV fixture bytes | 293 bytes; `3f34ec55e9a87a71c43e2c4841b2765b30ac8d470648da4f5ad49b288dc923c1` |
+
+The corresponding Arcade value `2a5de7d4daa1cf699aa740d67943bb01457f58a2144ca77366cd479b9191233a` and Desktop value `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` are retired as historical outputs of non-equivalent CRLF/LF fixture bytes. The corrected fixture establishes: cross-machine production determinism defect = NO; filesystem-path dependence = NO; machine-state dependence = NO; exact-byte sensitivity = YES.
+
 ## Raw digest dependencies
 
 The raw projections make ordinal dependencies explicit:
@@ -163,17 +180,16 @@ mapping or acceptance/promotion behavior is changed by PR #1.
 
 | Generated value | Build A | Build B | Comparison |
 |---|---|---|---|
-| `BuildIdentity` | `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` | `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` | Equal |
+| `BuildIdentity` | `089d4e1b212515715546cbe2409fb59742d0fe61bbeec74d4b05ebaa7fc01dcd` | `089d4e1b212515715546cbe2409fb59742d0fe61bbeec74d4b05ebaa7fc01dcd` | Equal |
 | `GuideCandidateEvidenceDigest` (ordinal 0) | `5c455a97c5053bfc4f2cab5e5c92cbde7327a39beadd20a6cb0be35cc815ede8` | `5c455a97c5053bfc4f2cab5e5c92cbde7327a39beadd20a6cb0be35cc815ede8` | Equal |
 | `GuideCandidateEvidenceDigest` (ordinal 1) | `0d51455a7d03a3133757bc6643e4366977dd0d5727df6073cdfaac059fa402ec` | `0d51455a7d03a3133757bc6643e4366977dd0d5727df6073cdfaac059fa402ec` | Equal |
-| `NamespaceIdentity` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | Equal; equals `CandidateManifestHash` |
 | `CandidateM3U` (`merged.m3u`) | 242 bytes; `d135af5f631311bea44709224eec8c4815d5979de8165cdda8226de022cc55f3` | 242 bytes; `d135af5f631311bea44709224eec8c4815d5979de8165cdda8226de022cc55f3` | Equal |
 | `CandidateXMLTV` (`merged.xml`) | 1036 bytes; `3893d34656f01aea810178539bbc27735aa3110c436e2000a0fec7e94bf71c6e` | 1036 bytes; `3893d34656f01aea810178539bbc27735aa3110c436e2000a0fec7e94bf71c6e` | Equal |
-| `CandidateReviewJSON` (`lineup-change-review.json`) | 298 bytes; `30a75ecc1ad51017d11890d0c6861aeaf4d6bf4c7aab5a1de87f6471b2ca84ef` | 298 bytes; `30a75ecc1ad51017d11890d0c6861aeaf4d6bf4c7aab5a1de87f6471b2ca84ef` | Equal; domain `candidate-review-json/v2` |
-| `CandidateReviewMarkdown` (`lineup-change-review.md`) | 303 bytes; `7c5c44ff02b87e28b48866560386244ec16776d03e698ac4f0ad4f67dc6e207a` | 303 bytes; `7c5c44ff02b87e28b48866560386244ec16776d03e698ac4f0ad4f67dc6e207a` | Equal; domain `candidate-review-markdown/v2` |
+| `CandidateReviewJSON` (`lineup-change-review.json`) | 298 bytes; `b939e21bf54c2fe689bb115db795b98faee47669c60ec0622af1b27cb05d694e` | 298 bytes; `b939e21bf54c2fe689bb115db795b98faee47669c60ec0622af1b27cb05d694e` | Equal; domain `candidate-review-json/v2` |
+| `CandidateReviewMarkdown` (`lineup-change-review.md`) | 303 bytes; `665fee8571e9ddb2b282f54b9d279681637fcdb3d5419cea716f8dc2a7665a3c` | 303 bytes; `665fee8571e9ddb2b282f54b9d279681637fcdb3d5419cea716f8dc2a7665a3c` | Equal; domain `candidate-review-markdown/v2` |
 | `manifest.json` bytes | 6850 bytes | 6850 bytes | Equal |
-| `manifest.json` direct SHA-256 | `836534e461299b3f95d9816406628256c3a0090c70aa8b42e9c860426c2a34ad` | `836534e461299b3f95d9816406628256c3a0090c70aa8b42e9c860426c2a34ad` | Equal |
-| `CandidateManifestHash` (`candidate-manifest/v2`) | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | `04653b7f6e77497043b3a975ecfa0ba3a527bdc2ef60e7d901c86206e688d8d7` | Equal; determines namespace identity |
+| `manifest.json` direct SHA-256 | `79b993e75b89ff4f590a90d1a0c29b20b072f3cab7d12f9d5f28c03cc96f6731` | `79b993e75b89ff4f590a90d1a0c29b20b072f3cab7d12f9d5f28c03cc96f6731` | Equal |
+| `CandidateManifestHash` / namespace | `bbf45601c4c7e888bd9f4c571dac176957bcf4b9b4d2a13c659ed6b065144b9e` | `bbf45601c4c7e888bd9f4c571dac176957bcf4b9b4d2a13c659ed6b065144b9e` | Equal |
 
 The review encoding capture is exact for both builds: JSON is 298 UTF-8 bytes, has no BOM, has no CR, has no LF, and preserves property order `Version, BuildIdentity, ReviewRecords, M3UIdentityCollisions, RawM3UOccurrenceCount, RawXMLTVOccurrenceCount, ExactBindingCount, UnboundCount, ReviewNeededCount, XMLTVOnlyCount`; Markdown is 303 UTF-8 bytes, has no BOM or CR, ends with LF, and does not end with CRLF. The test also compares the complete review JSON/Markdown bytes, not only parsed values.
 

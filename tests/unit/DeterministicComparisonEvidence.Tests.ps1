@@ -28,27 +28,32 @@ BeforeAll {
         $alphaGuidePath = Join-Path $data ('epg\' + ($AlphaGuideRelativePath -replace '/', '\'))
         $zetaGuidePath = Join-Path $data ('epg\' + ($ZetaGuideRelativePath -replace '/', '\'))
 
-        $playlist = @'
-#EXTM3U
-#EXTINF:-1 tvg-id="alpha.us" tvg-name="Alpha" group-title="News",Alpha
-https://example.invalid/live/alpha
-#EXTINF:-1 tvg-id="zeta.us" tvg-name="Zeta" group-title="News",Zeta
-https://example.invalid/live/zeta
-'@
-        $alphaGuide = @'
-<?xml version="1.0" encoding="UTF-8"?>
-<tv generator-info-name="deterministic-comparison">
-  <channel id="alpha.us"><display-name>Alpha</display-name></channel>
-  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="alpha.us"><title>Alpha Morning</title></programme>
-</tv>
-'@
-        $zetaGuide = @'
-<?xml version="1.0" encoding="UTF-8"?>
-<tv generator-info-name="deterministic-comparison">
-  <channel id="zeta.us"><display-name>Zeta</display-name></channel>
-  <programme start="20260824090000 +0000" stop="20260824100000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>
-</tv>
-'@
+        $playlist = @(
+            '#EXTM3U'
+            '#EXTINF:-1 tvg-id="alpha.us" tvg-name="Alpha" group-title="News",Alpha'
+            'https://example.invalid/live/alpha'
+            '#EXTINF:-1 tvg-id="zeta.us" tvg-name="Zeta" group-title="News",Zeta'
+            'https://example.invalid/live/zeta'
+        ) -join "`n"
+        $playlist += "`n"
+
+        $alphaGuide = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<tv generator-info-name="deterministic-comparison">'
+            '  <channel id="alpha.us"><display-name>Alpha</display-name></channel>'
+            '  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="alpha.us"><title>Alpha Morning</title></programme>'
+            '</tv>'
+        ) -join "`n"
+        $alphaGuide += "`n"
+
+        $zetaGuide = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<tv generator-info-name="deterministic-comparison">'
+            '  <channel id="zeta.us"><display-name>Zeta</display-name></channel>'
+            '  <programme start="20260824090000 +0000" stop="20260824100000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>'
+            '</tv>'
+        ) -join "`n"
+        $zetaGuide += "`n"
 
         Write-Utf8Fixture -Path $playlistPath -Content $playlist
         Write-Utf8Fixture -Path $alphaGuidePath -Content $alphaGuide
@@ -307,5 +312,19 @@ Describe 'candidate build determinism across source order and fixture paths' {
 
         $first.ManifestText | Should -Be $second.ManifestText
         [Convert]::ToBase64String($first.Artifacts['manifest.json'].Bytes) | Should -Be ([Convert]::ToBase64String($second.Artifacts['manifest.json'].Bytes))
+    }
+    It 'materializes explicit LF fixture bytes independent of checkout EOL' {
+        $root = New-DeterministicComparisonRoot -Name 'fixture-byte-portability' -PlaylistRelativePath 'playlist.m3u' -AlphaGuideRelativePath 'alpha.xml' -ZetaGuideRelativePath 'zeta.xml'
+        $fixtureExpectations = @(
+            @{ Name = 'data/playlists/playlist.m3u'; Length = 216; Sha256 = '960717803a0119ab2d2674e026cfaf7f3071405b78bf7004302a8954b840f306' }
+            @{ Name = 'data/epg/alpha.xml'; Length = 297; Sha256 = 'b7ab0c30543f1870d6dc134591ba8510f110c064155bdef3da842bb5680d8c3a' }
+            @{ Name = 'data/epg/zeta.xml'; Length = 293; Sha256 = '3f34ec55e9a87a71c43e2c4841b2765b30ac8d470648da4f5ad49b288dc923c1' }
+        )
+        foreach ($item in $fixtureExpectations) {
+            $bytes = [IO.File]::ReadAllBytes((Join-Path $root $item.Name))
+            (Get-FileHash -LiteralPath (Join-Path $root $item.Name) -Algorithm SHA256).Hash.ToLowerInvariant() | Should -Be $item.Sha256
+            $bytes | Where-Object { $_ -eq 13 } | Should -BeNullOrEmpty
+            $bytes[-1] | Should -Be 10
+        }
     }
 }
