@@ -136,7 +136,7 @@ function Read-ChannelForgeXmltvDocument {
                         $channelIdOccurrences[$channelId] = 1
                     }
                     [void]$rawChannelOccurrences.Add([pscustomobject][ordered]@{
-                            Version                      = 'blocker-2-contract/v6'
+                            Version                      = 'blocker-2-contract/v7'
                             RawChannelIdPresence         = 'Present'
                             RawChannelId                 = $channelId
                             StructuralOccurrenceOrdinal = $rawChannelOccurrences.Count
@@ -267,7 +267,7 @@ function Read-ChannelForgeXmltvDocument {
                         -SourceId $SourceId
 
                     [void]$rawProgrammeOccurrences.Add([pscustomobject][ordered]@{
-                            Version                       = 'blocker-2-contract/v6'
+                            Version                       = 'blocker-2-contract/v7'
                             RawProgrammeChannelIdPresence = 'Present'
                             RawProgrammeChannelId        = $channelId
                             StructuralOccurrenceOrdinal  = $rawProgrammeOccurrences.Count

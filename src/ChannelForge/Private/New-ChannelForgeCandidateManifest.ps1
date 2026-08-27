@@ -21,6 +21,15 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [byte[]]$XMLTVBytes,
 
         [AllowEmptyCollection()]
+        [object[]]$InputArtifactHashes = @(),
+
+        [AllowNull()]
+        [byte[]]$ReviewJSONBytes,
+
+        [AllowNull()]
+        [byte[]]$ReviewMarkdownBytes,
+
+        [AllowEmptyCollection()]
         [string[]]$SelectedSourceIds = @()
     )
 
@@ -37,7 +46,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-StreamFingerprint {
         param([AllowNull()][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{
-                Version   = 'blocker-2-contract/v6'
+                Version   = 'blocker-2-contract/v7'
                 StreamUrl = if ($null -eq $Channel) { '' } else { [string]$Channel.Url }
             })
     }
@@ -45,7 +54,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-PresentationFingerprint {
         param([Parameter(Mandatory)][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{
-                Version       = 'blocker-2-contract/v6'
+                Version       = 'blocker-2-contract/v7'
                 TvgName       = [string]$Channel.TvgName
                 DisplayName   = [string]$Channel.DisplayName
                 GroupTitle    = [string]$Channel.Group
@@ -87,7 +96,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
             [AllowNull()][object]$CollisionEvidence
         )
         $recordWithoutIds = [ordered]@{
-            Version = 'blocker-2-contract/v6'
+            Version = 'blocker-2-contract/v7'
             BindingKind = $BindingKind
             EntryId = $EntryId
             BindingKey = $BindingKey
@@ -102,7 +111,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         }
         $bindingId = Get-ChannelForgeDomainHash -Domain 'binding-record/v2' -InputObject $recordWithoutIds
         $record = [ordered]@{
-            Version = 'blocker-2-contract/v6'
+            Version = 'blocker-2-contract/v7'
             BindingId = $bindingId
             BindingKind = $BindingKind
             EntryId = $EntryId
@@ -192,7 +201,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                     elseif ($missingCount -eq 0) { 'PresentCollision' }
                     else { 'MixedMissingAndPresent' }
             $base = [ordered]@{
-                Version = 'blocker-2-contract/v6'
+                Version = 'blocker-2-contract/v7'
                 HistoryKey = if ($null -eq $collision.IdentityKey) { $null } else { [string]$collision.IdentityKey }
                 CollisionKind = $kind
                 RawIdentityDigests = @($digests)
@@ -216,21 +225,42 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 "$([string]$_.LogicalSourceId)`u{001f}$([string]$_.RawChannelIdPresence)`u{001f}$([string]$_.RawChannelId)"
             } |
             ForEach-Object {
-                $members = @($_.Group | Sort-Object @{ Expression = { [int]$_.StructuralOccurrenceOrdinal } }, @{ Expression = { [string]$_.RawXMLTVOccurrenceDigest } })
-                $first = $members[0]
-                $presence = [string]$first.RawChannelIdPresence
-                $digests = @($members | ForEach-Object { [string]$_.RawXMLTVOccurrenceDigest } | Sort-Object -Unique)
-                $ordinals = @($members | ForEach-Object { [int]$_.StructuralOccurrenceOrdinal } | Sort-Object -Unique)
-                [pscustomobject][ordered]@{
-                    Presence = $presence
-                    Value = if ($presence -eq 'Missing') { $null } else { [string]$first.RawChannelId }
-                    OccurrenceCount = $members.Count
-                    MissingIdentityCount = @($members | Where-Object { [string]$_.RawChannelIdPresence -eq 'Missing' }).Count
-                    OccurrenceDigests = $digests
-                    OccurrenceOrdinals = $ordinals
+                $members = @($_.Group | Sort-Object `
+                    @{ Expression = { [int]$_.StructuralOccurrenceOrdinal } }, `
+                    @{ Expression = { [string]$_.RawXMLTVOccurrenceDigest } })
+                foreach ($member in $members) {
+                    $bindingKey = Get-ChannelForgeDomainHash -Domain 'binding-key/v2' -InputObject ([ordered]@{
+                            LogicalSourceId = [string]$member.LogicalSourceId
+                            StructuralOccurrenceOrdinal = [int]$member.StructuralOccurrenceOrdinal
+                            RawChannelIdPresence = [string]$member.RawChannelIdPresence
+                            RawChannelId = if ([string]$member.RawChannelIdPresence -eq 'Missing') { $null } else { $member.RawChannelId }
+                        })
+                    $input = [ordered]@{
+                        Version = 'blocker-2-contract/v7'
+                        BindingKey = $bindingKey
+                        RawIdentityPresence = [string]$member.RawChannelIdPresence
+                        RawIdentityValue = if ([string]$member.RawChannelIdPresence -eq 'Missing') { $null } else { [string]$member.RawChannelId }
+                        OccurrenceOrdinal = [int]$member.StructuralOccurrenceOrdinal
+                        LogicalSourceId = [string]$member.LogicalSourceId
+                        CandidateOccurrenceCount = [int]$members.Count
+                    }
+                    [pscustomobject][ordered]@{
+                        Version = $input.Version
+                        BindingKey = $input.BindingKey
+                        RawIdentityPresence = $input.RawIdentityPresence
+                        RawIdentityValue = $input.RawIdentityValue
+                        OccurrenceOrdinal = $input.OccurrenceOrdinal
+                        LogicalSourceId = $input.LogicalSourceId
+                        CandidateOccurrenceCount = $input.CandidateOccurrenceCount
+                        GuideCandidateEvidenceDigest = Get-ChannelForgeDomainHash -Domain 'guide-candidate-occurrence/v2' -InputObject $input
+                    }
                 }
             } |
-            Sort-Object @{ Expression = { [string]$_.Presence } }, @{ Expression = { [string]$_.Value } }, @{ Expression = { [string]$_.OccurrenceDigests -join ',' } }
+            Sort-Object `
+                @{ Expression = { [string]$_.BindingKey } }, `
+                @{ Expression = { if ([string]$_.RawIdentityPresence -eq 'Missing') { 0 } else { 1 } } }, `
+                @{ Expression = { [string]$_.RawIdentityValue } }, `
+                @{ Expression = { [int]$_.OccurrenceOrdinal } }
     )
 
     $bindingProjection = [System.Collections.Generic.List[object]]::new()
@@ -279,8 +309,33 @@ function ConvertTo-ChannelForgeCandidateManifest {
         $collision = if ($null -ne $binding -and $null -ne $binding.PSObject.Properties['M3UIdentityCollision']) {
             Get-CollisionEvidence $binding.M3UIdentityCollision
         } else { @() }
-        $status = if ($null -ne $binding -and $null -ne $binding.Status) { [string]$binding.Status } else { 'Unbound' }
-        $reason = if ($null -ne $binding -and $null -ne $binding.Reason) { [string]$binding.Reason } else { 'TvgIdNotFoundInXmltv' }
+        $status = if ($null -eq $binding -or $null -eq $binding.Status) {
+            'Unbound'
+        }
+        elseif ([string]$binding.Status -eq 'Exact') {
+            'ExactBound'
+        }
+        elseif ([string]$binding.Status -eq 'NeedsReview') {
+            'ReviewNeeded'
+        }
+        else {
+            [string]$binding.Status
+        }
+        $reason = if ($null -eq $binding -or $null -eq $binding.Reason) {
+            'NoXMLTVMatch'
+        }
+        else {
+            switch ([string]$binding.Reason) {
+                'ExactOrdinalTvgIdMatch' { 'ExactOrdinalMatch' }
+                'MissingTvgId' { 'MissingM3UId' }
+                'TvgIdNotFoundInXmltv' { 'NoXMLTVMatch' }
+                'AmbiguousXmltvChannelId' { 'AmbiguousXMLTVCandidates' }
+                'DuplicateXmltvChannelIdDeclaration' { 'DuplicateXMLTVId' }
+                'MultipleM3UChannelsShareNormalizedIdentity' { 'M3UIdentityCollision' }
+                'MultipleM3UChannelsShareTvgId' { 'M3UIdentityCollision' }
+                default { 'ConflictingIdentity' }
+            }
+        }
         [void]$bindingProjection.Add((New-BindingRecord `
                 -BindingKind 'M3U' `
                 -EntryId ([string]$occurrence.EntryId) `
@@ -312,8 +367,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 -XmlPresence ([string]$occurrence.RawChannelIdPresence) `
                 -XmlValue $occurrence.RawChannelId `
                 -CandidateOrdinals @([int]$occurrence.StructuralOccurrenceOrdinal) `
-                -Status 'OrphanedXmltv' `
-                -ReasonCode 'NoM3UChannelWithTvgId' `
+                -Status 'Unbound' `
+                -ReasonCode 'MissingM3UId' `
                 -CollisionEvidence @()))
     }
     $bindingProjection = [System.Collections.Generic.List[object]]::new(
@@ -322,26 +377,35 @@ function ConvertTo-ChannelForgeCandidateManifest {
             @{ Expression = { [string]$_.EntryId } }, `
             @{ Expression = { [string]$_.BindingKey } }))
 
-    $inputArtifacts = [ordered]@{
-        M3U  = Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -InputObject $rawM3UEvidence
-        XMLTV = Get-ChannelForgeDomainHash -Domain 'input-xmltv/v2' -InputObject @($RawXmltvOccurrences)
+    $inputArtifacts = @($InputArtifactHashes | Sort-Object `
+        @{ Expression = { [string]$_.LogicalSourceId } }, `
+        @{ Expression = { if ([string]$_.ArtifactKind -eq 'M3U') { 1 } else { 2 } } }, `
+        @{ Expression = { [string]$_.ArtifactHash } })
+    foreach ($record in $inputArtifacts) {
+        if ([string]$record.LogicalSourceId -notmatch '^[0-9a-f]{64}$' -or
+            [string]$record.ArtifactKind -notin @('M3U', 'XMLTV') -or
+            [string]$record.ArtifactHash -notmatch '^[0-9a-f]{64}$') {
+            throw ("InputArtifactHashes contains an invalid record: LogicalSourceId='{0}', ArtifactKind='{1}', ArtifactHash='{2}'." -f [string]$record.LogicalSourceId, [string]$record.ArtifactKind, [string]$record.ArtifactHash)
+        }
     }
     $sourceIds = @($SelectedSourceIds | Sort-Object -Unique)
     $buildInput = [ordered]@{
-        ContractVersion       = 'blocker-2-contract/v6'
-        IdentityRulesVersion  = 'lineup-history-v1'
-        SelectedSourceIds     = $sourceIds
-        InputArtifactHashes   = $inputArtifacts
-        ParserVersion         = 'm3u-xmltv-parser-v1'
-        SerializerVersion     = 'candidate-serializer-v1'
-        GuideBindingVersion   = 'exact-ordinal-v1'
+        ContractVersion              = 'blocker-2-contract/v7'
+        IdentityRulesVersion         = 'lineup-history-v1'
+        M3UParserContractVersion     = 'm3u-parser-v1'
+        XMLTVParserContractVersion   = 'xmltv-parser-v1'
+        M3USerializerVersion         = 'm3u-serializer-v1'
+        XMLTVSerializerVersion       = 'xmltv-serializer-v1'
+        GuideBindingContractVersion  = 'guide-binding-exact-ordinal-v1'
+        SelectedLogicalSourceIds     = $sourceIds
+        InputArtifactHashes          = $inputArtifacts
     }
     $buildIdentity = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $buildInput
 
     $artifactRecords = [System.Collections.Generic.List[object]]::new()
     if ($null -ne $M3UBytes) {
         [void]$artifactRecords.Add([ordered]@{
-                Role          = 'M3U'
+                Role          = 'CandidateM3U'
                 RelativePath  = 'merged.m3u'
                 Status        = 'Generated'
                 ByteLength    = $M3UBytes.Length
@@ -351,7 +415,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     }
     if ($null -ne $XMLTVBytes) {
         [void]$artifactRecords.Add([ordered]@{
-                Role          = 'XMLTV'
+                Role          = 'CandidateXMLTV'
                 RelativePath  = 'merged.xml'
                 Status        = 'Generated'
                 ByteLength    = $XMLTVBytes.Length
@@ -359,10 +423,30 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 ContentHash   = Get-ChannelForgeDomainHash -Domain 'candidate-xmltv/v2' -Bytes $XMLTVBytes
             })
     }
+    if ($null -ne $ReviewJSONBytes) {
+        [void]$artifactRecords.Add([ordered]@{
+                Role          = 'CandidateReviewJSON'
+                RelativePath  = 'lineup-change-review.json'
+                Status        = 'Generated'
+                ByteLength    = $ReviewJSONBytes.Length
+                ContentDomain = 'candidate-review-json/v2'
+                ContentHash   = Get-ChannelForgeDomainHash -Domain 'candidate-review-json/v2' -Bytes $ReviewJSONBytes
+            })
+    }
+    if ($null -ne $ReviewMarkdownBytes) {
+        [void]$artifactRecords.Add([ordered]@{
+                Role          = 'CandidateReviewMarkdown'
+                RelativePath  = 'lineup-change-review.md'
+                Status        = 'Generated'
+                ByteLength    = $ReviewMarkdownBytes.Length
+                ContentDomain = 'candidate-review-markdown/v2'
+                ContentHash   = Get-ChannelForgeDomainHash -Domain 'candidate-review-markdown/v2' -Bytes $ReviewMarkdownBytes
+            })
+    }
 
     $manifest = [ordered]@{
-        Version               = 'blocker-2-contract/v6'
-        ContractVersion       = 'blocker-2-contract/v6'
+        Version               = 'blocker-2-contract/v7'
+        ContractVersion       = 'blocker-2-contract/v7'
         BuildIdentity         = $buildIdentity
         IdentityRulesVersion  = 'lineup-history-v1'
         SelectedSources       = $sourceIds
@@ -377,10 +461,21 @@ function ConvertTo-ChannelForgeCandidateManifest {
         ArtifactRecords       = @($artifactRecords.ToArray())
     }
     $manifestHash = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $manifest
+    $reviewCounts = [pscustomobject][ordered]@{
+        RawM3UOccurrenceCount = [int]@($RawM3UOccurrences).Count
+        RawXMLTVOccurrenceCount = [int]@($xmltvChannels).Count
+        ExactBindingCount = [int]@($bindingProjection | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
+        UnboundCount = [int]@($bindingProjection | Where-Object {
+                [string]$_.BindingKind -eq 'M3U' -and [string]$_.Status -eq 'Unbound'
+            }).Count
+        ReviewNeededCount = [int]@($bindingProjection | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
+        XMLTVOnlyCount = [int]@($bindingProjection | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
+    }
     return [pscustomobject][ordered]@{
         Manifest             = [pscustomobject]$manifest
         CandidateManifestHash = $manifestHash
         BuildIdentity        = $buildIdentity
         BindingProjection    = @($bindingProjection.ToArray())
+        ReviewCounts         = $reviewCounts
     }
 }

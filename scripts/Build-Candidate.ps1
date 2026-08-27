@@ -45,6 +45,7 @@ foreach ($helper in @(
              Raw = $raw
              SourceName = $sourceName
              SourceOrdinal = 0
+            SourcePath = $path
          })
      $providerConfig = [pscustomobject]@{ provider = $providerName }
      $merge = [pscustomobject]@{
@@ -70,6 +71,7 @@ foreach ($helper in @(
                  Raw = $raw
                  SourceName = [string]$source.Name
                  SourceOrdinal = $index
+                SourcePath = $path
              })
          $index++
      }
@@ -103,6 +105,14 @@ foreach ($helper in @(
      $merge.Channels = @($sourceList | ForEach-Object Channels)
  }
  $rawAll = @($sourceList | ForEach-Object Raw)
+ $inputArtifactHashes = [System.Collections.Generic.List[object]]::new()
+ foreach ($sourceRecord in @($sourceList)) {
+     [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
+             LogicalSourceId = [string]$sourceRecord.LogicalSourceId
+             ArtifactKind = 'M3U'
+             ArtifactHash = Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes ([System.IO.File]::ReadAllBytes([string]$sourceRecord.SourcePath))
+         })
+ }
  $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
  New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
  $m3uTemp = Join-Path $txRoot 'merged.m3u'
@@ -111,35 +121,78 @@ foreach ($helper in @(
  Remove-Item -LiteralPath $m3uTemp -Force
  $xmltvBytes = $null
  $rawXmltv = @()
+ $programmes = @()
  if (-not [string]::IsNullOrWhiteSpace($XMLTVPath)) {
      $xmlPath = [System.IO.Path]::GetFullPath($XMLTVPath)
      Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $Root
-     $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv')
+     $xmlStatus = [ordered]@{}
+     $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus)
      $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes
      $xmlTemp = Join-Path $txRoot 'merged.xml'
      Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
      $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
      Remove-Item -LiteralPath $xmlTemp -Force
      $rawXmltv = @(Get-ChannelForgeRawXmltvProjection -Programme $programmes)
+     foreach ($logicalSourceId in @($rawXmltv | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)) {
+         [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
+                 LogicalSourceId = $logicalSourceId
+                 ArtifactKind = 'XMLTV'
+                 ArtifactHash = [string]$xmlStatus.InputArtifactHash
+             })
+     }
  }
- $binding = [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
- $manifestResult = ConvertTo-ChannelForgeCandidateManifest -RawM3UOccurrences $rawAll -M3UIdentityCollisions @($merge.IdentityCollisions) -RawXmltvOccurrences $rawXmltv -IdentityBindingResult $binding -M3UBytes $m3uBytes -XMLTVBytes $xmltvBytes -SelectedSourceIds @($sourceList | ForEach-Object LogicalSourceId)
- $manifest = [ordered]@{}
- foreach ($p in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$p.Name] = $p.Value }
- $manifest.Remove('CandidateManifestHash')
- $manifestHash = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $manifest
- $manifest.CandidateManifestHash = $manifestHash
+ $binding = if ($programmes.Count -gt 0) {
+     Resolve-ChannelForgeM3UXmltvBinding -Channel @($merge.Channels) -Programme $programmes -M3UIdentityCollisions @($merge.IdentityCollisions)
+ }
+ else {
+     [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
+ }
+ $manifestArguments = @{
+     RawM3UOccurrences = $rawAll
+     M3UIdentityCollisions = @($merge.IdentityCollisions)
+     RawXmltvOccurrences = $rawXmltv
+     IdentityBindingResult = $binding
+     M3UBytes = $m3uBytes
+     XMLTVBytes = $xmltvBytes
+     InputArtifactHashes = @($inputArtifactHashes.ToArray())
+     SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
+ }
+ $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
+ $counts = $manifestResult.ReviewCounts
  $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
- $manifestBytes = $utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $manifest))
  $review = [ordered]@{
-     Version = 'candidate-review-json/v2'
-     CandidateManifestHash = $manifestHash
+     Version = 'blocker-2-contract/v7'
      BuildIdentity = $manifestResult.BuildIdentity
-     ReviewRecords = @($manifest.ReviewRecords)
-     M3UIdentityCollisions = @($manifest.M3UIdentityCollisions)
+     ReviewRecords = @($manifestResult.Manifest.ReviewRecords)
+     M3UIdentityCollisions = @($manifestResult.Manifest.M3UIdentityCollisions)
+     RawM3UOccurrenceCount = [int]$counts.RawM3UOccurrenceCount
+     RawXMLTVOccurrenceCount = [int]$counts.RawXMLTVOccurrenceCount
+     ExactBindingCount = [int]$counts.ExactBindingCount
+     UnboundCount = [int]$counts.UnboundCount
+     ReviewNeededCount = [int]$counts.ReviewNeededCount
+     XMLTVOnlyCount = [int]$counts.XMLTVOnlyCount
  }
  $reviewBytes = $utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $review))
-$reviewMdBytes = [System.Text.UTF8Encoding]::new($false).GetBytes("# ChannelForge Candidate Review`n`nCandidate manifest: $manifestHash`nReviews: $(@($manifest.ReviewRecords).Count)`n")
+ $reviewMarkdown = @(
+     '# ChannelForge Lineup Change Review'
+     ''
+     "Build identity: $($manifestResult.BuildIdentity)"
+     "Exact bindings: $($counts.ExactBindingCount)"
+     "Unbound M3U channels: $($counts.UnboundCount)"
+     "Review-needed identities: $($counts.ReviewNeededCount)"
+     "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
+     ''
+     'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
+ ) -join "`n"
+ $reviewMdBytes = $utf8.GetBytes($reviewMarkdown + "`n")
+ $manifestArguments.ReviewJSONBytes = $reviewBytes
+ $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
+ $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
+ $manifest = [ordered]@{}
+ foreach ($p in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$p.Name] = $p.Value }
+ $manifestHash = [string]$manifestResult.CandidateManifestHash
+ $manifest.CandidateManifestHash = $manifestHash
+ $manifestBytes = $utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $manifest))
 try {
     Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.m3u') -Bytes $m3uBytes -HookPrefix 'CandidateStageWrite.M3U' -FaultHook $FaultHook | Out-Null
     if ($null -ne $xmltvBytes) {
