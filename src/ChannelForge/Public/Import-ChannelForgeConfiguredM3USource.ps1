@@ -100,6 +100,12 @@ function Import-ChannelForgeConfiguredM3USource {
             $reader = $null
             $hashingStream = $null
             $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
+            if ($inputArtifactHash -notmatch '^[0-9a-f]{64}$') {
+                throw 'Remote M3U input hash was not produced from complete parser-input bytes.'
+            }
+            $decompressedBytes = [long]$opened.Stream.BytesRead
+            $opened.Stream.Dispose()
+            $opened.Stream = $null
 
             if ($null -ne $opened.CacheWrite) {
                 $reason = [string]$opened.CacheReason
@@ -136,7 +142,7 @@ function Import-ChannelForgeConfiguredM3USource {
                 $AcquisitionStatus['ContentType'] = [string]$opened.ContentType
                 $AcquisitionStatus['ContentEncodings'] = @($opened.ContentEncodings)
                 $AcquisitionStatus['RawContentLength'] = $opened.RawContentLength
-                $AcquisitionStatus['DecompressedBytes'] = [long]$opened.Stream.BytesRead
+                $AcquisitionStatus['DecompressedBytes'] = $decompressedBytes
                 $AcquisitionStatus['InputArtifactHash'] = $inputArtifactHash
                 $AcquisitionStatus['ChannelCount'] = @($channels).Count
                 $AcquisitionStatus['HasETag'] = if ($null -ne $opened.CacheWrite) {
