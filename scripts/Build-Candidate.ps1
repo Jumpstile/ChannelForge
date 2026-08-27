@@ -16,6 +16,7 @@ foreach ($helper in @(
         'Get-ChannelForgeLogicalSourceId.ps1',
         'Get-ChannelForgeRawM3UProjection.ps1',
         'Get-ChannelForgeRawXmltvProjection.ps1',
+        'Get-ChannelForgeCandidateReviewCounts.ps1',
         'New-ChannelForgeCandidateManifest.ps1',
         'ConvertTo-ChannelForgeCandidateCanonical.ps1',
         'Publish-ChannelForgeCandidateNamespace.ps1'
@@ -158,7 +159,10 @@ foreach ($helper in @(
      SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
  }
  $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
- $counts = $manifestResult.ReviewCounts
+ $counts = Get-ChannelForgeCandidateReviewCounts `
+     -RawM3UOccurrences @($rawAll) `
+     -RawXmltvOccurrences @($rawXmltv) `
+     -BindingProjection @($manifestResult.BindingProjection)
  $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
  $review = [ordered]@{
      Version = 'blocker-2-contract/v7'
@@ -187,6 +191,7 @@ foreach ($helper in @(
  $reviewMdBytes = $utf8.GetBytes($reviewMarkdown + "`n")
  $manifestArguments.ReviewJSONBytes = $reviewBytes
  $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
+ $manifestArguments.ReviewCounts = $counts
  $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
  $manifest = [ordered]@{}
  foreach ($p in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$p.Name] = $p.Value }
