@@ -3,6 +3,17 @@ BeforeAll {
     $script:ScriptPath = Join-Path $RepoRoot 'scripts\Build-Lineup.ps1'
     $global:ChannelForgeBuildFixturePath = Join-Path $RepoRoot 'tests\fixtures\tiny.m3u'
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
+
+    function Get-TestInputArtifactHash {
+        param([byte[]]$Bytes)
+        $domainBytes = [Text.Encoding]::UTF8.GetBytes('input-m3u/v2')
+        $payload = [byte[]]::new($domainBytes.Length + 1 + $Bytes.Length)
+        [Buffer]::BlockCopy($domainBytes, 0, $payload, 0, $domainBytes.Length)
+        [Buffer]::BlockCopy($Bytes, 0, $payload, $domainBytes.Length + 1, $Bytes.Length)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { return ([BitConverter]::ToString($sha.ComputeHash($payload))).Replace('-', '').ToLowerInvariant() }
+        finally { $sha.Dispose() }
+    }
     Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
         param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
         $channels = @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
@@ -15,7 +26,7 @@ BeforeAll {
             $AcquisitionStatus['StatusCode'] = 200
             $AcquisitionStatus['ContentType'] = 'application/vnd.apple.mpegurl'
             $AcquisitionStatus['ContentEncodings'] = @()
-            $AcquisitionStatus['RawContentLength'] = $null
+            $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
             $AcquisitionStatus['DecompressedBytes'] = 0
             $AcquisitionStatus['ChannelCount'] = $channels.Count
             $AcquisitionStatus['HasETag'] = $false
@@ -37,7 +48,10 @@ BeforeAll {
 Describe 'Build-Lineup.ps1 (no local playlists configured)' {
     BeforeAll {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
         $script:FixtureRoot = Join-Path $TestDrive 'project'
@@ -156,7 +170,13 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
 Describe 'Build-Lineup.ps1 (with local playlists configured)' {
     BeforeAll {
-        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith { return @() }
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
+            return @()
+        }
         $script:FixtureRoot = Join-Path $TestDrive 'project-with-playlists'
         $dataDir = Join-Path $script:FixtureRoot 'data'
         $playlistDir = Join-Path $dataDir 'playlists'
@@ -432,7 +452,10 @@ Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
 Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
     BeforeEach {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
     }
@@ -527,7 +550,10 @@ Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
 Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
     BeforeEach {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
     }
