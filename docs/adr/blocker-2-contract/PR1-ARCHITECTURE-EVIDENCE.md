@@ -43,7 +43,10 @@ C16 proves staging remains unpublished at the before-move boundary. C17 proves f
 
 ## Input hashes
 
-`M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, local/remote equivalence, one-byte mutation, lowercase 64-hex output, and empty-hash rejection. Production remote M3U hashing fails closed unless the computed `input-m3u/v2` value matches `^[0-9a-f]{64}$`.
+`M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, local/remote equivalence, one-byte mutation, lowercase 64-hex output, and empty-hash rejection.
+
+Production remote M3U hashing fails closed unless the computed `input-m3u/v2` value matches `^[0-9a-f]{64}$`.
+
 ## BuildIdentityInput
 
 `New-ChannelForgeCandidateManifest.ps1` constructs the local `$buildInput` projection and hashes it with `candidate-manifest/v2`. The projection is not emitted as a separate artifact; the observable value is `BuildIdentity` in the manifest and review outputs.
@@ -53,7 +56,7 @@ C16 proves staging remains unpublished at the before-move boundary. C17 proves f
 | Contract and identity-rule versions | `$buildInput` sets `ContractVersion = blocker-2-contract/v7` and `IdentityRulesVersion = lineup-history-v1`. | `CandidateVersionRegistryEvidence.Tests.ps1` asserts the frozen-v7 version on emitted projections. |
 | Parser, serializer, and guide-binding versions | `$buildInput` includes the M3U/XMLTV parser and serializer contract versions and `GuideBindingContractVersion = guide-binding-exact-ordinal-v1`. | `CandidateCanonicalization.Tests.ps1` repeats equivalent candidate builds and compares `BuildIdentity`; `DeterministicComparisonEvidence.Tests.ps1` compares identities across fixture paths and source order. |
 | Selected logical source IDs | `SelectedLogicalSourceIds` is sorted and de-duplicated before insertion into the ordered projection. | `DeterministicComparisonEvidence.Tests.ps1` exercises reversed EPG source order while requiring equal `CandidateBuildIdentity`. |
-| Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local `input-m3u/v2` hashes from complete file bytes and remote hashes from acquisition status. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
+| Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local M3U hashes from complete file bytes and configured remote M3U/XMLTV hashes from acquisition status; `Build-Candidate.ps1` hashes its local input bytes directly. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
 
 The packet intentionally records the input fields and domains, not a generated hash literal. The evidence tests compare independently produced values and validate the 64-hex shape without fabricating a value.
 
@@ -71,7 +74,7 @@ The raw projections make ordinal dependencies explicit:
 
 ## Guide projection
 
-`New-ChannelForgeCandidateManifest.ps1` projects XMLTV channel occurrences into `GuideOccurrences`. It groups by logical source, raw-ID presence, and the raw ID; computes a `binding-key/v2` value from logical source, structural ordinal, raw-ID presence, and raw ID; and emits `Version`, `BindingKey`, `RawIdentityPresence`, `RawIdentityValue`, `OccurrenceOrdinal`, `LogicalSourceId`, `CandidateOccurrenceCount`, and `GuideCandidateEvidenceDigest`. The guide evidence digest input is that ordered set plus the candidate occurrence count; raw XMLTV digest is used upstream for canonical ordering, not silently replaced by a normalized ID.
+`New-ChannelForgeCandidateManifest.ps1` projects XMLTV channel occurrences into `GuideOccurrences`. It groups by logical source, raw-ID presence, and the raw ID; computes a `binding-key/v2` value from logical source, structural ordinal, raw-ID presence, and raw ID; and emits `Version`, `BindingKey`, `RawIdentityPresence`, `RawIdentityValue`, `OccurrenceOrdinal`, `LogicalSourceId`, `CandidateOccurrenceCount`, and `GuideCandidateEvidenceDigest`. The guide evidence digest input is explicitly `Version`, `BindingKey`, `RawIdentityPresence`, `RawIdentityValue`, `OccurrenceOrdinal`, `LogicalSourceId`, and `CandidateOccurrenceCount` (excluding the digest itself); raw XMLTV digest is used upstream for canonical ordering, not silently replaced by a normalized ID.
 
 `M3UXmltvBinding.Tests.ps1` asserts the exact GuideOccurrence property order and that M3U and XMLTV-only binding records are both represented. `DeterministicComparisonEvidence.Tests.ps1` compares every `GuideCandidateEvidenceDigest` and the serialized `GuideOccurrences` projection between equivalent builds.
 
@@ -99,6 +102,21 @@ The resolver only marks one-to-one exact raw-ordinal string-equality `tvg-id`/XM
 - ReviewNeededCount = 1;
 - XMLTVOnlyCount = 3;
 - RejectedXMLTV does not affect UnboundCount or XMLTVOnlyCount.
+
+## Shared review-count calculation
+
+`Get-ChannelForgeCandidateReviewCounts.ps1` is the single canonical source-level calculation implementation. `Build-Candidate.ps1` invokes it once and `Build-Lineup.ps1` invokes the same helper once per independent build entry point. Both entry points pass the resulting ordered `ReviewCounts` structure to JSON and Markdown construction; serializers do not inspect raw occurrences, binding records, or review records.
+
+| Inventory item | Count | Evidence |
+|---|---:|---|
+| Canonical calculation implementations | 1 | `Get-ChannelForgeCandidateReviewCounts.ps1` |
+| Build-Candidate callers | 1 | `Build-Candidate.ps1` |
+| Build-Lineup callers | 1 | `Build-Lineup.ps1` |
+| JSON consumers | 1 per entry-point serializer path | `ReviewCountMatrix.Tests.ps1` |
+| Markdown consumers | 1 per entry-point serializer path | `ReviewCountMatrix.Tests.ps1` |
+| Serializer recomputation sites | 0 | supplied-sentinel review-count test |
+
+The focused supplied-count test mutates/removes the underlying source collections after calculation and verifies both serializers retain the supplied values.
 
 ## Namespace isolation
 
@@ -129,9 +147,8 @@ The implementation has deliberately derived or report-only values adjacent to ca
 
 | Helper or value | Observed behavior | Boundary |
 |---|---|---|
-| `Get-ChannelForgeRawM3UProjection` history key | For present raw IDs, derives `HistoryKey` by Form-C normalization, edge whitespace removal, and lower-casing; missing or empty results become null. | This helper output is not one of the ten raw M3U digest fields. Resolver tests separately require raw ordinal equality, including case and whitespace distinctions. |
-| `Get-SafeCandidateText` | Redacts URLs, paths, and credential-like labels when constructing candidate presentation/collision fields. | It is not used to construct `$buildInput`; those safe fields can still be part of the separately hashed candidate manifest projection. |
-| `Get-SafeReportText` / `Get-SafeReportIdentityText` | Report text is trimmed and safety-filtered; identity text preserves leading/trailing and case characters so exact-guide evidence remains visible, subject to safety redaction. | These helpers feed Build-Lineup summary/plan projections, not `BuildIdentityInput`. |
+| `Get-SafeCandidateText` | Redacts URLs, paths, and credential-like labels when constructing candidate presentation fields. | It is not used to construct `$buildInput`; those safe fields can still be part of the separately hashed candidate manifest projection. |
+| `Get-SafeReportText` / `Get-SafeReportIdentityText` | `Get-SafeReportText` trims and safety-filters; `Get-SafeReportIdentityText` preserves leading/trailing and case characters while applying the safety filter so exact-guide evidence remains visible. | These helpers feed Build-Lineup summary/plan projections, not `BuildIdentityInput`. |
 | `ConvertTo-SafeChannelForgeIdentityRecord` and related candidate/evidence helpers | Convert binding results to redacted report records before writing `build-summary.json` and `lineup-plan.md`. | They do not replace the raw binding resolver or candidate manifest binding records. |
 | `GeneratedAt` and direct report SHA-256 fields | `Build-Lineup.ps1` writes wall-clock `GeneratedAt`; report M3U/XMLTV SHA-256 values are computed for summary output. | Neither is a member of `$buildInput`; candidate content hashes remain the domain-separated values in `ArtifactRecords`. |
 
