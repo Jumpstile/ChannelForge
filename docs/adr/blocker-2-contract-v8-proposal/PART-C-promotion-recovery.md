@@ -107,6 +107,22 @@ The Journal remains the sole durable transaction record: these predicates constr
 
 A flush or close failure means that boundary did not complete. A successful system call is not treated as durable until the specified reopen and verification succeed.
 
+For any staged file, generation directory, pointer pair, or Journal publication, `Complete(x)` means the exact bytes were written, flushed, closed, reopened through a safe handle, schema-validated, hash-verified, and FileIdentity-verified. For any boundary `b`, `Before(b)` means every predecessor is durably verified and the atomic operation at `b` has not completed; `After(b)` means the operation's postcondition, required flush, and required reopen/hash checks are all proven. `Ambiguous(b)` means durable bytes or safe-handle identities prove neither complete precondition nor complete postcondition. A complete stage is never accepted authority, and a complete final generation is never current authority until the pointer boundary is complete.
+
+`Ambiguous(b)` always yields `FAIL_CLOSED_RECOVERY_REQUIRED`; it is never interpreted as `After(b)` merely because a destination file exists. Recovery uses the following named first-match predicates in order; each predicate is evaluated only after safe path and identity reads, and each failed predicate mutates nothing:
+
+### 9.1 Recovery predicates
+
+Let `L` mean a live exclusive operation lock; `U` mean an unsafe path, reparse/UNC/SMB substitution, or FileIdentity change; `Jbad` mean a malformed, unknown-version, hash-invalid, impossible-rank/identity, stale-chain, or orphan-backup Journal condition; `J` mean a valid authoritative `journal/v2`; `S` mean an acceptance transaction remnant; `C` mean a complete valid current-pointer graph; `E` mean a completely empty accepted namespace with no current/previous pointer, journal, remnant, accepted generation, or active accepted output. `A` means no journal or acceptance remnant and a complete valid current graph (the no-journal accepted baseline).
+- `R_lock := L -> FAIL_CLOSED_RECOVERY_REQUIRED`. Mutate nothing and wait for the live owner.
+- `R_bad := not L and U -> FAIL_CLOSED_RECOVERY_REQUIRED`. Mutate nothing; safe handles and identities must be re-established before a validated retry.
+- `R_journal := not L and not U and Jbad -> FAIL_CLOSED_RECOVERY_REQUIRED`; a Journal backup is never substituted for the authoritative Journal. When `J` is valid, only its `JournalStage` and exact `Expected*` values select the phase predicates below.
+- `R_old := not L and not U and not Jbad and J and JournalStage in {Prepared, GenerationPublished} and not SwapDone -> OLD`. Validate the exact stage/final generation and OLD pointer, then retry only the next ordered boundary or fail closed.
+- `R_new := not L and not U and not Jbad and (SwapDone or (J and JournalStage in {PointerSwapped, Committed})) -> NEW`. Reopen and verify the complete NEW graph; after `Committed`, perform cleanup only.
+- `R_empty := not L and not U and not Jbad and not J and not S and E -> INITIAL_BASELINE_REQUIRED`. Preserve immutable candidates and mutate nothing.
+- `R_other := none of R_lock, R_bad, R_journal, R_old, R_new, or R_empty`. If `R_other and A`, classify `ACCEPTED_STATE_VALID` and mutate nothing; otherwise classify `FAIL_CLOSED_RECOVERY_REQUIRED`. No directory ordering, timestamp, output content, or guessed parent can resolve the unmatched state.
+These predicates do not add a Journal field or alternate authority: `J` is established only by the exact authoritative schema in section 6, and `SwapDone` is the pointer postcondition in section 7.1. The detailed first-match recovery table below supplies the observable cases for these predicates.
+
 ## 9. Recovery matrix
 
 Recovery is first-match-wins. It never chooses a generation by directory order, timestamp, lexical order, or output contents.
@@ -157,8 +173,8 @@ Every fault result is deterministic from the durable bytes and verified identiti
 For a non-first generation, let OLD be the generation named by the pre-promotion current pointer and NEW be the generation named by the post-promotion current pointer. The following equalities are mandatory:
 
 - `ExpectedOldGenerationId` equals OLD `GenerationId`; `ExpectedNewGenerationId` equals NEW `GenerationId`; they are distinct.
-- NEW `GenerationManifest.PreviousOutputManifestHash` equals the hash of OLD `previous-output-manifest/v2`, and that manifest names OLD's exact active M3U/XMLTV hashes and OLD `AcceptedStateHash`.
-- NEW previous M3U/XMLTV objects, when present, carry `PreviousGenerationId=OLD` and are byte/hash exact snapshots of OLD accepted outputs. NEW active artifacts carry `GenerationId=NEW` and NEW `AcceptedStateHash`/`OutputManifestHash`.
+- `NEW.GenerationManifest.PreviousOutputManifestHash` equals OLD's `OutputManifestHash` (the self-hash of OLD `accepted-output.manifest.json`, schema `previous-output-manifest/v2`). That OLD manifest names OLD's exact `ActiveM3UHash`, `ActiveXMLTVStatus`, `ActiveXMLTVHash`, and `AcceptedStateHash`.
+- NEW previous M3U/XMLTV descriptors carry `GenerationId=NEW`, `PreviousGenerationId=OLD`, OLD's `AcceptedStateHash`, OLD's `OutputManifestHash`, and exact OLD artifact bytes/hashes. For prior `NotGenerated` XMLTV, the descriptor is retained with `Status=NotGenerated`, `ContentHash=null`, `ByteLength=0`, and `RelativePath=null`; no XMLTV file is fabricated. NEW active artifacts carry `GenerationId=NEW` and NEW `AcceptedStateHash`/`OutputManifestHash`.
 - NEW decision records `AcceptedParentGenerationManifestHash` equal OLD `GenerationManifestHash`; a missing or different parent is stale and rejected.
 - The new pointer names only NEW's generation manifest, accepted state, and output manifest. The previous pointer names only OLD's pointer bytes and is not a second current pointer.
 
@@ -176,7 +192,7 @@ The required ten-case rejection matrix is labeled exactly `A` through `J`. Every
 | B | `Pointer.GenerationManifestHash`, `GenerationManifest.GenerationManifestHash`, `AcceptedStateHash`, `AcceptedOutputManifestHash` | Any pointer hash does not recompute from its named bytes, or the generation manifest's state/output hashes do not recompute from the named NEW objects. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 | C | `AcceptedState.GenerationId`, `AcceptedState.CandidateManifestHash`, `AcceptedState.DecisionManifestHash` | NEW accepted state carries OLD identity, or its candidate/decision links differ from NEW's generation manifest. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 | D | `ActiveM3U.GenerationId`, `ActiveXMLTV.GenerationId`, `AcceptedStateHash`, `OutputManifestHash`, `Status` | Any active artifact carries OLD state/output identity, or XMLTV `Generated`/`NotGenerated` fields violate the exact nullability rules. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
-| E | `GenerationManifest.PreviousOutputManifestHash`, `PreviousM3U.PreviousGenerationId`, `PreviousXMLTV.PreviousGenerationId` | NEW previous-output hash does not name OLD's exact previous-output manifest, or a previous artifact is not an exact OLD snapshot with `PreviousGenerationId=OLD`. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| E | `GenerationManifest.PreviousOutputManifestHash`, OLD `OutputManifestHash`, `PreviousM3U.PreviousGenerationId`, `PreviousXMLTV.PreviousGenerationId`, prior XMLTV status/nullability fields | NEW `PreviousOutputManifestHash` is not exactly OLD's `OutputManifestHash`, OLD's previous-output fields do not match OLD active artifacts, or a previous descriptor is not an exact OLD snapshot with `GenerationId=NEW`, `PreviousGenerationId=OLD`; prior `NotGenerated` is not represented by the exact null triple. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 | F | `Decision.AcceptedParentGenerationManifestHash`, `CandidateManifestHash`, `DecisionManifestHash` | NEW decision has a missing/stale parent, candidate, or decision link, even when NEW output bytes independently validate. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 | G | `state/accepted-lineup.json.previous`, `ExpectedOldPointerHash` | After a swap, previous pointer is missing, altered, NEW-naming, or does not hash to the exact pointer bytes replaced from OLD; before a swap, an existing backup is malformed or unsafe. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 | H | `Journal.ExpectedOldPointerHash`, `ExpectedNewPointerHash`, `ExpectedOldGenerationId`, `ExpectedNewGenerationId`, `JournalStage` | Journal expected identities disagree with actual pointers/generation, or phase rank skips, regresses, or names a different transaction. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
@@ -187,7 +203,7 @@ The required ten-case rejection matrix is labeled exactly `A` through `J`. Every
 2. Current pointer is OLD while an output, accepted state, decision, or M3U/XMLTV file is taken from NEW.
 3. Current pointer's `GenerationManifestHash`, `AcceptedStateHash`, or `AcceptedOutputManifestHash` does not hash to the named NEW bytes.
 4. NEW accepted state or output manifest carries OLD `GenerationId`; an active artifact carries OLD `AcceptedStateHash`/`OutputManifestHash`; or an active XMLTV Generated/NotGenerated nullability rule is violated.
-5. NEW `PreviousOutputManifestHash` names anything other than OLD's exact previous-output manifest, or a previous M3U/XMLTV snapshot has a different `PreviousGenerationId` or bytes.
+5. NEW `PreviousOutputManifestHash` is not exactly OLD's `OutputManifestHash`, OLD's previous-output fields do not match OLD active artifacts, or a previous M3U/XMLTV descriptor has a different `PreviousGenerationId`, current `GenerationId`, bytes, status, or required NotGenerated null triple.
 6. NEW decision has a stale/missing `AcceptedParentGenerationManifestHash`, candidate hash, or decision hash, even if all NEW output bytes otherwise validate.
 7. `accepted-lineup.json.previous` is absent when an old pointer existed, contains bytes different from the replaced pointer, names NEW, or has invalid OLD lineage.
 8. Journal expected old/new pointer hashes or generation IDs disagree with actual pointer files, final generation, or the phase rank; a journal from a different transaction is never adopted.

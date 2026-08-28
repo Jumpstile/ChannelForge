@@ -112,7 +112,15 @@ The descriptor is metadata for the exact active artifact, not the artifact's con
 | `ByteLength` | required `UInt`; positive and exact iff `Generated`, exactly `0` iff `NotGenerated` |
 | `RelativePath` | required nullable string exactly `merged.xml` iff `Generated`, exactly `null` iff `NotGenerated` |
 
-`Generated` requires a present `merged.xml`, a recomputed matching content hash, and a matching non-zero byte length. `NotGenerated` requires no `merged.xml` in the generation and the exact triple `ContentHash=null, ByteLength=0, RelativePath=null`. The status, nullability, file presence, content hash, and length must agree in active XMLTV, accepted state, output manifest, and generation manifest; no consumer may infer status from file presence.
+`Generated` requires a present `merged.xml`, a recomputed matching content
+hash, and a matching non-zero byte length in the active descriptor.
+`NotGenerated` requires no `merged.xml` in the generation and the exact
+active-descriptor triple `ContentHash=null, ByteLength=0, RelativePath=null`.
+The status is copied to accepted state and output manifest; each projection's
+XMLTV content-hash field is nullable iff its status is `NotGenerated`.
+Only the active descriptor proves file presence, path, and byte length; all
+available fields and artifact presence must agree, and no consumer may infer
+status from file presence alone.
 
 ## 6. `previous-m3u/v2` — PreviousM3UV2
 
@@ -147,11 +155,31 @@ This descriptor is permitted only when `PreviousStateHash` and `PreviousOutputMa
 | `RelativePath` | required nullable string `merged.xml` iff `Generated`, null iff `NotGenerated` |
 | `PreviousGenerationId` | required prior owner `GenerationId`, different from current; never null/missing |
 
-The XMLTV Generated/NotGenerated triple is identical to active XMLTV, but is evaluated against the prior generation. For `NotGenerated`, the prior generation has no XMLTV file and the exact values are `ContentHash=null, ByteLength=0, RelativePath=null`; for `Generated`, the prior file, hash, and length are all required and checked.
+The XMLTV Generated/NotGenerated triple is identical to active XMLTV, but is
+evaluated against the prior generation. For `NotGenerated`, the prior
+generation has no XMLTV file and the exact values are
+`ContentHash=null, ByteLength=0, RelativePath=null`; for `Generated`, the
+prior file, hash, and length are all required and checked. The previous
+descriptor remains required on every non-first generation, including N→N;
+its integrity links (`AcceptedStateHash`, `OutputManifestHash`, and
+`PreviousGenerationId`) remain required regardless of status. Only its
+content hash, path, and length follow the nullable NotGenerated triple.
 
-## 8. `decision-m3u/v2` — DecisionM3UV2
+Across a generation, let `S` be the XMLTV decision status. The aggregate
+`XMLTVDecisionStatus`, accepted-state `AcceptedXMLTVStatus`, output
+`ActiveXMLTVStatus`, and active descriptor `Status` must all equal `S`.
+`S=Generated` requires `merged.xml`, a non-null content hash, positive exact
+length, and `merged.xml` path; `S=NotGenerated` requires no file and null
+content hash/path with length zero wherever those fields exist. The output
+manifest and generation manifest remain required and retain their required
+integrity hashes in either status. The first-generation G and
+first-generation N vectors and the later G→G, G→N, N→G, and N→N
+transition vectors apply these same rules; only the first generation omits
+the previous-output object and previous descriptors.
 
-**Exact field list:** `Version,CandidateManifestHash,BuildIdentity,AcceptedParentGenerationManifestHash,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,DecisionIds,DecisionManifestHash`.
+## 8. `decision-m3u/v2` — DecisionM3UV2 subordinate projection
+
+**Exact field list:** `Version,CandidateManifestHash,BuildIdentity,AcceptedParentGenerationManifestHash,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,DecisionIds,M3UDecisionHash`.
 
 | Field | Type and null/missing rule |
 |---|---|
@@ -161,14 +189,18 @@ The XMLTV Generated/NotGenerated triple is identical to active XMLTV, but is eva
 | `AcceptedParentGenerationManifestHash` | required nullable `Hash`; null only on first generation, otherwise prior `GenerationManifestHash`; never missing |
 | `IncludedCandidateEntryIds` | required unique sorted `EntryId` array; never null/missing |
 | `ExcludedCandidateEntryIds` | required unique sorted `EntryId` array; never null/missing |
-| `DecisionIds` | required unique sorted `DecisionId` array; never null/missing |
-| `DecisionManifestHash` | required `Hash`; self-hash |
+| `DecisionIds` | required unique sorted lowercase 64-hex `DecisionId` array; never null/missing |
+| `M3UDecisionHash` | required `Hash`; self-hash |
 
-The entry arrays are disjoint and partition the candidate manifest entries. `DecisionManifestHash = H(decision-m3u/v2, canonical bytes with DecisionManifestHash omitted)`. The parent hash is a backward reference and can never name the generation being built.
+The entry arrays are disjoint and partition the candidate manifest entries.
+`M3UDecisionHash = H(decision-m3u/v2, canonical bytes with
+M3UDecisionHash omitted)`. This subordinate hash is not authoritative for
+acceptance; it is an input to the aggregate decision manifest. The parent
+hash is a backward reference and can never name the generation being built.
 
-## 9. `decision-xmltv/v2` — DecisionXMLTVV2
+## 9. `decision-xmltv/v2` — DecisionXMLTVV2 subordinate projection
 
-**Exact field list:** `Version,CandidateManifestHash,BuildIdentity,AcceptedParentGenerationManifestHash,AcceptedXMLTVStatus,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,DecisionIds,DecisionManifestHash`.
+**Exact field list:** `Version,CandidateManifestHash,BuildIdentity,AcceptedParentGenerationManifestHash,AcceptedXMLTVStatus,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,DecisionIds,XMLTVDecisionHash`.
 
 | Field | Type and null/missing rule |
 |---|---|
@@ -179,14 +211,50 @@ The entry arrays are disjoint and partition the candidate manifest entries. `Dec
 | `AcceptedXMLTVStatus` | required enum `Generated` or `NotGenerated`; never null/missing |
 | `IncludedCandidateEntryIds` | required unique sorted `EntryId` array; never null/missing |
 | `ExcludedCandidateEntryIds` | required unique sorted `EntryId` array; never null/missing |
-| `DecisionIds` | required unique sorted `DecisionId` array; never null/missing |
-| `DecisionManifestHash` | required `Hash`; self-hash |
+| `DecisionIds` | required unique sorted lowercase 64-hex `DecisionId` array; never null/missing |
+| `XMLTVDecisionHash` | required `Hash`; self-hash when this subordinate projection is present |
 
-`DecisionManifestHash = H(decision-xmltv/v2, canonical bytes with DecisionManifestHash omitted)`. The candidate hash, build identity, parent hash, entry partition, and status must match the corresponding current acceptance decision and accepted state. XMLTV status does not permit an omitted array or omitted decision hash.
+This subordinate projection is serialized and hashed when
+`AcceptedXMLTVStatus=Generated`; when status is `NotGenerated`, the
+projection is absent and the aggregate's `XMLTVDecisionHash` is `null`.
+When present, `XMLTVDecisionHash = H(decision-xmltv/v2, canonical bytes with
+XMLTVDecisionHash omitted)`. The candidate hash, build identity, parent hash,
+entry partition, and status must match the aggregate decision manifest and
+accepted state. A NotGenerated status never permits a fabricated hash or
+empty stand-in object.
 
-## 10. `generation-manifest/v2` — GenerationManifestV2
+## 10. `decision-manifest/v2` — DecisionManifestV2 aggregate
 
-**Exact field list:** `Version,GenerationId,BuildIdentity,CandidateManifestHash,DecisionM3UHash,DecisionXMLTVHash,AcceptedStateHash,AcceptedOutputManifestHash,ActiveM3UHash,ActiveXMLTVHash,PreviousOutputManifestHash,GenerationManifestHash`.
+**Exact field list:** `Version,CandidateManifestHash,BuildIdentity,M3UDecisionHash,XMLTVDecisionStatus,XMLTVDecisionHash,DecisionIds,DecisionManifestHash`.
+
+| Field | Type and null/missing rule |
+|---|---|
+| `Version` | required acceptance version string; never null/missing |
+| `CandidateManifestHash` | required v7 `Hash`; never null/missing |
+| `BuildIdentity` | required v7 `Hash`; never null/missing |
+| `M3UDecisionHash` | required `Hash`; equals the subordinate `decision-m3u/v2` `M3UDecisionHash`; never null/missing |
+| `XMLTVDecisionStatus` | required enum `Generated` or `NotGenerated`; never null/missing |
+| `XMLTVDecisionHash` | required nullable `Hash`; equals the subordinate `decision-xmltv/v2` `XMLTVDecisionHash` iff status is `Generated`, and is exactly `null` iff status is `NotGenerated` |
+| `DecisionIds` | required unique sorted lowercase 64-hex `DecisionId` array; never null/missing |
+| `DecisionManifestHash` | required lowercase 64-hex `Hash`; self-hash |
+
+The aggregate binds the subordinate M3U projection and, only when XMLTV is
+Generated, the subordinate XMLTV projection. Its candidate hash, build
+identity, and `DecisionIds` equal the M3U subordinate values; when present,
+the XMLTV subordinate has the same candidate/build values and
+`DecisionIds`. The two subordinate projections also have the same parent
+generation hash and disjoint complete entry partition. The aggregate's
+`DecisionIds` are the sorted unique IDs from that shared decision result.
+`DecisionManifestHash = H(decision-manifest/v2, canonical bytes with only
+DecisionManifestHash omitted)`. The aggregate does not include either
+subordinate projection inline, a generation ID, a parent hash, an accepted
+state hash, an output hash, a generation hash, a pointer hash, or a journal
+hash; all such links remain outside this hash input. Thus the aggregate
+cannot participate in a cycle.
+
+## 11. `generation-manifest/v2` — GenerationManifestV2
+
+**Exact field list:** `Version,GenerationId,BuildIdentity,CandidateManifestHash,DecisionManifestHash,AcceptedStateHash,AcceptedOutputManifestHash,ActiveM3UHash,ActiveXMLTVHash,PreviousOutputManifestHash,GenerationManifestHash`.
 
 | Field | Type and null/missing rule |
 |---|---|
@@ -194,8 +262,7 @@ The entry arrays are disjoint and partition the candidate manifest entries. `Dec
 | `GenerationId` | required `GenerationId`; never null/missing |
 | `BuildIdentity` | required v7 `Hash`; never null/missing |
 | `CandidateManifestHash` | required v7 `Hash`; never null/missing |
-| `DecisionM3UHash` | required `Hash` equal to current decision-m3u `DecisionManifestHash`; never null/missing |
-| `DecisionXMLTVHash` | required `Hash` equal to current decision-xmltv `DecisionManifestHash`; never null/missing |
+| `DecisionManifestHash` | required `Hash` equal to the current aggregate `decision-manifest/v2` `DecisionManifestHash`; never null/missing |
 | `AcceptedStateHash` | required `Hash`; never null/missing |
 | `AcceptedOutputManifestHash` | required `Hash` equal to current `OutputManifestHash`; never null/missing |
 | `ActiveM3UHash` | required `Hash` equal to active M3U `ContentHash`; never null/missing |
@@ -203,9 +270,14 @@ The entry arrays are disjoint and partition the candidate manifest entries. `Dec
 | `PreviousOutputManifestHash` | required nullable `Hash`; null only on first generation, otherwise prior `OutputManifestHash`; never missing |
 | `GenerationManifestHash` | required `Hash`; self-hash |
 
-`GenerationManifestHash = H(generation-manifest/v2, canonical bytes with GenerationManifestHash and GenerationId omitted)`. The generation manifest binds both decisions, accepted state, accepted output, and exact active artifact content. `ActiveXMLTVHash` follows the same status/null rules as active XMLTV. No generation manifest may contain a later generation's hash.
+`GenerationManifestHash = H(generation-manifest/v2, canonical bytes with
+GenerationManifestHash and GenerationId omitted)`. The generation manifest
+binds the aggregate decision manifest, accepted state, accepted output, and
+exact active artifact content. It never carries either subordinate decision
+hash. `ActiveXMLTVHash` follows the same status/null rules as active XMLTV.
+No generation manifest may contain a later generation's hash.
 
-## 11. `previous-output-manifest/v2` — PreviousOutputManifestV2
+## 12. `previous-output-manifest/v2` — PreviousOutputManifestV2
 
 **Exact field list:** `Version,GenerationId,ActiveM3UHash,ActiveXMLTVStatus,ActiveXMLTVHash,AcceptedStateHash,OutputManifestHash`.
 
@@ -221,10 +293,25 @@ The entry arrays are disjoint and partition the candidate manifest entries. `Dec
 
 This is the sole output-manifest schema. It is serialized as `accepted-output.manifest.json` in each immutable generation; `PreviousOutputManifestHash` points to the previous generation's `OutputManifestHash`. `OutputManifestHash = H(previous-output-manifest/v2, canonical bytes with OutputManifestHash, GenerationId, and AcceptedStateHash omitted)`. Its active hashes and status must equal the active descriptors and accepted state. `NotGenerated` means no XMLTV artifact and `ActiveXMLTVHash=null`; it is not an absent output-manifest object.
 
-## 12. DuplicateCount disposition
+## 13. DuplicateCount disposition
 
 `DuplicateCount` is owned by the v7 occurrence population, not by any of these ten domains. It is never a property of `RawM3UOccurrence`, `RawXMLTVChannelOccurrence`, or `RawProgrammeOccurrence`, and is excluded from their occurrence digests. For a selected representative, it is exactly the unsigned 32-bit count of other raw occurrences that are byte-for-byte/equivalently identical under that occurrence's complete canonical tuple; the representative itself is excluded, so a unique occurrence has count `0`. It is carried only by the v7 review/collision evidence record whose purpose is to report multiplicity. It MUST NOT appear in a decision, accepted state, output descriptor, output manifest, generation manifest, pointer, or previous descriptor, and it cannot alter acceptance identity or output bytes.
 
-## 13. Complete binding check
+## 14. Complete binding check
 
-Validation starts with scope and exact `Version`, then exact property set/order and primitive/null rules, then candidate/decision/state/output links, then artifact content hashes. The two decision projections must share candidate/build/parent values and the same complete disjoint entry partition. Accepted state must equal that partition and both decision hashes; output manifest must equal accepted state and active content hashes; generation manifest must equal both decision hashes, state/output hashes, and active hashes; pointer must equal the generation's three authoritative hashes. Previous descriptors, when present, must all identify the same prior generation and prior output manifest. Any mismatch, stale parent, mixed generation, missing required property, or status/file inconsistency is invalid and fails closed.
+Validation starts with scope and exact `Version`, then exact property
+set/order and primitive/null rules, then candidate/decision/state/output
+links, then artifact content hashes. The M3U subordinate projection and,
+when XMLTV is Generated, the XMLTV subordinate projection must share
+candidate/build/parent values and the same complete disjoint entry
+partition. The aggregate must equal those subordinate hashes, status, and
+`DecisionIds`; for NotGenerated it must carry `XMLTVDecisionHash=null` and
+no XMLTV subordinate object. Accepted state must equal the aggregate
+`DecisionManifestHash` and the selected partition; it must not carry
+subordinate hashes. Output manifest must equal accepted state and active
+content hashes; generation manifest must equal the aggregate decision hash,
+state/output hashes, and active hashes; pointer must equal the generation's
+three authoritative hashes. Previous descriptors, when present, must all
+identify the same prior generation and prior output manifest. Any mismatch,
+stale parent, mixed generation, missing required property, or
+status/file inconsistency is invalid and fails closed.
