@@ -18,8 +18,8 @@ RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85
 
 The implementation branch does not contain the frozen normative files. Independent review recovers frozen v7 authority from the governing contract branch and approved normative commit above. The candidate implementation must not be merged into a destination lacking that governing contract unless the contract dependency is integrated first or the merge is intentionally ordered so the frozen authority lands before this implementation.
 
-- Packet-content preparation commit: `d556efe`.
-- Final published review HEAD: recorded in the final metadata commit for this packet.
+- Packet substantive content finalized at: `d73da3d334f08e9b1e3ae05ac541a473ae4ed640`.
+- This packet metadata is published by the branch tip immediately following that substantive-content commit. Final review authority is the current remote tip of `review/issue-60-blocker-2-candidate-canonicalization`, determined by `git rev-parse origin/review/issue-60-blocker-2-candidate-canonicalization`.
 
 ## Reproducible validation commands
 
