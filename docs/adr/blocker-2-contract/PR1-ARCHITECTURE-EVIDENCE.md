@@ -272,7 +272,7 @@ The implementation has deliberately derived or report-only values adjacent to ca
 
 ## Carried evidence limits
 
-In addition to the frozen-contract debt listed below, this packet does not claim a separately persisted `BuildIdentityInput` or acceptance/promotion behavior. The repository exposes the resulting `BuildIdentity` and `CandidateManifestHash`, while the input projection is local to manifest construction. The generated hashes and byte lengths recorded above are evidence from the named deterministic fixture run, not a claim that the input projection is persisted. Report timestamps, direct report SHA-256 fields, and redacted report projections are evidence context rather than additional identity inputs.
+The implementation now offers a separately persisted `BuildIdentityInput` evidence record only when `CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT` is explicitly set; default production remains unchanged. The capture is evidence-only and does not alter acceptance or promotion behavior. The generated hashes and byte lengths recorded above are evidence from the named deterministic fixture run. Report timestamps, direct report SHA-256 fields, and redacted report projections remain evidence context rather than additional identity inputs.
 
 ## Carried contract debt
 
