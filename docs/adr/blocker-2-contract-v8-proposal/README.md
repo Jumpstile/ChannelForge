@@ -10,8 +10,8 @@ Current frozen authority: `blocker-2-contract/v7`
 
 Current frozen RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
 
-This proposal is the bounded successor to the frozen v7 contract. It closes the
-normative definitions proposed for these ten acceptance/promotion domains:
+This proposal is the bounded successor to the frozen v7 contract. It proposes
+normative definitions for these ten acceptance/promotion domains:
 `pointer/v2`, `accepted-state/v2`, `active-m3u/v2`, `active-xmltv/v2`,
 `previous-m3u/v2`, `previous-xmltv/v2`, `decision-m3u/v2`,
 `decision-xmltv/v2`, `generation-manifest/v2`, and
@@ -23,6 +23,8 @@ Candidate fields and candidate hash domains retain
 `blocker-2-contract/v7`. New acceptance/promotion fields use the scoped
 `AcceptanceContractVersion` value `blocker-2-contract/v8-acceptance`; this
 value is not an implementation authority or a minted revision identifier.
+`Journal.Version` remains the literal integer `2` under PART-C; it is the
+explicit journal-schema exception and is not `AcceptanceContractVersion`.
 
 Normative proposal content is exactly these five files:
 
