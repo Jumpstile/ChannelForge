@@ -37,6 +37,8 @@ packet or by the unfrozen proposal.
 |---|---|
 | Prior authority | `blocker-2-contract/v7` |
 | Prior RevisionContentId | `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a` |
+| Frozen approved normative commit | `91f3a15431d8c11cbe30d0c1e63d4b937815dea0` |
+| Frozen attestation commit | `9cae7f29690ea5d171a1a10f1538c985db6e2077` |
 | Proposal identity | `blocker-2-contract/proposal-4` |
 | Proposed label | `blocker-2-contract/v8` |
 | Candidate contract value | `blocker-2-contract/v7` (preserved) |

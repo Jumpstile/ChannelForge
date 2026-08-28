@@ -46,7 +46,7 @@ Every object is compact ordered UTF-8 JSON without BOM or trailing newline, with
 | `AcceptedAtUtc` | required `Utc` audit string; never null/missing |
 | `AcceptedStateHash` | required `Hash`; never null/missing; self-hash |
 
-The included and excluded arrays are disjoint and their union is exactly the candidate entry set. `AcceptedBindingIds` is exactly the accepted candidate binding set selected by the decision projections. `AcceptedXMLTVStatus` equals both decision XMLTV status and output-manifest status. `AcceptedStateHash = H(accepted-state/v2, canonical bytes with AcceptedStateHash, AcceptedOutputManifestHash, GenerationId, and AcceptedAtUtc omitted)`. The output reference is required in the object but excluded only to break the state/output cycle; the audit timestamp and operational generation ID are excluded from semantic state identity. `PreviousStateHash` is the sole state-chain field and is owned here, not by a pointer, output manifest, generation manifest, or journal.
+The included and excluded arrays are disjoint and their union is exactly the candidate entry set. `AcceptedBindingIds` is exactly the accepted candidate binding set selected by the decision projections. `AcceptedXMLTVStatus` equals both decision XMLTV status and output-manifest status. `AcceptedStateHash = H(accepted-state/v2, canonical bytes with AcceptedStateHash, GenerationId, and AcceptedAtUtc omitted)`. The output reference is required and included in the state projection; output is hashed before state, so this reference does not create a cycle. The audit timestamp and operational generation ID are excluded from semantic state identity. `PreviousStateHash` is the sole state-chain field and is owned here, not by a pointer, output manifest, generation manifest, or journal.
 
 ## 4. `active-m3u/v2` — ActiveM3UV2
 
@@ -186,7 +186,7 @@ The entry arrays are disjoint and partition the candidate manifest entries. `Dec
 | `AcceptedStateHash` | required `Hash` of that generation's accepted state; never null/missing |
 | `OutputManifestHash` | required `Hash`; self-hash |
 
-This is the sole output-manifest schema. It is serialized as `accepted-output.manifest.json` in each immutable generation; `PreviousOutputManifestHash` points to the previous generation's `OutputManifestHash`. `OutputManifestHash = H(previous-output-manifest/v2, canonical bytes with OutputManifestHash and GenerationId omitted)`. Its active hashes and status must equal the active descriptors and accepted state. `NotGenerated` means no XMLTV artifact and `ActiveXMLTVHash=null`; it is not an absent output-manifest object.
+This is the sole output-manifest schema. It is serialized as `accepted-output.manifest.json` in each immutable generation; `PreviousOutputManifestHash` points to the previous generation's `OutputManifestHash`. `OutputManifestHash = H(previous-output-manifest/v2, canonical bytes with OutputManifestHash, GenerationId, and AcceptedStateHash omitted)`. Its active hashes and status must equal the active descriptors and accepted state. `NotGenerated` means no XMLTV artifact and `ActiveXMLTVHash=null`; it is not an absent output-manifest object.
 
 ## 12. DuplicateCount disposition
 
