@@ -54,6 +54,8 @@ function Import-ChannelForgeConfiguredXmltvSource {
 
         while ($true) {
             $opened = $null
+            $hashingStream = $null
+            $hasher = $null
             $parserCompleted = $false
             try {
                 if ($useCache) {
@@ -71,8 +73,13 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -MaxRawResponseBytes $MaxRawResponseBytes
                 }
 
+                $hasher = [System.Security.Cryptography.SHA256]::Create()
+                $prefix = [System.Text.Encoding]::ASCII.GetBytes("input-xmltv/v2$([char]0)")
+                [void]$hasher.TransformBlock($prefix, 0, $prefix.Length, $prefix, 0)
+                $hashingStream = [System.Security.Cryptography.CryptoStream]::new(
+                    $opened.Stream, $hasher, [System.Security.Cryptography.CryptoStreamMode]::Read, $true)
                 $programmes = @(Read-ChannelForgeXmltvDocument `
-                    -Stream $opened.Stream `
+                    -Stream $hashingStream `
                     -SourceId $sourceId `
                     -SourcePath '' `
                     -SourceKind 'remote' `
@@ -84,6 +91,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                     -ContentEncodings $opened.ContentEncodings `
                     -RawContentLength $opened.RawContentLength `
                     -MaxDocumentBytes $MaxDocumentBytes)
+                $hashingStream.Dispose()
+                $hashingStream = $null
+                $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
                 $parserCompleted = $true
 
                 if ($null -ne $opened.Stream) {
@@ -133,6 +143,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                     else {
                         $null
                     }
+                    $AcquisitionStatus['InputArtifactHash'] = $inputArtifactHash
                 }
 
                 return $programmes
@@ -159,6 +170,12 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 throw
             }
             finally {
+                if ($null -ne $hashingStream) {
+                    try { $hashingStream.Dispose() } catch { }
+                }
+                if ($null -ne $hasher) {
+                    try { $hasher.Dispose() } catch { }
+                }
                 if ($null -ne $opened) {
                     if ($null -ne $opened.Stream) {
                         try { $opened.Stream.Dispose() } catch { }
@@ -187,5 +204,6 @@ function Import-ChannelForgeConfiguredXmltvSource {
     return @(Import-ChannelForgeXmltvSource `
         -Path $rawPath.Trim() `
         -SourceId $sourceId `
-        -MaxDocumentBytes $MaxDocumentBytes)
+        -MaxDocumentBytes $MaxDocumentBytes `
+        -AcquisitionStatus $AcquisitionStatus)
 }

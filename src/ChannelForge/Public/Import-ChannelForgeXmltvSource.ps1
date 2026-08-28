@@ -6,7 +6,9 @@ function Import-ChannelForgeXmltvSource {
 
         [string]$SourceId = '',
 
-        [long]$MaxDocumentBytes = 268435456
+        [long]$MaxDocumentBytes = 268435456,
+
+        [System.Collections.IDictionary]$AcquisitionStatus
     )
 
     if ($Path -match '^[a-z][a-z0-9+.-]*://') {
@@ -20,20 +22,27 @@ function Import-ChannelForgeXmltvSource {
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $resolvedSourceId = if ([string]::IsNullOrWhiteSpace($SourceId)) { $fullPath } else { $SourceId.Trim() }
     $opened = $null
-
     try {
         $opened = Open-ChannelForgeXmltvSourceStream `
             -Path $fullPath `
             -MaxDocumentBytes $MaxDocumentBytes
 
-        return @(Read-ChannelForgeXmltvDocument `
+        $programmes = @(Read-ChannelForgeXmltvDocument `
             -Stream $opened.Stream `
             -SourceId $resolvedSourceId `
             -SourcePath $opened.SourcePath `
             -Compression $opened.Compression `
             -MaxDocumentBytes $MaxDocumentBytes)
+        if ($null -ne $AcquisitionStatus) {
+            $AcquisitionStatus.Clear()
+            $AcquisitionStatus['InputArtifactHash'] = Get-ChannelForgeDomainHash `
+                -Domain 'input-xmltv/v2' `
+                -Bytes ([System.IO.File]::ReadAllBytes($fullPath))
+        }
+        return $programmes
     }
     finally {
+        # The hash is over exact file bytes; stream disposal below is parser cleanup only.
         if ($null -ne $opened) {
             try {
                 $opened.Stream.Dispose()

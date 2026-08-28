@@ -93,6 +93,8 @@ function Read-ChannelForgeXmltvDocument {
     $programmes = [System.Collections.Generic.List[Programme]]::new()
     $channelIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $channelIdOccurrences = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::Ordinal)
+    $rawChannelOccurrences = [System.Collections.Generic.List[object]]::new()
+    $rawProgrammeOccurrences = [System.Collections.Generic.List[object]]::new()
     $sawRoot = $false
 
     try {
@@ -133,6 +135,15 @@ function Read-ChannelForgeXmltvDocument {
                     else {
                         $channelIdOccurrences[$channelId] = 1
                     }
+                    [void]$rawChannelOccurrences.Add([pscustomobject][ordered]@{
+                            Version                      = 'blocker-2-contract/v7'
+                            RawChannelIdPresence         = 'Present'
+                            RawChannelId                 = $channelId
+                            StructuralOccurrenceOrdinal = $rawChannelOccurrences.Count
+                            DisplayNameNodes             = @()
+                            IconNodes                    = @()
+                            RawChannelExtensions         = @()
+                        })
                 }
 
                 'programme' {
@@ -255,6 +266,24 @@ function Read-ChannelForgeXmltvDocument {
                         -IsPremiere $isPremiere `
                         -SourceId $SourceId
 
+                    [void]$rawProgrammeOccurrences.Add([pscustomobject][ordered]@{
+                            Version                       = 'blocker-2-contract/v7'
+                            RawProgrammeChannelIdPresence = 'Present'
+                            RawProgrammeChannelId        = $channelId
+                            StructuralOccurrenceOrdinal  = $rawProgrammeOccurrences.Count
+                            StartRaw                      = $startValue
+                            StopRaw                       = $endValue
+                            TitleNodes                    = @($title)
+                            SubTitleNodes                 = @($subtitle)
+                            DescNodes                     = @($description)
+                            CategoryNodes                 = @($categories.ToArray())
+                            EpisodeNumbers                = @($episodeNumber)
+                            IsNew                         = $isNew
+                            IsLive                        = $isLive
+                            IsPremiere                    = $isPremiere
+                            RawProgrammeExtensions        = @()
+                        })
+
                     [void]$programmes.Add($programme)
                 }
 
@@ -358,6 +387,8 @@ function Read-ChannelForgeXmltvDocument {
             DocumentBytes   = $documentBytes
         }
         $evidence = New-ChannelForgeXmltvEvidenceRecord @evidenceParameters
+        $evidence | Add-Member -NotePropertyName RawChannelOccurrences -NotePropertyValue @($rawChannelOccurrences.ToArray()) -Force
+        $evidence | Add-Member -NotePropertyName RawProgrammeOccurrences -NotePropertyValue @($rawProgrammeOccurrences.ToArray()) -Force
 
         foreach ($programme in $programmes) {
             $programme.Evidence = $evidence
