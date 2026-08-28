@@ -13,8 +13,12 @@ Current frozen RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11
 This packet is an integration checklist and evidence index for the proposal in
 this directory. It does not add a schema, property order, hash rule, recovery
 classification, or implementation requirement. It is not one of the five
-normative files used to compute the proposal's eventual `RevisionContentId`.
-No v8 `ContractRevisionId` or `RevisionContentId` exists yet.
+normative files used to compute the proposal's `RevisionContentId`.
+At candidate normative HEAD `08dac95f9f97af2534905215a2daabcbd04e118b`, the
+exact five normative files currently compute to candidate
+`RevisionContentId` `1d7bc81f362c632cad433e1ab65711c61b0950ac9d7ffe7f3942d1b69fa0d91b`.
+That is a reproducibility reference, not a minted `ContractRevisionId` or
+frozen authority.
 
 ## Review conclusion
 
@@ -38,8 +42,10 @@ packet or by the unfrozen proposal.
 | Proposed label | `blocker-2-contract/v8` |
 | Candidate contract value | `blocker-2-contract/v7` (preserved) |
 | Acceptance contract value | `blocker-2-contract/v8-acceptance` (proposed, scoped to acceptance/promotion) |
-| v8 ContractRevisionId | Not minted |
-| v8 RevisionContentId | Not computed from final approved bytes |
+| Candidate normative HEAD | `08dac95f9f97af2534905215a2daabcbd04e118b` (convenience pointer only) |
+| Candidate `RevisionContentId` | `1d7bc81f362c632cad433e1ab65711c61b0950ac9d7ffe7f3942d1b69fa0d91b` (computed from the current five normative files; not minted) |
+| v8 `ContractRevisionId` | Not minted |
+| v8 frozen `RevisionContentId` | Not recorded; the candidate value above is not frozen authority |
 | Runtime authority | None until a new revision is approved and frozen |
 
 The proposal's version registry must remain the sole source for version values.
@@ -89,15 +95,15 @@ runtime behavior.
 | Integration boundary | Expected contract relationship | Review disposition |
 |---|---|---|
 | PART-A -> retained candidate | Candidate fields and candidate BuildIdentity remain v7; PART-A's scoped registry must not rewrite them | Preserve; no candidate delta is in scope |
-| PART-A -> PART-B | Acceptance projections use `blocker-2-contract/v8-acceptance`; canonical ordered UTF-8 JSON and domain-separated hash rules apply uniformly | Review exact field-level exceptions and self-hash omissions |
-| PART-B -> PART-C | Generation, accepted-state, output, decision, previous-output, and pointer hashes must resolve to one generation and candidate manifest | Proposed; cross-binding review still required |
-| PART-C -> PART-A | Journal validation and recovery use the central version registry and the acyclic hash graph | JournalV2 is now textually defined in PART-C §6; verify its version/ID encoding against PART-A |
-| Candidate -> decision | Decisions consume immutable v7 candidate manifest/build identity and identify the accepted parent generation | Proposed; stale candidate/parent rejection needs adversarial review |
-| Decision -> accepted state | Included/excluded IDs, binding IDs, XMLTV status, and decision hash must agree exactly | Proposed; decision-manifest hash cardinality needs clarification |
-| Accepted state -> outputs | Active output metadata and bytes must bind to the same generation and accepted-state hash | Proposed; NotGenerated XMLTV hash handling needs clarification |
-| Outputs -> previous output | Previous files refer only to the immediately prior accepted generation; first generation has no previous-output object | Proposed; status/hash null rules need an end-to-end example |
-| Generation -> pointer | Pointer names one complete generation and all required manifest/state/output hashes; pointer replacement is the authority transition | Proposed; output-manifest role is defined in PART-A but needs cross-part verification |
-| Journal -> recovery | Journal phases classify OLD/NEW authority around pointer replacement and never edit accepted output bytes | Proposed; exact JournalV2 is present, but runtime evidence is out of scope |
+| PART-A -> PART-B | Acceptance projections use `blocker-2-contract/v8-acceptance`; canonical ordered UTF-8 JSON and domain-separated hash rules apply uniformly | Closed in current contract text; field-level exceptions and self-hash omissions are explicit in PART-A/PART-B |
+| PART-B -> PART-C | Generation, accepted-state, output, decision, previous-output, and pointer hashes must resolve to one generation and candidate manifest | Closed in current contract text; cross-object bindings and required status/null rules are explicit |
+| PART-C -> PART-A | Journal validation and recovery use the central version registry and the acyclic hash graph | Closed in current contract text; JournalV2 is owned by PART-C §6 and its literal `Version` 2 exception is explicit |
+| Candidate -> decision | Decisions consume immutable v7 candidate manifest/build identity and identify the accepted parent generation | Closed in current contract text; candidate/build/parent mismatches fail the stated validation |
+| Decision -> accepted state | Included/excluded IDs, binding IDs, XMLTV status, and decision hash must agree exactly | Closed in current contract text; the aggregate owns the singular `DecisionManifestHash` and status |
+| Accepted state -> outputs | Active output metadata and bytes must bind to the same generation and accepted-state hash | Closed in current contract text; output and active descriptors carry the required generation/state links |
+| Outputs -> previous output | Previous files refer only to the immediately prior accepted generation; first generation has no previous-output object | Closed in current contract text; first-generation and later status/hash rules are explicit |
+| Generation -> pointer | Pointer names one complete generation and all required manifest/state/output hashes; pointer replacement is the authority transition | Closed in current contract text; pointer references and compare-and-swap postconditions are explicit |
+| Journal -> recovery | Journal phases classify OLD/NEW authority around pointer replacement and never edit accepted output bytes | Closed in current contract text; runtime fault evidence is outside this contract-freeze review |
 | Review packet -> normative content | This file reports integration findings but does not define schemas or enter RevisionContentId | Preserved; explicitly non-normative |
 
 ## Validation matrix categories
@@ -108,36 +114,36 @@ intended rule; it does not mean the rule has passed runtime validation.
 
 | Category | Contract checks | Current disposition | Required evidence before implementation approval |
 |---|---|---|---|
-| Authority and version scope | v7 candidate authority, v8 proposal label, scoped acceptance value, no draft authority | TEXT / PASS for boundary | Governance review and freeze record |
-| Exact projection closure | Property order, required fields, null/missing rules, array ordering, self-field omission | TEXT / REVIEW | Independent schema/projection vectors for all ten domains |
-| Canonical byte encoding | UTF-8 without BOM, compact ordered JSON, no trailing newline, unsigned lengths | TEXT / REVIEW | Byte-for-byte serializer vectors, including null and empty cases |
-| Hash domains and self-hashes | Domain-separated input, omitted self field, lowercase SHA-256 output | TEXT / REVIEW | Independent recomputation from captured canonical bytes |
-| Dependency acyclicity | Candidate -> decision -> state/output -> generation -> pointer; journal points backward | TEXT / REVIEW | Graph walk and negative cycle/dependency cases |
-| Cross-object binding | GenerationId, CandidateManifestHash, state/output/decision/pointer hashes agree | TEXT / REVIEW | Mismatch matrix for every edge and stale-parent case |
-| Candidate isolation | v7 candidate bytes and values remain unchanged; candidate namespace is not accepted state | TEXT / PASS for scope | Before/after byte comparison and namespace separation evidence |
-| Determinism and permutation invariance | Sorting, unique IDs, status projections, previous linkage | TEXT / REVIEW | Repeated equivalent builds and input-order permutations |
-| XMLTV status/nullability | Generated versus NotGenerated content and path/null rules | TEXT / BLOCKED by cross-manifest hash consistency | Explicit first-generation and no-XMLTV vectors |
-| Generation/previous linkage | First generation absence; later generation exact previous accepted output | TEXT / REVIEW | Two-generation and stale-previous-manifest vectors |
-| Transaction durability | Flush/close/reopen/verify and pointer replacement boundary | TEXT / REVIEW | Fault-hook evidence at every durability boundary |
-| Crash recovery | OLD before pointer replacement, NEW after replacement, fail closed on damaged authority | TEXT / REVIEW | Crash matrix with journal and pointer remnants |
-| Path and reparse safety | Safe roots, no path substitution, no guessed latest-file authority | TEXT / REVIEW | Adversarial path/reparse and malformed-remnant cases |
-| Duplicate evidence | `DuplicateCount` derived outside occurrence digests and excludes representative | TEXT / PASS as disposition | Evidence population vectors and review/collision ownership |
-| Governance and reproducibility | Five-file content manifest excludes this packet and freeze metadata | TEXT / REVIEW | Independent RevisionContentId calculation after final freeze candidate |
+| Authority and version scope | v7 candidate authority, v8 proposal label, scoped acceptance value, no draft authority | TEXT / CLOSED FOR CONTRACT SCOPE | Governance review and freeze record |
+| Exact projection closure | Property order, required fields, null/missing rules, array ordering, self-field omission | TEXT / CLOSED | Independent schema/projection vectors for all eleven projections are post-freeze implementation evidence |
+| Canonical byte encoding | UTF-8 without BOM, compact ordered JSON, no trailing newline, unsigned lengths | TEXT / CLOSED | Byte-for-byte serializer vectors, including null and empty cases, are post-freeze implementation evidence |
+| Hash domains and self-hashes | Domain-separated input, omitted self field, lowercase SHA-256 output | TEXT / CLOSED | Independent recomputation from captured canonical bytes is post-freeze implementation evidence |
+| Dependency acyclicity | Candidate -> decision -> state/output -> generation -> pointer; journal points backward | TEXT / CLOSED | Graph walk and negative cycle/dependency cases are post-freeze implementation evidence |
+| Cross-object binding | GenerationId, CandidateManifestHash, state/output/decision/pointer hashes agree | TEXT / CLOSED | Mismatch matrix for every edge and stale-parent case is post-freeze implementation evidence |
+| Candidate isolation | v7 candidate bytes and values remain unchanged; candidate namespace is not accepted state | TEXT / CLOSED FOR SCOPE | Before/after byte comparison and namespace separation evidence are post-freeze implementation evidence |
+| Determinism and permutation invariance | Sorting, unique IDs, status projections, previous linkage | TEXT / CLOSED | Repeated equivalent builds and input-order permutations are post-freeze implementation evidence |
+| XMLTV status/nullability | Generated versus NotGenerated content and path/null rules | TEXT / CLOSED | First-generation and four later transition vectors are post-freeze implementation evidence |
+| Generation/previous linkage | First generation absence; later generation exact previous accepted output | TEXT / CLOSED | Two-generation and stale-previous-manifest vectors are post-freeze implementation evidence |
+| Transaction durability | Flush/close/reopen/verify and pointer replacement boundary | TEXT / DEFINED; NOT APPLICABLE TO CONTRACT FREEZE REVIEW | Fault-hook evidence at every durability boundary is required only for post-freeze implementation approval |
+| Crash recovery | OLD before pointer replacement, NEW after replacement, fail closed on damaged authority | TEXT / DEFINED; NOT APPLICABLE TO CONTRACT FREEZE REVIEW | Crash matrix with journal and pointer remnants is required only for post-freeze implementation approval |
+| Path and reparse safety | Safe roots, no path substitution, no guessed latest-file authority | TEXT / DEFINED; NOT APPLICABLE TO CONTRACT FREEZE REVIEW | Adversarial path/reparse and malformed-remnant evidence is required only for post-freeze implementation approval |
+| Duplicate evidence | `DuplicateCount` derived outside occurrence digests and excludes representative | TEXT / CLOSED FOR DISPOSITION | Evidence population vectors and review/collision ownership are post-freeze implementation evidence |
+| Governance and reproducibility | Five-file content manifest excludes this packet and freeze metadata | TEXT / CANDIDATE COMPUTED | Independent `RevisionContentId` reproduction and freeze record remain required |
 
-## Proposed-domain review matrix
+## Domain closure matrix
 
-| Domain | Intended owner | Proposed projection | Integration check still required |
+| Domain | Intended owner | Projection | Closure disposition |
 |---|---|---|---|
-| `pointer/v2` | PART-B | `Version,GenerationId,GenerationManifestHash,AcceptedStateHash,AcceptedOutputManifestHash,PointerHash` | Verify pointer references the PART-A output-manifest role and exact bytes |
-| `accepted-state/v2` | PART-B | Accepted generation/build/candidate/decision/output IDs, included/excluded IDs, binding IDs, XMLTV status, timestamp, self-hash | Verify state/output ordering and excluded self/reference fields |
-| `active-m3u/v2` | PART-B | Active M3U metadata and content binding | Verify `OutputManifestHash` against the PART-A output-manifest projection |
-| `active-xmltv/v2` | PART-B | Generated/NotGenerated status and conditional content fields | Resolve required generation hash versus null content hash |
-| `previous-m3u/v2` | PART-B | Prior accepted M3U plus `PreviousGenerationId` | Verify previous hash and generation coherence |
-| `previous-xmltv/v2` | PART-B | Prior accepted XMLTV plus `PreviousGenerationId` | Resolve NotGenerated previous hash binding |
-| `decision-m3u/v2` | PART-B | Subordinate M3U decision hash | Feeds aggregate `DecisionManifestHash`; resolved |
-| `decision-xmltv/v2` | PART-B | Subordinate XMLTV decision hash/status | Feeds aggregate when Generated; null/absent subordinate on NotGenerated; resolved |
-| `generation-manifest/v2` | PART-B | Generation, candidate, aggregate decision, state, output, active, previous hashes | Aggregate decision and XMLTV status/null rules resolved |
-| `previous-output-manifest/v2` | PART-B | Prior generation output references and self-hash | First-generation absence and status/hash vectors resolved |
+| `pointer/v2` | PART-B | `Version,GenerationId,GenerationManifestHash,AcceptedStateHash,AcceptedOutputManifestHash,PointerHash` | Closed; pointer references the declared output-manifest role and exact hashes |
+| `accepted-state/v2` | PART-B | Accepted generation/build/candidate/decision/output IDs, included/excluded IDs, binding IDs, XMLTV status, timestamp, self-hash | Closed; state ordering and excluded self/reference fields are explicit |
+| `active-m3u/v2` | PART-B | Active M3U metadata and content binding | Closed; `OutputManifestHash` and exact artifact binding are explicit |
+| `active-xmltv/v2` | PART-B | Generated/NotGenerated status and conditional content fields | Closed; required generation link and status-dependent content fields are explicit |
+| `previous-m3u/v2` | PART-B | Prior accepted M3U plus `PreviousGenerationId` | Closed; prior hash and generation coherence are explicit |
+| `previous-xmltv/v2` | PART-B | Prior accepted XMLTV plus `PreviousGenerationId` | Closed; NotGenerated prior hash/null rules are explicit |
+| `decision-m3u/v2` | PART-B | Subordinate M3U decision hash | Closed; feeds aggregate `DecisionManifestHash` |
+| `decision-xmltv/v2` | PART-B | Subordinate XMLTV decision hash/status | Closed; feeds the aggregate when Generated and is absent with aggregate null hash on NotGenerated |
+| `generation-manifest/v2` | PART-B | Generation, candidate, aggregate decision, state, output, active, previous hashes | Closed; aggregate decision and XMLTV status/null rules are explicit |
+| `previous-output-manifest/v2` | PART-B | Prior generation output references and self-hash | Closed; first-generation absence and status/hash rules are explicit |
 
 ## Status and dispositions
 
@@ -150,19 +156,33 @@ intended rule; it does not mean the rule has passed runtime validation.
    Generated requires content hash, positive length, path, and file. NotGenerated
    requires null content hash, zero length, null path where defined, and no
    artifact. Integrity links remain required.
-3. **Runtime validation: EXPECTED / NOT APPLICABLE TO CONTRACT FREEZE.** Runtime
-   acceptance, promotion, recovery, serializer, durability, and crash testing
-   are deferred until after the successor revision is frozen.
+3. **Runtime validation: NOT APPLICABLE TO CONTRACT FREEZE REVIEW.** This
+   packet evaluates contract text only. Runtime acceptance, promotion, recovery,
+   serializer, durability, and crash testing are deferred until after the
+   successor revision is approved and frozen.
 4. **Fixture values: evidence only.** Preserved v7 hashes are not acceptance
    constants for unrelated candidates or generations.
 5. **DuplicateCount: resolved as a derived v7 evidence field.** It remains
    excluded from occurrence projections and successor acceptance objects.
 
-Material unresolved contract issues: NONE.
+Material unresolved contract issues: NONE IN THE CURRENT PROPOSAL TEXT.
 
-The proposal remains unfrozen and has no runtime authority. Its candidate RCID
-must be independently recomputed from the final five normative proposal files
-before any freeze decision.
+## Remaining limitations
+
+These are process or post-freeze implementation limitations, not unresolved
+decision/XMLTV schema closures:
+
+1. Proposal-4 is not frozen and has no runtime authority. The candidate
+   `RevisionContentId` above must be independently reproduced from the final
+   five normative files and recorded with a new `ContractRevisionId` in the
+   freeze record.
+2. Runtime acceptance, serialization, durability, path-safety, and crash-
+   recovery evidence is not produced by this contract-freeze packet and is not
+   applicable to this review. It is required only when implementation approval
+   is sought against the frozen revision.
+3. Technical preservation, independent adversarial, governance, and
+   Architecture Authority review, followed by the ordered freeze record,
+   remain required by the proposal's governance boundary.
 
 ## Required review and freeze record
 
@@ -179,5 +199,6 @@ The review sequence remains ordered:
    `RevisionContentId`, owner, reviewers, results, date, and frozen commit.
 
 No implementation branch may claim v8 compliance or begin acceptance/promotion
-work until every open limitation above has a normative disposition and the new
-revision is frozen.
+work until the required technical, adversarial, governance, and Architecture
+Authority reviews are complete, a new `ContractRevisionId` and independently
+reproduced `RevisionContentId` are recorded, and the revision is frozen.
