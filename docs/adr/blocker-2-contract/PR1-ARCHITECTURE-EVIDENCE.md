@@ -4,7 +4,22 @@
 
 - ContractRevisionId: `blocker-2-contract/v7`
 - RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
-- HEAD at packet preparation: `d556efe`.
+## Frozen authority integration dependency
+
+Governing contract branch: `review/issue-60-blocker-2-contract-proposal-3`
+
+Approved normative commit: `91f3a15431d8c11cbe30d0c1e63d4b937815dea0`
+
+Freeze attestation commit: `9cae7f29690ea5d171a1a10f1538c985db6e2077`
+
+Final freeze metadata commit: `abb038b037938ca83fd89de84570635a4377718f`
+
+RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
+
+The implementation branch does not contain the frozen normative files. Independent review recovers frozen v7 authority from the governing contract branch and approved normative commit above. The candidate implementation must not be merged into a destination lacking that governing contract unless the contract dependency is integrated first or the merge is intentionally ordered so the frozen authority lands before this implementation.
+
+- Packet-content preparation commit: `d556efe`.
+- Final published review HEAD: recorded in the final metadata commit for this packet.
 
 ## Reproducible validation commands
 
@@ -72,24 +87,23 @@ change production output or hash semantics.
 | Selected logical source IDs | `SelectedLogicalSourceIds` is sorted and de-duplicated before insertion into the ordered projection. | `DeterministicComparisonEvidence.Tests.ps1` exercises reversed EPG source order while requiring equal `CandidateBuildIdentity`. |
 | Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local M3U hashes from complete file bytes and configured remote M3U/XMLTV hashes from acquisition status; `Build-Candidate.ps1` hashes its local input bytes directly. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
 
-The explicit-LF deterministic capture records these exact ordered fields:
+The explicit-LF deterministic capture records the ordered fields, exact input artifact hashes, and lossless Base64 canonical bytes at runtime. `CHANNELFORGE_DETERMINISTIC_EVIDENCE_OUTPUT` and `CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT` write to caller-selected paths only when set; no generated evidence file is tracked.
 
-* `ContractVersion`: `blocker-2-contract/v7`
-* `IdentityRulesVersion`: `lineup-history-v1`
-* `M3UParserContractVersion`: `m3u-parser-v1`
-* `XMLTVParserContractVersion`: `xmltv-parser-v1`
-* `M3USerializerVersion`: `m3u-serializer-v1`
-* `XMLTVSerializerVersion`: `xmltv-serializer-v1`
-* `GuideBindingContractVersion`: `guide-binding-exact-ordinal-v1`
-* `SelectedLogicalSourceIds`: `35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c`, `3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c`, `893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8`
-* `InputArtifactHashes`: XMLTV/`35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c` → `492bb3208b87e7e1dee61f705d48a6b017c82fe4a811fd95a062fdee708844f7`; XMLTV/`3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c` → `878f964fd71a5a309ec19821e3efe84b011a216b7ae700103e172fbd2376fc80`; M3U/`893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8` → `9d537b6f00459798b141c1153dde167a274f097bce8fafdf49fbf89d887cbbb0`
+The complete Base64 canonical UTF-8 values are available under `BuildA.BuildIdentityInput.CanonicalUtf8Base64` and `BuildB.BuildIdentityInput.CanonicalUtf8Base64` in the caller-selected capture. Build A and Build B are byte-identical. The test independently recomputes direct SHA-256 and the domain-separated `candidate-manifest/v2` identity from decoded bytes.
 
-The complete Base64 canonical UTF-8 values are retained in the focused test
-capture at `output/deterministic-comparison-evidence.json`, under
-`BuildA.BuildIdentityInput.CanonicalUtf8Base64` and
-`BuildB.BuildIdentityInput.CanonicalUtf8Base64`; Build A and Build B are byte
-identical. The test independently recomputes both direct SHA-256 and the
-domain-separated `candidate-manifest/v2` identity from the decoded bytes.
+Field values:
+
+| Field | Value |
+|---|---|
+| ContractVersion | `blocker-2-contract/v7` |
+| IdentityRulesVersion | `lineup-history-v1` |
+| M3UParserContractVersion | `m3u-parser-v1` |
+| XMLTVParserContractVersion | `xmltv-parser-v1` |
+| M3USerializerVersion | `m3u-serializer-v1` |
+| XMLTVSerializerVersion | `xmltv-serializer-v1` |
+| GuideBindingContractVersion | `guide-binding-exact-ordinal-v1` |
+| SelectedLogicalSourceIds | `35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c`, `3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c`, `893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8` |
+| InputArtifactHashes | XMLTV `35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c` → `492bb3208b87e7e1dee61f705d48a6b017c82fe4a811fd95a062fdee708844f7`; XMLTV `3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c` → `878f964fd71a5a309ec19821e3efe84b011a216b7ae700103e172fbd2376fc80`; M3U `893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8` → `9d537b6f00459798b141c1153dde167a274f097bce8fafdf49fbf89d887cbbb0` |
 
 ## Cross-machine BuildIdentity disposition
 
@@ -182,7 +196,7 @@ The resolver only marks one-to-one exact raw-ordinal string-equality `tvg-id`/XM
 | Markdown consumers | 1 per entry-point serializer path | `ReviewCountMatrix.Tests.ps1` |
 | Serializer recomputation sites | 0 | supplied-sentinel review-count test |
 
-The focused supplied-count test mutates/removes the underlying source collections after calculation and verifies both serializers retain the supplied values.
+The supplied-count sentinel test proves the manifest consumes the supplied `ReviewCounts` object without independently recalculating it. Source inspection separately establishes that normal JSON/Markdown construction receives the same supplied count object; the test does not claim post-calculation collection mutation or independent serializer sentinel execution.
 
 ## ReviewRecord population boundary
 
@@ -247,7 +261,14 @@ The repository has direct assertions for the following fifteen rows. Inputs are 
 | 14 | Reverse the complete channel and programme input arrays | Serialized binding-order summary is identical after canonical ordering | `M3UXmltvBinding.Tests.ps1` |
 | 15 | Invoke resolver and compare canonical channels/programmes before and after | Canonical inputs are unchanged; no resolver mutation | `M3UXmltvBinding.Tests.ps1` |
 
-These rows cover the currently grounded adversarial identity cases. No additional unsupported row is silently represented as a pass; the matrix is limited to the fifteen cases directly asserted by the named test.
+These rows are the grounded adversarial identity evidence. The following requested cases have explicit dispositions:
+
+| Case | Evidence state | Disposition |
+|---|---|---|
+| Exact M3U duplicate | NOT PROVEN IN PR1 PERMANENT EVIDENCE | Existing normalized-M3U collision evidence is distinct and is not treated as an exact duplicate proof; no acceptance claim depends on this case. |
+| Same-run multiple ReviewNeeded | NOT PROVEN IN PR1 PERMANENT EVIDENCE | Existing evidence proves one ReviewNeeded case; no claim is made for a same-run population greater than one. |
+
+The adversarial evidence is therefore not described as a complete executable matrix for those two cases.
 
 ## Candidate artifact graph
 
