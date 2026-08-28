@@ -1,17 +1,72 @@
-## 1. Scoped semantic version registry
+# ChannelForge blocker #2 contract proposal 4 — canonical foundation
 
-`CandidateContractVersion` is exactly `blocker-2-contract/v7` for all unchanged candidate schemas and artifacts. `AcceptanceContractVersion` is exactly `blocker-2-contract/v8-acceptance` for pointer, accepted-state, output, decision, generation, previous-output, and journal schemas defined by this proposal. Validation first checks scope, then exact version, then schema/projection, then hashes and links.
+## 1. Scope and version ownership
 
-All bytes are UTF-8 without BOM. Canonical JSON is compact ordered JSON. Hashes are lowercase SHA-256 hex over `UTF8(domain) || 0x00 || canonical-bytes`. A self-hash field is omitted from its input projection.
+This proposal is design/review evidence only. It authorizes no acceptance, promotion, recovery, pointer publication, generation publication, or active-output implementation. The frozen authority remains `blocker-2-contract/v7` until this proposal is frozen.
 
-## 2. Shared binding rules
+The version registry has two deliberately disjoint scopes:
 
-Every accepted pointer names one `GenerationId`, `GenerationManifestHash`, `AcceptedStateHash`, and `AcceptedOutputManifestHash`. The generation manifest names exactly one candidate manifest, decision manifest, accepted state, output manifest, M3U, and optional XMLTV. Every named hash is recomputed from exact bytes before authority is declared. A missing required field is invalid; null is accepted only where explicitly stated; empty strings are invalid for IDs, hashes, paths, and domain strings.
+* `CandidateContractVersion` is the literal `blocker-2-contract/v7`. Every retained candidate projection, candidate artifact, `BuildIdentity`, and candidate `Version` field remains owned by v7. This proposal does not restate or amend those projections.
+* `AcceptanceContractVersion` is the literal `blocker-2-contract/v8-acceptance`. It is owned by this proposal and is used only by the ten successor domains listed in section 2. A field named `Version` in one of those ten objects is exactly this value. It is not the proposed revision label (`blocker-2-contract/v8`) and is not a hash-domain name.
 
-## 3. Revision identity
+`GenerationId` is an operational identifier, not a version: exactly 64 lowercase hexadecimal characters (32 random bytes), generated before staging. `BuildIdentity` and `CandidateManifestHash` are v7 candidate values and are copied, never re-versioned or re-hashed by an acceptance domain. Hash-domain suffixes are semantic domain names, not registry version values.
 
-RevisionContentId uses the frozen five-file procedure: ascending file-name manifest of exact bytes, then `H(contract-revision-content/v1, manifest)`. This proposal is not frozen and has no minted ContractRevisionId.
+## 2. Exhaustive successor domain inventory
 
-## 4. Hash dependency graph
+The acceptance/promotion amendment closes exactly these ten and no other semantic domains:
 
-Topological order: candidate manifest and candidate artifact hashes; decision-m3u/v2 and decision-xmltv/v2; accepted M3U/XMLTV artifact hashes; previous-output-manifest/v2 (or absent on first generation); accepted-state/v2; generation-manifest/v2; pointer/v2. JournalHash is computed independently from the prior journal projection and points backward through OldJournalHash only. PreviousStateHash is the prior generation's AcceptedStateHash and is never computed from current state. PointerHash, JournalHash, DecisionManifestHash, AcceptedStateHash, AcceptedOutputManifestHash, GenerationManifestHash, and OutputManifestHash each omit their own field. No node hashes a later node or itself; the graph is acyclic.
+1. `pointer/v2`
+2. `accepted-state/v2`
+3. `active-m3u/v2`
+4. `active-xmltv/v2`
+5. `previous-m3u/v2`
+6. `previous-xmltv/v2`
+7. `decision-m3u/v2`
+8. `decision-xmltv/v2`
+9. `generation-manifest/v2`
+10. `previous-output-manifest/v2`
+
+PART-B is the sole owner of their ordered projections. `journal/v2` and all transaction/recovery symbols remain solely owned by PART-C; this proposal intentionally does not restate their field sequence.
+
+## 3. Canonical bytes and primitive rules
+
+Every projection is an object with exactly the properties listed in PART-B, in that order. Unknown properties, duplicate JSON properties, omitted required properties, wrong types, and duplicate array members are invalid. A required property is still required when its value is `null`; missing and `null` are never interchangeable.
+
+Canonical bytes are compact JSON encoded as UTF-8 without BOM and without a trailing newline. Objects use the declared order. Arrays use the declared sort order. Strings are compared as Unicode scalar sequences before JSON escaping. Only the JSON short escapes for quote, reverse solidus, backspace, form feed, line feed, carriage return, and tab are used; other code points use lowercase `\u` escapes (astral scalars use their two lowercase surrogate escapes). No locale, parser order, filesystem order, timestamp, randomness, or serializer default participates.
+
+Unsigned integers are decimal JSON numbers with no leading zero except zero. Negative, fractional, exponent-form, and numeric-string values are invalid. Hashes are exactly 64 lowercase hexadecimal characters. IDs use the exact grammar stated by PART-B; an empty ID, hash, path, or domain string is invalid. Enum strings are case-sensitive.
+
+## 4. Hash and content rules
+
+For an exact ASCII domain `D` and bytes `B`, `H(D,B)` is lowercase SHA-256 over `UTF8(D) || 0x00 || B`. A domain is used only as specified below and in PART-B; no object may substitute another domain.
+
+There are two different kinds of hash:
+
+* A **content hash** (`ContentHash`, and the corresponding `ActiveM3UHash`/`ActiveXMLTVHash`) is `H(active-m3u/v2, exact merged.m3u bytes)` or `H(active-xmltv/v2, exact merged.xml bytes)`. It is an identity of artifact content, and its `ByteLength` is the exact byte count of those same bytes. It is never a hash of JSON metadata.
+* An **integrity/projection hash** (`DecisionManifestHash`, `OutputManifestHash`, `AcceptedStateHash`, `GenerationManifestHash`, or `PointerHash`) is `H(the object's named domain, canonical bytes of that object's hash input projection)`. The self-hash property is omitted from that projection. Integrity hashes identify the declared canonical record; they do not stand in for artifact content hashes.
+
+Reference fields copy an already computed hash and are validated by opening the referenced bytes and recomputing the hash under the referenced object's domain. A reference is not re-hashed under the referring domain. `ByteLength` is metadata about exact artifact bytes and is included in the active/previous descriptor projection only as PART-B states; it is never used as a substitute for a content hash.
+
+Operational values (`GenerationId`, `RelativePath`, and `AcceptedAtUtc`) do not become content identity. Where a projection excludes one, PART-B names the exclusion explicitly. In particular, excluding an operational or audit field does not make it optional in the serialized object.
+
+## 5. Acyclic dependency and ownership
+
+The dependency graph is:
+
+`v7 candidate inputs -> CandidateManifestHash/BuildIdentity -> decision-m3u and decision-xmltv -> AcceptedStateHash -> OutputManifestHash -> GenerationManifestHash -> PointerHash`.
+
+`PreviousStateHash` is owned only by `accepted-state/v2`; it is `null` only for the first accepted generation and otherwise equals the prior generation's `AcceptedStateHash`. It is never derived from current state, current output, or journal bytes. `PreviousOutputManifestHash` is owned only by `generation-manifest/v2`; it is absent on the first generation and otherwise equals the prior generation's `OutputManifestHash`. The previous M3U/XMLTV descriptors point to artifacts in that same prior generation and are not current-output fallbacks.
+
+The output-manifest object is serialized as `accepted-output.manifest.json` and uses `previous-output-manifest/v2`. The domain name describes its role as the prior-output reference consumed by the next generation; it is also the authoritative manifest for the current generation when published. Thus no unlisted `output-manifest/v2` domain exists.
+
+`AcceptedStateHash` excludes `AcceptedOutputManifestHash` from its hash input so that state can be hashed before the output manifest; `OutputManifestHash` includes `AcceptedStateHash`. This is the sole cross-reference exclusion required to avoid a state/output cycle, in addition to each object's self-hash exclusion and the explicit audit/operational exclusions in PART-B.
+
+## 6. Cross-object binding invariants
+
+An accepted pointer names exactly one generation and must match the final generation directory name. Its `GenerationManifestHash`, `AcceptedStateHash`, and `AcceptedOutputManifestHash` must byte-resolve to the generation manifest, accepted state, and accepted output manifest in that directory. The generation manifest must in turn match the candidate, both decision projections, accepted state, and output manifest.
+
+Accepted state is the authority for included/excluded candidate IDs, accepted binding IDs, XMLTV status, and the previous-state link. The decision projections must have the same candidate hash, build identity, parent generation hash, and disjoint complete entry partition. The state sets must equal the decision result; no output file may add or remove an accepted ID.
+
+The output manifest's active content hashes must equal the hashes of the exact active descriptors and exact artifact bytes. Generated XMLTV requires one non-null hash/length/path in every linked descriptor; NotGenerated requires null hash/path and zero length everywhere and no XMLTV file. M3U is always generated. A first generation has neither a previous output manifest nor previous artifact descriptors; null is not used as an absent previous object.
+
+All links are checked against exact bytes before authority is declared. A mismatch, stale candidate/decision/parent, mixed `GenerationId`, inconsistent status/nullability, or a link to a missing object is invalid and fails closed.
