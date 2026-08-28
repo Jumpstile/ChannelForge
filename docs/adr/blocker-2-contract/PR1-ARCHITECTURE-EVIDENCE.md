@@ -4,13 +4,20 @@
 
 - ContractRevisionId: `blocker-2-contract/v7`
 - RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
-- Branch: `review/issue-60-blocker-2-candidate-canonicalization`
-- HEAD at packet preparation: `0bdbafb`
+- HEAD at packet preparation: `969b107250fbb77d7fa5391baab7d7c5f8abb147`.
+
+## Reproducible validation commands
+
+Targeted command:
+`Invoke-Pester -Path ./tests/unit/BuildLineupCandidateOnly.Tests.ps1,./tests/unit/BuildLineupIdentityBinding.Tests.ps1,./tests/unit/BuildLineupScript.Tests.ps1,./tests/unit/CandidateCanonicalization.Tests.ps1,./tests/unit/CandidateHookEvidence.Tests.ps1,./tests/unit/CandidateNamespaceEvidence.Tests.ps1,./tests/unit/CandidateVersionRegistryEvidence.Tests.ps1,./tests/unit/DeterministicComparisonEvidence.Tests.ps1,./tests/unit/M3UInputArtifactHashEvidence.Tests.ps1,./tests/unit/M3UXmltvBinding.Tests.ps1,./tests/unit/MergeChannelForgeLineup.Tests.ps1,./tests/unit/ParserIdentityDisposition.Tests.ps1,./tests/unit/ReviewCountMatrix.Tests.ps1,./tests/unit/XmltvParser.Tests.ps1 -Output Minimal`.
+
+Complete unit command:
+`Invoke-Pester -Path ./tests/unit -Output Minimal`.
 
 ## Fresh validation
 
-- Focused and evidence suites: 78 passed, 0 failed, 0 skipped.
-- Full unit suite: 518 passed, 0 failed, 0 skipped.
+- Targeted command above: 102 passed, 0 failed, 0 skipped.
+- Complete unit command above: 526 passed, 0 failed, 0 skipped across 54 discovered files.
 - Syntax/parser: PASS.
 - Production static analysis: 0 Error-severity findings.
 - `git diff --check`: PASS.
