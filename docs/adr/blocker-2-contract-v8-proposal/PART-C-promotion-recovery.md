@@ -75,7 +75,21 @@ The pointer replacement is one compare-and-swap boundary, never a sequence of ed
 4. Reopen and hash both current and previous pointer paths. The current pointer must name NEW; the previous pointer, when present, must name OLD and be byte-for-byte the replaced pointer.
 5. Only after those checks may `PointerSwapped` be published. No M3U, XMLTV, state, decision, or manifest bytes are edited during pointer replacement.
 
-A differing old hash, unexpected pointer absence, pre-existing non-identical backup, final-generation name collision, or path identity change stops before mutation. A pointer replacement that completed while its journal still says `GenerationPublished` is recovered by validating the exact NEW/current plus OLD/previous pair and publishing `PointerSwapped`; it is never reverted by copying old output.
+A differing old hash, unexpected pointer absence, a malformed or unsafe pre-existing backup, final-generation name collision, or path identity change stops before mutation. A pointer replacement that completed while its journal still says `GenerationPublished` is recovered by validating the exact NEW/current plus OLD/previous pair and publishing `PointerSwapped`; it is never reverted by copying old output.
+### 7.1 Pointer boundary predicates
+
+Let `P_old` be the exact bytes and verified identity of the current pointer before compare-and-swap, `P_new` the verified staged pointer, and `Hptr(x)` the `PointerHash` recomputed from pointer bytes `x`. `∅` means the path is absent; it does not mean an empty or malformed file. The compare-and-swap precondition is exactly one of these two cases:
+
+- **First:** `current = ∅`, `previous = ∅`, `ExpectedOldPointerHash = null`, and `ExpectedOldGenerationId = null`.
+- **Subsequent:** `current = P_old`, `Hptr(P_old) = ExpectedOldPointerHash`, and `ExpectedOldGenerationId` equals the generation selected by `P_old`. An existing `previous` is permitted only when it is a separately verified complete prior pointer/lineage; it is replaced atomically by the exact `P_old` backup. A malformed, unsafe, or ambiguous existing `previous` is a conflict.
+
+In both cases, `P_new` must be complete, reopened, hash-valid, and select `ExpectedNewGenerationId`; `Hptr(P_new)` must equal `ExpectedNewPointerHash`. The operation is one atomic replacement: it either leaves the precondition bytes unchanged or installs all of `P_new`. It MUST NOT edit any generation child or accepted artifact.
+
+The compare-and-swap postcondition is `current = P_new`, `Hptr(current) = ExpectedNewPointerHash`, and `current.GenerationId = ExpectedNewGenerationId`. In the subsequent case, `previous` must reopen to bytes exactly equal to `P_old` and `Hptr(previous) = ExpectedOldPointerHash`; in the first case, `previous = ∅`. A postcondition with a missing, altered, NEW-naming, or hash-invalid previous pointer is not a partial success: recovery is `FAIL_CLOSED_RECOVERY_REQUIRED`.
+
+Define `SwapDone` as the complete postcondition above, including safe-handle identity checks. Before `SwapDone`, accepted authority is OLD (or no accepted state for First); after `SwapDone`, physical accepted authority is NEW even if the authoritative Journal still says `GenerationPublished`. Recovery MUST validate `SwapDone` and publish `PointerSwapped`; it MUST NOT copy OLD bytes back. `PointerSwapped` is publishable only after `SwapDone` has been verified.
+
+The Journal remains the sole durable transaction record: these predicates constrain the `Expected*` values already defined by `journal/v2`; they add no Journal property, phase, or alternate authority.
 
 ## 8. Durability boundary matrix
 
@@ -153,6 +167,21 @@ For the first generation, all old pointer/generation/previous-output links are a
 ## 12. Mixed-generation rejection cases
 
 The complete graph must resolve to one `GenerationId`, one `CandidateManifestHash`, and one coherent parent lineage. The following are explicit rejection cases, each `FAIL_CLOSED_RECOVERY_REQUIRED` with no automatic mutation:
+
+The required ten-case rejection matrix is labeled exactly `A` through `J`. Every row has the same result: `FAIL_CLOSED_RECOVERY_REQUIRED`; mutate no pointer, generation, accepted artifact, or journal.
+
+| Case | Rejection field(s) | Exact rejection predicate | Result |
+|---|---|---|---|
+| A | `Pointer.GenerationId`, `GenerationManifest.GenerationId` | Current pointer and the final generation manifest name different generations, or either names a directory other than the pointer-selected generation. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| B | `Pointer.GenerationManifestHash`, `GenerationManifest.GenerationManifestHash`, `AcceptedStateHash`, `AcceptedOutputManifestHash` | Any pointer hash does not recompute from its named bytes, or the generation manifest's state/output hashes do not recompute from the named NEW objects. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| C | `AcceptedState.GenerationId`, `AcceptedState.CandidateManifestHash`, `AcceptedState.DecisionManifestHash` | NEW accepted state carries OLD identity, or its candidate/decision links differ from NEW's generation manifest. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| D | `ActiveM3U.GenerationId`, `ActiveXMLTV.GenerationId`, `AcceptedStateHash`, `OutputManifestHash`, `Status` | Any active artifact carries OLD state/output identity, or XMLTV `Generated`/`NotGenerated` fields violate the exact nullability rules. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| E | `GenerationManifest.PreviousOutputManifestHash`, `PreviousM3U.PreviousGenerationId`, `PreviousXMLTV.PreviousGenerationId` | NEW previous-output hash does not name OLD's exact previous-output manifest, or a previous artifact is not an exact OLD snapshot with `PreviousGenerationId=OLD`. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| F | `Decision.AcceptedParentGenerationManifestHash`, `CandidateManifestHash`, `DecisionManifestHash` | NEW decision has a missing/stale parent, candidate, or decision link, even when NEW output bytes independently validate. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| G | `state/accepted-lineup.json.previous`, `ExpectedOldPointerHash` | After a swap, previous pointer is missing, altered, NEW-naming, or does not hash to the exact pointer bytes replaced from OLD; before a swap, an existing backup is malformed or unsafe. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| H | `Journal.ExpectedOldPointerHash`, `ExpectedNewPointerHash`, `ExpectedOldGenerationId`, `ExpectedNewGenerationId`, `JournalStage` | Journal expected identities disagree with actual pointers/generation, or phase rank skips, regresses, or names a different transaction. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| I | `Journal.OldJournalHash`, `Journal.JournalHash`, `MutationRecords` | Journal chain/hash is invalid, a mutation pre/postcondition differs in presence/bytes/identity, or a journal backup is adopted as authority. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
+| J | `FileIdentity`, byte length, fixed paths, current/previous generation references | Any safe-handle identity changes, path becomes reparse/UNC/SMB/substituted, a required child is missing/extra, or cleanup would delete a current/previous generation. | `FAIL_CLOSED_RECOVERY_REQUIRED`; no mutation. |
 
 1. Current pointer names NEW but its generation directory or manifest is OLD, or current pointer fields disagree with the generation manifest.
 2. Current pointer is OLD while an output, accepted state, decision, or M3U/XMLTV file is taken from NEW.

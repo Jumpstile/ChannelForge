@@ -17,7 +17,11 @@ The version registry has two deliberately disjoint scopes:
 
 ## 3. Exhaustive successor domain inventory
 
-The acceptance/promotion amendment closes exactly these ten and no other semantic domains:
+The acceptance/promotion amendment closes the ten original acceptance,
+output, decision, and previous-output domains plus one aggregate decision
+binding projection. The original ten remain the required surface-domain
+inventory; `decision-manifest/v2` is the single cross-surface object that
+binds the subordinate M3U and XMLTV decision projections:
 
 1. `pointer/v2`
 2. `accepted-state/v2`
@@ -25,12 +29,20 @@ The acceptance/promotion amendment closes exactly these ten and no other semanti
 4. `active-xmltv/v2`
 5. `previous-m3u/v2`
 6. `previous-xmltv/v2`
-7. `decision-m3u/v2`
-8. `decision-xmltv/v2`
+7. `decision-m3u/v2` (subordinate)
+8. `decision-xmltv/v2` (subordinate)
 9. `generation-manifest/v2`
 10. `previous-output-manifest/v2`
+11. `decision-manifest/v2` (aggregate binding)
 
-PART-B is the sole owner of their ordered projections. `journal/v2` and all transaction/recovery symbols remain solely owned by PART-C; this proposal intentionally does not restate their field sequence. The duplicated-Journal-definition debt is therefore explicitly resolved by single ownership: PART-C is normative, while PART-A and PART-B may only reference it.
+PART-B is the sole owner of all eleven ordered projections. The aggregate
+decision manifest is not a second decision authority: its
+`DecisionManifestHash` is the one authoritative decision hash consumed by
+accepted state and generation. `journal/v2` and all transaction/recovery
+symbols remain solely owned by PART-C; this proposal intentionally does not
+restate their field sequence. The duplicated-Journal-definition debt is
+therefore explicitly resolved by single ownership: PART-C is normative, while
+PART-A and PART-B may only reference it.
 
 ## 4. Canonical bytes and primitive rules
 
@@ -44,32 +56,94 @@ Unsigned integers are decimal JSON numbers with no leading zero except zero. Neg
 
 For an exact ASCII domain `D` and bytes `B`, `H(D,B)` is lowercase SHA-256 over `UTF8(D) || 0x00 || B`. A domain is used only as specified below and in PART-B; no object may substitute another domain.
 
-There are two different kinds of hash:
+A **content hash** (`ContentHash`, and the corresponding
+`ActiveM3UHash`/`ActiveXMLTVHash`) is `H(active-m3u/v2, exact merged.m3u
+bytes)` or `H(active-xmltv/v2, exact merged.xml bytes)`. It is an identity
+of artifact content, and its `ByteLength` is the exact byte count of those
+same bytes. It is never a hash of JSON metadata.
 
-* A **content hash** (`ContentHash`, and the corresponding `ActiveM3UHash`/`ActiveXMLTVHash`) is `H(active-m3u/v2, exact merged.m3u bytes)` or `H(active-xmltv/v2, exact merged.xml bytes)`. It is an identity of artifact content, and its `ByteLength` is the exact byte count of those same bytes. It is never a hash of JSON metadata.
-* An **integrity/projection hash** (`DecisionManifestHash`, `OutputManifestHash`, `AcceptedStateHash`, `GenerationManifestHash`, or `PointerHash`) is `H(the object's named domain, canonical bytes of that object's hash input projection)`. The self-hash property is omitted from that projection. Integrity hashes identify the declared canonical record; they do not stand in for artifact content hashes.
-
-Reference fields copy an already computed hash and are validated by opening the referenced bytes and recomputing the hash under the referenced object's domain. A reference is not re-hashed under the referring domain. `ByteLength` is metadata about exact artifact bytes and is included in the active/previous descriptor projection only as PART-B states; it is never used as a substitute for a content hash.
+An **integrity/projection hash** (`M3UDecisionHash`,
+`XMLTVDecisionHash`, `DecisionManifestHash`, `OutputManifestHash`,
+`AcceptedStateHash`, `GenerationManifestHash`, or `PointerHash`) is
+`H(the object's named domain, canonical bytes of that object's hash input
+projection)`. The self-hash property is omitted from that projection.
+Integrity hashes identify the declared canonical record; they do not stand
+in for artifact content hashes.
 
 ## 6. Acyclic dependency and ownership
 
-The dependency graph is:
+The hash dependency graph is:
 
-`v7 candidate inputs -> CandidateManifestHash/BuildIdentity -> decision-m3u and decision-xmltv -> OutputManifestHash -> AcceptedStateHash -> GenerationManifestHash -> PointerHash`.
+`v7 candidate inputs -> CandidateManifestHash/BuildIdentity ->
+decision-m3u subordinate (M3UDecisionHash) and decision-xmltv subordinate
+(XMLTVDecisionHash, when Generated) -> decision-manifest aggregate
+(DecisionManifestHash) -> accepted-state/output -> generation-manifest ->
+pointer`.
 
-`PreviousStateHash` is owned only by `accepted-state/v2`; it is `null` only for the first accepted generation and otherwise equals the prior generation's `AcceptedStateHash`. It is never derived from current state, current output, or journal bytes. `PreviousOutputManifestHash` is owned only by `generation-manifest/v2`; its required field is `null` only on the first generation and otherwise equals the prior generation's `OutputManifestHash`. The previous-output-manifest object and previous M3U/XMLTV descriptors are absent on the first generation; they are never represented by a null object. The previous descriptors, when present, point to artifacts in that same prior generation and are not current-output fallbacks.
+`DecisionManifestHash` is the sole authoritative decision hash. The
+aggregate hashes only its declared fields under `decision-manifest/v2`;
+it references the already computed subordinate hashes and does not include
+accepted-state, output, generation, pointer, or journal hashes. Each
+subordinate decision hash covers only its own ordered projection under its
+own domain, and neither subordinate projection references the aggregate.
+Consequently, the decision portion of the graph is acyclic.
 
-The output-manifest object is serialized as `accepted-output.manifest.json` and uses `previous-output-manifest/v2`. The domain name describes its role as the prior-output reference consumed by the next generation; it is also the authoritative manifest for the current generation when published. Thus no unlisted `output-manifest/v2` domain exists.
+`PreviousStateHash` is owned only by `accepted-state/v2`; it is `null` only
+for the first accepted generation and otherwise equals the prior
+generation's `AcceptedStateHash`. It is never derived from current state,
+current output, or journal bytes. `PreviousOutputManifestHash` is owned only
+by `generation-manifest/v2`; its required field is `null` only on the first
+generation and otherwise equals the prior generation's `OutputManifestHash`.
+The previous-output-manifest object and previous M3U/XMLTV descriptors are
+absent on the first generation; they are never represented by a null object.
+The previous descriptors, when present, point to artifacts in that same prior
+generation and are not current-output fallbacks.
 
-`OutputManifestHash` excludes the required `AcceptedStateHash` reference from its hash input so that output can be hashed before the accepted state; `AcceptedStateHash` includes `AcceptedOutputManifestHash`. This is the sole cross-reference exclusion required to avoid a state/output cycle, in addition to each object's self-hash exclusion and the explicit audit/operational exclusions in PART-B.
+The output-manifest object is serialized as `accepted-output.manifest.json`
+and uses `previous-output-manifest/v2`. The domain name describes its role
+as the prior-output reference consumed by the next generation; it is also
+the authoritative manifest for the current generation when published. Thus
+no unlisted `output-manifest/v2` domain exists.
 
+`OutputManifestHash` excludes the required `AcceptedStateHash` reference
+from its hash input so that output can be hashed before the accepted state;
+`AcceptedStateHash` includes `AcceptedOutputManifestHash`. This is the sole
+cross-reference exclusion required to avoid a state/output cycle, in
+addition to each object's self-hash exclusion and the explicit
+audit/operational exclusions in PART-B.
 
 ## 7. Cross-object binding invariants
 
-An accepted pointer names exactly one generation and must match the final generation directory name. Its `GenerationManifestHash`, `AcceptedStateHash`, and `AcceptedOutputManifestHash` must byte-resolve to the generation manifest, accepted state, and accepted output manifest in that directory. The generation manifest must in turn match the candidate, both decision projections, accepted state, and output manifest.
+An accepted pointer names exactly one generation and must match the final
+generation directory name. Its `GenerationManifestHash`,
+`AcceptedStateHash`, and `AcceptedOutputManifestHash` must byte-resolve to
+the generation manifest, accepted state, and accepted output manifest in
+that directory. The generation manifest must in turn match the candidate,
+the aggregate decision manifest, accepted state, and output manifest.
 
-Accepted state is the authority for included/excluded candidate IDs, accepted binding IDs, XMLTV status, and the previous-state link. The decision projections must have the same candidate hash, build identity, parent generation hash, and disjoint complete entry partition. The state sets must equal the decision result; no output file may add or remove an accepted ID.
+The aggregate decision manifest's candidate hash, build identity, M3U
+decision hash, XMLTV status/hash, and `DecisionIds` must match its
+subordinate projections. The M3U and (when Generated) XMLTV subordinate
+projections must have the same candidate hash, build identity, parent
+generation hash, and disjoint complete entry partition. The aggregate
+`DecisionIds` are the same sorted unique IDs as the M3U subordinate and,
+when XMLTV is Generated, the XMLTV subordinate. For NotGenerated,
+`XMLTVDecisionHash` is `null` and no XMLTV subordinate decision object is
+required. Accepted state is the authority for included/excluded candidate
+IDs, accepted binding IDs, XMLTV status, the aggregate
+`DecisionManifestHash`, and the previous-state link; no state or generation
+field may name either subordinate hash.
 
-The output manifest's active content hashes must equal the hashes of the exact active descriptors and exact artifact bytes. Generated XMLTV requires one non-null hash/length/path in every linked descriptor; NotGenerated requires null hash/path and zero length everywhere and no XMLTV file. M3U is always generated. A first generation has a null `PreviousOutputManifestHash` and no previous output manifest object or previous artifact descriptors; null is not used as an absent previous object.
+The output manifest's active content hashes must equal the hashes of the
+exact active descriptors and exact artifact bytes. Generated XMLTV
+requires one non-null content hash/length/path in every linked descriptor;
+NotGenerated requires null content hash/path and zero length everywhere
+those fields exist, and no XMLTV file. M3U is always generated. A first
+generation has a null `PreviousOutputManifestHash` and no previous output
+manifest object or previous artifact descriptors; null is not used as an
+absent previous object.
 
-All links are checked against exact bytes before authority is declared. A mismatch, stale candidate/decision/parent, mixed `GenerationId`, inconsistent status/nullability, or a link to a missing object is invalid and fails closed.
+All links are checked against exact bytes before authority is declared. A
+mismatch, stale candidate/decision/parent, mixed `GenerationId`,
+inconsistent status/nullability, or a link to a missing object is invalid
+and fails closed.

@@ -2,13 +2,35 @@
 
 ## 1. Schema notation and common rules
 
-This part is the sole definition of the ten successor domains. Every object has exactly the fields listed below, in the listed order. `required` means the property MUST be present; `required nullable` means it MUST be present and may have only the stated `null` value. A property described as `absent` MUST NOT be serialized. Missing and `null` are never interchangeable.
+This part is the sole definition of the eleven successor projections: the ten
+acceptance/promotion surface domains and the aggregate `decision-manifest/v2`
+binding projection. Every object has exactly the fields listed below, in the
+listed order. `required` means the property MUST be present; `required
+nullable` means it MUST be present and may have only the stated `null` value.
+A property described as `absent` MUST NOT be serialized. Missing and `null`
+are never interchangeable.
 
-`Hash` means a lowercase 64-hex string. `GenerationId` means a lowercase 64-hex string. `EntryId`, `BindingId`, and `DecisionId` mean lowercase 64-hex candidate IDs. `BuildIdentity` and `CandidateManifestHash` are copied v7 candidate hashes. `Utc` means RFC3339 UTC with a literal `Z`. `UInt` means a non-negative JSON integer in decimal notation without leading zeroes. Arrays are present even when empty, contain no duplicates, and are sorted by ascending ordinal ASCII bytes of their hash/ID strings.
+`Hash` means a lowercase 64-hex string. `GenerationId` means a lowercase
+64-hex string. `EntryId`, `BindingId`, and `DecisionId` mean lowercase
+64-hex candidate IDs. `BuildIdentity` and `CandidateManifestHash` are copied
+v7 candidate hashes. `Utc` means RFC3339 UTC with a literal `Z`. `UInt` means
+a non-negative JSON integer in decimal notation without leading zeroes. Arrays
+are present even when empty, contain no duplicates, and are sorted by
+ascending ordinal ASCII bytes of their hash/ID strings.
 
-Every object is compact ordered UTF-8 JSON without BOM or trailing newline, with no unknown or duplicate properties. All hashes use `H(UTF8(domain) || 0x00 || input-bytes)`, as defined in PART-A. A field that references a hash does not hash that value again.
+Every object is compact ordered UTF-8 JSON without BOM or trailing newline,
+with no unknown or duplicate properties. All hashes use
+`H(UTF8(domain) || 0x00 || input-bytes)`, as defined in PART-A. A field that
+references a hash does not hash that value again.
 
-`ContentHash` is an artifact-content hash, not a JSON-record hash. It is `H(active-m3u/v2, exact merged.m3u bytes)` for M3U and `H(active-xmltv/v2, exact merged.xml bytes)` for XMLTV. `ByteLength` is the unsigned length of those exact bytes. `DecisionManifestHash`, `OutputManifestHash`, `AcceptedStateHash`, `GenerationManifestHash`, and `PointerHash` are integrity hashes of canonical projections; each omits its own property. The two categories MUST NOT be substituted for one another.
+`ContentHash` is an artifact-content hash, not a JSON-record hash. It is
+`H(active-m3u/v2, exact merged.m3u bytes)` for M3U and
+`H(active-xmltv/v2, exact merged.xml bytes)` for XMLTV. `ByteLength` is the
+unsigned length of those exact bytes. `M3UDecisionHash`, `XMLTVDecisionHash`,
+`DecisionManifestHash`, `OutputManifestHash`, `AcceptedStateHash`,
+`GenerationManifestHash`, and `PointerHash` are integrity hashes of canonical
+projections; each omits its own property. The two categories MUST NOT be
+substituted for one another.
 
 ## 2. `pointer/v2` — PointerV2
 
@@ -27,7 +49,7 @@ Every object is compact ordered UTF-8 JSON without BOM or trailing newline, with
 
 ## 3. `accepted-state/v2` — AcceptedStateV2
 
-**Exact field list:** `Version,GenerationId,BuildIdentity,CandidateManifestHash,DecisionM3UHash,DecisionXMLTVHash,AcceptedOutputManifestHash,PreviousStateHash,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,AcceptedBindingIds,AcceptedXMLTVStatus,AcceptedAtUtc,AcceptedStateHash`.
+**Exact field list:** `Version,GenerationId,BuildIdentity,CandidateManifestHash,DecisionManifestHash,AcceptedOutputManifestHash,PreviousStateHash,IncludedCandidateEntryIds,ExcludedCandidateEntryIds,AcceptedBindingIds,AcceptedXMLTVStatus,AcceptedAtUtc,AcceptedStateHash`.
 
 | Field | Type and null/missing rule |
 |---|---|
@@ -35,18 +57,29 @@ Every object is compact ordered UTF-8 JSON without BOM or trailing newline, with
 | `GenerationId` | required `GenerationId`; never null/missing |
 | `BuildIdentity` | required `Hash`; copied exact v7 value; never null/missing |
 | `CandidateManifestHash` | required `Hash`; copied exact v7 value; never null/missing |
-| `DecisionM3UHash` | required `Hash`; equals the `decision-m3u/v2` `DecisionManifestHash`; never null/missing |
-| `DecisionXMLTVHash` | required `Hash`; equals the `decision-xmltv/v2` `DecisionManifestHash`; never null/missing |
+| `DecisionManifestHash` | required `Hash`; equals the aggregate `decision-manifest/v2` `DecisionManifestHash`; never null/missing |
 | `AcceptedOutputManifestHash` | required `Hash`; equals `OutputManifestHash` of this generation's output manifest; never null/missing |
 | `PreviousStateHash` | required nullable `Hash`; `null` only for the first accepted generation, otherwise the prior generation's `AcceptedStateHash`; never missing |
 | `IncludedCandidateEntryIds` | required array of unique `EntryId`; never null/missing |
 | `ExcludedCandidateEntryIds` | required array of unique `EntryId`; never null/missing |
 | `AcceptedBindingIds` | required array of unique `BindingId`; never null/missing |
-| `AcceptedXMLTVStatus` | required enum `Generated` or `NotGenerated`; never null/missing |
+| `AcceptedXMLTVStatus` | required enum `Generated` or `NotGenerated`; never null/missing; equals aggregate `XMLTVDecisionStatus` |
 | `AcceptedAtUtc` | required `Utc` audit string; never null/missing |
 | `AcceptedStateHash` | required `Hash`; never null/missing; self-hash |
 
-The included and excluded arrays are disjoint and their union is exactly the candidate entry set. `AcceptedBindingIds` is exactly the accepted candidate binding set selected by the decision projections. `AcceptedXMLTVStatus` equals both decision XMLTV status and output-manifest status. `AcceptedStateHash = H(accepted-state/v2, canonical bytes with AcceptedStateHash, GenerationId, and AcceptedAtUtc omitted)`. The output reference is required and included in the state projection; output is hashed before state, so this reference does not create a cycle. The audit timestamp and operational generation ID are excluded from semantic state identity. `PreviousStateHash` is the sole state-chain field and is owned here, not by a pointer, output manifest, generation manifest, or journal.
+The included and excluded arrays are disjoint and their union is exactly the
+candidate entry set. `AcceptedBindingIds` is exactly the accepted candidate
+binding set selected by the subordinate decision projections. The accepted
+state's `DecisionManifestHash` is the aggregate hash; it never carries or
+accepts either subordinate hash independently. `AcceptedXMLTVStatus` equals
+the aggregate status and output-manifest status. `AcceptedStateHash =
+H(accepted-state/v2, canonical bytes with AcceptedStateHash, GenerationId,
+and AcceptedAtUtc omitted)`. The output reference is required and included
+in the state projection; output is hashed before the accepted state, so this
+reference does not create a cycle. The audit timestamp and operational
+generation ID are excluded from semantic state identity. `PreviousStateHash`
+is the sole state-chain field and is owned here, not by a pointer, output
+manifest, generation manifest, or decision projection.
 
 ## 4. `active-m3u/v2` — ActiveM3UV2
 
