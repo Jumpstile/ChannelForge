@@ -4,7 +4,7 @@
 
 - ContractRevisionId: `blocker-2-contract/v7`
 - RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`
-- HEAD at packet preparation: `969b107250fbb77d7fa5391baab7d7c5f8abb147`.
+- HEAD at packet preparation: `d556efe`.
 
 ## Reproducible validation commands
 
