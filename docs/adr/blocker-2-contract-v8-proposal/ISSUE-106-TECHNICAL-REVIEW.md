@@ -158,20 +158,15 @@ intended rule; it does not mean the rule has passed runtime validation.
    cross-projection question. The proposal needs one explicit hash-of-absence
    or nullable-reference rule, with first-generation and later-generation
    vectors.
-3. **GenerationId encoding is inconsistent across parts.** PART-A requires
-   exactly 64 lowercase hexadecimal characters for 32 random bytes, while the
-   Journal table in PART-C currently says lowercase 32-hex `GenerationId`.
-   These must be made identical before freeze; validation must not infer which
-   encoding is intended.
-4. **No runtime evidence exists by design.** The proposal is contract work only.
+3. **No runtime evidence exists by design.** The proposal is contract work only.
    Serializer, hash, namespace, durability, and crash tests cannot be claimed
    from this packet and must be produced by a later implementation against the
    frozen revision.
-5. **Fixture values are not acceptance constants.** The preserved v7 values in
+4. **Fixture values are not acceptance constants.** The preserved v7 values in
    this packet include fixture-specific hashes solely to prevent accidental
    re-versioning or substitution. They do not define expected output for a new
    candidate or generation.
-6. **DuplicateCount is dispositioned, not promoted into occurrence schemas.**
+5. **DuplicateCount is dispositioned, not promoted into occurrence schemas.**
    PART-B's derived-evidence rule resolves the old storage ambiguity for this
    proposal, but implementation review must prove that occurrence digests and
    candidate occurrence property orders still exclude it.
