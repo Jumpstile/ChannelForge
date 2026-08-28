@@ -51,6 +51,8 @@ function Import-ChannelForgeConfiguredM3USource {
     while ($true) {
         $opened = $null
         $reader = $null
+        $hashingStream = $null
+        $hasher = $null
         $parserCompleted = $false
         $cacheWriteToRemove = $null
         try {
@@ -77,8 +79,13 @@ function Import-ChannelForgeConfiguredM3USource {
                     -MaxRawResponseBytes $MaxRawResponseBytes
             }
 
+            $hasher = [System.Security.Cryptography.SHA256]::Create()
+            $prefix = [System.Text.Encoding]::ASCII.GetBytes("input-m3u/v2$([char]0)")
+            [void]$hasher.TransformBlock($prefix, 0, $prefix.Length, $prefix, 0)
+            $hashingStream = [System.Security.Cryptography.CryptoStream]::new(
+                $opened.Stream, $hasher, [System.Security.Cryptography.CryptoStreamMode]::Read, $true)
             $reader = [System.IO.StreamReader]::new(
-                $opened.Stream,
+                $hashingStream,
                 [System.Text.UTF8Encoding]::new($false, $true),
                 $true,
                 8192,
@@ -91,6 +98,14 @@ function Import-ChannelForgeConfiguredM3USource {
 
             $reader.Dispose()
             $reader = $null
+            $hashingStream = $null
+            $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
+            if ($inputArtifactHash -notmatch '^[0-9a-f]{64}$') {
+                throw 'Remote M3U input hash was not produced from complete parser-input bytes.'
+            }
+            $decompressedBytes = [long]$opened.Stream.BytesRead
+            $opened.Stream.Dispose()
+            $opened.Stream = $null
 
             if ($null -ne $opened.CacheWrite) {
                 $reason = [string]$opened.CacheReason
@@ -127,7 +142,8 @@ function Import-ChannelForgeConfiguredM3USource {
                 $AcquisitionStatus['ContentType'] = [string]$opened.ContentType
                 $AcquisitionStatus['ContentEncodings'] = @($opened.ContentEncodings)
                 $AcquisitionStatus['RawContentLength'] = $opened.RawContentLength
-                $AcquisitionStatus['DecompressedBytes'] = [long]$opened.Stream.BytesRead
+                $AcquisitionStatus['DecompressedBytes'] = $decompressedBytes
+                $AcquisitionStatus['InputArtifactHash'] = $inputArtifactHash
                 $AcquisitionStatus['ChannelCount'] = @($channels).Count
                 $AcquisitionStatus['HasETag'] = if ($null -ne $opened.CacheWrite) {
                     -not [string]::IsNullOrWhiteSpace([string]$opened.CacheWrite.ETag)
@@ -176,6 +192,12 @@ function Import-ChannelForgeConfiguredM3USource {
         finally {
             if ($null -ne $reader) {
                 try { $reader.Dispose() } catch { }
+            }
+            if ($null -ne $hashingStream) {
+                try { $hashingStream.Dispose() } catch { }
+            }
+            if ($null -ne $hasher) {
+                try { $hasher.Dispose() } catch { }
             }
             if ($null -ne $opened) {
                 if ($null -ne $opened.Stream) {

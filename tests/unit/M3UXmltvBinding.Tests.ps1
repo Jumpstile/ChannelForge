@@ -25,6 +25,12 @@ BeforeAll {
             Orphan  = @($Result.OrphanedXmltvChannels | ForEach-Object { "$($_.XmltvChannelId):$($_.Reason)" })
         } | ConvertTo-Json -Depth 8 -Compress
     }
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\ConvertTo-ChannelForgeCanonicalJson.ps1')
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeDomainHash.ps1')
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeLogicalSourceId.ps1')
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawM3UProjection.ps1')
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawXmltvProjection.ps1')
+    . (Join-Path $RepoRoot 'src\ChannelForge\Private\New-ChannelForgeCandidateManifest.ps1')
 }
 
 Describe 'Resolve-ChannelForgeM3UXmltvBinding' {
@@ -181,5 +187,23 @@ Describe 'Resolve-ChannelForgeM3UXmltvBinding' {
 
         $afterChannels | Should -Be $beforeChannels
         $afterProgrammes | Should -Be $beforeProgrammes
+    }
+    It 'publishes exact ordered guide occurrences and binding records' {
+        $rawM3U = @(Get-ChannelForgeRawM3UProjection -Channel $script:Channels -LogicalSourceId 'm3u-source')
+        $rawXml = @(Get-ChannelForgeRawXmltvProjection -Programme $script:Programmes)
+        $binding = Resolve-ChannelForgeM3UXmltvBinding -Channel $script:Channels -Programme $script:Programmes
+        $manifestResult = ConvertTo-ChannelForgeCandidateManifest `
+            -RawM3UOccurrences $rawM3U `
+            -RawXmltvOccurrences $rawXml `
+            -IdentityBindingResult $binding `
+            -SelectedSourceIds @('m3u-source', 'fixture-guide')
+        $manifestResult.Manifest.GuideOccurrences[0].PSObject.Properties.Name -join ',' |
+            Should -Be 'Version,BindingKey,RawIdentityPresence,RawIdentityValue,OccurrenceOrdinal,LogicalSourceId,CandidateOccurrenceCount,GuideCandidateEvidenceDigest'
+        $manifestResult.Manifest.BindingRecords[0].PSObject.Properties.Name -join ',' |
+            Should -Be 'Version,BindingId,BindingKind,EntryId,BindingKey,M3URawIdPresence,M3URawId,XMLTVIdPresence,XMLTVId,CandidateChannelOccurrenceOrdinals,Status,ReasonCode,CollisionEvidence,BindingRecordDigest'
+        @($manifestResult.Manifest.BindingRecords | Where-Object BindingKind -eq 'M3U').Count |
+            Should -Be @($rawM3U).Count
+        @($manifestResult.Manifest.BindingRecords | Where-Object BindingKind -eq 'XMLTVOnly').Count |
+            Should -BeGreaterThan 0
     }
 }

@@ -3,6 +3,16 @@ BeforeAll {
     $script:BuildScriptPath = Join-Path $RepoRoot 'scripts\Build-Lineup.ps1'
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
     $script:FixturePath = Join-Path $RepoRoot 'tests\fixtures\xmltv\sample.xml'
+    $global:ChannelForgeRemoteXmltvFixtureHash = & (Get-Module ChannelForge) {
+        param($bytes)
+        Get-ChannelForgeDomainHash -Domain 'input-xmltv/v2' -Bytes $bytes
+    } ([IO.File]::ReadAllBytes($script:FixturePath))
+
+    function Get-CandidateArtifactPath {
+        param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Name)
+        $summary = Get-Content -LiteralPath (Join-Path $Root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        return Join-Path $Root (Join-Path ($summary.CandidateNamespacePath -replace '/', '\') $Name)
+    }
 
     function New-RemoteBuildFixture {
         param([string]$Name)
@@ -45,7 +55,13 @@ BeforeAll {
         }
         else {
             Mock -CommandName Import-ChannelForgeConfiguredXmltvSource `
-                -MockWith { $global:ChannelForgeBuildRemoteProgrammes }
+                -MockWith {
+                    param($Source,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+                    if ($null -ne $AcquisitionStatus) {
+                        $AcquisitionStatus['InputArtifactHash'] = $global:ChannelForgeRemoteXmltvFixtureHash
+                    }
+                    return $global:ChannelForgeBuildRemoteProgrammes
+                }
         }
 
         # Build-Lineup imports the already-loaded module with -Force. Suppress
@@ -68,8 +84,8 @@ Describe 'Build-Lineup remote XMLTV wiring' {
         Invoke-BuildWithConfiguredImporterMock -Root $root -Programmes $programmes | Out-Null
 
         $summaryPath = Join-Path $root 'output\reports\build-summary.json'
-        $outputPath = Join-Path $root 'output\merged.xml'
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+        $outputPath = Join-Path $root (Join-Path ($summary.CandidateNamespacePath -replace '/', '\') 'merged.xml')
 
         $summary.XMLTVStatus | Should -Be 'GENERATED'
         $summary.XMLTVGenerated | Should -BeTrue

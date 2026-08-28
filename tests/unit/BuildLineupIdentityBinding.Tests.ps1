@@ -58,8 +58,9 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $planPath = Join-Path $fixtureRoot 'output\reports\lineup-plan.md'
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath $planPath -Raw
-        $m3u = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -Raw
-        $xmltv = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\merged.xml') -Raw
+        $candidateRoot = Join-Path $fixtureRoot ($summary.CandidateNamespacePath -replace '/', '\')
+        $m3u = Get-Content -LiteralPath (Join-Path $candidateRoot 'merged.m3u') -Raw
+        $xmltv = Get-Content -LiteralPath (Join-Path $candidateRoot 'merged.xml') -Raw
 
         $summary.M3UXmltvBindingStatus | Should -Be 'EVALUATED_WITH_REVIEW'
         $summary.M3UXmltvExactBindingCount | Should -Be 2
@@ -83,6 +84,8 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $m3u | Should -Match 'tvg-id="alpha.us"'
         $xmltv | Should -Match '<channel id='
         $xmltv | Should -Not -Match 'tvg-id='
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.xml') -PathType Leaf | Should -BeFalse
     }
 
     It 'does not exact-bind a normalized pre-dedup M3U collision through Build-Lineup' {
@@ -111,8 +114,11 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $plan | Should -Match 'M3U COLLISION'
         $plan | Should -Match ' ZETA\.US '
 
-        $merged = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -Raw
+        $summary.CandidateNamespacePath | Should -Match '^output/candidates/[0-9a-f]{64}$'
+        $candidateRoot = Join-Path $fixtureRoot ($summary.CandidateNamespacePath -replace '/', '\')
+        $merged = Get-Content -LiteralPath (Join-Path $candidateRoot 'merged.m3u') -Raw
         ([regex]::Matches($merged, '#EXTINF:')).Count | Should -Be 1
         $merged | Should -Match 'tvg-id="zeta.us"'
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeFalse
     }
 }

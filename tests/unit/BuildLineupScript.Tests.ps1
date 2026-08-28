@@ -3,6 +3,17 @@ BeforeAll {
     $script:ScriptPath = Join-Path $RepoRoot 'scripts\Build-Lineup.ps1'
     $global:ChannelForgeBuildFixturePath = Join-Path $RepoRoot 'tests\fixtures\tiny.m3u'
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
+
+    function Get-TestInputArtifactHash {
+        param([byte[]]$Bytes)
+        $domainBytes = [Text.Encoding]::UTF8.GetBytes('input-m3u/v2')
+        $payload = [byte[]]::new($domainBytes.Length + 1 + $Bytes.Length)
+        [Buffer]::BlockCopy($domainBytes, 0, $payload, 0, $domainBytes.Length)
+        [Buffer]::BlockCopy($Bytes, 0, $payload, $domainBytes.Length + 1, $Bytes.Length)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { return ([BitConverter]::ToString($sha.ComputeHash($payload))).Replace('-', '').ToLowerInvariant() }
+        finally { $sha.Dispose() }
+    }
     Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
         param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
         $channels = @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
@@ -15,7 +26,7 @@ BeforeAll {
             $AcquisitionStatus['StatusCode'] = 200
             $AcquisitionStatus['ContentType'] = 'application/vnd.apple.mpegurl'
             $AcquisitionStatus['ContentEncodings'] = @()
-            $AcquisitionStatus['RawContentLength'] = $null
+            $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
             $AcquisitionStatus['DecompressedBytes'] = 0
             $AcquisitionStatus['ChannelCount'] = $channels.Count
             $AcquisitionStatus['HasETag'] = $false
@@ -23,12 +34,24 @@ BeforeAll {
         }
         return $channels
     }
+
+    function Get-CandidateArtifactPath {
+        param(
+            [Parameter(Mandatory)][string]$Root,
+            [Parameter(Mandatory)][string]$Name
+        )
+        $summary = Get-Content -LiteralPath (Join-Path $Root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        return Join-Path $Root (Join-Path ($summary.CandidateNamespacePath -replace '/', '\') $Name)
+    }
 }
 
 Describe 'Build-Lineup.ps1 (no local playlists configured)' {
     BeforeAll {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
         $script:FixtureRoot = Join-Path $TestDrive 'project'
@@ -79,7 +102,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
         $summary.M3UGenerated | Should -BeTrue
         $summary.M3UStatus | Should -Be 'GENERATED'
-        $summary.M3UPath | Should -Be 'output/merged.m3u'
+        $summary.M3UPath | Should -Match '^output/candidates/[0-9a-f]{64}/merged\.m3u$'
         $summary.M3USha256 | Should -Not -BeNullOrEmpty
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVStatus | Should -Be 'NOT_CONFIGURED'
@@ -99,7 +122,7 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
         $planPath = Join-Path $script:FixtureRoot 'output\reports\lineup-plan.md'
         $plan = Get-Content -LiteralPath $planPath -Raw
 
-        $plan | Should -Match 'Merged M3U: output/merged\.m3u'
+        $plan | Should -Match 'Merged M3U: output/candidates/[0-9a-f]{64}/merged\.m3u'
         $plan | Should -Match 'XMLTV output: deferred'
         $plan | Should -Match 'Remote XMLTV and provider M3U acquisition: bounded HTTPS only'
         $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
@@ -147,7 +170,13 @@ Describe 'Build-Lineup.ps1 (no local playlists configured)' {
 
 Describe 'Build-Lineup.ps1 (with local playlists configured)' {
     BeforeAll {
-        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith { return @() }
+        Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
+            return @()
+        }
         $script:FixtureRoot = Join-Path $TestDrive 'project-with-playlists'
         $dataDir = Join-Path $script:FixtureRoot 'data'
         $playlistDir = Join-Path $dataDir 'playlists'
@@ -212,20 +241,20 @@ https://example.invalid/live/disabled-channel
         & $script:ScriptPath -Root $script:FixtureRoot
     }
 
-    It 'generates output/merged.m3u' {
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+    It 'generates an immutable candidate M3U' {
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         Test-Path -LiteralPath $m3uPath -PathType Leaf | Should -BeTrue
     }
 
     It 'confines the merged playlist to the project output/ folder (write guardrail)' {
         $outDir = Join-Path $script:FixtureRoot 'output'
-        $m3uPath = Join-Path $outDir 'merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
 
         (Resolve-Path $m3uPath).Path.StartsWith((Resolve-Path $outDir).Path, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
     }
 
     It 'includes only the enabled source with a local playlist, not the disabled source or the source with no playlist' {
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         $content = Get-Content -LiteralPath $m3uPath -Raw
 
         $content | Should -Match 'ESPN'
@@ -235,7 +264,7 @@ https://example.invalid/live/disabled-channel
     }
 
     It 'resolves the FOX Sports 1 alias to FS1 in the merged output' {
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         $content = Get-Content -LiteralPath $m3uPath -Raw
 
         $content | Should -Not -Match 'FOX Sports 1'
@@ -243,7 +272,7 @@ https://example.invalid/live/disabled-channel
     }
 
     It 'assigns deterministic channel numbers and includes tvg-chno in the merged output' {
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         $content = Get-Content -LiteralPath $m3uPath -Raw
 
         $content | Should -Match 'tvg-chno="400"'
@@ -251,7 +280,7 @@ https://example.invalid/live/disabled-channel
     }
 
     It 'preserves the real stream URL in merged.m3u (the one place URLs belong)' {
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         $content = Get-Content -LiteralPath $m3uPath -Raw
 
         $content | Should -Match 'https://example\.invalid/live/espn'
@@ -260,11 +289,11 @@ https://example.invalid/live/disabled-channel
 
     It 'reports M3UGenerated=true with a project-relative path and a checksum that matches the real file' {
         $summaryPath = Join-Path $script:FixtureRoot 'output\reports\build-summary.json'
-        $m3uPath = Join-Path $script:FixtureRoot 'output\merged.m3u'
+        $m3uPath = Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u'
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
 
         $summary.M3UGenerated | Should -BeTrue
-        $summary.M3UPath | Should -Be 'output/merged.m3u'
+        $summary.M3UPath | Should -Match '^output/candidates/[0-9a-f]{64}/merged\.m3u$'
         $summary.M3USha256 | Should -Be (Get-FileHash -LiteralPath $m3uPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $summary.ChannelCount | Should -Be 2
         $summary.DuplicateCount | Should -Be 0
@@ -286,11 +315,11 @@ https://example.invalid/live/disabled-channel
     }
 
     It 'produces a byte-identical merged.m3u when rebuilt from the same inputs' {
-        $firstHash = (Get-FileHash -LiteralPath (Join-Path $script:FixtureRoot 'output\merged.m3u') -Algorithm SHA256).Hash
+        $firstHash = (Get-FileHash -LiteralPath (Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u') -Algorithm SHA256).Hash
 
         & $script:ScriptPath -Root $script:FixtureRoot
 
-        $secondHash = (Get-FileHash -LiteralPath (Join-Path $script:FixtureRoot 'output\merged.m3u') -Algorithm SHA256).Hash
+        $secondHash = (Get-FileHash -LiteralPath (Get-CandidateArtifactPath -Root $script:FixtureRoot -Name 'merged.m3u') -Algorithm SHA256).Hash
         $secondHash | Should -Be $firstHash
     }
 }
@@ -423,7 +452,10 @@ Describe 'Build-Lineup.ps1 (does not bypass source URL validation)' {
 Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
     BeforeEach {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
     }
@@ -518,7 +550,10 @@ Describe 'Build-Lineup.ps1 (provider config resolution, issue #20)' {
 Describe 'Build-Lineup.ps1 (no provider URLs or tokens in console output)' {
     BeforeEach {
         Mock -CommandName Import-ChannelForgeConfiguredM3USource -MockWith {
-            param($Source,$Provider)
+            param($Source,$Provider,$MaxDocumentBytes,$MaxRawResponseBytes,$CacheRoot,$AcquisitionStatus)
+            if ($null -ne $AcquisitionStatus) {
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
+            }
             return @(Import-ChannelForgeM3UPlaylist -Path $global:ChannelForgeBuildFixturePath -Provider $Provider -Playlist $Source.Name)
         }
     }
@@ -645,18 +680,16 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
 
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
-        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
-        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
+        $xmltvPath = Get-CandidateArtifactPath -Root $fixtureRoot -Name 'merged.xml'
         $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
 
-        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath (Get-CandidateArtifactPath -Root $fixtureRoot -Name 'merged.m3u') -PathType Leaf | Should -BeTrue
         Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeTrue
-        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
         Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeFalse
         $summary.M3UGenerated | Should -BeTrue
         $summary.XMLTVStatus | Should -Be 'GENERATED'
         $summary.XMLTVGenerated | Should -BeTrue
-        $summary.XMLTVPath | Should -Be 'output/merged.xml'
+        $summary.XMLTVPath | Should -Match '^output/candidates/[0-9a-f]{64}/merged\.xml$'
         $summary.XMLTVSha256 | Should -Be (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $summary.XMLTVSourceCount | Should -Be 1
         $summary.XMLTVProgrammeCount | Should -Be 2
@@ -666,7 +699,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary.XMLTVPreviousOutputPreserved | Should -BeFalse
         $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
         $summary.Status | Should -Be 'M3U_XMLTV_GENERATED'
-        $plan | Should -Match 'Generated XMLTV: output/merged.xml'
+        $plan | Should -Match 'Generated XMLTV: output/candidates/[0-9a-f]{64}/merged\.xml'
         $plan | Should -Match 'Target-specific EPG assignment and automatic Plex refresh: deferred'
         $plan | Should -Not -Match 'https?://'
         $plan | Should -Not -Match 'ACCOUNT_ID|API_TOKEN'
@@ -692,9 +725,9 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         & $script:ScriptPath -Root $gzipRoot
         & $script:ScriptPath -Root $zipRoot
 
-        $plainBytes = [io.file]::ReadAllBytes((Join-Path $plainRoot 'output\merged.xml'))
-        $gzipBytes = [io.file]::ReadAllBytes((Join-Path $gzipRoot 'output\merged.xml'))
-        $zipBytes = [io.file]::ReadAllBytes((Join-Path $zipRoot 'output\merged.xml'))
+        $plainBytes = [io.file]::ReadAllBytes((Get-CandidateArtifactPath -Root $plainRoot -Name 'merged.xml'))
+        $gzipBytes = [io.file]::ReadAllBytes((Get-CandidateArtifactPath -Root $gzipRoot -Name 'merged.xml'))
+        $zipBytes = [io.file]::ReadAllBytes((Get-CandidateArtifactPath -Root $zipRoot -Name 'merged.xml'))
         [Convert]::ToBase64String($gzipBytes) | Should -Be ([Convert]::ToBase64String($plainBytes))
         [Convert]::ToBase64String($zipBytes) | Should -Be ([Convert]::ToBase64String($plainBytes))
     }
@@ -716,8 +749,8 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
             & $script:ScriptPath -Root $root
         }
 
-        $forwardBytes = [io.file]::ReadAllBytes((Join-Path $forwardRoot 'output\merged.xml'))
-        $reverseBytes = [io.file]::ReadAllBytes((Join-Path $reverseRoot 'output\merged.xml'))
+        $forwardBytes = [io.file]::ReadAllBytes((Get-CandidateArtifactPath -Root $forwardRoot -Name 'merged.xml'))
+        $reverseBytes = [io.file]::ReadAllBytes((Get-CandidateArtifactPath -Root $reverseRoot -Name 'merged.xml'))
         [Convert]::ToBase64String($reverseBytes) | Should -Be ([Convert]::ToBase64String($forwardBytes))
     }
 
@@ -728,9 +761,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $guidePath = Join-Path $fixtureRoot 'data\epg\guide.xml'
         Copy-Item -LiteralPath $script:XmltvFixturePath -Destination $guidePath
         & $script:ScriptPath -Root $fixtureRoot
-        $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
-        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
-        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
+        $xmltvPath = Get-CandidateArtifactPath -Root $fixtureRoot -Name 'merged.xml'
         $beforeHash = (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash
         '<tv><programme></tv>' | Set-Content -LiteralPath $guidePath -Encoding UTF8
 
@@ -744,16 +775,14 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVPath | Should -BeNullOrEmpty
         $summary.XMLTVSha256 | Should -BeNullOrEmpty
-        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
-        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
-        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
-        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
-        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
-        (Get-FileHash -LiteralPath $rollbackPath -Algorithm SHA256).Hash | Should -Be $beforeHash
+        $summary.XMLTVPreviousOutputPresent | Should -BeFalse
+        $summary.XMLTVPreviousOutputPreserved | Should -BeFalse
+        $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
+        Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeTrue
+        (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash | Should -Be $beforeHash
         $plan | Should -Match 'XMLTV output: FAILED'
         $plan | Should -Match 'Current XMLTV publication: absent'
-        $plan | Should -Match 'preserved for rollback/inspection only'
-        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.xml') -PathType Leaf | Should -BeFalse
         $plan | Should -Not -Match 'https?://|ACCOUNT_ID|API_TOKEN|[A-Z]:\\|^\\\\'
     }
 
@@ -763,6 +792,8 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         )
         Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $fixtureRoot 'data\epg\guide.xml')
         & $script:ScriptPath -Root $fixtureRoot
+        $previousCandidateXmltv = Get-CandidateArtifactPath -Root $fixtureRoot -Name 'merged.xml'
+        $previousCandidateHash = (Get-FileHash -LiteralPath $previousCandidateXmltv -Algorithm SHA256).Hash
 
         $epgPath = Join-Path $fixtureRoot 'data\epg\epg_sources.json'
         $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
@@ -773,21 +804,20 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
         $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
-        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
 
         $summary.Status | Should -Be 'M3U_GENERATED'
         $summary.XMLTVStatus | Should -Be 'NOT_CONFIGURED'
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVPath | Should -BeNullOrEmpty
         $summary.XMLTVSha256 | Should -BeNullOrEmpty
-        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
-        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
-        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
+        $summary.XMLTVPreviousOutputPresent | Should -BeFalse
+        $summary.XMLTVPreviousOutputPreserved | Should -BeFalse
+        $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
         Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
-        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
-        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $previousCandidateXmltv -PathType Leaf | Should -BeTrue
+        (Get-FileHash -LiteralPath $previousCandidateXmltv -Algorithm SHA256).Hash | Should -Be $previousCandidateHash
+        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeTrue
         $plan | Should -Match 'Current XMLTV publication: absent'
-        $plan | Should -Match 'preserved for rollback/inspection only'
     }
 
     It 'removes a prior public XMLTV output for remote-only EPG configuration' {
@@ -796,6 +826,8 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         )
         Copy-Item -LiteralPath $script:XmltvFixturePath -Destination (Join-Path $fixtureRoot 'data\epg\guide.xml')
         & $script:ScriptPath -Root $fixtureRoot
+        $previousCandidateXmltv = Get-CandidateArtifactPath -Root $fixtureRoot -Name 'merged.xml'
+        $previousCandidateHash = (Get-FileHash -LiteralPath $previousCandidateXmltv -Algorithm SHA256).Hash
 
         $epgPath = Join-Path $fixtureRoot 'data\epg\epg_sources.json'
         @{ epg_sources = @(@{ name = 'remote-guide'; priority = 10; url = 'https://example.invalid/guide.xml'; enabled = $true; role = 'primary' }) } |
@@ -810,22 +842,19 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
         $xmltvPath = Join-Path $fixtureRoot 'output\merged.xml'
-        $xmltvTempPath = Join-Path $fixtureRoot 'output\merged.xml.tmp'
-        $rollbackPath = Join-Path $fixtureRoot 'output\xmltv-rollback\merged.xml.previous'
 
         $summary.Status | Should -Be 'FAILED'
         $summary.XMLTVStatus | Should -Be 'FAILED'
         $summary.XMLTVGenerated | Should -BeFalse
         $summary.XMLTVPath | Should -BeNullOrEmpty
         $summary.XMLTVSha256 | Should -BeNullOrEmpty
-        $summary.XMLTVPreviousOutputPresent | Should -BeTrue
-        $summary.XMLTVPreviousOutputPreserved | Should -BeTrue
-        $summary.XMLTVRollbackPath | Should -Be 'output/xmltv-rollback/merged.xml.previous'
+        $summary.XMLTVPreviousOutputPresent | Should -BeFalse
+        $summary.XMLTVPreviousOutputPreserved | Should -BeFalse
+        $summary.XMLTVRollbackPath | Should -BeNullOrEmpty
         Test-Path -LiteralPath $xmltvPath -PathType Leaf | Should -BeFalse
-        Test-Path -LiteralPath $rollbackPath -PathType Leaf | Should -BeTrue
-        Test-Path -LiteralPath $xmltvTempPath -PathType Leaf | Should -BeFalse
+        Test-Path -LiteralPath $previousCandidateXmltv -PathType Leaf | Should -BeTrue
+        (Get-FileHash -LiteralPath $previousCandidateXmltv -Algorithm SHA256).Hash | Should -Be $previousCandidateHash
         $plan | Should -Match 'Current XMLTV publication: absent'
-        $plan | Should -Match 'preserved for rollback/inspection only'
         $plan | Should -Not -Match 'https?://'
     }
 

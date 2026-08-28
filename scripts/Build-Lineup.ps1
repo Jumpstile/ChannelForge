@@ -1,12 +1,12 @@
 param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
 
-    # Explicit override for the provider config file (issue #20). Resolved
-    # relative to data/providers/ and confined there - see
-    # Resolve-ChannelForgeProviderConfigPath. Highest precedence: when set,
-    # it bypasses *.local.json auto-discovery (and any ambiguity in it)
-    # entirely.
-    [string]$ProviderPath
+    # Explicit override for the provider config file.
+    [string]$ProviderPath,
+
+    # Candidate-only fault injection is test-only and never affects accepted
+    # state. It names one of C01-C15 or the directory move hooks.
+    [string]$FaultHook = ''
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +14,32 @@ $ErrorActionPreference = "Stop"
 # Always load the module from this script's own location, never from -Root.
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Force
+
+function Invoke-ChannelForgePrivateCandidateFunction {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][hashtable]$Arguments
+    )
+
+    $module = $null
+    foreach ($candidateModule in @(Get-Module -Name ChannelForge)) {
+        $hasFunction = & $candidateModule {
+            param($privateName)
+            $null -ne (Get-Command -Name $privateName -CommandType Function -ErrorAction SilentlyContinue)
+        } $Name
+        if ($null -eq $module -and $hasFunction) {
+            $module = $candidateModule
+        }
+    }
+    if ($null -eq $module) {
+        throw 'ChannelForge module is not loaded; candidate projection cannot continue.'
+    }
+    return @(& $module {
+            param($privateName, $privateArguments)
+            & $privateName @privateArguments
+        } $Name $Arguments)
+}
+
 
 function Read-JsonFile {
     param([string]$Path)
@@ -237,92 +263,39 @@ Assert-ChannelForgeWritePath -Path $m3uCacheRoot -AllowedRoot $outDir
 New-Item -ItemType Directory -Force -Path $outDir, $reportDir, $cacheRoot, $m3uCacheRoot | Out-Null
 
 $m3uPath = Join-Path $outDir 'merged.m3u'
-$m3uTempPath = Join-Path $outDir 'merged.m3u.tmp'
-$m3uRollbackDir = Join-Path $outDir 'm3u-rollback'
-$m3uRollbackPath = Join-Path $m3uRollbackDir 'merged.m3u.previous'
-$m3uRollbackRelativePath = 'output/m3u-rollback/merged.m3u.previous'
-Assert-ChannelForgeWritePath -Path $m3uPath -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $m3uTempPath -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $m3uRollbackDir -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $m3uRollbackPath -AllowedRoot $outDir
-$m3uPreviousOutputPresent = Test-Path -LiteralPath $m3uPath -PathType Leaf
-$m3uPreviousOutputPreserved = $false
-
-if (Test-Path -LiteralPath $m3uTempPath -PathType Leaf) {
-    try {
-        Remove-Item -LiteralPath $m3uTempPath -Force -ErrorAction Stop
-    }
-    catch {
-        throw 'Previous M3U staging output could not be cleared safely.'
-    }
-}
-
-if ($m3uPreviousOutputPresent) {
-    try {
-        New-Item -ItemType Directory -Force -Path $m3uRollbackDir | Out-Null
-        if (Test-Path -LiteralPath $m3uRollbackPath -PathType Leaf) {
-            [System.IO.File]::Replace($m3uPath, $m3uRollbackPath, $null)
-        }
-        else {
-            [System.IO.File]::Move($m3uPath, $m3uRollbackPath)
-        }
-
-        if (Test-Path -LiteralPath $m3uPath -PathType Leaf) {
-            throw 'Public M3U publication path remained after quarantine.'
-        }
-
-        $m3uPreviousOutputPreserved = $true
-    }
-    catch {
-        throw 'Previous M3U publication could not be quarantined safely.'
-    }
-}
-
 $xmltvPath = Join-Path $outDir 'merged.xml'
-$xmltvTempPath = Join-Path $outDir 'merged.xml.tmp'
-$xmltvRollbackDir = Join-Path $outDir 'xmltv-rollback'
-$xmltvRollbackPath = Join-Path $xmltvRollbackDir 'merged.xml.previous'
+$m3uRollbackRelativePath = 'output/m3u-rollback/merged.m3u.previous'
 $xmltvRollbackRelativePath = 'output/xmltv-rollback/merged.xml.previous'
+# Candidate builds never read, write, move, replace, quarantine, or delete
+# the public artifacts or their existing rollback directories.
+Assert-ChannelForgeWritePath -Path $m3uPath -AllowedRoot $outDir
 Assert-ChannelForgeWritePath -Path $xmltvPath -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $xmltvTempPath -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $xmltvRollbackDir -AllowedRoot $outDir
-Assert-ChannelForgeWritePath -Path $xmltvRollbackPath -AllowedRoot $outDir
+$m3uPreviousOutputPresent = Test-Path -LiteralPath $m3uPath -PathType Leaf
 $xmltvPreviousOutputPresent = Test-Path -LiteralPath $xmltvPath -PathType Leaf
+$m3uPreviousOutputPreserved = $false
 $xmltvPreviousOutputPreserved = $false
 
-if (Test-Path -LiteralPath $xmltvTempPath -PathType Leaf) {
-    try {
-        Remove-Item -LiteralPath $xmltvTempPath -Force -ErrorAction Stop
-    }
-    catch {
-        throw 'Previous XMLTV staging output could not be cleared safely.'
-    }
-}
+$candidateRoot = Join-Path $outDir 'candidates'
+$candidateStagingRoot = Join-Path (Join-Path $candidateRoot '.staging') ([guid]::NewGuid().ToString('N'))
+$candidateM3UPath = Join-Path $candidateStagingRoot 'merged.m3u'
+$candidateXmltvPath = Join-Path $candidateStagingRoot 'merged.xml'
+$candidateManifestPath = Join-Path $candidateStagingRoot 'manifest.json'
+$candidateReviewJsonPath = Join-Path $candidateStagingRoot 'lineup-change-review.json'
+$candidateReviewMarkdownPath = Join-Path $candidateStagingRoot 'lineup-change-review.md'
+$m3uTempPath = Join-Path $candidateStagingRoot '.merged.m3u.export.tmp'
+$xmltvTempPath = Join-Path $candidateStagingRoot '.merged.xml.export.tmp'
+Assert-ChannelForgeWritePath -Path $candidateRoot -AllowedRoot $outDir
+Assert-ChannelForgeWritePath -Path $candidateStagingRoot -AllowedRoot $outDir
+New-Item -ItemType Directory -Force -Path $candidateStagingRoot | Out-Null
+$candidateNamespacePath = $null
+$candidateBuildIdentity = $null
+$candidateManifestHash = $null
+$candidatePublished = $false
 
-# output/merged.xml is the current-build publication contract. Quarantine any
-# prior public artifact before this run reads configuration or attempts a new
-# publication. The quarantine slot is disposable rollback evidence only; it
-# is never used as input, cache, source snapshot, or current output.
-if ($xmltvPreviousOutputPresent) {
-    try {
-        New-Item -ItemType Directory -Force -Path $xmltvRollbackDir | Out-Null
-        if (Test-Path -LiteralPath $xmltvRollbackPath -PathType Leaf) {
-            [System.IO.File]::Replace($xmltvPath, $xmltvRollbackPath, $null)
-        }
-        else {
-            [System.IO.File]::Move($xmltvPath, $xmltvRollbackPath)
-        }
-
-        if (Test-Path -LiteralPath $xmltvPath -PathType Leaf) {
-            throw 'Public XMLTV publication path remained after quarantine.'
-        }
-
-        $xmltvPreviousOutputPreserved = $true
-    }
-    catch {
-        throw 'Previous XMLTV publication could not be quarantined safely.'
-    }
-}
+$m3uRawOccurrences = @()
+$identityBindingResult = $null
+$allProgrammes = @()
+$xmltvMergeResult = $null
 
 $providersDir = Join-Path $dataDir "providers"
 $resolvedProviderPath = Resolve-ChannelForgeProviderConfigPath `
@@ -363,6 +336,7 @@ $m3uRemoteSourceCount = @($providerSources | Where-Object {
 $m3uDisabledSourceCount = @($providerSources | Where-Object { -not $_.Enabled }).Count
 $m3uActiveSourceCount = @($providerSources | Where-Object { $_.Enabled }).Count
 $m3uAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
+$candidateInputArtifactHashes = [System.Collections.Generic.List[object]]::new()
 $channelCount = 0
 $duplicateCount = 0
 $warningCount = 0
@@ -374,8 +348,9 @@ if ($m3uActiveSourceCount -gt 0) {
         $mergeSource = [System.Collections.Generic.List[object]]::new()
         for ($sourceIndex = 0; $sourceIndex -lt $providerSources.Count; $sourceIndex++) {
             $source = $providerSources[$sourceIndex]
+            do {
             if (-not $source.Enabled) {
-                continue
+                break
             }
 
             # Configuration order is deterministic source truth. It is used
@@ -384,13 +359,33 @@ if ($m3uActiveSourceCount -gt 0) {
             if (-not [string]::IsNullOrWhiteSpace([string]$source.LocalPlaylist)) {
                 $resolvedPlaylistPath = Join-Path $Root $source.LocalPlaylist
                 Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+                $logicalIdValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeLogicalSourceId' `
+                    -Arguments @{
+                        ProviderName = [string]$providerConfig.provider
+                        SourceName = [string]$source.Name
+                        SourceKind = 'M3U'
+                    })
+                $logicalSourceId = [string]($logicalIdValues | Select-Object -Last 1)
+                $inputHashValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeDomainHash' `
+                    -Arguments @{
+                        Domain = 'input-m3u/v2'
+                        Bytes = [System.IO.File]::ReadAllBytes($resolvedPlaylistPath)
+                    })
+                $inputHash = [string]($inputHashValues | Select-Object -Last 1)
+                [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                        LogicalSourceId = $logicalSourceId
+                        ArtifactKind = 'M3U'
+                        ArtifactHash = $inputHash
+                    })
                 [void]$mergeSource.Add([pscustomobject]@{
                     Path      = $resolvedPlaylistPath
                     Provider  = $providerConfig.provider
                     Playlist  = $source.Name
                     OrderKey  = $orderKey
                 })
-                continue
+                break
             }
 
             if ([string]::IsNullOrWhiteSpace([string]$source.Url)) {
@@ -407,6 +402,20 @@ if ($m3uActiveSourceCount -gt 0) {
                 -Provider $providerConfig.provider `
                 -CacheRoot $m3uCacheRoot `
                 -AcquisitionStatus $acquisitionStatus)
+            $remoteLogicalValues = @(Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'Get-ChannelForgeLogicalSourceId' `
+                -Arguments @{
+                    ProviderName = [string]$providerConfig.provider
+                    SourceName = [string]$source.Name
+                    SourceKind = 'M3U'
+                })
+            $remoteLogicalSourceId = [string]($remoteLogicalValues | Select-Object -Last 1)
+            $remoteHash = [string]$acquisitionStatus.InputArtifactHash
+            [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                    LogicalSourceId = $remoteLogicalSourceId
+                    ArtifactKind = 'M3U'
+                    ArtifactHash = $remoteHash
+                })
 
             [void]$mergeSource.Add([pscustomobject]@{
                 Channels  = $remoteChannels
@@ -432,6 +441,7 @@ if ($m3uActiveSourceCount -gt 0) {
                     HasLastModified    = [bool]$acquisitionStatus['HasLastModified']
                 })
             }
+            } while ($false)
         }
 
         if ($mergeSource.Count -eq 0) {
@@ -445,23 +455,30 @@ if ($m3uActiveSourceCount -gt 0) {
             -NumberingBlocksPath $numberingBlocksPath
 
         $m3uFailureStage = 'export'
-        $mergeResult.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath
+        $m3uRawOccurrences = @(Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Get-ChannelForgeRawM3UProjection' `
+            -Arguments @{ Channel = @($mergeResult.AllChannels) })
+        $candidateChannels = @($m3uRawOccurrences |
+            Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
+            Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
+            ForEach-Object { $_.Channel })
+        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath
         if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
             throw 'M3U exporter did not produce the staged output.'
         }
 
-        $m3uHash = (Get-FileHash -LiteralPath $m3uTempPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        $m3uFailureStage = 'publish'
-        if (Test-Path -LiteralPath $m3uPath -PathType Leaf) {
-            throw 'Public M3U publication path was recreated before promotion.'
-        }
-        [System.IO.File]::Move($m3uTempPath, $m3uPath)
+        $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTempPath)
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateM3UPath; Bytes = $m3uBytes; HookPrefix = 'CandidateStageWrite.M3U'; FaultHook = $FaultHook } | Out-Null
+        Remove-Item -LiteralPath $m3uTempPath -Force
+        $m3uHash = (Get-FileHash -LiteralPath $candidateM3UPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
         $m3uStatus = 'GENERATED'
         $m3uGenerated = $true
-        $m3uRelativePath = 'output/merged.m3u'
-        $mergedM3UChannels = @($mergeResult.Channels)
-        $channelCount = $mergeResult.Channels.Count
+        $m3uRelativePath = $null
+        $mergedM3UChannels = @($candidateChannels)
+        $channelCount = $candidateChannels.Count
         $duplicateCount = $mergeResult.DuplicateCount
         $warningCount = $mergeResult.WarningCount
     }
@@ -483,9 +500,6 @@ if ($m3uActiveSourceCount -gt 0) {
         }
         elseif ($m3uFailureStage -eq 'export') {
             $m3uFailureReason = 'Merged provider M3U channels could not be serialized.'
-        }
-        elseif ($m3uFailureStage -eq 'publish') {
-            $m3uFailureReason = 'Merged M3U output could not be promoted safely.'
         }
         else {
             $m3uFailureReason = 'Provider M3U build processing failed.'
@@ -605,6 +619,21 @@ else {
                 -Source $source `
                 -CacheRoot $cacheRoot `
                 -AcquisitionStatus $acquisitionStatus)
+            $xmlLogicalSourceId = [string]@(
+                Invoke-ChannelForgePrivateCandidateFunction `
+                    -Name 'Get-ChannelForgeDomainHash' `
+                    -Arguments @{
+                        Domain = 'logical-source-id/v2'
+                        InputObject = [ordered]@{
+                            Version = 'lineup-history-v1'
+                            SourceId = [string]$source.Name
+                        }
+                    })[-1]
+            [void]$candidateInputArtifactHashes.Add([pscustomobject][ordered]@{
+                    LogicalSourceId = $xmlLogicalSourceId
+                    ArtifactKind = 'XMLTV'
+                    ArtifactHash = [string]$acquisitionStatus.InputArtifactHash
+                })
             if ($acquisitionStatus.Count -gt 0) {
                 [void]$xmltvAcquisitionStatuses.Add([pscustomobject][ordered]@{
                     SourceId = [string]$source.Name
@@ -670,16 +699,16 @@ else {
             throw 'XMLTV exporter did not produce the staged output.'
         }
 
-        $xmltvHash = (Get-FileHash -LiteralPath $xmltvTempPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        $xmltvFailureStage = 'publish'
-        if (Test-Path -LiteralPath $xmltvPath -PathType Leaf) {
-            throw 'Public XMLTV publication path was recreated before promotion.'
-        }
-        [System.IO.File]::Move($xmltvTempPath, $xmltvPath)
+        $xmltvBytes = [System.IO.File]::ReadAllBytes($xmltvTempPath)
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateXmltvPath; Bytes = $xmltvBytes; HookPrefix = 'CandidateStageWrite.XMLTV'; FaultHook = $FaultHook } | Out-Null
+        Remove-Item -LiteralPath $xmltvTempPath -Force
+        $xmltvHash = (Get-FileHash -LiteralPath $candidateXmltvPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
         $xmltvStatus = 'GENERATED'
         $xmltvGenerated = $true
-        $xmltvRelativePath = 'output/merged.xml'
+        $xmltvRelativePath = $null
     }
     catch {
         $xmltvStatus = 'FAILED'
@@ -702,9 +731,6 @@ else {
         elseif ($xmltvFailureStage -eq 'identity-binding') {
             $xmltvFailureReason = 'M3U/XMLTV identity binding could not be evaluated safely.'
         }
-        elseif ($xmltvFailureStage -eq 'publish') {
-            $xmltvFailureReason = 'XMLTV output could not be promoted safely.'
-        }
         else {
             $xmltvFailureReason = 'XMLTV build processing failed.'
         }
@@ -713,6 +739,142 @@ else {
         if (Test-Path -LiteralPath $xmltvTempPath -PathType Leaf) {
             Remove-Item -LiteralPath $xmltvTempPath -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+
+if ($m3uGenerated -or $xmltvGenerated) {
+    try {
+        $rawXmltvOccurrences = if ($allProgrammes.Count -gt 0) {
+            @(Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'Get-ChannelForgeRawXmltvProjection' `
+                -Arguments @{ Programme = @($allProgrammes.ToArray()) })
+        }
+        else {
+            @()
+        }
+
+        $selectedSourceIds = @($m3uRawOccurrences | ForEach-Object { [string]$_.LogicalSourceId })
+        $selectedSourceIds += @($rawXmltvOccurrences | ForEach-Object { [string]$_.LogicalSourceId })
+        $selectedSourceIds = @($selectedSourceIds | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+        $candidateM3UBytes = if ($m3uGenerated) {
+            [System.IO.File]::ReadAllBytes((Join-Path $candidateStagingRoot 'merged.m3u'))
+        }
+        else {
+            $null
+        }
+        $candidateXMLTVBytes = if ($xmltvGenerated) {
+            [System.IO.File]::ReadAllBytes((Join-Path $candidateStagingRoot 'merged.xml'))
+        }
+        else {
+            $null
+        }
+        $manifestArguments = @{
+            RawM3UOccurrences       = @($m3uRawOccurrences)
+            M3UIdentityCollisions   = @($mergeResult.IdentityCollisions)
+            RawXmltvOccurrences     = @($rawXmltvOccurrences)
+            IdentityBindingResult   = $identityBindingResult
+            M3UBytes                = $candidateM3UBytes
+            XMLTVBytes              = $candidateXMLTVBytes
+            InputArtifactHashes     = @($candidateInputArtifactHashes.ToArray())
+            SelectedSourceIds       = $selectedSourceIds
+        }
+        $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'ConvertTo-ChannelForgeCandidateManifest' `
+            -Arguments $manifestArguments
+        if ($null -eq $manifestResult -or $manifestResult.Count -eq 0) {
+            throw 'Candidate manifest construction returned no result.'
+        }
+        $manifestResult = @($manifestResult)[-1]
+        $candidateBuildIdentity = [string]$manifestResult.BuildIdentity
+        $counts = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Get-ChannelForgeCandidateReviewCounts' `
+            -Arguments @{
+                RawM3UOccurrences = @($m3uRawOccurrences)
+                RawXmltvOccurrences = @($rawXmltvOccurrences)
+                BindingProjection = @($manifestResult.BindingProjection)
+            }
+        $counts = @($counts)[-1]
+
+        $reviewObject = [ordered]@{
+            Version = 'blocker-2-contract/v7'
+            BuildIdentity = $candidateBuildIdentity
+            ReviewRecords = @($manifestResult.Manifest.ReviewRecords)
+            M3UIdentityCollisions = @($manifestResult.Manifest.M3UIdentityCollisions)
+            RawM3UOccurrenceCount = [int]$counts.RawM3UOccurrenceCount
+            RawXMLTVOccurrenceCount = [int]$counts.RawXMLTVOccurrenceCount
+            ExactBindingCount = [int]$counts.ExactBindingCount
+            UnboundCount = [int]$counts.UnboundCount
+            ReviewNeededCount = [int]$counts.ReviewNeededCount
+            XMLTVOnlyCount = [int]$counts.XMLTVOnlyCount
+        }
+        $reviewBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes(
+            [string](Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'ConvertTo-ChannelForgeCanonicalJson' `
+                -Arguments @{ InputObject = $reviewObject }))
+        $reviewMarkdown = @(
+            '# ChannelForge Lineup Change Review'
+            ''
+            "Build identity: $candidateBuildIdentity"
+            "Exact bindings: $($counts.ExactBindingCount)"
+            "Unbound M3U channels: $($counts.UnboundCount)"
+            "Review-needed identities: $($counts.ReviewNeededCount)"
+            "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
+            ''
+            'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
+        ) -join "`n"
+        $reviewMarkdownBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes($reviewMarkdown + "`n")
+
+        $manifestArguments.ReviewJSONBytes = $reviewBytes
+        $manifestArguments.ReviewMarkdownBytes = $reviewMarkdownBytes
+        $manifestArguments.ReviewCounts = $counts
+        $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'ConvertTo-ChannelForgeCandidateManifest' `
+            -Arguments $manifestArguments
+        $manifestResult = @($manifestResult)[-1]
+        $candidateManifestHash = [string]$manifestResult.CandidateManifestHash
+        $manifestObject = [ordered]@{}
+        foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) {
+            $manifestObject[$property.Name] = $property.Value
+        }
+        $manifestObject['CandidateManifestHash'] = $candidateManifestHash
+        $manifestBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes(
+            [string](Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'ConvertTo-ChannelForgeCanonicalJson' `
+                -Arguments @{ InputObject = $manifestObject }))
+
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateReviewJsonPath; Bytes = $reviewBytes; HookPrefix = 'CandidateStageWrite.ReviewJSON'; FaultHook = $FaultHook } | Out-Null
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateReviewMarkdownPath; Bytes = $reviewMarkdownBytes; HookPrefix = 'CandidateStageWrite.ReviewMarkdown'; FaultHook = $FaultHook } | Out-Null
+        Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Write-ChannelForgeCandidateArtifact' `
+            -Arguments @{ Path = $candidateManifestPath; Bytes = $manifestBytes; HookPrefix = 'CandidateStageWrite.Manifest'; FaultHook = $FaultHook } | Out-Null
+
+        $candidateNamespacePath = Invoke-ChannelForgePrivateCandidateFunction `
+            -Name 'Publish-ChannelForgeCandidateNamespace' `
+            -Arguments @{ OutputRoot = $outDir; StagingPath = $candidateStagingRoot; CandidateManifestHash = $candidateManifestHash; FaultHook = $FaultHook }
+        $candidateNamespacePath = [string]@($candidateNamespacePath)[-1]
+        $candidatePublished = $true
+        $m3uRelativePath = if ($m3uGenerated) {
+            [System.IO.Path]::GetRelativePath($Root, (Join-Path $candidateNamespacePath 'merged.m3u')).Replace('\', '/')
+        }
+        else {
+            $null
+        }
+        $xmltvRelativePath = if ($xmltvGenerated) {
+            [System.IO.Path]::GetRelativePath($Root, (Join-Path $candidateNamespacePath 'merged.xml')).Replace('\', '/')
+        }
+        else {
+            $null
+        }
+    }
+    catch {
+        if (-not $candidatePublished -and (Test-Path -LiteralPath $candidateStagingRoot)) {
+            Remove-Item -LiteralPath $candidateStagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        throw
     }
 }
 
@@ -734,6 +896,9 @@ else {
 
 $summary = [ordered]@{
     GeneratedAt                    = (Get-Date).ToString("s")
+    CandidateBuildIdentity         = $candidateBuildIdentity
+    CandidateManifestHash          = $candidateManifestHash
+    CandidateNamespacePath          = if ($candidatePublished) { [System.IO.Path]::GetRelativePath($Root, $candidateNamespacePath).Replace('\', '/') } else { $null }
     Provider                       = Get-SafeReportText $providerConfig.provider
     M3USources                     = $providerSources.Count
     EPGSources                     = $epgSources.Count

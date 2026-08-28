@@ -4,6 +4,12 @@ BeforeAll {
     $script:FixturePlaylist = Join-Path $RepoRoot 'tests\fixtures\tiny.m3u'
     Import-Module (Join-Path $RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
 
+    function Get-CandidateArtifactPath {
+        param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Name)
+        $summary = Get-Content -LiteralPath (Join-Path $Root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        return Join-Path $Root (Join-Path ($summary.CandidateNamespacePath -replace '/', '\') $Name)
+    }
+
     function New-BuildFixture {
         param(
             [Parameter(Mandatory)]
@@ -63,7 +69,7 @@ BeforeAll {
                 $AcquisitionStatus['ContentType'] = 'application/vnd.apple.mpegurl'
                 $AcquisitionStatus['ContentEncodings'] = @()
                 $AcquisitionStatus['RawContentLength'] = $null
-                $AcquisitionStatus['DecompressedBytes'] = 1
+                $AcquisitionStatus['InputArtifactHash'] = & (Get-Module ChannelForge) { param($bytes); Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes $bytes } ([IO.File]::ReadAllBytes($global:ChannelForgeBuildFixturePath))
                 $AcquisitionStatus['ChannelCount'] = $channels.Count
                 $AcquisitionStatus['HasETag'] = -not [string]::IsNullOrWhiteSpace($RawETag)
                 $AcquisitionStatus['HasLastModified'] = -not [string]::IsNullOrWhiteSpace($RawLastModified)
@@ -91,9 +97,9 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
 
         & $script:ScriptPath -Root $root
 
-        $m3uPath = Join-Path $root 'output\merged.m3u'
         $summaryPath = Join-Path $root 'output\reports\build-summary.json'
         $planPath = Join-Path $root 'output\reports\lineup-plan.md'
+        $m3uPath = Get-CandidateArtifactPath -Root $root -Name 'merged.m3u'
         Test-Path -LiteralPath $m3uPath -PathType Leaf | Should -BeTrue
         (Get-Content -LiteralPath $m3uPath -Raw) | Should -Match '#EXTM3U'
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
@@ -136,7 +142,7 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
             @{ name = 'Source'; group = 'General'; url = 'https://example.invalid/iptv/fixture'; enabled = $true; local_playlist = 'data/playlists/local.m3u' }
         )
         & $script:ScriptPath -Root $localRoot
-        $localHash = (Get-FileHash -LiteralPath (Join-Path $localRoot 'output\merged.m3u') -Algorithm SHA256).Hash
+        $localHash = (Get-FileHash -LiteralPath (Get-CandidateArtifactPath -Root $localRoot -Name 'merged.m3u') -Algorithm SHA256).Hash
 
         $remoteRoot = Join-Path $TestDrive 'remote-equivalence'
         New-BuildFixture -Root $remoteRoot -Sources @(
@@ -144,7 +150,7 @@ Describe 'Build-Lineup.ps1 remote provider M3U integration' {
         )
         Set-RemoteBuildMock -FixturePath $script:FixturePlaylist
         & $script:ScriptPath -Root $remoteRoot
-        $remoteHash = (Get-FileHash -LiteralPath (Join-Path $remoteRoot 'output\merged.m3u') -Algorithm SHA256).Hash
+        $remoteHash = (Get-FileHash -LiteralPath (Get-CandidateArtifactPath -Root $remoteRoot -Name 'merged.m3u') -Algorithm SHA256).Hash
 
         $remoteHash | Should -Be $localHash
     }
