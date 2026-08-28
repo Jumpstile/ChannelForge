@@ -7,7 +7,7 @@ This proposal is design/review evidence only. It authorizes no acceptance, promo
 The version registry has two deliberately disjoint scopes:
 
 * `CandidateContractVersion` is the literal `blocker-2-contract/v7`. Every retained candidate projection, candidate artifact, `BuildIdentity`, and candidate `Version` field remains owned by v7. This proposal does not restate or amend those projections.
-* `AcceptanceContractVersion` is the literal `blocker-2-contract/v8-acceptance`. It is owned by this proposal and is used only by the ten successor domains listed in section 3. A field named `Version` in one of those ten objects is exactly this value. It is not the proposed revision label (`blocker-2-contract/v8`) and is not a hash-domain name.
+* `AcceptanceContractVersion` is the literal `blocker-2-contract/v8-acceptance`. It is owned by this proposal and is used only by the ten deferred domains plus the aggregate `decision-manifest/v2` listed in section 3. A field named `Version` in one of those eleven objects is exactly this value. It is not the proposed revision label (`blocker-2-contract/v8`) and is not a hash-domain name.
 
 `GenerationId` is an operational identifier, not a version: exactly 64 lowercase hexadecimal characters (32 random bytes), generated before staging. `BuildIdentity` and `CandidateManifestHash` are v7 candidate values and are copied, never re-versioned or re-hashed by an acceptance domain. Hash-domain suffixes are semantic domain names, not registry version values.
 
