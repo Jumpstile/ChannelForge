@@ -31,8 +31,8 @@ The schema is `journal/v2`:
 | `JournalStage` | Closed enum `None`, `Prepared`, `GenerationPublished`, `PointerSwapped`, or `Committed`; ranks are 0, 1, 2, 3, and 4. Unknown values fail closed. `None` is an in-memory pre-publication state and is never an authoritative file. |
 | `ExpectedOldPointerHash` | Null or lowercase 64-hex `PointerHash`. Null only for a first acceptance with no current pointer. It is the hash of the exact bytes that must still be current before replacement. |
 | `ExpectedNewPointerHash` | Null or lowercase 64-hex `PointerHash`. Required from `Prepared` onward and is the hash of the staged new pointer. |
-| `ExpectedOldGenerationId` | Null or lowercase 32-hex `GenerationId`. Null only for a first acceptance. When present, it is the generation selected by the old pointer. |
-| `ExpectedNewGenerationId` | Required lowercase 32-hex `GenerationId` from `Prepared` onward; it is the final generation selected by the new pointer. |
+| `ExpectedOldGenerationId` | Null or exactly 64 lowercase hexadecimal characters (`GenerationId`). Null only for a first acceptance. When present, it is the generation selected by the old pointer. |
+| `ExpectedNewGenerationId` | Required exactly 64 lowercase hexadecimal characters (`GenerationId`) from `Prepared` onward; it is the final generation selected by the new pointer. |
 | `MutationRecords` | Unique `MutationRecord` objects sorted by `MutationOrdinal` ascending. The records are the exact operation preconditions and postconditions, not a second source of accepted semantics. |
 | `OldJournalHash` | Null only on the first publication when no prior authoritative journal exists; otherwise lowercase 64-hex hash of the immediately prior authoritative journal. |
 | `JournalHash` | Lowercase 64-hex hash of this object with `JournalHash` omitted, using domain `journal/v2`. `NewJournalHash` is not a property. |
