@@ -48,6 +48,8 @@ packet or by the unfrozen proposal.
 The proposal's version registry must remain the sole source for version values.
 A field named `Version` in a retained candidate projection must not be changed
 merely because an acceptance projection uses the v8 acceptance value.
+`Journal.Version` is the explicit PART-C exception and is the literal integer
+`2`, not `AcceptanceContractVersion`.
 
 ## Preserved frozen-v7 candidate values
 
@@ -129,55 +131,45 @@ intended rule; it does not mean the rule has passed runtime validation.
 
 | Domain | Intended owner | Proposed projection | Integration check still required |
 |---|---|---|---|
-| `pointer/v2` | PART-B | `Version,GenerationId,GenerationManifestHash,AcceptedStateHash,AcceptedOutputManifestHash,PointerHash` | Define what exactly `AcceptedOutputManifestHash` hashes |
-| `accepted-state/v2` | PART-B | Accepted generation/build/candidate/decision/output IDs, included/excluded IDs, binding IDs, XMLTV status, timestamp, self-hash | Reconcile accepted output-manifest reference with its missing projection |
-| `active-m3u/v2` | PART-B | Active M3U metadata and content binding | Verify `OutputManifestHash` owner and exact input |
+| `pointer/v2` | PART-B | `Version,GenerationId,GenerationManifestHash,AcceptedStateHash,AcceptedOutputManifestHash,PointerHash` | Verify pointer references the PART-A output-manifest role and exact bytes |
+| `accepted-state/v2` | PART-B | Accepted generation/build/candidate/decision/output IDs, included/excluded IDs, binding IDs, XMLTV status, timestamp, self-hash | Verify state/output ordering and excluded self/reference fields |
+| `active-m3u/v2` | PART-B | Active M3U metadata and content binding | Verify `OutputManifestHash` against the PART-A output-manifest projection |
 | `active-xmltv/v2` | PART-B | Generated/NotGenerated status and conditional content fields | Resolve required generation hash versus null content hash |
 | `previous-m3u/v2` | PART-B | Prior accepted M3U plus `PreviousGenerationId` | Verify previous hash and generation coherence |
 | `previous-xmltv/v2` | PART-B | Prior accepted XMLTV plus `PreviousGenerationId` | Resolve NotGenerated previous hash binding |
 | `decision-m3u/v2` | PART-B | Candidate/parent hashes, ID arrays, decision self-hash | Define relationship to generation's singular `DecisionManifestHash` |
 | `decision-xmltv/v2` | PART-B | Candidate/parent hashes, XMLTV status, ID arrays, decision self-hash | Define relationship to generation's singular `DecisionManifestHash` |
-| `generation-manifest/v2` | PART-B | Generation, candidate, decision, state, output, active, previous hashes | Supply an exact output-manifest projection and XMLTV null rule |
+| `generation-manifest/v2` | PART-B | Generation, candidate, decision, state, output, active, previous hashes | Verify output-manifest role and XMLTV null rule end to end |
 | `previous-output-manifest/v2` | PART-B | Prior generation output references and self-hash | Supply exact first-generation absence and status/hash vectors |
 
 ## Unresolved limitations and required dispositions
 
-1. **Journal schema ownership is declared but not textually closed.** PART-C is
-   the intended sole owner of `JournalV2`, but the current proposal text does
-   not include the Journal property order and nullability rules. The closure
-   file therefore must not restate it, because that would create a duplicate
-   definition. Before freeze, PART-C must supply the exact definition, or the
-   proposal must explicitly withdraw journal claims from scope.
-2. **Accepted output manifest is referenced without a standalone schema.**
-   `AcceptedOutputManifestHash` is required by pointer/state/generation
-   bindings, but no `accepted-output-manifest/v2` ordered projection is listed
-   among the ten domains. A hash name alone is not a canonical contract.
-3. **`OutputManifestHash` has no sole projection owner.** Active output fields
-   and the generation manifest consume this value, but the owning output
-   manifest and its byte/hash input are not separately defined.
-4. **Decision hash cardinality is unclear.** PART-B defines both
+1. **Decision hash cardinality is unclear.** PART-B defines both
    `decision-m3u/v2` and `decision-xmltv/v2` with a `DecisionManifestHash`,
    while generation/state bindings carry a singular `DecisionManifestHash`.
    The contract must specify whether these are two independently named hashes,
    one combined manifest, or a status-dependent field.
-5. **NotGenerated XMLTV can conflict with required manifest hashes.** The
+2. **NotGenerated XMLTV can conflict with required manifest hashes.** The
    active/previous XMLTV projections permit `ContentHash=null`, while
    generation/previous-output rows describe active XMLTV hashes as required.
-   The proposal needs one explicit hash-of-absence or nullable-reference rule,
-   with first-generation and later-generation vectors.
-6. **Operational identifier encoding should be explicit.** `GenerationId` is
-   described as a lowercase 32-byte identifier. The canonical text should state
-   whether this means 32 raw bytes rendered as 64 lowercase hex characters, or
-   a 32-character encoded value; validation must not infer the encoding.
-7. **No runtime evidence exists by design.** The proposal is contract work only.
+   PART-A defines the output-manifest role but does not remove this
+   cross-projection question. The proposal needs one explicit hash-of-absence
+   or nullable-reference rule, with first-generation and later-generation
+   vectors.
+3. **GenerationId encoding is inconsistent across parts.** PART-A requires
+   exactly 64 lowercase hexadecimal characters for 32 random bytes, while the
+   Journal table in PART-C currently says lowercase 32-hex `GenerationId`.
+   These must be made identical before freeze; validation must not infer which
+   encoding is intended.
+4. **No runtime evidence exists by design.** The proposal is contract work only.
    Serializer, hash, namespace, durability, and crash tests cannot be claimed
    from this packet and must be produced by a later implementation against the
    frozen revision.
-8. **Fixture values are not acceptance constants.** The preserved v7 values in
+5. **Fixture values are not acceptance constants.** The preserved v7 values in
    this packet include fixture-specific hashes solely to prevent accidental
    re-versioning or substitution. They do not define expected output for a new
    candidate or generation.
-9. **DuplicateCount is dispositioned, not promoted into occurrence schemas.**
+6. **DuplicateCount is dispositioned, not promoted into occurrence schemas.**
    PART-B's derived-evidence rule resolves the old storage ambiguity for this
    proposal, but implementation review must prove that occurrence digests and
    candidate occurrence property orders still exclude it.

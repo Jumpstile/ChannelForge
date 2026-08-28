@@ -7,11 +7,15 @@ This proposal is design/review evidence only. It authorizes no acceptance, promo
 The version registry has two deliberately disjoint scopes:
 
 * `CandidateContractVersion` is the literal `blocker-2-contract/v7`. Every retained candidate projection, candidate artifact, `BuildIdentity`, and candidate `Version` field remains owned by v7. This proposal does not restate or amend those projections.
-* `AcceptanceContractVersion` is the literal `blocker-2-contract/v8-acceptance`. It is owned by this proposal and is used only by the ten successor domains listed in section 2. A field named `Version` in one of those ten objects is exactly this value. It is not the proposed revision label (`blocker-2-contract/v8`) and is not a hash-domain name.
+* `AcceptanceContractVersion` is the literal `blocker-2-contract/v8-acceptance`. It is owned by this proposal and is used only by the ten successor domains listed in section 3. A field named `Version` in one of those ten objects is exactly this value. It is not the proposed revision label (`blocker-2-contract/v8`) and is not a hash-domain name.
 
 `GenerationId` is an operational identifier, not a version: exactly 64 lowercase hexadecimal characters (32 random bytes), generated before staging. `BuildIdentity` and `CandidateManifestHash` are v7 candidate values and are copied, never re-versioned or re-hashed by an acceptance domain. Hash-domain suffixes are semantic domain names, not registry version values.
 
-## 2. Exhaustive successor domain inventory
+## 2. Revision identity
+
+`RevisionContentId` retains the frozen five-file procedure: create the ascending file-name manifest of the exact bytes of the five normative proposal files, then compute `H(contract-revision-content/v1, manifest)`. `FREEZE-RECORD` is governance metadata and is not part of that manifest. This proposal is not frozen and therefore has no minted `ContractRevisionId`.
+
+## 3. Exhaustive successor domain inventory
 
 The acceptance/promotion amendment closes exactly these ten and no other semantic domains:
 
@@ -47,19 +51,18 @@ There are two different kinds of hash:
 
 Reference fields copy an already computed hash and are validated by opening the referenced bytes and recomputing the hash under the referenced object's domain. A reference is not re-hashed under the referring domain. `ByteLength` is metadata about exact artifact bytes and is included in the active/previous descriptor projection only as PART-B states; it is never used as a substitute for a content hash.
 
-Operational values (`GenerationId`, `RelativePath`, and `AcceptedAtUtc`) do not become content identity. Where a projection excludes one, PART-B names the exclusion explicitly. In particular, excluding an operational or audit field does not make it optional in the serialized object.
-
 ## 5. Acyclic dependency and ownership
 
 The dependency graph is:
 
-`v7 candidate inputs -> CandidateManifestHash/BuildIdentity -> decision-m3u and decision-xmltv -> AcceptedStateHash -> OutputManifestHash -> GenerationManifestHash -> PointerHash`.
+`v7 candidate inputs -> CandidateManifestHash/BuildIdentity -> decision-m3u and decision-xmltv -> OutputManifestHash -> AcceptedStateHash -> GenerationManifestHash -> PointerHash`.
 
 `PreviousStateHash` is owned only by `accepted-state/v2`; it is `null` only for the first accepted generation and otherwise equals the prior generation's `AcceptedStateHash`. It is never derived from current state, current output, or journal bytes. `PreviousOutputManifestHash` is owned only by `generation-manifest/v2`; it is absent on the first generation and otherwise equals the prior generation's `OutputManifestHash`. The previous M3U/XMLTV descriptors point to artifacts in that same prior generation and are not current-output fallbacks.
 
 The output-manifest object is serialized as `accepted-output.manifest.json` and uses `previous-output-manifest/v2`. The domain name describes its role as the prior-output reference consumed by the next generation; it is also the authoritative manifest for the current generation when published. Thus no unlisted `output-manifest/v2` domain exists.
 
-`AcceptedStateHash` excludes `AcceptedOutputManifestHash` from its hash input so that state can be hashed before the output manifest; `OutputManifestHash` includes `AcceptedStateHash`. This is the sole cross-reference exclusion required to avoid a state/output cycle, in addition to each object's self-hash exclusion and the explicit audit/operational exclusions in PART-B.
+`OutputManifestHash` excludes the required `AcceptedStateHash` reference from its hash input so that output can be hashed before the accepted state; `AcceptedStateHash` includes `AcceptedOutputManifestHash`. This is the sole cross-reference exclusion required to avoid a state/output cycle, in addition to each object's self-hash exclusion and the explicit audit/operational exclusions in PART-B.
+
 
 ## 6. Cross-object binding invariants
 
