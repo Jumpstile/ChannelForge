@@ -162,10 +162,14 @@ intended rule; it does not mean the rule has passed runtime validation.
    successor revision is approved and frozen.
 4. **Fixture values: evidence only.** Preserved v7 hashes are not acceptance
    constants for unrelated candidates or generations.
-5. **DuplicateCount: resolved as a derived v7 evidence field.** It remains
-   excluded from occurrence projections and successor acceptance objects.
+5. **DuplicateCount: closed.** It remains a derived v7 evidence field,
+   excluded from occurrence projections and successor acceptance objects; exact
+   overflow above `4294967295` fails closed before serialization or acceptance.
+6. **PreviousStateHash: closed.** It has one owner in accepted-state/v2, is null
+   only for first generation, and otherwise equals the prior AcceptedStateHash
+   without independent rehashing.
 
-Material unresolved contract issues: NONE IN THE CURRENT PROPOSAL TEXT.
+Material unresolved contract issues: NONE.
 
 ## Remaining limitations
 

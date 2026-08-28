@@ -37,6 +37,7 @@ unresolved or duplicate symbol.
 | `GenerationId` | PART-A | operational generation identity | Exactly 64 lowercase hexadecimal characters (32 random bytes), carried by generation bindings |
 | `DuplicateCount` | PART-B §13 | occurrence/review evidence | Derived non-representative duplicate multiplicity; excluded from occurrence digests and not an occurrence property |
 | `AcceptedOutputManifestV2` | PART-B §12 | acceptance/output | Current accepted output manifest uses the `previous-output-manifest/v2` projection and is serialized as `accepted-output.manifest.json`; no separate output hash domain |
+| `PreviousStateHash` | PART-B §3 | accepted-state lineage | Required nullable Hash; null only first generation; later value is exact prior AcceptedStateHash; backward reference, not independently rehashed |
 | `OutputManifestHash` | PART-B §12 (hash rule in PART-A §5) | output binding | Integrity/projection hash for the declared output-manifest projection; references copy the already computed hash |
 
 ## Ownership rules
