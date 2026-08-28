@@ -7,9 +7,9 @@ ProposalId: `blocker-2-contract/proposal-4`. Proposed revision label:
 `blocker-2-contract/v8`.
 
 An owner in this table is the sole normative owner in the proposal. A
-cross-part reference does not create a second definition. `OPEN` identifies a
-textual closure gap and is not a claim that the symbol is ready for
-implementation.
+cross-part reference does not create a second definition. Every listed
+symbol has a closed owner and definition; this inventory records no
+unresolved or duplicate symbol.
 
 | Symbol | Sole owner | Scope | Definition / review status |
 |---|---|---|---|
@@ -28,16 +28,16 @@ implementation.
 | `M3UDecisionHash` | PART-B §8 | decision subordinate hash | `H(decision-m3u/v2, canonical subordinate bytes without M3UDecisionHash)` |
 | `XMLTVDecisionHash` | PART-B §9–10 | decision subordinate/aggregate binding | Subordinate `H(decision-xmltv/v2, canonical bytes without XMLTVDecisionHash)` when Generated; aggregate field is `null` iff NotGenerated |
 | `DecisionManifestHash` | PART-B §10 | authoritative decision binding | `H(decision-manifest/v2, canonical aggregate bytes with only DecisionManifestHash omitted)`; consumed singularly by state and generation |
-| `GenerationManifestV2` | PART-B | generation | `generation-manifest/v2` ordered projection |
-| `PreviousOutputManifestV2` | PART-B | previous output | `previous-output-manifest/v2` ordered projection |
+| `GenerationManifestV2` | PART-B §11 | generation | `generation-manifest/v2` ordered projection |
+| `PreviousOutputManifestV2` | PART-B §12 | previous output | `previous-output-manifest/v2` ordered projection |
 | `TransactionPhase` | PART-C | recovery | `Prepared`, `GenerationPublished`, `PointerSwapped`, `Committed` |
 | `JournalV2` | PART-C | journal | Exact `journal/v2` property order, types, phase ranks, and nullability in PART-C §6 |
 | `JournalHash` | PART-C | journal | `H(journal/v2, ordered journal projection without JournalHash)` |
 | `OldJournalHash` | PART-C | journal | Prior authoritative journal hash, or null only before first publication |
 | `GenerationId` | PART-A | operational generation identity | Exactly 64 lowercase hexadecimal characters (32 random bytes), carried by generation bindings |
-| `DuplicateCount` | PART-B §5 | occurrence/review evidence | Derived non-representative duplicate multiplicity; excluded from occurrence digests and not an occurrence property |
-| `AcceptedOutputManifestV2` | PART-A §5 | acceptance/output | Current accepted output manifest uses the `previous-output-manifest/v2` projection and is serialized as `accepted-output.manifest.json`; no separate output hash domain |
-| `OutputManifestHash` | PART-A §4–5 | output binding | Integrity/projection hash for the declared output-manifest projection; references copy the already computed hash |
+| `DuplicateCount` | PART-B §13 | occurrence/review evidence | Derived non-representative duplicate multiplicity; excluded from occurrence digests and not an occurrence property |
+| `AcceptedOutputManifestV2` | PART-B §12 | acceptance/output | Current accepted output manifest uses the `previous-output-manifest/v2` projection and is serialized as `accepted-output.manifest.json`; no separate output hash domain |
+| `OutputManifestHash` | PART-B §12 (hash rule in PART-A §5) | output binding | Integrity/projection hash for the declared output-manifest projection; references copy the already computed hash |
 
 ## Ownership rules
 
@@ -69,7 +69,7 @@ Hashes and IDs are consumed across parts without changing ownership.
 
 JournalV2, its property order, and its phase/nullability rules are owned by
 PART-C §6; this file intentionally does not restate those fields. The
-`DuplicateCount` disposition is owned by PART-B §5 and does not add a field
+`DuplicateCount` disposition is owned by PART-B §13 and does not add a field
 to any v7 occurrence projection.
 
 The closure inventory is ready for review only when all cross-part references

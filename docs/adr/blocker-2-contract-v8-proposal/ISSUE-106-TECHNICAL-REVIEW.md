@@ -18,14 +18,9 @@ No v8 `ContractRevisionId` or `RevisionContentId` exists yet.
 
 ## Review conclusion
 
-The proposal has a coherent authority boundary and a bounded candidate
-preservation claim. The ten named acceptance/promotion domains have proposed
-ordered projections in PART-B, and PART-A/PART-C now supply the intended hash,
-output-manifest, journal, and recovery relationships. The proposal is **not
-ready to freeze** on the current text because integration review still needs
-to reconcile the two decision projections with singular generation bindings,
-and to make XMLTV NotGenerated handling consistent across all manifest
-references. These are contract-review limitations, not runtime defects.
+The proposal now defines one aggregate `decision-manifest/v2` identity. The subordinate M3U and XMLTV decision hashes feed that aggregate; generation and accepted-state bind only the singular aggregate `DecisionManifestHash`. XMLTV Generated/NotGenerated status and nullable content-hash rules are defined consistently across current and previous output projections, including first-generation and four later transitions.
+
+The proposal is a contract candidate, not runtime authority. Runtime acceptance, promotion, recovery, and durability validation are intentionally deferred until after a successor revision is approved and frozen.
 
 No acceptance, decision, promotion, recovery, pointer-publication,
 generation-publication, or active-output implementation is authorized by this
@@ -139,37 +134,35 @@ intended rule; it does not mean the rule has passed runtime validation.
 | `active-xmltv/v2` | PART-B | Generated/NotGenerated status and conditional content fields | Resolve required generation hash versus null content hash |
 | `previous-m3u/v2` | PART-B | Prior accepted M3U plus `PreviousGenerationId` | Verify previous hash and generation coherence |
 | `previous-xmltv/v2` | PART-B | Prior accepted XMLTV plus `PreviousGenerationId` | Resolve NotGenerated previous hash binding |
-| `decision-m3u/v2` | PART-B | Candidate/parent hashes, ID arrays, decision self-hash | Define relationship to generation's singular `DecisionManifestHash` |
-| `decision-xmltv/v2` | PART-B | Candidate/parent hashes, XMLTV status, ID arrays, decision self-hash | Define relationship to generation's singular `DecisionManifestHash` |
-| `generation-manifest/v2` | PART-B | Generation, candidate, decision, state, output, active, previous hashes | Verify output-manifest role and XMLTV null rule end to end |
-| `previous-output-manifest/v2` | PART-B | Prior generation output references and self-hash | Supply exact first-generation absence and status/hash vectors |
+| `decision-m3u/v2` | PART-B | Subordinate M3U decision hash | Feeds aggregate `DecisionManifestHash`; resolved |
+| `decision-xmltv/v2` | PART-B | Subordinate XMLTV decision hash/status | Feeds aggregate when Generated; null/absent subordinate on NotGenerated; resolved |
+| `generation-manifest/v2` | PART-B | Generation, candidate, aggregate decision, state, output, active, previous hashes | Aggregate decision and XMLTV status/null rules resolved |
+| `previous-output-manifest/v2` | PART-B | Prior generation output references and self-hash | First-generation absence and status/hash vectors resolved |
 
-## Unresolved limitations and required dispositions
+## Status and dispositions
 
-1. **Decision hash cardinality is unclear.** PART-B defines both
-   `decision-m3u/v2` and `decision-xmltv/v2` with a `DecisionManifestHash`,
-   while generation/state bindings carry a singular `DecisionManifestHash`.
-   The contract must specify whether these are two independently named hashes,
-   one combined manifest, or a status-dependent field.
-2. **NotGenerated XMLTV can conflict with required manifest hashes.** The
-   active/previous XMLTV projections permit `ContentHash=null`, while
-   generation/previous-output rows describe active XMLTV hashes as required.
-   PART-A defines the output-manifest role but does not remove this
-   cross-projection question. The proposal needs one explicit hash-of-absence
-   or nullable-reference rule, with first-generation and later-generation
-   vectors.
-3. **No runtime evidence exists by design.** The proposal is contract work only.
-   Serializer, hash, namespace, durability, and crash tests cannot be claimed
-   from this packet and must be produced by a later implementation against the
-   frozen revision.
-4. **Fixture values are not acceptance constants.** The preserved v7 values in
-   this packet include fixture-specific hashes solely to prevent accidental
-   re-versioning or substitution. They do not define expected output for a new
-   candidate or generation.
-5. **DuplicateCount is dispositioned, not promoted into occurrence schemas.**
-   PART-B's derived-evidence rule resolves the old storage ambiguity for this
-   proposal, but implementation review must prove that occurrence digests and
-   candidate occurrence property orders still exclude it.
+1. **Decision identity cardinality: RESOLVED.** `DecisionManifestV2` is the
+   sole owner of `DecisionManifestHash`; subordinate M3U/XMLTV decision
+   projections own only their subordinate hashes. Generation and accepted state
+   reference only the aggregate.
+2. **NotGenerated XMLTV: RESOLVED.** `XMLTVDecisionStatus` is copied across
+   decision, accepted-state, output, active, and generation projections.
+   Generated requires content hash, positive length, path, and file. NotGenerated
+   requires null content hash, zero length, null path where defined, and no
+   artifact. Integrity links remain required.
+3. **Runtime validation: EXPECTED / NOT APPLICABLE TO CONTRACT FREEZE.** Runtime
+   acceptance, promotion, recovery, serializer, durability, and crash testing
+   are deferred until after the successor revision is frozen.
+4. **Fixture values: evidence only.** Preserved v7 hashes are not acceptance
+   constants for unrelated candidates or generations.
+5. **DuplicateCount: resolved as a derived v7 evidence field.** It remains
+   excluded from occurrence projections and successor acceptance objects.
+
+Material unresolved contract issues: NONE.
+
+The proposal remains unfrozen and has no runtime authority. Its candidate RCID
+must be independently recomputed from the final five normative proposal files
+before any freeze decision.
 
 ## Required review and freeze record
 
