@@ -381,7 +381,7 @@ Describe 'SECTION: candidate-v7 preservation' {
         Assert-DocumentContains $review 'Candidate namespace authority' 'candidate namespace boundary'
         Assert-DocumentContains $review 'Candidate review privacy boundary' 'candidate review boundary'
         Assert-DocumentContains $review 'Fixture values: evidence only.' 'fixture-value non-constant rule'
-        Assert-NormalizedContains $review 'Runtime authority: None until corrected v8 attestation is reviewed and frozen' 'runtime authority gate'
+        Assert-NormalizedContains $review 'Runtime authority | None until corrected v8 attestation is reviewed and frozen' 'runtime authority gate'
         Write-Output 'SECTION PASS: candidate-v7 preservation'
     }
 }
