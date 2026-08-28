@@ -35,6 +35,44 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [AllowNull()]
         [object]$ReviewCounts
     )
+    function Write-BuildIdentityInputEvidence {
+        param(
+            [Parameter(Mandatory)]
+            [System.Collections.IDictionary]$BuildInput,
+
+            [Parameter(Mandatory)]
+            [string]$BuildIdentity
+        )
+        $outputPath = [System.Environment]::GetEnvironmentVariable('CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT')
+        if ([string]::IsNullOrWhiteSpace($outputPath)) { return }
+
+        $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+        $canonicalJson = ConvertTo-ChannelForgeCanonicalJson -InputObject $BuildInput
+        [byte[]]$canonicalBytes = $utf8.GetBytes($canonicalJson)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $directSha256 = ([System.BitConverter]::ToString($sha.ComputeHash($canonicalBytes))).Replace('-', '').ToLowerInvariant()
+        }
+        finally {
+            $sha.Dispose()
+        }
+        $evidence = [ordered]@{
+            Version                 = 'candidate-build-identity-input/v1'
+            Domain                  = 'candidate-manifest/v2'
+            BuildIdentity           = $BuildIdentity
+            CanonicalUtf8Base64     = [System.Convert]::ToBase64String($canonicalBytes)
+            CanonicalUtf8ByteLength = [int64]$canonicalBytes.Length
+            DirectSha256            = $directSha256
+            Fields                  = $BuildInput
+            InputArtifactHashes     = $BuildInput.InputArtifactHashes
+        }
+        $evidenceJson = ConvertTo-ChannelForgeCanonicalJson -InputObject $evidence
+        $parent = Split-Path -Parent $outputPath
+        if ([string]::IsNullOrWhiteSpace($parent)) { $parent = (Get-Location).Path }
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+        [System.IO.File]::WriteAllText($outputPath, $evidenceJson, $utf8)
+    }
+
 
     function Get-SafeCandidateText {
         param([AllowNull()][object]$Value)
@@ -404,6 +442,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         InputArtifactHashes          = $inputArtifacts
     }
     $buildIdentity = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $buildInput
+    Write-BuildIdentityInputEvidence -BuildInput $buildInput -BuildIdentity $buildIdentity
 
     $artifactRecords = [System.Collections.Generic.List[object]]::new()
     if ($null -ne $M3UBytes) {

@@ -49,7 +49,14 @@ Production remote M3U hashing fails closed unless the computed `input-m3u/v2` va
 
 ## BuildIdentityInput
 
-`New-ChannelForgeCandidateManifest.ps1` constructs the local `$buildInput` projection and hashes it with `candidate-manifest/v2`. The projection is not emitted as a separate artifact; the observable value is `BuildIdentity` in the manifest and review outputs.
+`New-ChannelForgeCandidateManifest.ps1` constructs the ordered `$buildInput`
+projection and hashes its canonical UTF-8 bytes with `candidate-manifest/v2`.
+When the opt-in `CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT` environment
+variable names a file, the same hash boundary writes a lossless evidence
+record containing the canonical bytes as Base64, their length, a direct
+SHA-256, the domain, `BuildIdentity`, the ordered fields, and the sorted input
+artifact hashes. The variable is unset by default, so this capture does not
+change production output or hash semantics.
 
 | BuildIdentityInput member | Repository evidence | Focused evidence |
 |---|---|---|
@@ -58,24 +65,42 @@ Production remote M3U hashing fails closed unless the computed `input-m3u/v2` va
 | Selected logical source IDs | `SelectedLogicalSourceIds` is sorted and de-duplicated before insertion into the ordered projection. | `DeterministicComparisonEvidence.Tests.ps1` exercises reversed EPG source order while requiring equal `CandidateBuildIdentity`. |
 | Input artifact hashes | `InputArtifactHashes` is sorted by logical source, M3U/XMLTV kind, and artifact hash. `Build-Lineup.ps1` supplies local M3U hashes from complete file bytes and configured remote M3U/XMLTV hashes from acquisition status; `Build-Candidate.ps1` hashes its local input bytes directly. | `M3UInputArtifactHashEvidence.Tests.ps1` proves path independence, one-byte sensitivity, local/remote equality, lowercase 64-hex validation, and rejection of empty hashes. |
 
-The packet does not claim a separately persisted `BuildIdentityInput`; its projection remains local to manifest construction. Unlike the input projection, generated output values are captured concretely in the determinism table above from the two equivalent fixture builds.
+The explicit-LF deterministic capture records these exact ordered fields:
+
+* `ContractVersion`: `blocker-2-contract/v7`
+* `IdentityRulesVersion`: `lineup-history-v1`
+* `M3UParserContractVersion`: `m3u-parser-v1`
+* `XMLTVParserContractVersion`: `xmltv-parser-v1`
+* `M3USerializerVersion`: `m3u-serializer-v1`
+* `XMLTVSerializerVersion`: `xmltv-serializer-v1`
+* `GuideBindingContractVersion`: `guide-binding-exact-ordinal-v1`
+* `SelectedLogicalSourceIds`: `35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c`, `3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c`, `893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8`
+* `InputArtifactHashes`: XMLTV/`35a5ee3273a2cc9472f8c7e6536e3cd45b5c4be1203fa611090cc2459f234b5c` → `492bb3208b87e7e1dee61f705d48a6b017c82fe4a811fd95a062fdee708844f7`; XMLTV/`3bc3868c0cc52e573d68f5411d81527e63093df9efb48a8f95ad545b2153501c` → `878f964fd71a5a309ec19821e3efe84b011a216b7ae700103e172fbd2376fc80`; M3U/`893631a6dc90363e260b73c1ab72faa5b92866c758d5d16fe0379b186a8ac7c8` → `9d537b6f00459798b141c1153dde167a274f097bce8fafdf49fbf89d887cbbb0`
+
+The complete Base64 canonical UTF-8 values are retained in the focused test
+capture at `output/deterministic-comparison-evidence.json`, under
+`BuildA.BuildIdentityInput.CanonicalUtf8Base64` and
+`BuildB.BuildIdentityInput.CanonicalUtf8Base64`; Build A and Build B are byte
+identical. The test independently recomputes both direct SHA-256 and the
+domain-separated `candidate-manifest/v2` identity from the decoded bytes.
 
 ## Cross-machine BuildIdentity disposition
 
 The earlier Desktop/Arcade mismatch was an evidence-fixture portability defect. `DeterministicComparisonEvidence.Tests.ps1` originally wrote here-string contents directly, so parser-input bytes inherited checkout EOLs. LF and CRLF are distinct raw inputs under v7 and therefore correctly produce distinct input hashes and identities. Production does not normalize these bytes.
 
-The corrected fixture explicitly joins logical lines with LF and appends one LF. The corrected Desktop run produced:
+The corrected fixture explicitly joins logical lines with LF and appends one LF. The corrected explicit-LF run produced:
 
 | BuildIdentityInput item | Value |
 |---|---|
 | Canonical byte length | 1157 |
-| Direct SHA-256 | `876c269a709158f91155b0f905635d465b4c8dddf335c96c9fa9736d88935a83` |
+| Direct SHA-256 | `d2a13faa2c9b86e752de6aa434e1e0450416c6bf9d7e93f686f6f55de9924530` |
+| Domain | `candidate-manifest/v2` |
 | BuildIdentity | `089d4e1b212515715546cbe2409fb59742d0fe61bbeec74d4b05ebaa7fc01dcd` |
 | M3U fixture bytes | 216 bytes; `960717803a0119ab2d2674e026cfaf7f3071405b78bf7004302a8954b840f306` |
 | Alpha XMLTV fixture bytes | 297 bytes; `b7ab0c30543f1870d6dc134591ba8510f110c064155bdef3da842bb5680d8c3a` |
 | Zeta XMLTV fixture bytes | 293 bytes; `3f34ec55e9a87a71c43e2c4841b2765b30ac8d470648da4f5ad49b288dc923c1` |
 
-The corresponding Arcade value `2a5de7d4daa1cf699aa740d67943bb01457f58a2144ca77366cd479b9191233a` and Desktop value `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` are retired as historical outputs of non-equivalent CRLF/LF fixture bytes. The corrected fixture establishes: cross-machine production determinism defect = NO; filesystem-path dependence = NO; machine-state dependence = NO; exact-byte sensitivity = YES.
+The prior packet's `1157`/`876c269a709158f91155b0f905635d465b4c8dddf335c96c9fa9736d88935a83` pair is retired. The canonical length remains 1157 in the corrected explicit-LF capture, while the lossless canonical bytes produce the direct SHA-256 above. The corresponding Arcade value `2a5de7d4daa1cf699aa740d67943bb01457f58a2144ca77366cd479b9191233a` and Desktop value `a005d336f5a3fa7ffedcadf695c5ad6bdbfa66231ba89e3d50c52bb4435f49b4` are retired as historical outputs of non-equivalent CRLF/LF fixture bytes. The corrected fixture establishes: cross-machine production determinism defect = NO; filesystem-path dependence = NO; machine-state dependence = NO; exact-byte sensitivity = YES.
 
 ## Raw digest dependencies
 
