@@ -2,6 +2,30 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:BuildLineupPath = Join-Path $script:RepoRoot 'scripts\Build-Lineup.ps1'
     $script:Utf8Strict = [System.Text.UTF8Encoding]::new($false, $true)
+    function Get-IndependentSha256Hex {
+        param([Parameter(Mandatory)][byte[]]$Bytes)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant()
+        }
+        finally {
+            $sha.Dispose()
+        }
+    }
+
+    function Get-IndependentDomainHashHex {
+        param(
+            [Parameter(Mandatory)][string]$Domain,
+            [Parameter(Mandatory)][byte[]]$CanonicalBytes
+        )
+        [byte[]]$domainBytes = $script:Utf8Strict.GetBytes($Domain)
+        [byte[]]$payload = [byte[]]::new($domainBytes.Length + 1 + $CanonicalBytes.Length)
+        [System.Buffer]::BlockCopy($domainBytes, 0, $payload, 0, $domainBytes.Length)
+        $payload[$domainBytes.Length] = 0
+        [System.Buffer]::BlockCopy($CanonicalBytes, 0, $payload, $domainBytes.Length + 1, $CanonicalBytes.Length)
+        return Get-IndependentSha256Hex -Bytes $payload
+    }
+
 
     function Write-Utf8Fixture {
         param(
@@ -86,7 +110,24 @@ BeforeAll {
     function Get-DeterministicBuildSnapshot {
         param([Parameter(Mandatory)][string]$Root)
 
-        & $script:BuildLineupPath -Root $Root | Out-Null
+        $identityInputPath = Join-Path $Root 'build-identity-input.json'
+        $previousIdentityInputPath = [System.Environment]::GetEnvironmentVariable('CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT', 'Process')
+        try {
+            $env:CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT = $identityInputPath
+            & $script:BuildLineupPath -Root $Root | Out-Null
+        }
+        finally {
+            if ($null -eq $previousIdentityInputPath) {
+                Remove-Item Env:CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT -ErrorAction SilentlyContinue
+            }
+            else {
+                $env:CHANNELFORGE_BUILD_IDENTITY_INPUT_OUTPUT = $previousIdentityInputPath
+            }
+        }
+        Test-Path -LiteralPath $identityInputPath -PathType Leaf | Should -BeTrue
+        $identityInputBytes = [System.IO.File]::ReadAllBytes($identityInputPath)
+        $identityInput = $script:Utf8Strict.GetString($identityInputBytes) | ConvertFrom-Json
+        $identityCanonicalBytes = [System.Convert]::FromBase64String([string]$identityInput.CanonicalUtf8Base64)
         $summary = Get-Content -LiteralPath (Join-Path $Root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $namespace = Join-Path $Root ($summary.CandidateNamespacePath -replace '/', '\')
         $artifactNames = @('merged.m3u', 'merged.xml', 'lineup-change-review.json', 'lineup-change-review.md', 'manifest.json')
@@ -118,6 +159,9 @@ BeforeAll {
             Artifacts = $artifacts
             Manifest = $manifest
             ArtifactRecords = $manifestRecords
+            BuildIdentityInput = $identityInput
+            BuildIdentityInputBytes = $identityInputBytes
+            BuildIdentityInputCanonicalBytes = $identityCanonicalBytes
             ManifestByteLength = [int64]$artifacts['manifest.json'].Bytes.Length
             ManifestSha256 = [string]$artifacts['manifest.json'].Sha256
             ManifestHash = [string]$manifest.CandidateManifestHash
@@ -154,6 +198,14 @@ BeforeAll {
         }
     }
 
+    function Assert-NoUtf8Bom {
+        param([Parameter(Mandatory)][byte[]]$Bytes)
+        $Bytes.Length | Should -BeGreaterThan 3
+        $Bytes[0] | Should -Not -Be ([byte]0xEF)
+        $Bytes[1] | Should -Not -Be ([byte]0xBB)
+        $Bytes[2] | Should -Not -Be ([byte]0xBF)
+    }
+
     function Get-DeterministicEvidenceProjection {
         param([Parameter(Mandatory)]$Snapshot)
 
@@ -162,6 +214,7 @@ BeforeAll {
             })
         [pscustomobject][ordered]@{
             BuildIdentity = [string]$Snapshot.Summary.CandidateBuildIdentity
+            BuildIdentityInput = $Snapshot.BuildIdentityInput
             GuideEvidenceDigests = @($Snapshot.Manifest.GuideOccurrences |
                 ForEach-Object { [string]$_.GuideCandidateEvidenceDigest })
             ArtifactRecords = $Snapshot.ArtifactRecords
@@ -176,15 +229,7 @@ BeforeAll {
             ReviewEncoding = Get-ReviewEncodingProjection -Snapshot $Snapshot
         }
     }
-    function Assert-NoUtf8Bom {
-        param([Parameter(Mandatory)][byte[]]$Bytes)
-        $Bytes.Length | Should -BeGreaterThan 3
-        $Bytes[0] | Should -Not -Be ([byte]0xEF)
-        $Bytes[1] | Should -Not -Be ([byte]0xBB)
-        $Bytes[2] | Should -Not -Be ([byte]0xBF)
-    }
 }
-
 Describe 'candidate build determinism across source order and fixture paths' {
     It 'keeps identity, guide evidence, candidate bytes, manifest, namespace, and review encoding identical' {
         $firstRoot = New-DeterministicComparisonRoot `
@@ -206,6 +251,35 @@ Describe 'candidate build determinism across source order and fixture paths' {
         $second.Summary.CandidateManifestHash | Should -Be $first.Summary.CandidateManifestHash
         $second.Summary.CandidateNamespacePath | Should -Be $first.Summary.CandidateNamespacePath
         $second.NamespaceIdentity | Should -Be $first.NamespaceIdentity
+        $identityA = $first.BuildIdentityInput
+        $identityB = $second.BuildIdentityInput
+        $identityA.Version | Should -BeExactly 'candidate-build-identity-input/v1'
+        $identityA.Domain | Should -BeExactly 'candidate-manifest/v2'
+        $identityA.CanonicalUtf8ByteLength | Should -Be ([int64]$first.BuildIdentityInputCanonicalBytes.Length)
+        $identityB.CanonicalUtf8ByteLength | Should -Be ([int64]$second.BuildIdentityInputCanonicalBytes.Length)
+        $identityA.CanonicalUtf8Base64 | Should -Be $identityB.CanonicalUtf8Base64
+        [Convert]::ToBase64String($first.BuildIdentityInputCanonicalBytes) | Should -Be $identityA.CanonicalUtf8Base64
+        [Convert]::ToBase64String($second.BuildIdentityInputCanonicalBytes) | Should -Be $identityB.CanonicalUtf8Base64
+        $identityA.DirectSha256 | Should -Be (Get-IndependentSha256Hex -Bytes $first.BuildIdentityInputCanonicalBytes)
+        $identityB.DirectSha256 | Should -Be (Get-IndependentSha256Hex -Bytes $second.BuildIdentityInputCanonicalBytes)
+        $identityA.BuildIdentity | Should -Be $first.Summary.CandidateBuildIdentity
+        $identityB.BuildIdentity | Should -Be $second.Summary.CandidateBuildIdentity
+        $identityA.BuildIdentity | Should -Be (Get-IndependentDomainHashHex -Domain $identityA.Domain -CanonicalBytes $first.BuildIdentityInputCanonicalBytes)
+        $identityB.BuildIdentity | Should -Be (Get-IndependentDomainHashHex -Domain $identityB.Domain -CanonicalBytes $second.BuildIdentityInputCanonicalBytes)
+        $identityB.Fields | ConvertTo-Json -Depth 10 -Compress | Should -Be ($identityA.Fields | ConvertTo-Json -Depth 10 -Compress)
+        $identityA.InputArtifactHashes | ConvertTo-Json -Depth 10 -Compress | Should -Be ($first.Manifest.InputArtifactHashes | ConvertTo-Json -Depth 10 -Compress)
+        $identityB.InputArtifactHashes | ConvertTo-Json -Depth 10 -Compress | Should -Be ($second.Manifest.InputArtifactHashes | ConvertTo-Json -Depth 10 -Compress)
+        @($identityA.Fields.PSObject.Properties.Name) | Should -Be @(
+            'ContractVersion', 'IdentityRulesVersion', 'M3UParserContractVersion',
+            'XMLTVParserContractVersion', 'M3USerializerVersion',
+            'XMLTVSerializerVersion', 'GuideBindingContractVersion',
+            'SelectedLogicalSourceIds', 'InputArtifactHashes'
+        )
+        @($identityA.InputArtifactHashes | ForEach-Object ArtifactHash) | Should -Be @(
+            '492bb3208b87e7e1dee61f705d48a6b017c82fe4a811fd95a062fdee708844f7',
+            '878f964fd71a5a309ec19821e3efe84b011a216b7ae700103e172fbd2376fc80',
+            '9d537b6f00459798b141c1153dde167a274f097bce8fafdf49fbf89d887cbbb0'
+        )
 
         $firstGuideDigests = @($first.Manifest.GuideOccurrences | ForEach-Object GuideCandidateEvidenceDigest)
         $secondGuideDigests = @($second.Manifest.GuideOccurrences | ForEach-Object GuideCandidateEvidenceDigest)
