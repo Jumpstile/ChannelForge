@@ -36,3 +36,7 @@ UTF8("contract-revision-content/v1") || 0x00 || RevisionContentManifest
 ```
 
 The resulting RevisionContentId is the value recorded above. This metadata file is excluded and cannot alter the revision identity.
+
+## Dated correction — corrected normative candidate pending re-attestation
+
+The prior entry's RevisionContentId `cbcbbd1ee1f8a59857562f6c5672def60bea16416fbfe8b95df1dca8354346cc` attested an earlier normative byte set. After freeze-status normalization of README.md, that attestation is superseded pending independent review and replacement metadata for the corrected candidate RCID `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d`. No corrected RCID is frozen by this entry.
