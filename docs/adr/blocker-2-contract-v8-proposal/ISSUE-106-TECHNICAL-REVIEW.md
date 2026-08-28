@@ -42,11 +42,15 @@ packet or by the unfrozen proposal.
 | Proposed label | `blocker-2-contract/v8` |
 | Candidate contract value | `blocker-2-contract/v7` (preserved) |
 | Acceptance contract value | `blocker-2-contract/v8-acceptance` (proposed, scoped to acceptance/promotion) |
-| Candidate normative HEAD | `08dac95f9f97af2534905215a2daabcbd04e118b` (convenience pointer only) |
-| Candidate `RevisionContentId` | `1d7bc81f362c632cad433e1ab65711c61b0950ac9d7ffe7f3942d1b69fa0d91b` (computed from the current five normative files; not minted) |
-| v8 `ContractRevisionId` | Not minted |
-| v8 frozen `RevisionContentId` | Not recorded; the candidate value above is not frozen authority |
-| Runtime authority | None until a new revision is approved and frozen |
+| Candidate normative HEAD | `0aba3b5` (pre-normalization convenience pointer only) |
+| Candidate `RevisionContentId` | `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d` (corrected candidate; not frozen) |
+| v8 `ContractRevisionId` | Intended label `blocker-2-contract/v8`; corrected attestation pending |
+| v8 candidate `RevisionContentId` | `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d`; not frozen |
+| Runtime authority | None until corrected v8 attestation is reviewed and frozen |
+
+Freeze-status normalization note: README.md records the intended frozen
+revision label and authority without embedding a self-referential RCID. The
+prior attestation RCID is superseded pending independent re-attestation.
 
 The proposal's version registry must remain the sole source for version values.
 A field named `Version` in a retained candidate projection must not be changed
