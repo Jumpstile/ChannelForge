@@ -169,6 +169,7 @@ Describe 'SECTION: symbol ownership' {
             'JournalHash' = 'PART-C'
             'OldJournalHash' = 'PART-C'
             'GenerationId' = 'PART-A'
+            'PreviousStateHash' = 'PART-B §3'
             'DuplicateCount' = 'PART-B §13'
         }
         foreach ($symbol in $ownership.Keys) {
@@ -382,5 +383,21 @@ Describe 'SECTION: candidate-v7 preservation' {
         Assert-DocumentContains $review 'Fixture values: evidence only.' 'fixture-value non-constant rule'
         Assert-DocumentContains $review 'Runtime authority | None until a new revision is approved and frozen' 'runtime authority gate'
         Write-Output 'SECTION PASS: candidate-v7 preservation'
+    }
+}
+
+Describe 'SECTION: final Issue 106 remediation' {
+    It 'closes PreviousStateHash ownership and DuplicateCount overflow' {
+        $symbols = $script:Docs['SYMBOL-CLOSURE.md']
+        $partB = $script:Docs['PART-B-semantic-schemas.md']
+        Assert-DocumentMatches $symbols '(?m)^\|\s*`PreviousStateHash`\s*\|\s*PART-B §3\s*\|' 'PreviousStateHash sole owner'
+        @([regex]::Matches($symbols, '(?m)^\|\s*`PreviousStateHash`\s*\|')).Count | Should -Be 1
+        Assert-NormalizedContains $symbols 'null only first generation; later value is exact prior AcceptedStateHash; backward reference, not independently rehashed' 'PreviousStateHash backward rule'
+        Assert-NormalizedContains $partB 'Valid range is `0..4294967295` inclusive' 'DuplicateCount uint32 range'
+        Assert-NormalizedContains $partB 'exceeds `4294967295`' 'DuplicateCount overflow predicate'
+        Assert-NormalizedContains $partB 'MUST fail closed before serializing or accepting' 'DuplicateCount overflow fail closed'
+        Assert-NormalizedContains $partB 'saturation, modulo/wraparound, truncation, and implementation-defined behavior are forbidden' 'DuplicateCount overflow prohibitions'
+        Assert-NormalizedContains $partB 'No serialized DuplicateCount is produced for an overflow' 'DuplicateCount no serialization'
+        Write-Output 'SECTION PASS: final Issue 106 remediation'
     }
 }
