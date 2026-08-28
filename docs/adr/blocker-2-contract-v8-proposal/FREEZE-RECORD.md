@@ -7,15 +7,15 @@ This file is governance metadata. It is excluded from RevisionContentId.
 - Status: FROZEN.
 - ProposalId: `blocker-2-contract/proposal-4`.
 - ContractRevisionId: `blocker-2-contract/v8`.
-- RevisionContentId: `cbcbbd1ee1f8a59857562f6c5672def60bea16416fbfe8b95df1dca8354346cc`.
-- Approved candidate commit: `cb2f640f8e3479e497e43a07fa50237380fcde44`.
+- RevisionContentId: `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d`.
+- Approved corrected candidate commit: `f498908db8dcf5fa1f701b764c78ab03d876919b`.
 - Prior frozen authority: `blocker-2-contract/v7`.
 - Prior RevisionContentId: `c2779f69a54695237cdb4dafa87e231a2a53d597fba11769e2fbcea9cf85cd8a`.
-- Approval evidence: Desktop technical preparation: PASS; OMP Arcade independent final review: APPROVE; Architecture acceptance: APPROVED FOR FREEZE.
+- Approval evidence: Desktop freeze-status re-review: APPROVE; Architecture disposition: APPROVED FOR REPLACEMENT FREEZE ATTESTATION.
 - Authority effect: v8 supersedes v7 as the complete frozen contract revision.
 - Retained candidate semantic surfaces: `CandidateContractVersion = blocker-2-contract/v7`.
 - Acceptance/promotion/recovery semantic surfaces: `AcceptanceContractVersion = blocker-2-contract/v8-acceptance`.
-- Freeze attestation commit: recorded by the commit that adds this metadata.
+- Replacement freeze attestation commit: recorded by the commit that adds this metadata.
 
 ## RevisionContentId procedure
 
@@ -37,6 +37,6 @@ UTF8("contract-revision-content/v1") || 0x00 || RevisionContentManifest
 
 The resulting RevisionContentId is the value recorded above. This metadata file is excluded and cannot alter the revision identity.
 
-## Dated correction — corrected normative candidate pending re-attestation
+## Dated correction — superseded v8 attestation
 
-The prior entry's RevisionContentId `cbcbbd1ee1f8a59857562f6c5672def60bea16416fbfe8b95df1dca8354346cc` attested an earlier normative byte set. After freeze-status normalization of README.md, that attestation is superseded pending independent review and replacement metadata for the corrected candidate RCID `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d`. No corrected RCID is frozen by this entry.
+The prior attestation for `cbcbbd1ee1f8a59857562f6c5672def60bea16416fbfe8b95df1dca8354346cc` attested an earlier normative byte set whose README had contradictory NOT-FROZEN status. It is historical only and has no current authority. The corrected v8 attestation above supersedes it.
