@@ -366,9 +366,9 @@ Describe 'SECTION: candidate-v7 preservation' {
         Assert-DocumentContains $a 'CandidateContractVersion` is the literal `blocker-2-contract/v7`' 'candidate v7 authority'
         Assert-DocumentContains $a 'Every retained candidate projection, candidate artifact, `BuildIdentity`, and candidate `Version` field remains owned by v7.' 'candidate field preservation'
         Assert-DocumentContains $a 'CandidateManifestHash` are v7 candidate values and are copied, never re-versioned or re-hashed by an acceptance domain.' 'candidate hash preservation'
-        Assert-DocumentContains $readme 'Current frozen authority: `blocker-2-contract/v7`' 'frozen v7 authority marker'
+        Assert-DocumentContains $readme 'Prior frozen authority: `blocker-2-contract/v7`' 'frozen v7 authority marker'
         Assert-NormalizedContains $readme 'This proposal authorizes no runtime acceptance, decision, promotion, recovery, pointer publication, generation publication, or active-output implementation.' 'no runtime authority'
-        Assert-NormalizedContains $readme 'No `ContractRevisionId` or `RevisionContentId` has been minted for proposal-4.' 'unfrozen identity boundary'
+        Assert-NormalizedContains $readme 'Exact RevisionContentId is recorded in the governance FREEZE-RECORD' 'RCID governance ownership'
         foreach ($value in @(
                 'IdentityRulesVersion` | `lineup-history-v1`',
                 'M3UParserContractVersion` | `m3u-parser-v1`',
