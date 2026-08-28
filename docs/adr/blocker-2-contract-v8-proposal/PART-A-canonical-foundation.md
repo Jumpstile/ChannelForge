@@ -30,9 +30,9 @@ The acceptance/promotion amendment closes exactly these ten and no other semanti
 9. `generation-manifest/v2`
 10. `previous-output-manifest/v2`
 
-PART-B is the sole owner of their ordered projections. `journal/v2` and all transaction/recovery symbols remain solely owned by PART-C; this proposal intentionally does not restate their field sequence.
+PART-B is the sole owner of their ordered projections. `journal/v2` and all transaction/recovery symbols remain solely owned by PART-C; this proposal intentionally does not restate their field sequence. The duplicated-Journal-definition debt is therefore explicitly resolved by single ownership: PART-C is normative, while PART-A and PART-B may only reference it.
 
-## 3. Canonical bytes and primitive rules
+## 4. Canonical bytes and primitive rules
 
 Every projection is an object with exactly the properties listed in PART-B, in that order. Unknown properties, duplicate JSON properties, omitted required properties, wrong types, and duplicate array members are invalid. A required property is still required when its value is `null`; missing and `null` are never interchangeable.
 
@@ -40,7 +40,7 @@ Canonical bytes are compact JSON encoded as UTF-8 without BOM and without a trai
 
 Unsigned integers are decimal JSON numbers with no leading zero except zero. Negative, fractional, exponent-form, and numeric-string values are invalid. Hashes are exactly 64 lowercase hexadecimal characters. IDs use the exact grammar stated by PART-B; an empty ID, hash, path, or domain string is invalid. Enum strings are case-sensitive.
 
-## 4. Hash and content rules
+## 5. Hash and content rules
 
 For an exact ASCII domain `D` and bytes `B`, `H(D,B)` is lowercase SHA-256 over `UTF8(D) || 0x00 || B`. A domain is used only as specified below and in PART-B; no object may substitute another domain.
 
@@ -51,7 +51,7 @@ There are two different kinds of hash:
 
 Reference fields copy an already computed hash and are validated by opening the referenced bytes and recomputing the hash under the referenced object's domain. A reference is not re-hashed under the referring domain. `ByteLength` is metadata about exact artifact bytes and is included in the active/previous descriptor projection only as PART-B states; it is never used as a substitute for a content hash.
 
-## 5. Acyclic dependency and ownership
+## 6. Acyclic dependency and ownership
 
 The dependency graph is:
 
@@ -64,7 +64,7 @@ The output-manifest object is serialized as `accepted-output.manifest.json` and 
 `OutputManifestHash` excludes the required `AcceptedStateHash` reference from its hash input so that output can be hashed before the accepted state; `AcceptedStateHash` includes `AcceptedOutputManifestHash`. This is the sole cross-reference exclusion required to avoid a state/output cycle, in addition to each object's self-hash exclusion and the explicit audit/operational exclusions in PART-B.
 
 
-## 6. Cross-object binding invariants
+## 7. Cross-object binding invariants
 
 An accepted pointer names exactly one generation and must match the final generation directory name. Its `GenerationManifestHash`, `AcceptedStateHash`, and `AcceptedOutputManifestHash` must byte-resolve to the generation manifest, accepted state, and accepted output manifest in that directory. The generation manifest must in turn match the candidate, both decision projections, accepted state, and output manifest.
 
