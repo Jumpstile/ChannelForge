@@ -261,9 +261,13 @@ Describe 'candidate build determinism across source order and fixture paths' {
         [Convert]::ToBase64String($first.BuildIdentityInputCanonicalBytes) | Should -Be $identityA.CanonicalUtf8Base64
         [Convert]::ToBase64String($second.BuildIdentityInputCanonicalBytes) | Should -Be $identityB.CanonicalUtf8Base64
         $identityA.DirectSha256 | Should -Be (Get-IndependentSha256Hex -Bytes $first.BuildIdentityInputCanonicalBytes)
+        [Convert]::ToBase64String($first.BuildIdentityInputBytes) | Should -Be ([Convert]::ToBase64String($second.BuildIdentityInputBytes))
+        Assert-NoUtf8Bom -Bytes $first.BuildIdentityInputBytes
+        Assert-NoUtf8Bom -Bytes $second.BuildIdentityInputBytes
         $identityB.DirectSha256 | Should -Be (Get-IndependentSha256Hex -Bytes $second.BuildIdentityInputCanonicalBytes)
         $identityA.BuildIdentity | Should -Be $first.Summary.CandidateBuildIdentity
         $identityB.BuildIdentity | Should -Be $second.Summary.CandidateBuildIdentity
+        $identityB.CanonicalUtf8ByteLength | Should -Be $identityA.CanonicalUtf8ByteLength
         $identityA.BuildIdentity | Should -Be (Get-IndependentDomainHashHex -Domain $identityA.Domain -CanonicalBytes $first.BuildIdentityInputCanonicalBytes)
         $identityB.BuildIdentity | Should -Be (Get-IndependentDomainHashHex -Domain $identityB.Domain -CanonicalBytes $second.BuildIdentityInputCanonicalBytes)
         $identityB.Fields | ConvertTo-Json -Depth 10 -Compress | Should -Be ($identityA.Fields | ConvertTo-Json -Depth 10 -Compress)
