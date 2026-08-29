@@ -5,8 +5,14 @@ param(
     [string]$XMLTVPath,
     [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'output'),
     [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
-    [string]$FaultHook = ''
+    [string]$FaultHook = '',
+    [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+    [switch]$EmitEntrySlices
 )
+if ($CandidateContractVersion -notin @('blocker-2-contract/v7','blocker-2-contract/v8')) { throw 'FAIL_CLOSED: unsupported CandidateContractVersion' }
+if ($CandidateContractVersion -eq 'blocker-2-contract/v8') { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
+if ($EmitEntrySlices -and $PSBoundParameters.ContainsKey('CandidateContractVersion') -and $CandidateContractVersion -eq 'blocker-2-contract/v7') { throw 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' }
+if ($EmitEntrySlices -and -not $PSBoundParameters.ContainsKey('CandidateContractVersion')) { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
  $ErrorActionPreference = 'Stop'
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Force
@@ -16,7 +22,9 @@ foreach ($helper in @(
         'Get-ChannelForgeLogicalSourceId.ps1',
         'Get-ChannelForgeRawM3UProjection.ps1',
         'Get-ChannelForgeRawXmltvProjection.ps1',
+        'ConvertTo-ChannelForgeSafeM3UText.ps1',
         'Get-ChannelForgeCandidateReviewCounts.ps1',
+        'ConvertTo-ChannelForgeM3UEntryBytes.ps1',
         'New-ChannelForgeCandidateManifest.ps1',
         'ConvertTo-ChannelForgeCandidateCanonical.ps1',
         'Publish-ChannelForgeCandidateNamespace.ps1'
@@ -145,9 +153,10 @@ foreach ($helper in @(
  $binding = if ($programmes.Count -gt 0) {
      Resolve-ChannelForgeM3UXmltvBinding -Channel @($merge.Channels) -Programme $programmes -M3UIdentityCollisions @($merge.IdentityCollisions)
  }
- else {
-     [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
- }
+else {
+    [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
+}
+$serializedM3UEntryOrder = @($merge.Channels | ForEach-Object { $channel = $_; @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId) })
  $manifestArguments = @{
      RawM3UOccurrences = $rawAll
      M3UIdentityCollisions = @($merge.IdentityCollisions)
@@ -156,6 +165,8 @@ foreach ($helper in @(
      M3UBytes = $m3uBytes
      XMLTVBytes = $xmltvBytes
      InputArtifactHashes = @($inputArtifactHashes.ToArray())
+     SerializedM3UEntryOrder = $serializedM3UEntryOrder
+     CandidateContractVersion = if ($EmitEntrySlices) { 'blocker-2-contract/v8' } else { 'blocker-2-contract/v7' }
      SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
  }
  $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments

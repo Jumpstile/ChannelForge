@@ -33,24 +33,9 @@ function Export-ChannelForgeM3UPlaylist {
         # writing, never earlier, so the domain object always keeps the
         # original value.
         foreach ($ch in $allChannels) {
-            $tvgId = ConvertTo-ChannelForgeSafeM3UText -Text $ch.TvgId
-            $tvgName = ConvertTo-ChannelForgeSafeM3UText -Text $ch.TvgName
-            $logo = ConvertTo-ChannelForgeSafeM3UText -Text $ch.Logo
-            $group = ConvertTo-ChannelForgeSafeM3UText -Text $ch.Group
-            $displayName = ConvertTo-ChannelForgeSafeM3UText -Text $ch.DisplayName
-            $url = ConvertTo-ChannelForgeSafeM3UText -Text $ch.Url
-
-            $attributes = [System.Collections.Generic.List[string]]::new()
-
-            if ($tvgId) { $attributes.Add("tvg-id=`"$tvgId`"") }
-            if ($tvgName) { $attributes.Add("tvg-name=`"$tvgName`"") }
-            if ($logo) { $attributes.Add("tvg-logo=`"$logo`"") }
-            if ($null -ne $ch.AssignedNumber) { $attributes.Add("tvg-chno=`"$($ch.AssignedNumber)`"") }
-            if ($group) { $attributes.Add("group-title=`"$group`"") }
-
-            $attributeText = if ($attributes.Count -gt 0) { ' ' + ($attributes -join ' ') } else { '' }
-            $lines.Add("#EXTINF:-1$attributeText,$displayName")
-            $lines.Add($url)
+            $entryBytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $ch
+            $entryText = [System.Text.UTF8Encoding]::new($false, $true).GetString($entryBytes)
+            $lines.Add($entryText.TrimEnd("`n"))
         }
 
         # -NoNewline plus an explicit trailing "`n" gives one deterministic

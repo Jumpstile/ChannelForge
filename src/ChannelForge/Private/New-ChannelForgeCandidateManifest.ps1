@@ -33,7 +33,10 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [string[]]$SelectedSourceIds = @(),
 
         [AllowNull()]
-        [object]$ReviewCounts
+        [object]$ReviewCounts,
+        [string[]]$SerializedM3UEntryOrder = @(),
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
     function Write-BuildIdentityInputEvidence {
         param(
@@ -87,7 +90,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-StreamFingerprint {
         param([AllowNull()][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{
-                Version   = 'blocker-2-contract/v7'
+                Version   = $CandidateContractVersion
                 StreamUrl = if ($null -eq $Channel) { '' } else { [string]$Channel.Url }
             })
     }
@@ -95,7 +98,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     function Get-PresentationFingerprint {
         param([Parameter(Mandatory)][object]$Channel)
         return Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{
-                Version       = 'blocker-2-contract/v7'
+                Version       = $CandidateContractVersion
                 TvgName       = [string]$Channel.TvgName
                 DisplayName   = [string]$Channel.DisplayName
                 GroupTitle    = [string]$Channel.Group
@@ -137,7 +140,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
             [AllowNull()][object]$CollisionEvidence
         )
         $recordWithoutIds = [ordered]@{
-            Version = 'blocker-2-contract/v7'
+            Version = $CandidateContractVersion
             BindingKind = $BindingKind
             EntryId = $EntryId
             BindingKey = $BindingKey
@@ -152,7 +155,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         }
         $bindingId = Get-ChannelForgeDomainHash -Domain 'binding-record/v2' -InputObject $recordWithoutIds
         $record = [ordered]@{
-            Version = 'blocker-2-contract/v7'
+                Version = $CandidateContractVersion
             BindingId = $bindingId
             BindingKind = $BindingKind
             EntryId = $EntryId
@@ -216,6 +219,37 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 }
             }
         })
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -eq $M3UBytes) { throw 'FAIL_CLOSED: successor candidate requires M3UBytes.' }
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $SerializedM3UEntryOrder.Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is incomplete.' }
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and @($SerializedM3UEntryOrder | Sort-Object -Unique).Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is not one-to-one.' }
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
+        $headerBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")
+        $headerValid = $M3UBytes.Length -ge $headerBytes.Length
+        for ($h = 0; $headerValid -and $h -lt $headerBytes.Length; $h++) { if ($M3UBytes[$h] -ne $headerBytes[$h]) { $headerValid = $false } }
+        if (-not $headerValid) { throw 'FAIL_CLOSED: candidate artifact header is invalid.' }
+        $cursor = $headerBytes.Length
+        $sliceByEntryId = @{}
+        $artifactOrder = if ($SerializedM3UEntryOrder.Count -gt 0) { $SerializedM3UEntryOrder } else { @($entries | ForEach-Object EntryId) }
+        foreach ($entryId in $artifactOrder) {
+            $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entryId }) | Select-Object -First 1
+            if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
+            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel
+            $offset = -1
+            for ($i = $cursor; $i -le $M3UBytes.Length - $bytes.Length; $i++) {
+                $same = $true
+                for ($j = 0; $j -lt $bytes.Length; $j++) { if ($M3UBytes[$i + $j] -ne $bytes[$j]) { $same = $false; break } }
+                if ($same) { $offset = $i; break }
+            }
+            if ($offset -ne $cursor) { throw 'FAIL_CLOSED: successor slices are not contiguous.' }
+            $sliceByEntryId[[string]$entryId] = [ordered]@{ RelativePath = 'merged.m3u'; ByteOffset = [uint64]$offset; ByteLength = [uint64]$bytes.Length; EntryContentHash = Get-ChannelForgeDomainHash -Domain 'candidate-entry-content/v1' -Bytes $bytes }
+            $cursor = $offset + $bytes.Length
+        }
+        if ($cursor -ne $M3UBytes.Length) { throw 'FAIL_CLOSED: successor slices do not cover the candidate artifact.' }
+        foreach ($entry in $entries) {
+            if (-not $sliceByEntryId.ContainsKey([string]$entry.EntryId)) { throw 'FAIL_CLOSED: successor slice missing for manifest entry.' }
+            $entry.EntryOutputSlice = $sliceByEntryId[[string]$entry.EntryId]
+        }
+    }
 
     $rawM3UEvidence = @($orderedM3U | ForEach-Object {
             [ordered]@{
@@ -242,7 +276,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                     elseif ($missingCount -eq 0) { 'PresentCollision' }
                     else { 'MixedMissingAndPresent' }
             $base = [ordered]@{
-                Version = 'blocker-2-contract/v7'
+                Version = $CandidateContractVersion
                 HistoryKey = if ($null -eq $collision.IdentityKey) { $null } else { [string]$collision.IdentityKey }
                 CollisionKind = $kind
                 RawIdentityDigests = @($digests)
@@ -277,7 +311,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                             RawChannelId = if ([string]$member.RawChannelIdPresence -eq 'Missing') { $null } else { $member.RawChannelId }
                         })
                     $input = [ordered]@{
-                        Version = 'blocker-2-contract/v7'
+                        Version = $CandidateContractVersion
                         BindingKey = $bindingKey
                         RawIdentityPresence = [string]$member.RawChannelIdPresence
                         RawIdentityValue = if ([string]$member.RawChannelIdPresence -eq 'Missing') { $null } else { [string]$member.RawChannelId }
@@ -431,7 +465,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     }
     $sourceIds = @($SelectedSourceIds | Sort-Object -Unique)
     $buildInput = [ordered]@{
-        ContractVersion              = 'blocker-2-contract/v7'
+        ContractVersion              = $CandidateContractVersion
         IdentityRulesVersion         = 'lineup-history-v1'
         M3UParserContractVersion     = 'm3u-parser-v1'
         XMLTVParserContractVersion   = 'xmltv-parser-v1'
@@ -487,8 +521,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
     }
 
     $manifest = [ordered]@{
-        Version               = 'blocker-2-contract/v7'
-        ContractVersion       = 'blocker-2-contract/v7'
+        Version               = $CandidateContractVersion
+        ContractVersion       = $CandidateContractVersion
         BuildIdentity         = $buildIdentity
         IdentityRulesVersion  = 'lineup-history-v1'
         SelectedSources       = $sourceIds
