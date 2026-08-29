@@ -2,9 +2,9 @@
 
 ## Scope
 
-`EntryOutputSlice` is a candidate-stage field. This proposal amends only its
-content-hash meaning; all v8 acceptance and promotion domains remain unchanged.
-The successor candidate version is `blocker-2-contract/v8`.
+`EntryOutputSlice` is a candidate-stage field. This frozen revision amends only
+its content-hash meaning; all v8 acceptance and promotion domains remain
+unchanged. The successor candidate version is `blocker-2-contract/v8`.
 
 ## EntryOutputSlice
 
