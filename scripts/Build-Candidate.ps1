@@ -5,7 +5,8 @@ param(
     [string]$XMLTVPath,
     [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'output'),
     [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
-    [string]$FaultHook = ''
+    [string]$FaultHook = '',
+    [switch]$EmitEntrySlices
 )
  $ErrorActionPreference = 'Stop'
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
@@ -17,6 +18,7 @@ foreach ($helper in @(
         'Get-ChannelForgeRawM3UProjection.ps1',
         'Get-ChannelForgeRawXmltvProjection.ps1',
         'Get-ChannelForgeCandidateReviewCounts.ps1',
+        'ConvertTo-ChannelForgeM3UEntryBytes.ps1',
         'New-ChannelForgeCandidateManifest.ps1',
         'ConvertTo-ChannelForgeCandidateCanonical.ps1',
         'Publish-ChannelForgeCandidateNamespace.ps1'
@@ -156,6 +158,7 @@ foreach ($helper in @(
      M3UBytes = $m3uBytes
      XMLTVBytes = $xmltvBytes
      InputArtifactHashes = @($inputArtifactHashes.ToArray())
+     CandidateContractVersion = if ($EmitEntrySlices) { 'blocker-2-contract/v8' } else { 'blocker-2-contract/v7' }
      SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
  }
  $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
