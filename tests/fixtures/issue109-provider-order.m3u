@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="xray.us" tvg-name="Bravo" tvg-chno="30" group-title="News",Bravo
+https://example.invalid/live/bravo
+#EXTINF:-1 tvg-id="yankee.us" tvg-name="Charlie" tvg-chno="10" group-title="News",Charlie
+https://example.invalid/live/charlie
+#EXTINF:-1 tvg-id="zulu.us" tvg-name="Alpha" tvg-chno="20" group-title="News",Alpha
+https://example.invalid/live/alpha

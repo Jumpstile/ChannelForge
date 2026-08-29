@@ -6,8 +6,13 @@ param(
     [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'output'),
     [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
     [string]$FaultHook = '',
+    [string]$CandidateContractVersion = 'blocker-2-contract/v7',
     [switch]$EmitEntrySlices
 )
+if ($CandidateContractVersion -notin @('blocker-2-contract/v7','blocker-2-contract/v8')) { throw 'FAIL_CLOSED: unsupported CandidateContractVersion' }
+if ($CandidateContractVersion -eq 'blocker-2-contract/v8') { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
+if ($EmitEntrySlices -and $PSBoundParameters.ContainsKey('CandidateContractVersion') -and $CandidateContractVersion -eq 'blocker-2-contract/v7') { throw 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' }
+if ($EmitEntrySlices -and -not $PSBoundParameters.ContainsKey('CandidateContractVersion')) { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
  $ErrorActionPreference = 'Stop'
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Force

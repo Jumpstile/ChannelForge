@@ -14,8 +14,12 @@ byte counts into the exact UTF-8 candidate `merged.m3u` artifact. `ByteLength`
 MUST be positive. The checked interval is `[ByteOffset, ByteOffset+ByteLength)`;
 the addition MUST be overflow-safe and MUST be less than or equal to the exact
 artifact byte length. A slice MUST contain the complete two-line M3U entry and
-its terminating LF. Slices for retained entries MUST be disjoint and together
-cover exactly the retained entry records in EntryId order.
+its terminating LF.
+Slicing MUST follow the exact serialized artifact record order: retained records
+are disjoint, contiguous, and together cover exactly the retained entry
+records in `merged.m3u` order. The CandidateManifest `Entries` array remains
+canonically ordered by EntryId; that manifest order is independent of artifact
+byte order.
 
 `EntryContentHash` is the lowercase SHA-256 digest of the exact slice bytes,
 without path, offset, length, JSON, or any surrounding record. Its dedicated
