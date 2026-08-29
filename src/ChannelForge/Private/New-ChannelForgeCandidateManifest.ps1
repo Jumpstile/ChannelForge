@@ -219,7 +219,9 @@ function ConvertTo-ChannelForgeCandidateManifest {
             }
         })
     if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
-        $cursor = ([System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")).Length
+        $headerBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")
+        if ($M3UBytes.Length -lt $headerBytes.Length -or -not ([System.Linq.Enumerable]::SequenceEqual($M3UBytes[0..($headerBytes.Length - 1)], $headerBytes))) { throw 'FAIL_CLOSED: candidate artifact header is invalid.' }
+        $cursor = $headerBytes.Length
         foreach ($entry in $entries) {
             $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entry.EntryId }) | Select-Object -First 1
             if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
