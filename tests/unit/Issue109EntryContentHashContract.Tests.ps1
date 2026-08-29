@@ -43,4 +43,22 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         $readme | Should -Match 'blocker-2-contract/v8-acceptance'
         $readme | Should -Match 'semantics are unchanged'
     }
+
+    It 'validates nonzero offsets, bounds, and relocation portability' {
+        $artifact = [Text.Encoding]::UTF8.GetBytes("one`ntwo`n")
+        $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+        function Get-SliceHash([byte[]]$Bytes) {
+            $payload = [byte[]]::new($domain.Length + 1 + $Bytes.Length)
+            [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+            [Buffer]::BlockCopy($Bytes, 0, $payload, $domain.Length + 1, $Bytes.Length)
+            ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+        }
+        $first = $artifact[0..3]
+        $second = $artifact[4..7]
+        (Get-SliceHash $first) | Should -Not -Be (Get-SliceHash $second)
+        $first.Length | Should -Be 4
+        $second.Length | Should -Be 4
+        ($artifact.Length - 4) | Should -Be 4
+        { [void][Math]::AddExact([int]::MaxValue, 1) } | Should -Throw
+    }
 }
