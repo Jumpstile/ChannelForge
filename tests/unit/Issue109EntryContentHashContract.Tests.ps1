@@ -3,6 +3,7 @@ BeforeAll {
     $proposal = Get-Content (Join-Path $root 'docs/adr/blocker-2-contract-v9-proposal/PART-B-entry-output-slice.md') -Raw
     $partA = Get-Content (Join-Path $root 'docs/adr/blocker-2-contract-v9-proposal/PART-A-canonical-foundation.md') -Raw
     $fixture = Get-Content (Join-Path $root 'tests/fixtures/entry-output-slice-v9.json') -Raw | ConvertFrom-Json
+    Import-Module (Join-Path $root 'src/ChannelForge/ChannelForge.psd1') -Force
 }
 Describe 'Issue 109 EntryOutputSlice erratum' {
     It 'defines the dedicated domain and exact byte projection' {
@@ -102,5 +103,13 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         } finally {
             Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+    It 'fails closed for a same-length malformed header' {
+        $badBytes = [Text.Encoding]::UTF8.GetBytes('XXXXXXXX')
+        { & (Get-Module ChannelForge) { param([byte[]]$b) ConvertTo-ChannelForgeCandidateManifest -RawM3UOccurrences @() -M3UBytes $b -CandidateContractVersion 'blocker-2-contract/v8' } $badBytes } | Should -Throw 'FAIL_CLOSED:*'
+    }
+    It 'fails closed for trailing bytes after the retained slices' {
+        $badBytes = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`nX")
+        { & (Get-Module ChannelForge) { param([byte[]]$b) ConvertTo-ChannelForgeCandidateManifest -RawM3UOccurrences @() -M3UBytes $b -CandidateContractVersion 'blocker-2-contract/v8' } $badBytes } | Should -Throw 'FAIL_CLOSED:*'
     }
 }
