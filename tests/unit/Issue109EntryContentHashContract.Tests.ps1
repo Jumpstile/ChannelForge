@@ -64,4 +64,27 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         ($firstLength -lt $artifact.Length -and $secondOffset -ge 0 -and $secondOffset + $secondLength -le $artifact.Length) | Should -BeTrue
         (Get-SliceHash $second) | Should -Be (Get-SliceHash $artifact[$secondOffset..($artifact.Length - 1)])
     }
+    It 'agrees with the production successor manifest and candidate artifact bytes' {
+        $out = Join-Path ([IO.Path]::GetTempPath()) ('issue109-' + [guid]::NewGuid().ToString('N'))
+        try {
+            & pwsh -NoProfile -File (Join-Path $root 'scripts/Build-Candidate.ps1') -Root $root -M3UPath (Join-Path $root 'tests/fixtures/identity-binding/playlist.m3u') -OutputRoot $out -EmitEntrySlices | Out-Null
+            $manifestPath = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | ForEach-Object { Join-Path $_.FullName 'manifest.json' } | Select-Object -First 1
+            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            $artifact = [IO.File]::ReadAllBytes((Join-Path (Split-Path $manifestPath) 'merged.m3u'))
+            foreach ($entry in @($manifest.Entries)) {
+                $slice = $entry.EntryOutputSlice
+                $bytes = [byte[]]$artifact[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
+                ($slice.ByteOffset + $slice.ByteLength) | Should -BeLessOrEqual $artifact.Length
+                $bytes = [byte[]]$artifact[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
+                $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+                $payload = [byte[]]::new($domain.Length + 1 + $bytes.Length)
+                [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+                [Buffer]::BlockCopy($bytes, 0, $payload, $domain.Length + 1, $bytes.Length)
+                $hash = ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+                $hash | Should -Be $slice.EntryContentHash
+            }
+        } finally {
+            Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
