@@ -98,4 +98,15 @@ Describe 'Verify-ContractRevisionId.ps1' {
         }
         finally { Remove-Item -LiteralPath $fixture.Root -Recurse -Force -ErrorAction SilentlyContinue }
     }
+
+    It 'fails closed when the attestation RCID disagrees with the supplied authority' {
+        $fixture = New-RcidFixture
+        try {
+            $text = [System.IO.File]::ReadAllText($fixture.Attestation, [System.Text.UTF8Encoding]::new($false))
+            $text = $text.Replace($fixture.Rcid, ('0' * 64))
+            [System.IO.File]::WriteAllText($fixture.Attestation, $text, [System.Text.UTF8Encoding]::new($false))
+            { Invoke-Verifier $fixture } | Should -Throw 'FAIL_CLOSED:*'
+        }
+        finally { Remove-Item -LiteralPath $fixture.Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }

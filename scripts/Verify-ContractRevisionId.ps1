@@ -87,6 +87,7 @@ if ($resolvedCommit -cne $Commit) { throw 'FAIL_CLOSED: commit did not resolve t
 
 $attestation = [System.IO.File]::ReadAllText($resolvedAttestation, [System.Text.UTF8Encoding]::new($false))
 $declaredAuthority = [regex]::Match($attestation, '(?m)^- Corrected RevisionContentId: `([0-9a-f]{64})`\.?\r?$')
+if (-not $declaredAuthority.Success -or $declaredAuthority.Groups[1].Value -cne $ExpectedRevisionContentId) { throw 'FAIL_CLOSED: attestation authority does not match the expected RevisionContentId.' }
 $declaredCommit = [regex]::Match($attestation, '(?m)^- Canonical Git content commit: `([0-9a-f]{40})`\.?\r?$')
 if (-not $declaredCommit.Success -or $declaredCommit.Groups[1].Value -cne $Commit) { throw 'FAIL_CLOSED: attestation canonical commit does not match the supplied commit.' }
 $declared = Get-DeclaredManifest $resolvedAttestation
