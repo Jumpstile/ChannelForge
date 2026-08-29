@@ -148,9 +148,10 @@ foreach ($helper in @(
  $binding = if ($programmes.Count -gt 0) {
      Resolve-ChannelForgeM3UXmltvBinding -Channel @($merge.Channels) -Programme $programmes -M3UIdentityCollisions @($merge.IdentityCollisions)
  }
- else {
-     [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
- }
+else {
+    [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
+}
+$serializedM3UEntryOrder = @($merge.Channels | ForEach-Object { $channel = $_; @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId) })
  $manifestArguments = @{
      RawM3UOccurrences = $rawAll
      M3UIdentityCollisions = @($merge.IdentityCollisions)
@@ -159,6 +160,7 @@ foreach ($helper in @(
      M3UBytes = $m3uBytes
      XMLTVBytes = $xmltvBytes
      InputArtifactHashes = @($inputArtifactHashes.ToArray())
+     SerializedM3UEntryOrder = $serializedM3UEntryOrder
      CandidateContractVersion = if ($EmitEntrySlices) { 'blocker-2-contract/v8' } else { 'blocker-2-contract/v7' }
      SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
  }
