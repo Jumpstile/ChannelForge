@@ -1,0 +1,5 @@
+{
+  "provider": "issue109-provider",
+  "base_url": "https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN",
+  "sources": [{"name":"OrderFixture","group":"News","url":"https://example.invalid/iptv/ACCOUNT_ID/API_TOKEN/OrderFixture","enabled":true,"local_playlist":"data/playlists/issue109-provider-order.m3u"}]
+}
