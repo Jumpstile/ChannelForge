@@ -6,7 +6,10 @@ function Read-ChannelForgeM3UReader {
 
         [string]$Provider = '',
 
-        [string]$Playlist = ''
+        [string]$Playlist = '',
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if ($null -eq $Reader) {
@@ -132,7 +135,7 @@ $channel | Add-Member -NotePropertyName RawGroupTitle -NotePropertyValue $pendin
 $channel | Add-Member -NotePropertyName RawLogo -NotePropertyValue $pending.Logo -Force
 $channel | Add-Member -NotePropertyName RawChannelNumber -NotePropertyValue $pending.ChannelNumber -Force
 $channel | Add-Member -NotePropertyName RawM3UOccurrence -NotePropertyValue ([pscustomobject][ordered]@{
-        Version          = 'blocker-2-contract/v7'
+        Version          = $CandidateContractVersion
         LogicalSourceId  = ''
         RawTvgIdPresence = $pending.TvgIdPresence
         RawTvgId         = if ($pending.TvgIdPresence -eq 'Present') { $pending.TvgId } else { $null }

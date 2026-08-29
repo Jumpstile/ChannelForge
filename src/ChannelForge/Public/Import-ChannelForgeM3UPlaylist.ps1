@@ -6,7 +6,10 @@ function Import-ChannelForgeM3UPlaylist {
 
         [string]$Provider = '',
 
-        [string]$Playlist = ''
+        [string]$Playlist = '',
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -34,7 +37,8 @@ function Import-ChannelForgeM3UPlaylist {
         return @(Read-ChannelForgeM3UReader `
             -Reader $reader `
             -Provider $Provider `
-            -Playlist $Playlist)
+            -Playlist $Playlist `
+            -CandidateContractVersion $CandidateContractVersion)
     }
     finally {
         if ($null -ne $reader) {

@@ -10,9 +10,8 @@ param(
     [switch]$EmitEntrySlices
 )
 if ($CandidateContractVersion -notin @('blocker-2-contract/v7','blocker-2-contract/v8')) { throw 'FAIL_CLOSED: unsupported CandidateContractVersion' }
-if ($CandidateContractVersion -eq 'blocker-2-contract/v8') { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
 if ($EmitEntrySlices -and $PSBoundParameters.ContainsKey('CandidateContractVersion') -and $CandidateContractVersion -eq 'blocker-2-contract/v7') { throw 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' }
-if ($EmitEntrySlices -and -not $PSBoundParameters.ContainsKey('CandidateContractVersion')) { throw 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' }
+if ($EmitEntrySlices -and -not $PSBoundParameters.ContainsKey('CandidateContractVersion')) { throw 'FAIL_CLOSED: candidate-v8 registry migration requires explicit -CandidateContractVersion blocker-2-contract/v8.' }
  $ErrorActionPreference = 'Stop'
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $ModuleRoot 'src\ChannelForge\ChannelForge.psd1') -Force
@@ -45,9 +44,9 @@ foreach ($helper in @(
      Assert-ChannelForgeReadPath -Path $path -AllowedRoot $Root
      $providerName = 'candidate'
      $sourceName = [System.IO.Path]::GetFileNameWithoutExtension($path)
-     $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider $providerName -Playlist $sourceName)
-     $logicalId = Get-ChannelForgeLogicalSourceId -ProviderName $providerName -SourceName $sourceName -SourceKind 'M3U' -SourceOrdinal 0
-     $raw = @(Get-ChannelForgeRawM3UProjection -Channel $channels -LogicalSourceId $logicalId)
+    $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider $providerName -Playlist $sourceName -CandidateContractVersion $CandidateContractVersion)
+    $logicalId = Get-ChannelForgeLogicalSourceId -ProviderName $providerName -SourceName $sourceName -SourceKind 'M3U' -SourceOrdinal 0
+    $raw = @(Get-ChannelForgeRawM3UProjection -Channel $channels -LogicalSourceId $logicalId -CandidateContractVersion $CandidateContractVersion)
      [void]$sourceList.Add([pscustomobject]@{
              LogicalSourceId = $logicalId
              Channels = @($channels)
@@ -71,9 +70,9 @@ foreach ($helper in @(
          if ([string]::IsNullOrWhiteSpace([string]$source.LocalPlaylist)) { throw 'Candidate build requires local provider playlists; remote acquisition is not candidate-only.' }
          $path = Join-Path $Root ([string]$source.LocalPlaylist)
          Assert-ChannelForgeReadPath -Path $path -AllowedRoot $playlistDir
-         $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider $providerConfig.provider -Playlist $source.Name)
-         $logicalId = Get-ChannelForgeLogicalSourceId -ProviderName $providerConfig.provider -SourceName $source.Name -SourceKind 'M3U' -SourceOrdinal $index
-         $raw = @(Get-ChannelForgeRawM3UProjection -Channel $channels -LogicalSourceId $logicalId)
+        $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider $providerConfig.provider -Playlist $source.Name -CandidateContractVersion $CandidateContractVersion)
+        $logicalId = Get-ChannelForgeLogicalSourceId -ProviderName $providerConfig.provider -SourceName $source.Name -SourceKind 'M3U' -SourceOrdinal $index
+        $raw = @(Get-ChannelForgeRawM3UProjection -Channel $channels -LogicalSourceId $logicalId -CandidateContractVersion $CandidateContractVersion)
          [void]$sourceList.Add([pscustomobject]@{
                  LogicalSourceId = $logicalId
                  Channels = @($channels)
@@ -135,13 +134,13 @@ foreach ($helper in @(
      $xmlPath = [System.IO.Path]::GetFullPath($XMLTVPath)
      Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $Root
      $xmlStatus = [ordered]@{}
-     $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus)
-     $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes
-     $xmlTemp = Join-Path $txRoot 'merged.xml'
-     Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
-     $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
-     Remove-Item -LiteralPath $xmlTemp -Force
-     $rawXmltv = @(Get-ChannelForgeRawXmltvProjection -Programme $programmes)
+    $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion)
+    $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes
+    $xmlTemp = Join-Path $txRoot 'merged.xml'
+    Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
+    $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
+    Remove-Item -LiteralPath $xmlTemp -Force
+    $rawXmltv = @(Get-ChannelForgeRawXmltvProjection -Programme $programmes -CandidateContractVersion $CandidateContractVersion)
      foreach ($logicalSourceId in @($rawXmltv | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)) {
          [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
                  LogicalSourceId = $logicalSourceId
@@ -157,18 +156,18 @@ else {
     [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
 }
 $serializedM3UEntryOrder = @($merge.Channels | ForEach-Object { $channel = $_; @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId) })
- $manifestArguments = @{
-     RawM3UOccurrences = $rawAll
-     M3UIdentityCollisions = @($merge.IdentityCollisions)
-     RawXmltvOccurrences = $rawXmltv
-     IdentityBindingResult = $binding
-     M3UBytes = $m3uBytes
-     XMLTVBytes = $xmltvBytes
-     InputArtifactHashes = @($inputArtifactHashes.ToArray())
-     SerializedM3UEntryOrder = $serializedM3UEntryOrder
-     CandidateContractVersion = if ($EmitEntrySlices) { 'blocker-2-contract/v8' } else { 'blocker-2-contract/v7' }
-     SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
- }
+     $manifestArguments = @{
+         RawM3UOccurrences = $rawAll
+         M3UIdentityCollisions = @($merge.IdentityCollisions)
+         RawXmltvOccurrences = $rawXmltv
+         IdentityBindingResult = $binding
+         M3UBytes = $m3uBytes
+         XMLTVBytes = $xmltvBytes
+         InputArtifactHashes = @($inputArtifactHashes.ToArray())
+         SerializedM3UEntryOrder = $serializedM3UEntryOrder
+         CandidateContractVersion = $CandidateContractVersion
+         SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
+     }
  $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
  $counts = Get-ChannelForgeCandidateReviewCounts `
      -RawM3UOccurrences @($rawAll) `
@@ -176,7 +175,7 @@ $serializedM3UEntryOrder = @($merge.Channels | ForEach-Object { $channel = $_; @
      -BindingProjection @($manifestResult.BindingProjection)
  $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
  $review = [ordered]@{
-     Version = 'blocker-2-contract/v7'
+     Version = $CandidateContractVersion
      BuildIdentity = $manifestResult.BuildIdentity
      ReviewRecords = @($manifestResult.Manifest.ReviewRecords)
      M3UIdentityCollisions = @($manifestResult.Manifest.M3UIdentityCollisions)
