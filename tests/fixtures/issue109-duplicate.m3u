@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="dup",Duplicate
+https://duplicate.invalid/live
+#EXTINF:-1 tvg-id="dup",Duplicate
+https://duplicate.invalid/live

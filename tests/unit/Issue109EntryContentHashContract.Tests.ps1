@@ -87,4 +87,20 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
             Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+    It 'allocates distinct contiguous slices for duplicate playlist bytes' {
+        $out = Join-Path ([IO.Path]::GetTempPath()) ('issue109-duplicate-' + [guid]::NewGuid().ToString('N'))
+        try {
+            & pwsh -NoProfile -File (Join-Path $root 'scripts/Build-Candidate.ps1') -Root $root -M3UPath (Join-Path $root 'tests/fixtures/issue109-duplicate.m3u') -OutputRoot $out -EmitEntrySlices | Out-Null
+            $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
+            $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
+            $slices = @($manifest.Entries | ForEach-Object EntryOutputSlice)
+            $slices.Count | Should -Be 2
+            $slices[0].ByteOffset | Should -Be 8
+            $slices[1].ByteOffset | Should -Be ($slices[0].ByteOffset + $slices[0].ByteLength)
+            ($slices[0].ByteOffset + $slices[0].ByteLength) | Should -BeLessOrEqual $slices[1].ByteOffset
+            ($slices[1].ByteOffset + $slices[1].ByteLength) | Should -Be ([IO.File]::ReadAllBytes((Join-Path $dir.FullName 'merged.m3u'))).Length
+        } finally {
+            Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
