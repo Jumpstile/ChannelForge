@@ -1,6 +1,6 @@
 # Issue #102 accepted-state implementation
 
-Status: local implementation only on `review/issue-102-accepted-state-v9`; the v9 freeze record explicitly says Issue #102 remains blocked and is not resumed by that freeze. This branch therefore carries no landing or release authorization.
+Status: local implementation/review work only on `review/issue-102-accepted-state-v9`. The v9 freeze itself did not resume Issue #102; #102 remained held until the #110 Candidate Version Registry Migration completed. #110 is now integrated, and the later #102 restart authority clears that implementation hold. This branch still carries no merge or release authorization until its own gates pass.
 
 ## Scope
 
