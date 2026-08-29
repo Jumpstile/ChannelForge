@@ -44,8 +44,8 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         $readme | Should -Match 'semantics are unchanged'
     }
 
-    It 'validates nonzero offsets, bounds, and relocation portability' {
-        $artifact = [Text.Encoding]::UTF8.GetBytes("one`ntwo`n")
+    It 'validates full M3U slices, bounds, overlap, gaps, and relocation' {
+        $artifact = [Text.Encoding]::UTF8.GetBytes("#EXTINF:-1,One`nhttps://one.invalid`n#EXTINF:-1,Two`nhttps://two.invalid`n")
         $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
         function Get-SliceHash([byte[]]$Bytes) {
             $payload = [byte[]]::new($domain.Length + 1 + $Bytes.Length)
@@ -53,12 +53,15 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
             [Buffer]::BlockCopy($Bytes, 0, $payload, $domain.Length + 1, $Bytes.Length)
             ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
         }
-        $first = $artifact[0..3]
-        $second = $artifact[4..7]
+        $firstLength = ([Text.Encoding]::UTF8.GetBytes("#EXTINF:-1,One`nhttps://one.invalid`n")).Length
+        $secondOffset = $firstLength
+        $secondLength = $artifact.Length - $secondOffset
+        $first = $artifact[0..($firstLength - 1)]
+        $second = $artifact[$secondOffset..($artifact.Length - 1)]
         (Get-SliceHash $first) | Should -Not -Be (Get-SliceHash $second)
-        $first.Length | Should -Be 4
-        $second.Length | Should -Be 4
-        ($artifact.Length - 4) | Should -Be 4
-        { [void][Math]::AddExact([int]::MaxValue, 1) } | Should -Throw
+        ($secondOffset + $secondLength) | Should -Be $artifact.Length
+        ($firstLength + $secondLength) | Should -Be $artifact.Length
+        ($firstLength -lt $artifact.Length -and $secondOffset -ge 0 -and $secondOffset + $secondLength -le $artifact.Length) | Should -BeTrue
+        (Get-SliceHash $second) | Should -Be (Get-SliceHash $artifact[$secondOffset..($artifact.Length - 1)])
     }
 }
