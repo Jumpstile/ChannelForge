@@ -1,10 +1,12 @@
 BeforeAll {
     $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $proposal = Get-Content (Join-Path $root 'docs/adr/blocker-2-contract-v9-proposal/PART-B-entry-output-slice.md') -Raw
+    $partA = Get-Content (Join-Path $root 'docs/adr/blocker-2-contract-v9-proposal/PART-A-canonical-foundation.md') -Raw
+    $fixture = Get-Content (Join-Path $root 'tests/fixtures/entry-output-slice-v9.json') -Raw | ConvertFrom-Json
 }
 Describe 'Issue 109 EntryOutputSlice erratum' {
     It 'defines the dedicated domain and exact byte projection' {
-        $proposal | Should -Match 'candidate-entry-content/v1'
+        $partA | Should -Match 'candidate-entry-content/v1'
         $proposal | Should -Match 'exact slice bytes'
         $proposal | Should -Match 'without path, offset, length, JSON'
         $proposal | Should -Match 'same bytes retain the same hash'
@@ -16,6 +18,23 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         $proposal | Should -Match 'less than or equal'
         $proposal | Should -Match 'merged.m3u'
         $proposal | Should -Match 'fail closed'
+    }
+    It 'recomputes the golden slice hash from exact bytes' {
+        $bytes = [Convert]::FromBase64String($fixture.BytesUtf8Base64)
+        $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+        $payload = [byte[]]::new($domain.Length + 1 + $bytes.Length)
+        [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+        [Buffer]::BlockCopy($bytes, 0, $payload, $domain.Length + 1, $bytes.Length)
+        $actual = ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+        $actual | Should -Be $fixture.EntryContentHash
+        $bytes.Length | Should -Be $fixture.ByteLength
+    }
+    It 'proves the current v7 producer emits null slice metadata' {
+        $producer = Get-Content (Join-Path $root 'src/ChannelForge/Private/New-ChannelForgeCandidateManifest.ps1') -Raw
+        $producer | Should -Match 'EntryOutputSlice'
+        $producer | Should -Match 'ByteOffset = \$null'
+        $producer | Should -Match 'ByteLength = \$null'
+        $producer | Should -Match 'EntryContentHash = \$null'
     }
     It 'preserves v8 acceptance semantics and advances candidate version' {
         $readme = Get-Content (Join-Path $root 'docs/adr/blocker-2-contract-v9-proposal/README.md') -Raw
