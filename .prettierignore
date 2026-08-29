@@ -45,3 +45,19 @@ coverage/
 *.webp
 *.xz
 *.zip
+
+# Frozen/historical contract authorities and evidence.
+# Formatting changes can alter frozen byte projections or historical evidence;
+# these exact files are intentionally excluded from Prettier enforcement.
+docs/adr/blocker-2-contract-v8-proposal/ISSUE-106-TECHNICAL-REVIEW.md
+docs/adr/blocker-2-contract-v8-proposal/PART-A-canonical-foundation.md
+docs/adr/blocker-2-contract-v8-proposal/PART-B-semantic-schemas.md
+docs/adr/blocker-2-contract-v8-proposal/PART-C-promotion-recovery.md
+docs/adr/blocker-2-contract-v8-proposal/SYMBOL-CLOSURE.md
+docs/adr/blocker-2-contract-v9-proposal/VERSION-OWNERSHIP-MAP.md
+docs/adr/blocker-2-contract/FREEZE-RECORD.md
+docs/adr/blocker-2-contract/PART-A-canonical-foundation.md
+docs/adr/blocker-2-contract/PART-B-semantic-schemas.md
+docs/adr/blocker-2-contract/PART-C-promotion-recovery.md
+docs/adr/blocker-2-contract/PR1-ARCHITECTURE-EVIDENCE.md
+docs/adr/blocker-2-contract/README.md
