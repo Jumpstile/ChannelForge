@@ -66,43 +66,95 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         (Get-SliceHash $second) | Should -Be (Get-SliceHash $artifact[$secondOffset..($artifact.Length - 1)])
     }
     It 'agrees with the production successor manifest and candidate artifact bytes' {
-        $out = Join-Path ([IO.Path]::GetTempPath()) ('issue109-' + [guid]::NewGuid().ToString('N'))
-        try {
-            & pwsh -NoProfile -File (Join-Path $root 'scripts/Build-Candidate.ps1') -Root $root -M3UPath (Join-Path $root 'tests/fixtures/identity-binding/playlist.m3u') -OutputRoot $out -EmitEntrySlices | Out-Null
-            $manifestPath = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | ForEach-Object { Join-Path $_.FullName 'manifest.json' } | Select-Object -First 1
-            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $artifact = [IO.File]::ReadAllBytes((Join-Path (Split-Path $manifestPath) 'merged.m3u'))
-            foreach ($entry in @($manifest.Entries)) {
-                $slice = $entry.EntryOutputSlice
-                $bytes = [byte[]]$artifact[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
-                ($slice.ByteOffset + $slice.ByteLength) | Should -BeLessOrEqual $artifact.Length
-                $bytes = [byte[]]$artifact[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
-                $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
-                $payload = [byte[]]::new($domain.Length + 1 + $bytes.Length)
-                [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
-                [Buffer]::BlockCopy($bytes, 0, $payload, $domain.Length + 1, $bytes.Length)
-                $hash = ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
-                $hash | Should -Be $slice.EntryContentHash
-            }
-        } finally {
-            Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+        $playlistPath = Join-Path $root 'tests/fixtures/identity-binding/playlist.m3u'
+        $channels = @(Import-ChannelForgeM3UPlaylist -Path $playlistPath -Provider 'candidate' -Playlist 'playlist')
+        $logicalSourceId = & (Get-Module ChannelForge) {
+            Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName 'playlist' -SourceKind 'M3U' -SourceOrdinal 0
+        }
+        $raw = @(& (Get-Module ChannelForge) {
+            param($inputChannels, $sourceId)
+            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+        } $channels $logicalSourceId)
+        $raw = @($raw | Sort-Object EntryId)
+        $serializedChannels = @($raw | ForEach-Object Channel)
+        $artifactPath = Join-Path $TestDrive 'issue109-identity-binding.m3u'
+        $serializedChannels | Export-ChannelForgeM3UPlaylist -Path $artifactPath
+        $m3uBytes = [IO.File]::ReadAllBytes($artifactPath)
+        $serializedEntryOrder = @($serializedChannels | ForEach-Object {
+            $channel = $_
+            @($raw | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId)
+        })
+        $result = & (Get-Module ChannelForge) {
+            param($rawOccurrences, $bytes, $entryOrder)
+            ConvertTo-ChannelForgeCandidateManifest `
+                -RawM3UOccurrences $rawOccurrences `
+                -M3UBytes $bytes `
+                -SerializedM3UEntryOrder $entryOrder `
+                -CandidateContractVersion 'blocker-2-contract/v8'
+        } $raw $m3uBytes $serializedEntryOrder
+        $result.Manifest.Entries.Count | Should -Be $serializedChannels.Count
+        foreach ($entry in @($result.Manifest.Entries)) {
+            $slice = $entry.EntryOutputSlice
+            $slice.RelativePath | Should -Be 'merged.m3u'
+            $slice.ByteOffset | Should -BeGreaterOrEqual 8
+            $slice.ByteLength | Should -BeGreaterThan 0
+            ($slice.ByteOffset + $slice.ByteLength) | Should -BeLessOrEqual $m3uBytes.Length
+            $sliceBytes = [byte[]]$m3uBytes[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
+            $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+            $payload = [byte[]]::new($domain.Length + 1 + $sliceBytes.Length)
+            [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+            [Buffer]::BlockCopy($sliceBytes, 0, $payload, $domain.Length + 1, $sliceBytes.Length)
+            $hash = ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+            $hash | Should -Be $slice.EntryContentHash
         }
     }
     It 'allocates distinct contiguous slices for duplicate playlist bytes' {
-        $out = Join-Path ([IO.Path]::GetTempPath()) ('issue109-duplicate-' + [guid]::NewGuid().ToString('N'))
-        try {
-            & pwsh -NoProfile -File (Join-Path $root 'scripts/Build-Candidate.ps1') -Root $root -M3UPath (Join-Path $root 'tests/fixtures/issue109-duplicate.m3u') -OutputRoot $out -EmitEntrySlices | Out-Null
-            $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
-            $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
-            $slices = @($manifest.Entries | ForEach-Object EntryOutputSlice)
-            $slices.Count | Should -Be 2
-            $slices[0].ByteOffset | Should -Be 8
-            $slices[1].ByteOffset | Should -Be ($slices[0].ByteOffset + $slices[0].ByteLength)
-            ($slices[0].ByteOffset + $slices[0].ByteLength) | Should -BeLessOrEqual $slices[1].ByteOffset
-            ($slices[1].ByteOffset + $slices[1].ByteLength) | Should -Be ([IO.File]::ReadAllBytes((Join-Path $dir.FullName 'merged.m3u'))).Length
-        } finally {
-            Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+        $playlistPath = Join-Path $root 'tests/fixtures/issue109-duplicate.m3u'
+        $channels = @(Import-ChannelForgeM3UPlaylist -Path $playlistPath -Provider 'candidate' -Playlist 'duplicate')
+        $logicalSourceId = & (Get-Module ChannelForge) {
+            Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName 'duplicate' -SourceKind 'M3U' -SourceOrdinal 0
         }
+        $raw = @(& (Get-Module ChannelForge) {
+            param($inputChannels, $sourceId)
+            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+        } $channels $logicalSourceId)
+        $raw = @($raw | Sort-Object EntryId)
+        $serializedChannels = @($raw | ForEach-Object Channel)
+        $artifactPath = Join-Path $TestDrive 'issue109-duplicate.m3u'
+        $serializedChannels | Export-ChannelForgeM3UPlaylist -Path $artifactPath
+        $m3uBytes = [IO.File]::ReadAllBytes($artifactPath)
+        $serializedEntryOrder = @($serializedChannels | ForEach-Object {
+            $channel = $_
+            @($raw | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId)
+        })
+        $result = & (Get-Module ChannelForge) {
+            param($rawOccurrences, $bytes, $entryOrder)
+            ConvertTo-ChannelForgeCandidateManifest `
+                -RawM3UOccurrences $rawOccurrences `
+                -M3UBytes $bytes `
+                -SerializedM3UEntryOrder $entryOrder `
+                -CandidateContractVersion 'blocker-2-contract/v8'
+        } $raw $m3uBytes $serializedEntryOrder
+        $slices = @($result.Manifest.Entries | ForEach-Object EntryOutputSlice)
+        $slices.Count | Should -Be 2
+        $slices[0].ByteOffset | Should -Be 8
+        $slices[1].ByteOffset | Should -Be ($slices[0].ByteOffset + $slices[0].ByteLength)
+        ($slices[0].ByteOffset + $slices[0].ByteLength) | Should -Be $slices[1].ByteOffset
+        ($slices[1].ByteOffset + $slices[1].ByteLength) | Should -Be $m3uBytes.Length
+        $firstBytes = [byte[]]$m3uBytes[$slices[0].ByteOffset..($slices[0].ByteOffset + $slices[0].ByteLength - 1)]
+        $secondBytes = [byte[]]$m3uBytes[$slices[1].ByteOffset..($slices[1].ByteOffset + $slices[1].ByteLength - 1)]
+        [Convert]::ToBase64String($firstBytes) | Should -Be ([Convert]::ToBase64String($secondBytes))
+        $hashes = foreach ($sliceBytes in @($firstBytes, $secondBytes)) {
+            $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+            $payload = [byte[]]::new($domain.Length + 1 + $sliceBytes.Length)
+            [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+            [Buffer]::BlockCopy($sliceBytes, 0, $payload, $domain.Length + 1, $sliceBytes.Length)
+            ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+        }
+        $hashes[0] | Should -Be $slices[0].EntryContentHash
+        $hashes[1] | Should -Be $slices[1].EntryContentHash
+        $slices[0].EntryContentHash | Should -Be $slices[1].EntryContentHash
+        $slices[0].ByteOffset | Should -Not -Be $slices[1].ByteOffset
     }
     It 'fails closed for a same-length malformed header' {
         $badBytes = [Text.Encoding]::UTF8.GetBytes('XXXXXXXX')
@@ -123,58 +175,127 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         Copy-Item (Join-Path $root 'tests/fixtures/issue109-provider-order.m3u') (Join-Path $playlistDir 'issue109-provider-order.m3u')
         Copy-Item (Join-Path $root 'data/rules/aliases.json') (Join-Path $rulesDir 'aliases.json')
         Copy-Item (Join-Path $root 'data/lineup/numbering_blocks.json') (Join-Path $lineupDir 'numbering_blocks.json')
-        $out = Join-Path $testRoot 'output'
-        & pwsh -NoProfile -File (Join-Path $root 'scripts/Build-Candidate.ps1') -Root $testRoot -ProviderPath 'issue109-provider-order.json' -OutputRoot $out -EmitEntrySlices | Out-Null
-            $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
-            $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
-            $artifact = [IO.File]::ReadAllBytes((Join-Path $dir.FullName 'merged.m3u'))
-            $manifestIds = @($manifest.Entries | ForEach-Object EntryId)
-            $artifactIds = @($manifest.Entries | Sort-Object {$_.EntryOutputSlice.ByteOffset} | ForEach-Object {
-                $s = $_.EntryOutputSlice
-                $bytes = [Text.Encoding]::UTF8.GetString([byte[]]$artifact[$s.ByteOffset..($s.ByteOffset + $s.ByteLength - 1)])
-                $id = [regex]::Match($bytes, 'tvg-id="([^"]+)"').Groups[1].Value
-                [string](@($manifest.Entries | Where-Object { [string]$_.RawTvgId -ceq $id })[0].EntryId)
-            })
-            $manifestIds | Should -Be (@($manifestIds | Sort-Object))
-            $artifactIds | Should -Not -Be $manifestIds
-            $oldCursorMismatchCount = 0
-            for ($i = 0; $i -lt $manifestIds.Count; $i++) { if ($manifestIds[$i] -ne $artifactIds[$i]) { $oldCursorMismatchCount++ } }
-            $oldCursorMismatchCount | Should -BeGreaterThan 0
-            $slices = @($manifest.Entries | Sort-Object {$_.EntryOutputSlice.ByteOffset})
-            $slices[0].EntryOutputSlice.ByteOffset | Should -Be 8
-            for ($i = 0; $i -lt $slices.Count; $i++) {
-                $s = $slices[$i].EntryOutputSlice
-                $s.ByteLength | Should -BeGreaterThan 0
-                ($s.ByteOffset + $s.ByteLength) | Should -BeLessOrEqual $artifact.Length
-                if ($i -gt 0) { $s.ByteOffset | Should -Be ($slices[$i - 1].EntryOutputSlice.ByteOffset + $slices[$i - 1].EntryOutputSlice.ByteLength) }
+        $providerPath = Join-Path $providerDir 'issue109-provider-order.json'
+        $providerConfig = Get-Content $providerPath -Raw | ConvertFrom-Json
+        $providerSources = @(& (Get-Module ChannelForge) {
+            param($path)
+            Read-ChannelForgeProvider -Path $path
+        } $providerPath | Where-Object Enabled)
+        $sourceRecords = foreach ($source in $providerSources) {
+            $sourcePath = Join-Path $testRoot ([string]$source.LocalPlaylist)
+            $channels = @(Import-ChannelForgeM3UPlaylist -Path $sourcePath -Provider $providerConfig.provider -Playlist $source.Name)
+            $logicalSourceId = & (Get-Module ChannelForge) {
+                param($providerName, $sourceName)
+                Get-ChannelForgeLogicalSourceId -ProviderName $providerName -SourceName $sourceName -SourceKind 'M3U' -SourceOrdinal 0
+            } $providerConfig.provider $source.Name
+            $raw = @(& (Get-Module ChannelForge) {
+                param($inputChannels, $sourceId)
+                Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+            } $channels $logicalSourceId)
+            [pscustomobject]@{
+                LogicalSourceId = $logicalSourceId
+                Channels = @($raw | Sort-Object EntryId | ForEach-Object Channel)
+                Raw = @($raw | Sort-Object EntryId)
+                SourceName = [string]$source.Name
             }
-            ($slices[-1].EntryOutputSlice.ByteOffset + $slices[-1].EntryOutputSlice.ByteLength) | Should -Be $artifact.Length
+        }
+        $mergeSources = @($sourceRecords | Sort-Object LogicalSourceId | ForEach-Object {
+            [pscustomobject]@{
+                Channels = $_.Channels
+                Provider = $providerConfig.provider
+                Playlist = $_.SourceName
+                OrderKey = $_.LogicalSourceId
+            }
+        })
+        $merge = Merge-ChannelForgeLineup `
+            -Source $mergeSources `
+            -AliasPath (Join-Path $rulesDir 'aliases.json') `
+            -NumberingBlocksPath (Join-Path $lineupDir 'numbering_blocks.json')
+        $artifactPath = Join-Path $TestDrive 'issue109-provider-merged.m3u'
+        @($merge.Channels) | Export-ChannelForgeM3UPlaylist -Path $artifactPath
+        $m3uBytes = [IO.File]::ReadAllBytes($artifactPath)
+        $raw = @($sourceRecords | ForEach-Object Raw)
+        $serializedEntryOrder = @($merge.Channels | ForEach-Object {
+            $channel = $_
+            @($raw | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId)
+        })
+        $result = & (Get-Module ChannelForge) {
+            param($rawOccurrences, $bytes, $entryOrder)
+            ConvertTo-ChannelForgeCandidateManifest `
+                -RawM3UOccurrences $rawOccurrences `
+                -M3UBytes $bytes `
+                -SerializedM3UEntryOrder $entryOrder `
+                -CandidateContractVersion 'blocker-2-contract/v8'
+        } $raw $m3uBytes $serializedEntryOrder
+        $manifestEntries = @($result.Manifest.Entries)
+        $manifestOrderIds = @($manifestEntries | ForEach-Object EntryId)
+        $manifestOrderIds | Should -Be (@($manifestOrderIds | Sort-Object))
+        $rawByEntryId = @{}
+        foreach ($record in $raw) { $rawByEntryId[[string]$record.EntryId] = $record }
+        $artifactOrderIds = @($manifestEntries | Sort-Object { $_.EntryOutputSlice.ByteOffset } | ForEach-Object {
+            $slice = $_.EntryOutputSlice
+            $sliceBytes = [byte[]]$m3uBytes[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
+            $text = [Text.Encoding]::UTF8.GetString($sliceBytes)
+            $text | Should -Match '(?s)^#EXTINF:[^\r\n]*\n[^\r\n]*\n$'
+            $rawRecord = $raw | Where-Object { [string]$_.RawTvgId -ceq ([regex]::Match($text, 'tvg-id="([^"]+)"').Groups[1].Value) } | Select-Object -First 1
+            [string]$rawRecord.EntryId
+        })
+        $artifactOrderIds | Should -Not -Be $manifestOrderIds
+        $oldCursorMismatchCount = 0
+        for ($i = 0; $i -lt $manifestOrderIds.Count; $i++) { if ($manifestOrderIds[$i] -ne $artifactOrderIds[$i]) { $oldCursorMismatchCount++ } }
+        $oldCursorMismatchCount | Should -BeGreaterThan 0
+        $sortedEntries = @($manifestEntries | Sort-Object { $_.EntryOutputSlice.ByteOffset })
+        $slices = @($sortedEntries | ForEach-Object EntryOutputSlice)
+        $slices[0].ByteOffset | Should -Be 8
+        for ($i = 0; $i -lt $slices.Count; $i++) {
+            $entry = $sortedEntries[$i]
+            $slice = $entry.EntryOutputSlice
+            $slice.ByteLength | Should -BeGreaterThan 0
+            ($slice.ByteOffset + $slice.ByteLength) | Should -BeLessOrEqual $m3uBytes.Length
+            if ($i -gt 0) { $slice.ByteOffset | Should -Be ($slices[$i - 1].ByteOffset + $slices[$i - 1].ByteLength) }
+        }
+        foreach ($entry in $sortedEntries) {
+            $slice = $entry.EntryOutputSlice
+            $sliceBytes = [byte[]]$m3uBytes[$slice.ByteOffset..($slice.ByteOffset + $slice.ByteLength - 1)]
+            $text = [Text.Encoding]::UTF8.GetString($sliceBytes)
+            $text | Should -Match '(?s)^#EXTINF:[^\r\n]*\n[^\r\n]*\n$'
+            $tvgId = [regex]::Match($text, 'tvg-id="([^"]+)"').Groups[1].Value
+            $rawByEntryId[[string]$entry.EntryId].RawTvgId | Should -Be $tvgId
+            $domain = [Text.Encoding]::UTF8.GetBytes('candidate-entry-content/v1')
+            $payload = [byte[]]::new($domain.Length + 1 + $sliceBytes.Length)
+            [Buffer]::BlockCopy($domain, 0, $payload, 0, $domain.Length)
+            [Buffer]::BlockCopy($sliceBytes, 0, $payload, $domain.Length + 1, $sliceBytes.Length)
+            $hash = ([BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($payload))).Replace('-', '').ToLowerInvariant()
+            $hash | Should -Be $slice.EntryContentHash
+        }
+        ($slices[-1].ByteOffset + $slices[-1].ByteLength) | Should -Be $m3uBytes.Length
     }
     It 'enforces the seven production version control combinations' {
         $scriptPath = Join-Path $root 'scripts/Build-Candidate.ps1'
         $m3u = Join-Path $root 'tests/fixtures/tiny.m3u'
         foreach ($case in @(
-            @{ Name='default-v7'; Args=@() ; Expected='blocker-2-contract/v7'; Slices=$false },
-            @{ Name='legacy-successor'; Args=@('-EmitEntrySlices'); Expected='blocker-2-contract/v8'; Slices=$true },
-            @{ Name='explicit-v8'; Args=@('-CandidateContractVersion','blocker-2-contract/v8'); Expected='blocker-2-contract/v8'; Slices=$true },
-            @{ Name='explicit-v8-switch'; Args=@('-CandidateContractVersion','blocker-2-contract/v8','-EmitEntrySlices'); Expected='blocker-2-contract/v8'; Slices=$true },
-            @{ Name='explicit-v7'; Args=@('-CandidateContractVersion','blocker-2-contract/v7'); Expected='blocker-2-contract/v7'; Slices=$false }
+            @{ Name = 'default-v7'; Args = @(); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedError = $null },
+            @{ Name = 'explicit-v7'; Args = @('-CandidateContractVersion','blocker-2-contract/v7'); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedError = $null },
+            @{ Name = 'explicit-v7-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v7','-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' },
+            @{ Name = 'explicit-v8'; Args = @('-CandidateContractVersion','blocker-2-contract/v8'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
+            @{ Name = 'explicit-v8-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v8','-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
+            @{ Name = 'implicit-v8-slices'; Args = @('-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
+            @{ Name = 'unsupported-version'; Args = @('-CandidateContractVersion','blocker-2-contract/v9'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: unsupported CandidateContractVersion' }
         )) {
-            $out = Join-Path ([IO.Path]::GetTempPath()) ('issue109-control-' + [guid]::NewGuid().ToString('N'))
-            & pwsh -NoProfile -File $scriptPath -Root $root -M3UPath $m3u -OutputRoot $out @($case.Args) | Out-Null
-            $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
-            $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
-            $manifest.ContractVersion | Should -Be $case.Expected
-            (@($manifest.Entries | Where-Object { $null -ne $_.EntryOutputSlice.ByteOffset }).Count -gt 0) | Should -Be $case.Slices
-            Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+            $out = Join-Path $TestDrive ('issue109-control-' + $case.Name)
+            $processOutput = (& pwsh -NoProfile -File $scriptPath -Root $root -M3UPath $m3u -OutputRoot $out @($case.Args) 2>&1 | Out-String)
+            $exitCode = $LASTEXITCODE
+            if ($null -eq $case.ExpectedError) {
+                $exitCode | Should -Be 0
+                $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
+                $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
+                $manifest.ContractVersion | Should -Be $case.ExpectedVersion
+                (@($manifest.Entries | Where-Object { $null -ne $_.EntryOutputSlice.ByteOffset }).Count) | Should -Be 0
+            }
+            else {
+                $exitCode | Should -Not -Be 0
+                $processOutput | Should -Match ([regex]::Escape($case.ExpectedError))
+            }
         }
-        $v7Output = (& pwsh -NoProfile -File $scriptPath -Root $root -M3UPath $m3u -OutputRoot (Join-Path ([IO.Path]::GetTempPath()) 'issue109-invalid') -CandidateContractVersion blocker-2-contract/v7 -EmitEntrySlices 2>&1 | Out-String)
-        $v7Exit = $LASTEXITCODE
-        $v7Exit | Should -Not -Be 0
-        $v7Output | Should -Match 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.'
-        $badOutput = (& pwsh -NoProfile -File $scriptPath -Root $root -M3UPath $m3u -OutputRoot (Join-Path ([IO.Path]::GetTempPath()) 'issue109-invalid') -CandidateContractVersion blocker-2-contract/v9 2>&1 | Out-String)
-        $badExit = $LASTEXITCODE
-        $badExit | Should -Not -Be 0
-        $badOutput | Should -Match 'FAIL_CLOSED: unsupported CandidateContractVersion'
     }
 }

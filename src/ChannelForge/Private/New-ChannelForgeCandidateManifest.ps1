@@ -219,6 +219,9 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 }
             }
         })
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -eq $M3UBytes) { throw 'FAIL_CLOSED: successor candidate requires M3UBytes.' }
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $SerializedM3UEntryOrder.Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is incomplete.' }
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and @($SerializedM3UEntryOrder | Sort-Object -Unique).Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is not one-to-one.' }
     if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
         $headerBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")
         $headerValid = $M3UBytes.Length -ge $headerBytes.Length
