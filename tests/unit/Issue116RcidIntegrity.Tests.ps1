@@ -69,6 +69,14 @@ Describe 'Verify-ContractRevisionId.ps1' {
         @($result.Files).Count | Should -Be 4
     }
 
+    It 'fails closed when the attested canonical commit is unavailable' {
+        $unavailableCommit = '0000000000000000000000000000000000000000'
+        $attestationPath = Join-Path $script:RepoRoot 'docs\adr\blocker-2-contract-v9-proposal\FREEZE-RECORD.md'
+        {
+            & $script:VerifierPath -RepositoryRoot $script:RepoRoot -Commit $unavailableCommit -AttestationPath $attestationPath -ExpectedRevisionContentId '1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192'
+        } | Should -Throw 'FAIL_CLOSED: Git command failed:*'
+    }
+
     It 'returns the same authority when the checkout files are rewritten as CRLF' {
         $fixture = New-RcidFixture
         try {
