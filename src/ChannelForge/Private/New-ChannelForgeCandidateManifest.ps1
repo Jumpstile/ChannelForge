@@ -38,6 +38,25 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
+    function Assert-CandidateInputVersion {
+        param(
+            [Parameter(Mandatory)][string]$Name,
+            [AllowEmptyCollection()][object[]]$Values
+        )
+        foreach ($value in @($Values)) {
+            if ($null -eq $value) { continue }
+            $property = $value.PSObject.Properties['Version']
+            if ($null -ne $property -and [string]$property.Value -cne $CandidateContractVersion) {
+                throw "FAIL_CLOSED: mixed candidate versions in $Name."
+            }
+            if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -eq $property) {
+                throw "FAIL_CLOSED: missing candidate version in $Name."
+            }
+        }
+    }
+    Assert-CandidateInputVersion -Name 'RawM3UOccurrences' -Values $RawM3UOccurrences
+    Assert-CandidateInputVersion -Name 'RawXmltvOccurrences' -Values $RawXmltvOccurrences
+
     function Write-BuildIdentityInputEvidence {
         param(
             [Parameter(Mandatory)]
@@ -200,11 +219,11 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 Logo                = Get-SafeCandidateText $_.Logo
                 ChannelNumber       = $_.ChannelNumber
                 StreamFingerprint   = Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{
-                    Version = 'stream-fingerprint-v2'
+                    Version = if ($CandidateContractVersion -eq 'blocker-2-contract/v7') { 'stream-fingerprint-v2' } else { $CandidateContractVersion }
                     StreamUrl = [string]$_.StreamUrl
                 })
                 PresentationFingerprint = Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{
-                    Version = 'safe-tvg-name-fingerprint-v2'
+                    Version = if ($CandidateContractVersion -eq 'blocker-2-contract/v7') { 'safe-tvg-name-fingerprint-v2' } else { $CandidateContractVersion }
                     TvgName = [string]$_.TvgName
                     DisplayName = [string]$_.DisplayName
                     GroupTitle = [string]$_.GroupTitle

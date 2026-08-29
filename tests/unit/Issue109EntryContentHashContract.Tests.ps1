@@ -73,7 +73,7 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         }
         $raw = @(& (Get-Module ChannelForge) {
             param($inputChannels, $sourceId)
-            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId -CandidateContractVersion 'blocker-2-contract/v8'
         } $channels $logicalSourceId)
         $raw = @($raw | Sort-Object EntryId)
         $serializedChannels = @($raw | ForEach-Object Channel)
@@ -116,7 +116,7 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         }
         $raw = @(& (Get-Module ChannelForge) {
             param($inputChannels, $sourceId)
-            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+            Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId -CandidateContractVersion 'blocker-2-contract/v8'
         } $channels $logicalSourceId)
         $raw = @($raw | Sort-Object EntryId)
         $serializedChannels = @($raw | ForEach-Object Channel)
@@ -190,7 +190,7 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
             } $providerConfig.provider $source.Name
             $raw = @(& (Get-Module ChannelForge) {
                 param($inputChannels, $sourceId)
-                Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId
+                Get-ChannelForgeRawM3UProjection -Channel $inputChannels -LogicalSourceId $sourceId -CandidateContractVersion 'blocker-2-contract/v8'
             } $channels $logicalSourceId)
             [pscustomobject]@{
                 LogicalSourceId = $logicalSourceId
@@ -274,13 +274,13 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
         $scriptPath = Join-Path $root 'scripts/Build-Candidate.ps1'
         $m3u = Join-Path $root 'tests/fixtures/tiny.m3u'
         foreach ($case in @(
-            @{ Name = 'default-v7'; Args = @(); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedError = $null },
-            @{ Name = 'explicit-v7'; Args = @('-CandidateContractVersion','blocker-2-contract/v7'); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedError = $null },
-            @{ Name = 'explicit-v7-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v7','-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' },
-            @{ Name = 'explicit-v8'; Args = @('-CandidateContractVersion','blocker-2-contract/v8'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
-            @{ Name = 'explicit-v8-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v8','-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
-            @{ Name = 'implicit-v8-slices'; Args = @('-EmitEntrySlices'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration is not enabled for Issue #109.' },
-            @{ Name = 'unsupported-version'; Args = @('-CandidateContractVersion','blocker-2-contract/v9'); ExpectedVersion = $null; ExpectedError = 'FAIL_CLOSED: unsupported CandidateContractVersion' }
+            @{ Name = 'default-v7'; Args = @(); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedSlices = 0; ExpectedError = $null },
+            @{ Name = 'explicit-v7'; Args = @('-CandidateContractVersion','blocker-2-contract/v7'); ExpectedVersion = 'blocker-2-contract/v7'; ExpectedSlices = 0; ExpectedError = $null },
+            @{ Name = 'explicit-v7-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v7','-EmitEntrySlices'); ExpectedVersion = $null; ExpectedSlices = $null; ExpectedError = 'FAIL_CLOSED: explicit blocker-2-contract/v7 cannot be combined with -EmitEntrySlices.' },
+            @{ Name = 'explicit-v8'; Args = @('-CandidateContractVersion','blocker-2-contract/v8'); ExpectedVersion = 'blocker-2-contract/v8'; ExpectedSlices = 3; ExpectedError = $null },
+            @{ Name = 'explicit-v8-slices'; Args = @('-CandidateContractVersion','blocker-2-contract/v8','-EmitEntrySlices'); ExpectedVersion = 'blocker-2-contract/v8'; ExpectedSlices = 3; ExpectedError = $null },
+            @{ Name = 'implicit-v8-slices'; Args = @('-EmitEntrySlices'); ExpectedVersion = $null; ExpectedSlices = $null; ExpectedError = 'FAIL_CLOSED: candidate-v8 registry migration requires explicit -CandidateContractVersion blocker-2-contract/v8.' },
+            @{ Name = 'unsupported-version'; Args = @('-CandidateContractVersion','blocker-2-contract/v9'); ExpectedVersion = $null; ExpectedSlices = $null; ExpectedError = 'FAIL_CLOSED: unsupported CandidateContractVersion' }
         )) {
             $out = Join-Path $TestDrive ('issue109-control-' + $case.Name)
             $processOutput = (& pwsh -NoProfile -File $scriptPath -Root $root -M3UPath $m3u -OutputRoot $out @($case.Args) 2>&1 | Out-String)
@@ -290,7 +290,7 @@ Describe 'Issue 109 EntryOutputSlice erratum' {
                 $dir = Get-ChildItem (Join-Path $out 'candidates') -Directory | Where-Object Name -ne '.staging' | Select-Object -First 1
                 $manifest = Get-Content (Join-Path $dir.FullName 'manifest.json') -Raw | ConvertFrom-Json
                 $manifest.ContractVersion | Should -Be $case.ExpectedVersion
-                (@($manifest.Entries | Where-Object { $null -ne $_.EntryOutputSlice.ByteOffset }).Count) | Should -Be 0
+                (@($manifest.Entries | Where-Object { $null -ne $_.EntryOutputSlice.ByteOffset }).Count) | Should -Be $case.ExpectedSlices
             }
             else {
                 $exitCode | Should -Not -Be 0

@@ -2,7 +2,9 @@ function Get-ChannelForgeRawXmltvProjection {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()]
-        [object[]]$Programme
+        [object[]]$Programme,
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     function Get-PropertyValue {
@@ -92,7 +94,7 @@ function Get-ChannelForgeRawXmltvProjection {
                 $presence = [string](Get-PropertyValue $occurrence 'RawChannelIdPresence' $(if ($null -eq $rawId) { 'Missing' } else { 'Present' }))
                 if ($presence -eq 'Missing') { $rawId = $null }
                 $projection = [pscustomobject][ordered]@{
-                    Version = 'blocker-2-contract/v7'
+                    Version = $CandidateContractVersion
                     LogicalSourceId = Get-LogicalSourceId $occurrence $evidence
                     StructuralOccurrenceOrdinal = 0
                     RawChannelIdPresence = $presence
@@ -113,7 +115,7 @@ function Get-ChannelForgeRawXmltvProjection {
                 $presence = [string](Get-PropertyValue $occurrence 'RawProgrammeChannelIdPresence' $(if ($null -eq $rawId) { 'Missing' } else { 'Present' }))
                 if ($presence -eq 'Missing') { $rawId = $null }
                 $projection = [pscustomobject][ordered]@{
-                    Version = 'blocker-2-contract/v7'
+                    Version = $CandidateContractVersion
                     LogicalSourceId = Get-LogicalSourceId $occurrence $evidence
                     StructuralOccurrenceOrdinal = 0
                     RawProgrammeChannelIdPresence = $presence
@@ -146,7 +148,7 @@ function Get-ChannelForgeRawXmltvProjection {
         if ($null -eq $evidence) {
             $rawId = Get-PropertyValue $value 'RawChannelId' $value.ChannelId
             $projection = [pscustomobject][ordered]@{
-            Version = 'blocker-2-contract/v7'
+                Version = $CandidateContractVersion
                 LogicalSourceId = Get-LogicalSourceId $value $null
                 StructuralOccurrenceOrdinal = 0
                 RawProgrammeChannelIdPresence = if ($null -eq $rawId) { 'Missing' } else { 'Present' }

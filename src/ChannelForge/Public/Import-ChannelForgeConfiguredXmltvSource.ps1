@@ -11,7 +11,10 @@ function Import-ChannelForgeConfiguredXmltvSource {
         [AllowEmptyString()]
         [string]$CacheRoot = '',
 
-        [System.Collections.IDictionary]$AcquisitionStatus
+        [System.Collections.IDictionary]$AcquisitionStatus,
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if ($null -eq $Source) {
@@ -90,7 +93,8 @@ function Import-ChannelForgeConfiguredXmltvSource {
                     -ContentType $opened.ContentType `
                     -ContentEncodings $opened.ContentEncodings `
                     -RawContentLength $opened.RawContentLength `
-                    -MaxDocumentBytes $MaxDocumentBytes)
+                    -MaxDocumentBytes $MaxDocumentBytes `
+                    -CandidateContractVersion $CandidateContractVersion)
                 $hashingStream.Dispose()
                 $hashingStream = $null
                 $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
@@ -205,5 +209,6 @@ function Import-ChannelForgeConfiguredXmltvSource {
         -Path $rawPath.Trim() `
         -SourceId $sourceId `
         -MaxDocumentBytes $MaxDocumentBytes `
-        -AcquisitionStatus $AcquisitionStatus)
+        -AcquisitionStatus $AcquisitionStatus `
+        -CandidateContractVersion $CandidateContractVersion)
 }

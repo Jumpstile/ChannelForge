@@ -11,8 +11,10 @@ function Merge-ChannelForgeLineup {
         [Parameter(Mandatory)]
         [string]$AliasPath,
 
-        [Parameter(Mandatory)]
-        [string]$NumberingBlocksPath
+        [string]$NumberingBlocksPath,
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     # Prefer the caller's stable, path-independent OrderKey for configured
@@ -46,7 +48,11 @@ function Merge-ChannelForgeLineup {
             @($src.Channels)
         }
         else {
-            Import-ChannelForgeM3UPlaylist -Path $src.Path -Provider $src.Provider -Playlist $src.Playlist
+            Import-ChannelForgeM3UPlaylist `
+                -Path $src.Path `
+                -Provider $src.Provider `
+                -Playlist $src.Playlist `
+                -CandidateContractVersion $CandidateContractVersion
         }
         foreach ($ch in $parsed) {
             if ($null -ne $ch.PSObject.Properties['RawM3UOccurrence']) {
