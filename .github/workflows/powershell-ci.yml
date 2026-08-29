@@ -33,6 +33,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Fetch pinned v9 canonical content commit
+        shell: pwsh
+        env:
+          CHANNELFORGE_V9_CANONICAL_COMMIT: "eef60709888a37689c551efc9df5b66715b7e7b7"
+        run: |
+          git fetch --no-tags --depth=1 origin $env:CHANNELFORGE_V9_CANONICAL_COMMIT
+          if ($LASTEXITCODE -ne 0) {
+              throw "Unable to fetch the pinned v9 canonical content commit."
+          }
+          git cat-file -e "$($env:CHANNELFORGE_V9_CANONICAL_COMMIT)^{commit}"
+          if ($LASTEXITCODE -ne 0) {
+              throw "Pinned v9 canonical content commit is unavailable after fetch."
+          }
+
       - name: Validate Prettier formatting
         shell: pwsh
         run: |
