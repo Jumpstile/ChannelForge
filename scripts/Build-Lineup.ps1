@@ -6,9 +6,12 @@ param(
 
     # Candidate-only fault injection is test-only and never affects accepted
     # state. It names one of C01-C15 or the directory move hooks.
-    [string]$FaultHook = ''
-)
+    [string]$FaultHook = '',
 
+    # Candidate-owned registry version; independent subsystem versions remain explicit.
+    [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+    [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+)
 $ErrorActionPreference = "Stop"
 
 # Always load the module from this script's own location, never from -Root.
@@ -401,7 +404,8 @@ if ($m3uActiveSourceCount -gt 0) {
                 }) `
                 -Provider $providerConfig.provider `
                 -CacheRoot $m3uCacheRoot `
-                -AcquisitionStatus $acquisitionStatus)
+                -AcquisitionStatus $acquisitionStatus `
+                -CandidateContractVersion $CandidateContractVersion)
             $remoteLogicalValues = @(Invoke-ChannelForgePrivateCandidateFunction `
                 -Name 'Get-ChannelForgeLogicalSourceId' `
                 -Arguments @{
@@ -452,12 +456,16 @@ if ($m3uActiveSourceCount -gt 0) {
         $mergeResult = Merge-ChannelForgeLineup `
             -Source @($mergeSource.ToArray()) `
             -AliasPath $aliasPath `
-            -NumberingBlocksPath $numberingBlocksPath
+            -NumberingBlocksPath $numberingBlocksPath `
+            -CandidateContractVersion $CandidateContractVersion
 
         $m3uFailureStage = 'export'
         $m3uRawOccurrences = @(Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'Get-ChannelForgeRawM3UProjection' `
-            -Arguments @{ Channel = @($mergeResult.AllChannels) })
+            -Arguments @{
+                Channel = @($mergeResult.AllChannels)
+                CandidateContractVersion = $CandidateContractVersion
+            })
         $candidateChannels = @($m3uRawOccurrences |
             Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
             Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
@@ -618,7 +626,8 @@ else {
             $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource `
                 -Source $source `
                 -CacheRoot $cacheRoot `
-                -AcquisitionStatus $acquisitionStatus)
+                -AcquisitionStatus $acquisitionStatus `
+                -CandidateContractVersion $CandidateContractVersion)
             $xmlLogicalSourceId = [string]@(
                 Invoke-ChannelForgePrivateCandidateFunction `
                     -Name 'Get-ChannelForgeDomainHash' `
@@ -747,7 +756,10 @@ if ($m3uGenerated -or $xmltvGenerated) {
         $rawXmltvOccurrences = if ($allProgrammes.Count -gt 0) {
             @(Invoke-ChannelForgePrivateCandidateFunction `
                 -Name 'Get-ChannelForgeRawXmltvProjection' `
-                -Arguments @{ Programme = @($allProgrammes.ToArray()) })
+                -Arguments @{
+                    Programme = @($allProgrammes.ToArray())
+                    CandidateContractVersion = $CandidateContractVersion
+                })
         }
         else {
             @()
@@ -768,6 +780,13 @@ if ($m3uGenerated -or $xmltvGenerated) {
         else {
             $null
         }
+        $serializedM3UEntryOrder = @($candidateChannels | ForEach-Object {
+            $channel = $_
+            @($m3uRawOccurrences |
+                Where-Object { [object]::ReferenceEquals($_.Channel, $channel) } |
+                Select-Object -First 1 |
+                ForEach-Object EntryId)
+        })
         $manifestArguments = @{
             RawM3UOccurrences       = @($m3uRawOccurrences)
             M3UIdentityCollisions   = @($mergeResult.IdentityCollisions)
@@ -776,7 +795,9 @@ if ($m3uGenerated -or $xmltvGenerated) {
             M3UBytes                = $candidateM3UBytes
             XMLTVBytes              = $candidateXMLTVBytes
             InputArtifactHashes     = @($candidateInputArtifactHashes.ToArray())
+            SerializedM3UEntryOrder = $serializedM3UEntryOrder
             SelectedSourceIds       = $selectedSourceIds
+            CandidateContractVersion = $CandidateContractVersion
         }
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
@@ -796,7 +817,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
         $counts = @($counts)[-1]
 
         $reviewObject = [ordered]@{
-            Version = 'blocker-2-contract/v7'
+            Version = $CandidateContractVersion
             BuildIdentity = $candidateBuildIdentity
             ReviewRecords = @($manifestResult.Manifest.ReviewRecords)
             M3UIdentityCollisions = @($manifestResult.Manifest.M3UIdentityCollisions)

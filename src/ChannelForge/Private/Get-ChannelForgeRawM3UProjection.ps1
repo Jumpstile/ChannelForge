@@ -2,7 +2,9 @@ function Get-ChannelForgeRawM3UProjection {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][Channel[]]$Channel,
-        [string]$LogicalSourceId = ''
+        [string]$LogicalSourceId = '',
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     # SourceLocalOrdinal is assigned only after the single ordinal-free raw
@@ -63,7 +65,7 @@ function Get-ChannelForgeRawM3UProjection {
 
         # Exact frozen digest projection: ten fields, in this order.
         $projection = [ordered]@{
-            Version          = 'blocker-2-contract/v7'
+            Version          = $CandidateContractVersion
             LogicalSourceId  = [string]$sourceId
             RawTvgIdPresence = $presence
             RawTvgId         = $rawTvgId
@@ -120,13 +122,13 @@ function Get-ChannelForgeRawM3UProjection {
             if ($history.Length -eq 0) { $history = $null }
         }
         $entryInput = [ordered]@{
-            Version = 'entry-id-v2'
+            Version = if ($CandidateContractVersion -eq 'blocker-2-contract/v7') { 'entry-id-v2' } else { $CandidateContractVersion }
             LogicalSourceId = [string]$projection.LogicalSourceId
             SourceLocalOrdinal = [int]$record.SourceLocalOrdinal
             RawM3UOccurrenceDigest = [string]$record.Digest
         }
         [void]$result.Add([pscustomobject][ordered]@{
-                Version = 'blocker-2-contract/v7'
+                Version = $CandidateContractVersion
                 EntryId = Get-ChannelForgeDomainHash -Domain 'entry-id/v2' -InputObject $entryInput
                 LogicalSourceId = [string]$projection.LogicalSourceId
                 SourceLocalOrdinal = [int]$record.SourceLocalOrdinal

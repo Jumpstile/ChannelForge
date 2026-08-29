@@ -32,7 +32,10 @@ function Read-ChannelForgeXmltvDocument {
         [AllowNull()]
         [Nullable[long]]$RawContentLength,
 
-        [long]$MaxDocumentBytes = 268435456
+        [long]$MaxDocumentBytes = 268435456,
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceId)) {
@@ -136,7 +139,7 @@ function Read-ChannelForgeXmltvDocument {
                         $channelIdOccurrences[$channelId] = 1
                     }
                     [void]$rawChannelOccurrences.Add([pscustomobject][ordered]@{
-                            Version                      = 'blocker-2-contract/v7'
+                            Version                      = $CandidateContractVersion
                             RawChannelIdPresence         = 'Present'
                             RawChannelId                 = $channelId
                             StructuralOccurrenceOrdinal = $rawChannelOccurrences.Count
@@ -267,7 +270,7 @@ function Read-ChannelForgeXmltvDocument {
                         -SourceId $SourceId
 
                     [void]$rawProgrammeOccurrences.Add([pscustomobject][ordered]@{
-                            Version                       = 'blocker-2-contract/v7'
+                            Version                       = $CandidateContractVersion
                             RawProgrammeChannelIdPresence = 'Present'
                             RawProgrammeChannelId        = $channelId
                             StructuralOccurrenceOrdinal  = $rawProgrammeOccurrences.Count

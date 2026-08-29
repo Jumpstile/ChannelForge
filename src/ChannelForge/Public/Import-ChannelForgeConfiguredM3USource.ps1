@@ -13,7 +13,10 @@ function Import-ChannelForgeConfiguredM3USource {
         [AllowEmptyString()]
         [string]$CacheRoot = '',
 
-        [System.Collections.IDictionary]$AcquisitionStatus
+        [System.Collections.IDictionary]$AcquisitionStatus,
+
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if ($null -eq $Source) {
@@ -93,7 +96,8 @@ function Import-ChannelForgeConfiguredM3USource {
             $channels = @(Read-ChannelForgeM3UReader `
                 -Reader $reader `
                 -Provider $(if ($Provider) { $Provider } else { $providerId }) `
-                -Playlist $sourceId)
+                -Playlist $sourceId `
+                -CandidateContractVersion $CandidateContractVersion)
             $parserCompleted = $true
 
             $reader.Dispose()
