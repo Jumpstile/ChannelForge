@@ -220,7 +220,9 @@ function ConvertTo-ChannelForgeCandidateManifest {
         })
     if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
         $headerBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")
-        if ($M3UBytes.Length -lt $headerBytes.Length -or -not ([System.Linq.Enumerable]::SequenceEqual($M3UBytes[0..($headerBytes.Length - 1)], $headerBytes))) { throw 'FAIL_CLOSED: candidate artifact header is invalid.' }
+        $headerValid = $M3UBytes.Length -ge $headerBytes.Length
+        for ($h = 0; $headerValid -and $h -lt $headerBytes.Length; $h++) { if ($M3UBytes[$h] -ne $headerBytes[$h]) { $headerValid = $false } }
+        if (-not $headerValid) { throw 'FAIL_CLOSED: candidate artifact header is invalid.' }
         $cursor = $headerBytes.Length
         foreach ($entry in $entries) {
             $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entry.EntryId }) | Select-Object -First 1
