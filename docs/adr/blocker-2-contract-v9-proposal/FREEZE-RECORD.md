@@ -98,20 +98,24 @@ addressed Git blob payload, including a mixed LF/CRLF manifest.
 The four canonical Git-object payload hashes at the canonical content commit
 are:
 
-| File | Git blob object | SHA-256 of exact Git blob payload | LF checkout SHA-256 | CRLF checkout SHA-256 |
-|---|---|---|---|---|
+| File                           | Git blob object                            | SHA-256 of exact Git blob payload                                  | LF checkout SHA-256                                                | CRLF checkout SHA-256                                              |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | PART-A-canonical-foundation.md | `2e420ddf10c660df840e880040a0d0e56d49bb89` | `a96d9a5a35e7aab4c8c9293ad262fc0c71c0ba100ce7b147c5e0ad9027190670` | `a96d9a5a35e7aab4c8c9293ad262fc0c71c0ba100ce7b147c5e0ad9027190670` | `86a4c35284c20922fe9296d09f48d32000235e1e2542530979716fae77e9b764` |
-| PART-B-entry-output-slice.md | `5f14e214932afe4ea0f0c031a6465d95bd129005` | `ddcda96326692c9619b8830efc6194d5e50e3d45efab5ad743dc85d75170babf` | `ddcda96326692c9619b8830efc6194d5e50e3d45efab5ad743dc85d75170babf` | `6e94795a80fe686e338380622358308304d935e86b7a7c0160f2c2b952c1382d` |
-| README.md | `bd9d7c609febb32bd75742741ea7411a671fbb3f` | `01453629d3956f1cb11e8729ee8860394eb0f735e521fca7c842ca22a71206f3` | `01453629d3956f1cb11e8729ee8860394eb0f735e521fca7c842ca22a71206f3` | `735b966e04a45360bd03117600576698a8233563319250e87f1e1cde998fe427` |
-| VERSION-OWNERSHIP-MAP.md | `820c4d4cefdfaa88ae6d5d59e04c4e1424acd57b` | `acda1382d1d8232664555d78324022adf6b43cb5f30c1081f970733e7cf4233c` | `acda1382d1d8232664555d78324022adf6b43cb5f30c1081f970733e7cf4233c` | `e907a2fcedbf2870043faf6d3609cee3a1f7943a117e13b50135d8fdcde5ba4d` |
+| PART-B-entry-output-slice.md   | `5f14e214932afe4ea0f0c031a6465d95bd129005` | `ddcda96326692c9619b8830efc6194d5e50e3d45efab5ad743dc85d75170babf` | `ddcda96326692c9619b8830efc6194d5e50e3d45efab5ad743dc85d75170babf` | `6e94795a80fe686e338380622358308304d935e86b7a7c0160f2c2b952c1382d` |
+| README.md                      | `bd9d7c609febb32bd75742741ea7411a671fbb3f` | `01453629d3956f1cb11e8729ee8860394eb0f735e521fca7c842ca22a71206f3` | `01453629d3956f1cb11e8729ee8860394eb0f735e521fca7c842ca22a71206f3` | `735b966e04a45360bd03117600576698a8233563319250e87f1e1cde998fe427` |
+| VERSION-OWNERSHIP-MAP.md       | `820c4d4cefdfaa88ae6d5d59e04c4e1424acd57b` | `acda1382d1d8232664555d78324022adf6b43cb5f30c1081f970733e7cf4233c` | `acda1382d1d8232664555d78324022adf6b43cb5f30c1081f970733e7cf4233c` | `e907a2fcedbf2870043faf6d3609cee3a1f7943a117e13b50135d8fdcde5ba4d` |
 
 The corrected canonical manifest is delimited for automated verification:
 
 <!-- RCID-GIT-MANIFEST-BEGIN -->
+
+```text
 a96d9a5a35e7aab4c8c9293ad262fc0c71c0ba100ce7b147c5e0ad9027190670  PART-A-canonical-foundation.md
 ddcda96326692c9619b8830efc6194d5e50e3d45efab5ad743dc85d75170babf  PART-B-entry-output-slice.md
 01453629d3956f1cb11e8729ee8860394eb0f735e521fca7c842ca22a71206f3  README.md
 acda1382d1d8232664555d78324022adf6b43cb5f30c1081f970733e7cf4233c  VERSION-OWNERSHIP-MAP.md
+```
+
 <!-- RCID-GIT-MANIFEST-END -->
 
 Independent reproduction:

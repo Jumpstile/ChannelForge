@@ -64,7 +64,7 @@ function Get-DeclaredManifest {
 
     $bodyStart = $start + $begin.Length
     $body = $text.Substring($bodyStart, $finish - $bodyStart).Trim("`r", "`n", ' ')
-    $lines = @($body -split "`r?`n" | Where-Object { $_ -ne '' })
+    $lines = @($body -split "`r?`n" | Where-Object { $_ -ne '' -and $_ -notmatch '^```' })
     if ($lines.Count -ne $canonicalFiles.Count) { throw 'FAIL_CLOSED: canonical Git manifest must contain exactly four entries.' }
 
     $declared = [ordered]@{}
