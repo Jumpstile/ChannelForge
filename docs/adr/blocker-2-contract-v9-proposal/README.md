@@ -22,3 +22,8 @@ decision-manifest runtime semantics are unchanged. Issue #102 remains blocked
 until this successor is approved and frozen.
 
 See PART-B for the normative candidate-slice rules.
+
+Full CandidateContractVersion v8 registry activation is a prerequisite owned
+by Issue #110. Until that migration is complete, production candidate-v8
+activation is fail-closed; the bounded private slice producer is the only
+successor-shaped implementation surface exercised by this erratum.
