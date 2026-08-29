@@ -17,7 +17,7 @@ The implementation does not publish a pointer, replace accepted files, advance a
 
 ## Authority and versions
 
-The frozen v9 EntryOutputSlice erratum is preserved byte-for-byte under [`docs/adr/blocker-2-contract-v9-proposal`](blocker-2-contract-v9-proposal). Candidate inputs use `blocker-2-contract/v8`; acceptance projections use `blocker-2-contract/v8-acceptance`. The v9 revision identity is recorded by its freeze record and was verified before source edits.
+The frozen v9 EntryOutputSlice erratum is preserved byte-for-byte under [`docs/adr/blocker-2-contract-v9-proposal`](blocker-2-contract-v9-proposal). Issue #116's current corrective attestation is the `RCID byte-source integrity` entry in [`FREEZE-RECORD.md`](blocker-2-contract-v9-proposal/FREEZE-RECORD.md): `ContractRevisionId = blocker-2-contract/v9` and `RevisionContentId = 1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192`. Candidate inputs use `blocker-2-contract/v8`; acceptance projections use `blocker-2-contract/v8-acceptance`. This rebind changes authority metadata only; it does not change the acceptance implementation or frozen semantics.
 
 ## Verification
 

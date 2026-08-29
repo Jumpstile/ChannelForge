@@ -8,9 +8,41 @@ function Assert-ChannelForgeAcceptanceHash {
 }
 
 function Assert-ChannelForgeAcceptanceGenerationId {
-    param([Parameter(Mandatory)][string]$Value, [Parameter(Mandatory)][string]$Name)
-    if ($Value -cnotmatch '^[0-9a-f]{32}$') {
-        throw "FAIL_CLOSED: $Name must be a lowercase 32-hex generation ID."
+    param([AllowNull()][object]$Value, [Parameter(Mandatory)][string]$Name)
+    if ($null -eq $Value -or ([string]$Value) -cnotmatch '^[0-9a-f]{64}$') {
+        throw "FAIL_CLOSED: $Name must be a lowercase 64-hex generation ID."
+    }
+}
+
+function Assert-ChannelForgeAcceptanceVersion {
+    param([Parameter(Mandatory)][object]$Projection, [Parameter(Mandatory)][string]$Name)
+    $property = $Projection.PSObject.Properties['Version']
+    if ($null -eq $property -or [string]$property.Value -cne $script:ChannelForgeAcceptanceVersion) {
+        throw "FAIL_CLOSED: $Name must use $script:ChannelForgeAcceptanceVersion."
+    }
+}
+
+function Assert-ChannelForgeCandidateVersion {
+    param([Parameter(Mandatory)][object]$Projection, [Parameter(Mandatory)][string]$Name)
+    foreach ($propertyName in @('Version','ContractVersion')) {
+        $property = $Projection.PSObject.Properties[$propertyName]
+        if ($null -eq $property -or [string]$property.Value -cne 'blocker-2-contract/v8') {
+            throw "FAIL_CLOSED: $Name must use blocker-2-contract/v8."
+        }
+    }
+}
+
+function Assert-ChannelForgeAcceptanceUtc {
+    param([AllowNull()][object]$Value, [Parameter(Mandatory)][string]$Name)
+    if ($null -eq $Value -or $Value -isnot [string]) { throw "FAIL_CLOSED: $Name must be canonical UTC." }
+    $text = [string]$Value
+    if ($text -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,7})?Z$') {
+        throw "FAIL_CLOSED: $Name must be canonical UTC."
+    }
+    $format = if ($text.Contains('.')) { "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'" } else { "yyyy-MM-dd'T'HH:mm:ss'Z'" }
+    $parsed = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParseExact($text, $format, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$parsed)) {
+        throw "FAIL_CLOSED: $Name must be canonical UTC."
     }
 }
 
@@ -200,7 +232,8 @@ function Get-ChannelForgeAcceptanceDecisionIds {
 }
 
 function Assert-ChannelForgeAcceptanceDecisionRecords {
-    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Decisions)
+    param([Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object[]]$Decisions)
+    if ($null -eq $Decisions) { $Decisions = @() }
     $ranks = @{ AcceptGuideBinding = 0; MapCandidateToAcceptedEntry = 1; KeepAcceptedEntry = 2; IncludeCandidateEntry = 3; ExcludeCandidateEntry = 4 }
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $previousKey = $null
@@ -224,11 +257,13 @@ function New-ChannelForgeDecisionManifest {
     param([Parameter(Mandatory)][string]$CandidateManifestHash,[Parameter(Mandatory)][string]$BuildIdentity,[Parameter(Mandatory)]$M3UDecision,[AllowNull()]$XMLTVDecision,[Parameter(Mandatory)][ValidateSet('Generated','NotGenerated')][string]$XMLTVDecisionStatus)
     Assert-ChannelForgeAcceptanceHash $CandidateManifestHash 'CandidateManifestHash'
     Assert-ChannelForgeAcceptanceHash $BuildIdentity 'BuildIdentity'
+    Assert-ChannelForgeAcceptanceVersion $M3UDecision 'M3UDecision'
     if (-not (Test-ChannelForgeAcceptanceHashProperty $M3UDecision 'decision-m3u/v2' 'M3UDecisionHash')) { throw 'FAIL_CLOSED: forged M3U decision hash.' }
     if ($M3UDecision.CandidateManifestHash -cne $CandidateManifestHash -or $M3UDecision.BuildIdentity -cne $BuildIdentity) { throw 'FAIL_CLOSED: candidate/build mismatch.' }
     if ($XMLTVDecisionStatus -eq 'Generated' -and $null -eq $XMLTVDecision) { throw 'FAIL_CLOSED: missing XMLTV decision.' }
     if ($XMLTVDecisionStatus -eq 'NotGenerated' -and $null -ne $XMLTVDecision) { throw 'FAIL_CLOSED: forbidden XMLTV decision.' }
     if ($null -ne $XMLTVDecision) {
+        Assert-ChannelForgeAcceptanceVersion $XMLTVDecision 'XMLTVDecision'
         if (-not (Test-ChannelForgeAcceptanceHashProperty $XMLTVDecision 'decision-xmltv/v2' 'XMLTVDecisionHash')) { throw 'FAIL_CLOSED: forged XMLTV decision hash.' }
         foreach ($property in @('CandidateManifestHash','BuildIdentity','AcceptedParentGenerationManifestHash')) {
             if ([string]$XMLTVDecision.$property -cne [string]$M3UDecision.$property) { throw "FAIL_CLOSED: XMLTV decision $property mismatch." }
@@ -269,9 +304,7 @@ function New-ChannelForgeAcceptedState {
     Assert-ChannelForgeAcceptanceIds $IncludedCandidateEntryIds 'IncludedCandidateEntryIds'
     Assert-ChannelForgeAcceptanceIds $ExcludedCandidateEntryIds 'ExcludedCandidateEntryIds'
     Assert-ChannelForgeAcceptanceIds $AcceptedBindingIds 'AcceptedBindingIds'
-    Assert-ChannelForgeAcceptanceDisjointIds $IncludedCandidateEntryIds $ExcludedCandidateEntryIds
-    try { $parsed = [DateTimeOffset]::Parse($AcceptedAtUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind) } catch { throw 'FAIL_CLOSED: invalid AcceptedAtUtc.' }
-    if ($parsed.Offset -ne [TimeSpan]::Zero -or $AcceptedAtUtc -notmatch 'Z$') { throw 'FAIL_CLOSED: AcceptedAtUtc must be UTC.' }
+    Assert-ChannelForgeAcceptanceUtc $AcceptedAtUtc 'AcceptedAtUtc'
     $result = [ordered]@{
         Version = $script:ChannelForgeAcceptanceVersion
         GenerationId = $GenerationId
@@ -379,8 +412,16 @@ function New-ChannelForgePreviousXMLTV {
 }
 
 function Test-ChannelForgeAcceptanceBinding {
-    param([Parameter(Mandatory)]$DecisionManifest,[Parameter(Mandatory)]$AcceptedState,[Parameter(Mandatory)]$OutputManifest,[Parameter(Mandatory)][string]$CandidateManifestHash,[Parameter(Mandatory)][string]$BuildIdentity,[AllowNull()][string]$GenerationId)
+    param([Parameter(Mandatory)]$DecisionManifest,[Parameter(Mandatory)]$AcceptedState,[Parameter(Mandatory)]$OutputManifest,[Parameter(Mandatory)][string]$CandidateManifestHash,[Parameter(Mandatory)][string]$BuildIdentity,[AllowNull()][string]$GenerationId = $null)
+    Assert-ChannelForgeAcceptanceVersion $DecisionManifest 'DecisionManifest'
+    Assert-ChannelForgeAcceptanceVersion $AcceptedState 'AcceptedState'
+    Assert-ChannelForgeAcceptanceVersion $OutputManifest 'OutputManifest'
     if (-not (Test-ChannelForgeAcceptanceHashProperty $DecisionManifest 'decision-manifest/v2' 'DecisionManifestHash') -or $DecisionManifest.CandidateManifestHash -cne $CandidateManifestHash -or $DecisionManifest.BuildIdentity -cne $BuildIdentity) { throw 'FAIL_CLOSED: decision identity mismatch.' }
+    if (-not (Test-ChannelForgeAcceptanceHashProperty $AcceptedState 'accepted-state/v2' 'AcceptedStateHash' -Omit @('GenerationId','AcceptedAtUtc'))) { throw 'FAIL_CLOSED: forged accepted state hash.' }
+    if (-not (Test-ChannelForgeAcceptanceHashProperty $OutputManifest 'previous-output-manifest/v2' 'OutputManifestHash' -Omit @('GenerationId','AcceptedStateHash'))) { throw 'FAIL_CLOSED: forged output manifest hash.' }
+    Assert-ChannelForgeAcceptanceGenerationId $AcceptedState.GenerationId 'AcceptedState.GenerationId'
+    Assert-ChannelForgeAcceptanceGenerationId $OutputManifest.GenerationId 'OutputManifest.GenerationId'
+    Assert-ChannelForgeAcceptanceUtc $AcceptedState.AcceptedAtUtc 'AcceptedAtUtc'
     if ($AcceptedState.CandidateManifestHash -cne $CandidateManifestHash -or $AcceptedState.BuildIdentity -cne $BuildIdentity -or $AcceptedState.DecisionManifestHash -cne $DecisionManifest.DecisionManifestHash) { throw 'FAIL_CLOSED: accepted state binding mismatch.' }
     if ($OutputManifest.GenerationId -cne $AcceptedState.GenerationId -or $OutputManifest.AcceptedStateHash -cne $AcceptedState.AcceptedStateHash -or $AcceptedState.AcceptedOutputManifestHash -cne $OutputManifest.OutputManifestHash -or $OutputManifest.ActiveXMLTVStatus -ne $AcceptedState.AcceptedXMLTVStatus) { throw 'FAIL_CLOSED: output binding mismatch.' }
     if ($null -ne $GenerationId -and $OutputManifest.GenerationId -cne $GenerationId) { throw 'FAIL_CLOSED: generation binding mismatch.' }
@@ -401,13 +442,110 @@ function Test-ChannelForgePreviousLineage {
     return [pscustomobject][ordered]@{ PreviousStateHash = $AcceptedState.PreviousStateHash; PreviousOutputManifestHash = $PriorOutput.OutputManifestHash; PreviousGenerationId = $PriorState.GenerationId }
 }
 
-function New-ChannelForgeAcceptedEntries {
-    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries = @(),[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
+function Get-ChannelForgeAcceptanceDecisionRecords {
+    param([Parameter(Mandatory)]$DecisionManifest,[AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
+    $embedded = $DecisionManifest.PSObject.Properties['Decisions']
+    if ($null -ne $embedded) {
+        $decisions = @($embedded.Value)
+        if (@($DecisionRecords).Count -gt 0 -and (($decisions | ForEach-Object DecisionId) -join ',' -cne (@($DecisionRecords) | ForEach-Object DecisionId) -join ',')) {
+            throw 'FAIL_CLOSED: decision records disagree with the decision manifest.'
+        }
+        return $decisions
+    }
+    return @($DecisionRecords)
+}
+
+function Assert-ChannelForgeAcceptanceDecisionCoverage {
+    param(
+        [Parameter(Mandatory)]$CandidateManifest,
+        [Parameter(Mandatory)]$DecisionManifest,
+        [Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries,
+        [Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object[]]$Decisions
+    )
+    if ($null -eq $AcceptedParentEntries) { $AcceptedParentEntries = @() }
+    if ($null -eq $Decisions) { $Decisions = @() }
+    Assert-ChannelForgeCandidateVersion $CandidateManifest 'CandidateManifest'
+    Assert-ChannelForgeAcceptanceVersion $DecisionManifest 'DecisionManifest'
+    $candidateIds = @($CandidateManifest.Entries | ForEach-Object { [string]$_.EntryId } | Sort-Object)
+    $acceptedIds = @($AcceptedParentEntries | ForEach-Object { [string]$_.EntryId } | Sort-Object)
+    $bindingIds = @($CandidateManifest.BindingRecords | ForEach-Object { [string]$_.BindingId } | Sort-Object)
+    Assert-ChannelForgeAcceptanceIds $candidateIds 'CandidateManifest.Entries'
+    Assert-ChannelForgeAcceptanceIds $acceptedIds 'AcceptedParentEntries'
+    Assert-ChannelForgeAcceptanceIds $bindingIds 'CandidateManifest.BindingRecords'
+    if ($null -eq $DecisionManifest.PSObject.Properties['DecisionIds']) { throw 'FAIL_CLOSED: DecisionManifest.DecisionIds is required.' }
+    $manifestDecisionIds = @($DecisionManifest.DecisionIds)
+    Assert-ChannelForgeAcceptanceIds $manifestDecisionIds 'DecisionIds'
+    Assert-ChannelForgeAcceptanceDecisionRecords $Decisions
+    if (([string]::Join('|', $manifestDecisionIds)) -cne ([string]::Join('|', @($Decisions | ForEach-Object DecisionId)))) { throw 'FAIL_CLOSED: decision IDs do not match records.' }
+    $includedProperty = $DecisionManifest.PSObject.Properties['IncludedCandidateEntryIds']
+    $excludedProperty = $DecisionManifest.PSObject.Properties['ExcludedCandidateEntryIds']
+    $includedIds = if ($null -ne $includedProperty) { @($includedProperty.Value) } else { @($Decisions | Where-Object { [string]$_.DecisionType -in @('IncludeCandidateEntry','MapCandidateToAcceptedEntry') } | ForEach-Object { [string]$_.CandidateEntryId } | Sort-Object -Unique) }
+    $excludedIds = if ($null -ne $excludedProperty) { @($excludedProperty.Value) } else { @($Decisions | Where-Object { [string]$_.DecisionType -eq 'ExcludeCandidateEntry' } | ForEach-Object { [string]$_.CandidateEntryId } | Sort-Object -Unique) }
+    if ($null -eq $includedIds) { $includedIds = @() }
+    if ($null -eq $excludedIds) { $excludedIds = @() }
+    Assert-ChannelForgeAcceptanceIds $includedIds 'IncludedCandidateEntryIds'
+    Assert-ChannelForgeAcceptanceIds $excludedIds 'ExcludedCandidateEntryIds'
+    if (([string]::Join('|', $candidateIds)) -cne ([string]::Join('|', @($includedIds + $excludedIds | Sort-Object)))) { throw 'FAIL_CLOSED: decision entry partition is incomplete.' }
     $candidateById = @{}; foreach ($entry in @($CandidateManifest.Entries)) { $candidateById[[string]$entry.EntryId] = $entry }
     $acceptedById = @{}; foreach ($entry in @($AcceptedParentEntries)) { $acceptedById[[string]$entry.EntryId] = $entry }
-    $decisions = if ($null -ne $DecisionManifest.PSObject.Properties['Decisions']) { @($DecisionManifest.Decisions) } else { @($DecisionRecords) }
+    $bindingById = @{}; foreach ($binding in @($CandidateManifest.BindingRecords)) { $bindingById[[string]$binding.BindingId] = $binding }
+    $coveredCandidates = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $coveredAccepted = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $coveredBindings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $expectedGenerationId = $null
+    foreach ($owner in @($CandidateManifest,$DecisionManifest)) {
+        if ($null -ne $owner.PSObject.Properties['GenerationId']) { $expectedGenerationId = [string]$owner.GenerationId; Assert-ChannelForgeAcceptanceGenerationId $expectedGenerationId 'GenerationId'; break }
+    }
+    foreach ($decision in @($Decisions)) {
+        $type = [string]$decision.DecisionType
+        if ($null -ne $decision.PSObject.Properties['Version']) { Assert-ChannelForgeAcceptanceVersion $decision 'DecisionRecord' }
+        if ($null -ne $decision.PSObject.Properties['GenerationId']) {
+            Assert-ChannelForgeAcceptanceGenerationId $decision.GenerationId 'DecisionRecord.GenerationId'
+            if ($null -ne $expectedGenerationId -and [string]$decision.GenerationId -cne $expectedGenerationId) { throw 'FAIL_CLOSED: stale decision generation.' }
+        }
+        foreach ($name in @('ReviewStatus','ResolutionStatus')) {
+            if ($null -ne $decision.PSObject.Properties[$name] -and [string]$decision.$name -in @('Unresolved','ReviewNeeded','Pending','Ambiguous','Conflicting')) { throw 'FAIL_CLOSED: unresolved actionable review.' }
+        }
+        switch ($type) {
+            'IncludeCandidateEntry' {
+                $id = [string]$decision.CandidateEntryId
+                if (-not $candidateById.ContainsKey($id) -or -not $includedIds.Contains($id) -or -not $coveredCandidates.Add($id)) { throw 'FAIL_CLOSED: invalid or conflicting included candidate decision.' }
+            }
+            'MapCandidateToAcceptedEntry' {
+                $candidateId = [string]$decision.CandidateEntryId; $acceptedId = [string]$decision.AcceptedEntryId
+                if (-not $candidateById.ContainsKey($candidateId) -or -not $acceptedById.ContainsKey($acceptedId) -or -not $includedIds.Contains($candidateId) -or -not $coveredCandidates.Add($candidateId)) { throw 'FAIL_CLOSED: invalid or conflicting candidate mapping.' }
+                if (-not $coveredAccepted.Add($acceptedId)) { throw 'FAIL_CLOSED: conflicting accepted entry decision.' }
+            }
+            'ExcludeCandidateEntry' {
+                $id = [string]$decision.CandidateEntryId
+                if (-not $candidateById.ContainsKey($id) -or -not $excludedIds.Contains($id) -or -not $coveredCandidates.Add($id)) { throw 'FAIL_CLOSED: invalid or conflicting excluded candidate decision.' }
+            }
+            'KeepAcceptedEntry' {
+                $id = [string]$decision.AcceptedEntryId
+                if (-not $acceptedById.ContainsKey($id) -or -not $coveredAccepted.Add($id)) { throw 'FAIL_CLOSED: invalid or conflicting retained entry decision.' }
+            }
+            'AcceptGuideBinding' {
+                $id = [string]$decision.BindingId
+                if (-not $bindingById.ContainsKey($id) -or -not $coveredBindings.Add($id)) { throw 'FAIL_CLOSED: invalid or conflicting binding decision.' }
+            }
+            default { throw 'FAIL_CLOSED: unsupported decision type.' }
+        }
+    }
+    foreach ($id in $candidateIds) { if (-not $coveredCandidates.Contains($id)) { throw 'FAIL_CLOSED: candidate entry lacks an explicit decision.' } }
+    foreach ($id in $acceptedIds) {
+        if ($candidateById.ContainsKey($id) -and $coveredCandidates.Contains($id)) { continue }
+        if (-not $coveredAccepted.Contains($id)) { throw 'FAIL_CLOSED: accepted parent entry lacks an explicit decision.' }
+    }
+    foreach ($id in $includedIds) { if (-not $coveredCandidates.Contains($id)) { throw 'FAIL_CLOSED: included candidate lacks an explicit decision.' } }
+}
+
+function New-ChannelForgeAcceptedEntries {
+    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries = @(),[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
+    $decisions = @(Get-ChannelForgeAcceptanceDecisionRecords $DecisionManifest $DecisionRecords)
+    Assert-ChannelForgeAcceptanceDecisionCoverage $CandidateManifest $DecisionManifest $AcceptedParentEntries $decisions
+    $candidateById = @{}; foreach ($entry in @($CandidateManifest.Entries)) { $candidateById[[string]$entry.EntryId] = $entry }
+    $acceptedById = @{}; foreach ($entry in @($AcceptedParentEntries)) { $acceptedById[[string]$entry.EntryId] = $entry }
     $result = [System.Collections.Generic.List[object]]::new()
-    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($decision in $decisions) {
         $entryId = switch ([string]$decision.DecisionType) {
             'IncludeCandidateEntry' { [string]$decision.CandidateEntryId }
@@ -416,35 +554,27 @@ function New-ChannelForgeAcceptedEntries {
             default { $null }
         }
         if ($null -eq $entryId) { continue }
-        if ([string]$decision.DecisionType -eq 'KeepAcceptedEntry') {
-            if (-not $acceptedById.ContainsKey($entryId)) { throw 'FAIL_CLOSED: retained accepted entry is missing.' }
-            if ($seen.Add($entryId)) { [void]$result.Add($acceptedById[$entryId]) }
-        }
-        else {
-            if (-not $candidateById.ContainsKey($entryId)) { throw 'FAIL_CLOSED: included candidate entry is missing.' }
-            if ($seen.Add($entryId)) { [void]$result.Add($candidateById[$entryId]) }
-        }
-    }
-    if ($result.Count -eq 0 -and @($DecisionManifest.IncludedCandidateEntryIds).Count -gt 0) {
-        foreach ($id in @($DecisionManifest.IncludedCandidateEntryIds)) {
-            if (-not $candidateById.ContainsKey([string]$id)) { throw 'FAIL_CLOSED: included candidate entry is missing.' }
-            if ($seen.Add([string]$id)) { [void]$result.Add($candidateById[[string]$id]) }
-        }
+        if ([string]$decision.DecisionType -eq 'KeepAcceptedEntry') { [void]$result.Add($acceptedById[$entryId]) }
+        else { [void]$result.Add($candidateById[$entryId]) }
     }
     return @($result | Sort-Object -Property @{Expression={ [string]$_.EntryId }; Ascending=$true})
 }
 
 function New-ChannelForgeAcceptedBindings {
     param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
+    Assert-ChannelForgeCandidateVersion $CandidateManifest 'CandidateManifest'
+    Assert-ChannelForgeAcceptanceVersion $DecisionManifest 'DecisionManifest'
+    $decisions = @(Get-ChannelForgeAcceptanceDecisionRecords $DecisionManifest $DecisionRecords)
+    Assert-ChannelForgeAcceptanceDecisionRecords $decisions
+    if (([string]::Join('|', @($DecisionManifest.DecisionIds))) -cne ([string]::Join('|', @($decisions | ForEach-Object DecisionId)))) { throw 'FAIL_CLOSED: decision IDs do not match records.' }
     $byId = @{}; foreach ($binding in @($CandidateManifest.BindingRecords)) { $byId[[string]$binding.BindingId] = $binding }
-    $decisions = if ($null -ne $DecisionManifest.PSObject.Properties['Decisions']) { @($DecisionManifest.Decisions) } else { @($DecisionRecords) }
     $result = [System.Collections.Generic.List[object]]::new()
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($decision in $decisions) {
         if ([string]$decision.DecisionType -eq 'AcceptGuideBinding') {
             $id = [string]$decision.BindingId
-            if (-not $byId.ContainsKey($id)) { throw 'FAIL_CLOSED: accepted binding is missing.' }
-            if ($seen.Add($id)) { [void]$result.Add($byId[$id]) }
+            if (-not $byId.ContainsKey($id) -or -not $seen.Add($id)) { throw 'FAIL_CLOSED: accepted binding is missing or conflicting.' }
+            [void]$result.Add($byId[$id])
         }
     }
     return @($result | Sort-Object -Property @{Expression={ [string]$_.BindingId }; Ascending=$true})
