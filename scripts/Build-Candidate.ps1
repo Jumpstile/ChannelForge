@@ -17,6 +17,7 @@ foreach ($helper in @(
         'Get-ChannelForgeLogicalSourceId.ps1',
         'Get-ChannelForgeRawM3UProjection.ps1',
         'Get-ChannelForgeRawXmltvProjection.ps1',
+        'ConvertTo-ChannelForgeSafeM3UText.ps1',
         'Get-ChannelForgeCandidateReviewCounts.ps1',
         'ConvertTo-ChannelForgeM3UEntryBytes.ps1',
         'New-ChannelForgeCandidateManifest.ps1',
