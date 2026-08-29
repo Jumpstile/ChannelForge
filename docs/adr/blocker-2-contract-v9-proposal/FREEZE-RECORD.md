@@ -8,7 +8,7 @@ listed in the RevisionContentId procedure below.
 
 - Status: FROZEN.
 - ContractRevisionId: `blocker-2-contract/v9`.
-- RevisionContentId: `489d4a721414e696970cc5da4a327fbddc1d0365dfd15ff9440a710edef617df`.
+- RevisionContentId: `874b96b871069ef67b505dce4eaa0c64f0be050b158db90492482bad16f625f7`.
 - Approved freeze-candidate predecessor commit: `11a0bcb090d0a26cac763caf78e221ea7194f377`.
 - Prior frozen authority: `blocker-2-contract/v8`.
 - Prior RevisionContentId: `d80feb5b24a4c335badb288fe0d82339f84a0d6b417d3a0a5fc3f38f2b07c69d`.
@@ -46,7 +46,7 @@ The final manifest used for this record was:
 a96d9a5a35e7aab4c8c9293ad262fc0c71c0ba100ce7b147c5e0ad9027190670  PART-A-canonical-foundation.md
 6e94795a80fe686e338380622358308304d935e86b7a7c0160f2c2b952c1382d  PART-B-entry-output-slice.md
 735b966e04a45360bd03117600576698a8233563319250e87f1e1cde998fe427  README.md
-affa40ed098f9e7bafe622540ca1cc87b8b136d9c41756f52d023cc511894ca7  VERSION-OWNERSHIP-MAP.md
+e907a2fcedbf2870043faf6d3609cee3a1f7943a117e13b50135d8fdcde5ba4d  VERSION-OWNERSHIP-MAP.md
 ```
 
 The resulting RevisionContentId is the value recorded above. This metadata
