@@ -34,6 +34,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
 
         [AllowNull()]
         [object]$ReviewCounts
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
     function Write-BuildIdentityInputEvidence {
         param(
@@ -216,6 +218,21 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 }
             }
         })
+    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
+        foreach ($entry in $entries) {
+            $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entry.EntryId }) | Select-Object -First 1
+            if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
+            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel
+            $offset = -1
+            for ($i = 0; $i -le $M3UBytes.Length - $bytes.Length; $i++) {
+                $same = $true
+                for ($j = 0; $j -lt $bytes.Length; $j++) { if ($M3UBytes[$i + $j] -ne $bytes[$j]) { $same = $false; break } }
+                if ($same) { $offset = $i; break }
+            }
+            if ($offset -lt 0 -or $offset + $bytes.Length -gt $M3UBytes.Length) { throw 'FAIL_CLOSED: successor slice is not within candidate artifact.' }
+            $entry.EntryOutputSlice = [ordered]@{ RelativePath = 'merged.m3u'; ByteOffset = [uint64]$offset; ByteLength = [uint64]$bytes.Length; EntryContentHash = Get-ChannelForgeDomainHash -Domain 'candidate-entry-content/v1' -Bytes $bytes }
+        }
+    }
 
     $rawM3UEvidence = @($orderedM3U | ForEach-Object {
             [ordered]@{
