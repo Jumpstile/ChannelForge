@@ -33,7 +33,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [string[]]$SelectedSourceIds = @(),
 
         [AllowNull()]
-        [object]$ReviewCounts
+        [object]$ReviewCounts,
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
