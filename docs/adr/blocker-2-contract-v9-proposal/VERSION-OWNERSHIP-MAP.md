@@ -4,36 +4,43 @@ This map follows the frozen registry in `docs/adr/blocker-2-contract/PART-A-cano
 
 ## Registry scope
 
-| Surface | Owner | Frozen v7 value | Successor value | #109 implementation |
+| Surface | Owner | Frozen v7 value | Successor value | #109 implementation status |
 |---|---|---|---|---|
-| SafeTvgNameInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| RawM3UOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| EntryId input | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| M3UIdentityCollisions | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| RawXMLTVChannelOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| RawProgrammeOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| GuideCandidateOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| Candidate review JSON | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| BindingRecord | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| CandidateManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| StructuralEvidenceInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| CollisionIdentity | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| CollisionEvidenceInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| BuildIdentity.ContractVersion | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| CandidateManifest.ContractVersion | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | YES |
-| M3UParserContractVersion | Independent parser subsystem | `m3u-parser-v1` | `m3u-parser-v1` | YES |
-| XMLTVParserContractVersion | Independent parser subsystem | `xmltv-parser-v1` | `xmltv-parser-v1` | YES |
-| M3USerializerVersion | Independent serializer subsystem | `m3u-serializer-v1` | `m3u-serializer-v1` | YES |
-| XMLTVSerializerVersion | Independent serializer subsystem | `xmltv-serializer-v1` | `xmltv-serializer-v1` | YES |
-| GuideBindingContractVersion | Independent guide-binding subsystem | `guide-binding-exact-ordinal-v1` | `guide-binding-exact-ordinal-v1` | YES |
-| Journal.Version | Explicit integer exception | `2` | `2` | NO; runtime issue |
-| DecisionManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | NO; later decision/runtime issue |
-| AcceptedState | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | NO; Issue #102 |
-| AcceptedOutputManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | NO; later acceptance issue |
-| GenerationManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | NO; later generation issue |
-| accepted pointer | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | NO; later publication issue |
+| SafeTvgNameInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| RawM3UOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| EntryId input | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| M3UIdentityCollisions | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| RawXMLTVChannelOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| RawProgrammeOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| GuideCandidateOccurrence | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| Candidate review JSON | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| BindingRecord | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| CandidateManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| StructuralEvidenceInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| CollisionIdentity | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| CollisionEvidenceInput | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| BuildIdentity.ContractVersion | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| CandidateManifest.ContractVersion | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #110 |
+| M3UParserContractVersion | Independent parser subsystem | `m3u-parser-v1` | `m3u-parser-v1` | UNCHANGED; NOT A #109 MIGRATION |
+| XMLTVParserContractVersion | Independent parser subsystem | `xmltv-parser-v1` | `xmltv-parser-v1` | UNCHANGED; NOT A #109 MIGRATION |
+| M3USerializerVersion | Independent serializer subsystem | `m3u-serializer-v1` | `m3u-serializer-v1` | UNCHANGED; NOT A #109 MIGRATION |
+| XMLTVSerializerVersion | Independent serializer subsystem | `xmltv-serializer-v1` | `xmltv-serializer-v1` | UNCHANGED; NOT A #109 MIGRATION |
+| GuideBindingContractVersion | Independent guide-binding subsystem | `guide-binding-exact-ordinal-v1` | `guide-binding-exact-ordinal-v1` | UNCHANGED; NOT A #109 MIGRATION |
+| Journal.Version | Explicit integer exception | `2` | `2` | DEFERRED TO RUNTIME ISSUE |
+| DecisionManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO LATER DECISION/RUNTIME ISSUE |
+| AcceptedState | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO #102 |
+| AcceptedOutputManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO LATER ACCEPTANCE ISSUE |
+| GenerationManifest | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO LATER GENERATION ISSUE |
+| accepted pointer | CandidateContractVersion | `blocker-2-contract/v7` | `blocker-2-contract/v8` | DEFERRED TO LATER PUBLICATION ISSUE |
 
-The deferred surfaces are normatively version-owned but outside Issue #109. Their acceptance identifier remains `blocker-2-contract/v8-acceptance`; it is not replaced by the candidate version.
+The sole Issue #109 implementation surface is the EntryOutputSlice /
+EntryContentHash erratum. It does not implement any registry-wide
+CandidateContractVersion successor migration; those surfaces remain deferred
+to their named owners and issues above.
+
+The deferred surfaces are normatively version-owned but outside Issue #109.
+Their acceptance identifier remains `blocker-2-contract/v8-acceptance`; it is
+not replaced by the candidate version.
 ## Frozen implementation divergence
 
 The frozen v7 implementation historically uses `entry-id-v2`,
