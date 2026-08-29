@@ -1,6 +1,6 @@
 # v9 Candidate Version Ownership Map
 
-This map follows the frozen registry in `docs/adr/blocker-2-contract/PART-A-canonical-foundation.md`. `ContractVersion` is the candidate semantic version: `blocker-2-contract/v7` for the frozen default and `blocker-2-contract/v8` for the v9 successor candidate.
+This map follows the frozen registry in `docs/adr/blocker-2-contract/PART-A-canonical-foundation.md`. `ContractVersion` is the candidate semantic version: `blocker-2-contract/v7` for the frozen default and `blocker-2-contract/v8` for the frozen v9 successor revision.
 
 ## Registry scope
 
