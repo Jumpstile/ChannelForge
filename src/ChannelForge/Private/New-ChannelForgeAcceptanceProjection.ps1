@@ -16,8 +16,12 @@ function Assert-ChannelForgeAcceptanceGenerationId {
 
 function Assert-ChannelForgeAcceptanceVersion {
     param([Parameter(Mandatory)][object]$Projection, [Parameter(Mandatory)][string]$Name)
-    $property = $Projection.PSObject.Properties['Version']
-    if ($null -eq $property -or [string]$property.Value -cne $script:ChannelForgeAcceptanceVersion) {
+    $value = if ($Projection -is [System.Collections.IDictionary]) {
+        if ($Projection.Contains('Version')) { $Projection['Version'] } else { $null }
+    } elseif ($null -ne $Projection.PSObject.Properties['Version']) {
+        $Projection.PSObject.Properties['Version'].Value
+    } else { $null }
+    if ($null -eq $value -or [string]$value -cne $script:ChannelForgeAcceptanceVersion) {
         throw "FAIL_CLOSED: $Name must use $script:ChannelForgeAcceptanceVersion."
     }
 }
