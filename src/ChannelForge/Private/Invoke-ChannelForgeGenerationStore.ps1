@@ -276,6 +276,10 @@ function Assert-ChannelForgeGenerationJournal {
 function Publish-ChannelForgeGenerationJournal {
     param([Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)][string]$AuthoritativePath,[Parameter(Mandatory)][string]$StagedPath,[Parameter(Mandatory)]$Journal,[AllowNull()][string]$FaultHook,[Parameter(Mandatory)][string]$StageName)
     $bytes=ConvertTo-ChannelForgeGenerationBytes $Journal; $suffix=if($StageName -eq 'Prepared'){'Prepared'}else{$StageName}
+    if ([IO.File]::Exists($StagedPath)) {
+        $staleBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot $StagedPath
+        [ChannelForge.GenerationStore]::DeleteFileBound($staleBinding.Path,$staleBinding.Key)
+    }
     Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalStageWrite.$suffix"
     Write-ChannelForgeGenerationFile -RepositoryRoot $RepositoryRoot -Path $StagedPath -Bytes $bytes -FaultHook $FaultHook -WriteHook "JournalWrite.$suffix" -FlushHook "JournalFlush.$suffix" -ReopenHook "JournalReopenHash.$suffix" -Domain 'journal/v2' | Out-Null
     Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalStageFlush.$suffix"; Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalStageReopenHash.$suffix"

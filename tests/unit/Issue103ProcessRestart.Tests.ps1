@@ -65,11 +65,10 @@ Describe 'Issue 103 external process restart recovery' {
         foreach($index in 1..60) {
             $classification='FAIL_CLOSED_RECOVERY_REQUIRED'; $current=$false; $previous=$false; $journal=$false
             if($index -in @(23,24)){ $classification='OLD/Prepared'; $journal=$true }
-            elseif($index -in @(27,28,29,55)){ $classification='NEW/PointerSwapped'; $current=$true; $journal=$true }
-            elseif($index -in @(31,35,36,37,38,39,40,41,58)){ $classification='NEW/Committed'; $current=$true; $journal=$true }
+            elseif($index -in @(27,28,29,30,55,56,57)){ $classification='NEW/PointerSwapped'; $current=$true; $journal=$true }
+            elseif($index -in @(31,34,35,36,37,38,39,40,41,58,59,60)){ $classification='NEW/Committed'; $current=$true; $journal=$true }
             elseif($index -in @(32,33,42,43,44,45,46,47,48,49,50,51)){ $classification='INITIAL_BASELINE_REQUIRED/'; $journal=$false }
             elseif($index -in @(25,26,52,53,54)){ $journal=$true }
-            elseif($index -in @(30,34,56,57,59,60)){ $current=$true; $journal=$true }
             $cases += [pscustomobject]@{Case=('A{0:D2}' -f $index);Hook=$hookNames[$index-1];Classification=$classification;Current=$current;Previous=$previous;Journal=$journal;Staging=$true}
         }
         foreach($case in $cases) {
