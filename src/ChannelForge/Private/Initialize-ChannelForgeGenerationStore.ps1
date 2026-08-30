@@ -10,9 +10,9 @@ function Initialize-ChannelForgeGenerationStore {
 
     Add-Type -TypeDefinition @'
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
 
 namespace ChannelForge
@@ -23,17 +23,21 @@ namespace ChannelForge
         public string FileId { get; }
         public ulong ByteLength { get; }
         public long LastWriteUtcTicks { get; }
+        public uint NumberOfLinks { get; }
+        public bool IsReparsePoint { get; }
 
-        public FileIdentity(uint volumeSerial, string fileId, ulong byteLength, long lastWriteUtcTicks)
+        public FileIdentity(uint volumeSerial, string fileId, ulong byteLength, long lastWriteUtcTicks, uint numberOfLinks = 1, bool isReparsePoint = false)
         {
             VolumeSerial = volumeSerial;
             FileId = fileId ?? throw new ArgumentNullException(nameof(fileId));
             ByteLength = byteLength;
             LastWriteUtcTicks = lastWriteUtcTicks;
+            NumberOfLinks = numberOfLinks;
+            IsReparsePoint = isReparsePoint;
         }
 
         public override string ToString() =>
-            $"{VolumeSerial}:{FileId}:{ByteLength}:{LastWriteUtcTicks}";
+            $"{VolumeSerial}:{FileId}:{ByteLength}:{LastWriteUtcTicks}:{NumberOfLinks}:{IsReparsePoint}";
     }
 
     public sealed class LockLease : IDisposable
@@ -66,7 +70,18 @@ namespace ChannelForge
 
     public static class GenerationStore
     {
-        private const int ErrorAlreadyExists = 183;
+        private const uint GenericRead = 0x80000000;
+        private const uint GenericWrite = 0x40000000;
+        private const uint FileReadAttributes = 0x00000080;
+        private const uint FileShareRead = 0x00000001;
+        private const uint FileShareWrite = 0x00000002;
+        private const uint FileShareDelete = 0x00000004;
+        private const uint OpenExisting = 3;
+        private const uint CreateNew = 1;
+        private const uint FileFlagWriteThrough = 0x80000000;
+        private const uint FileFlagBackupSemantics = 0x02000000;
+        private const uint FileFlagOpenReparsePoint = 0x00200000;
+        private const uint OpenAlways = 4;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct ByHandleFileInformation
@@ -83,10 +98,30 @@ namespace ChannelForge
             public uint FileIndexLow;
         }
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern SafeFileHandle CreateFile(
+            string fileName,
+            uint desiredAccess,
+            uint shareMode,
+            IntPtr securityAttributes,
+            uint creationDisposition,
+            uint flagsAndAttributes,
+            IntPtr templateFile);
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GetFileInformationByHandle(
             IntPtr hFile,
             out ByHandleFileInformation lpFileInformation);
+        private static FileStream OpenNative(string path, uint access, uint share, uint disposition, uint flags, FileAccess fileAccess)
+        {
+            var handle = CreateFile(path, access, share, IntPtr.Zero, disposition, flags, IntPtr.Zero);
+            if (handle.IsInvalid)
+            {
+                var error = Marshal.GetLastWin32Error();
+                handle.Dispose();
+                throw new Win32Exception(error, $"CreateFile failed for '{path}'.");
+            }
+            return new FileStream(handle, fileAccess, 4096, false);
+        }
 
         public static bool IsReparsePoint(string path)
         {
@@ -100,16 +135,14 @@ namespace ChannelForge
 
         public static FileStream OpenRead(string path)
         {
-            return new FileStream(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                4096,
-                FileOptions.SequentialScan);
+            if (OperatingSystem.IsWindows())
+            {
+                return OpenNative(path, GenericRead, FileShareRead, OpenExisting, FileFlagOpenReparsePoint, FileAccess.Read);
+            }
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
         }
 
-        public static FileIdentity ReadIdentity(FileStream stream)
+        private static FileIdentity ReadIdentityCore(FileStream stream)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
             if (stream.SafeFileHandle.IsInvalid) throw new IOException("The file handle is invalid.");
@@ -126,7 +159,9 @@ namespace ChannelForge
                 var writeTime = ((long)info.LastWriteTime.dwHighDateTime << 32) |
                     (uint)info.LastWriteTime.dwLowDateTime;
                 var ticks = DateTime.FromFileTimeUtc(writeTime).Ticks;
-                return new FileIdentity(info.VolumeSerialNumber, fileId, checked((ulong)stream.Length), ticks);
+                ulong length = 0;
+                try { length = checked((ulong)stream.Length); } catch (NotSupportedException) { }
+                return new FileIdentity(info.VolumeSerialNumber, fileId, length, ticks, info.NumberOfLinks, (info.FileAttributes & (uint)FileAttributes.ReparsePoint) != 0);
             }
 
             var fallback = System.Security.Cryptography.SHA256.HashData(
@@ -134,32 +169,50 @@ namespace ChannelForge
             return new FileIdentity(0, Convert.ToHexString(fallback).ToLowerInvariant(), checked((ulong)stream.Length), File.GetLastWriteTimeUtc(stream.Name).Ticks);
         }
 
+        public static FileIdentity ReadIdentity(FileStream stream) => ReadIdentityCore(stream);
+
         public static FileIdentity ReadIdentity(string path)
         {
             using var stream = OpenRead(path);
-            return ReadIdentity(stream);
+            return ReadIdentityCore(stream);
         }
+
+        public static FileIdentity ReadPathIdentity(string path)
+        {
+            if (!OperatingSystem.IsWindows()) return ReadIdentity(path);
+            using var stream = OpenNative(path, FileReadAttributes, FileShareRead | FileShareWrite | FileShareDelete, OpenExisting, FileFlagBackupSemantics | FileFlagOpenReparsePoint, FileAccess.Read);
+            return ReadIdentityCore(stream);
+        }
+
+        public static bool IsSameVolume(string firstPath, string secondPath) =>
+            ReadPathIdentity(firstPath).VolumeSerial == ReadPathIdentity(secondPath).VolumeSerial;
 
         public static FileStream CreateExclusive(string path)
         {
-            return new FileStream(
-                path,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                4096,
-                FileOptions.WriteThrough | FileOptions.SequentialScan);
+            if (OperatingSystem.IsWindows())
+            {
+                return OpenNative(path, GenericWrite, 0, CreateNew, FileFlagWriteThrough | FileFlagOpenReparsePoint, FileAccess.Write);
+            }
+            return new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough | FileOptions.SequentialScan);
         }
 
         public static LockLease AcquireLock(string path)
         {
-            var stream = new FileStream(
-                path,
-                FileMode.OpenOrCreate,
-                FileAccess.ReadWrite,
-                FileShare.None,
-                4096,
-                FileOptions.WriteThrough | FileOptions.SequentialScan);
+            FileStream stream;
+            if (OperatingSystem.IsWindows())
+            {
+                stream = OpenNative(path, GenericRead | GenericWrite, 0, OpenAlways, FileFlagWriteThrough | FileFlagOpenReparsePoint, FileAccess.ReadWrite);
+                var identity = ReadIdentityCore(stream);
+                if (identity.IsReparsePoint || identity.NumberOfLinks != 1)
+                {
+                    stream.Dispose();
+                    throw new IOException("Lock path is a reparse point or has multiple hard links.");
+                }
+            }
+            else
+            {
+                stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.WriteThrough | FileOptions.SequentialScan);
+            }
             return new LockLease(path, stream);
         }
 
