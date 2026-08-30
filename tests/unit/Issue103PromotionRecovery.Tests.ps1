@@ -79,6 +79,12 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
             $xmlDescriptor=New-ChannelForgeActiveXMLTV -GenerationId $generation -AcceptedStateHash $state.AcceptedStateHash -OutputManifestHash $output.OutputManifestHash -Status NotGenerated -ContentHash $null -ByteLength 0 -RelativePath $null
             [pscustomobject]@{GenerationManifest=[pscustomobject]$manifest;AcceptedState=$state;AcceptedOutputManifest=$output;DecisionManifest=$decision;M3UBytes=$m3uBytes;XMLTVBytes=$null;Descriptor=$descriptor;XMLTVDescriptor=$xmlDescriptor}
         } $generation
+        $fixture.Descriptor.GenerationId | Should -Be $generation
+        $fixture.Descriptor.AcceptedStateHash | Should -Be $fixture.AcceptedState.AcceptedStateHash
+        $fixture.Descriptor.OutputManifestHash | Should -Be $fixture.AcceptedOutputManifest.OutputManifestHash
+        $fixture.Descriptor.ContentHash | Should -Be $fixture.AcceptedOutputManifest.ActiveM3UHash
+        $fixture.XMLTVDescriptor.Status | Should -Be 'NotGenerated'
+        $fixture.XMLTVDescriptor.ContentHash | Should -BeNullOrEmpty
         (Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $root -GenerationManifest $fixture.GenerationManifest -AcceptedState $fixture.AcceptedState -AcceptedOutputManifest $fixture.AcceptedOutputManifest -DecisionManifest $fixture.DecisionManifest -M3UBytes $fixture.M3UBytes).Outcome | Should -Be 'NEW'
         (Recover-ChannelForgeAcceptedState -RepositoryRoot $root).Outcome | Should -Be 'NEW'
     }
