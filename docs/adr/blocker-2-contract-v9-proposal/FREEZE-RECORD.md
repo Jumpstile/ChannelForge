@@ -68,7 +68,7 @@ four normative files or their semantics.
 - Canonical byte source: exact payload bytes of the Git blobs addressed by the
   canonical content commit and path, read from the Git object database with
   `git cat-file blob`; working-tree bytes are never consumed.
-- Canonical Git content commit: `eef60709888a37689c551efc9df5b66715b7e7b7`.
+- Canonical Git content commit: `d6d63f9dea56acbf1edbc9339ba97971b7a2a571`.
 - Equivalent preserved integration commits: #109 merge
   `97a0d1d64dc1a0a074acbdcba3b98a978c3e41a7`; current main
   `6f55478ab6498affa59429d37f35586b302ba98b`.
