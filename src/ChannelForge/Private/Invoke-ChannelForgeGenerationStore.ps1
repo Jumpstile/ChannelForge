@@ -524,8 +524,8 @@ function Assert-ChannelForgeGenerationJournalEvidence {
         if ($hasStagedPointer) {
             if ($null -ne $currentPointer) {
                 if ($null -eq $Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer mismatch. actual=$($currentPointer.Object.PointerHash)/$($currentPointer.Object.GenerationId) expected=$($Journal.ExpectedOldPointerHash)/$($Journal.ExpectedOldGenerationId)" }
-            } elseif ($null -ne $Journal.ExpectedOldPointerHash -and ($null -eq $previousPointer -or [string]$previousPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$previousPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId)) {
-                throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer is missing or displaced.'
+            } elseif (($null -eq $Journal.ExpectedOldPointerHash -and $null -ne $previousPointer) -or ($null -ne $Journal.ExpectedOldPointerHash -and ($null -eq $previousPointer -or [string]$previousPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$previousPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId))) {
+                throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer is missing, displaced, or unexpected.'
             }
         } elseif ($null -eq $currentPointer -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) {
             throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished pointer state is ambiguous.'
