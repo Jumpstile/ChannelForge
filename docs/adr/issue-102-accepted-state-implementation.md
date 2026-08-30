@@ -4,14 +4,15 @@ Status: local implementation/review work only on `review/issue-102-accepted-stat
 
 ## Scope
 
-The acceptance projection module in `src/ChannelForge/Private/New-ChannelForgeAcceptanceProjection.ps1` constructs and validates the pure data surfaces required by Issue #102:
+The acceptance projection module in `src/ChannelForge/Private/New-ChannelForgeAcceptanceProjection.ps1` constructs and validates the pure data surfaces required by Issue #102. The exported `New-ChannelForgeAcceptance` function is the production acceptance boundary: it validates the complete decision manifest before producing accepted entries or accepted bindings.
 
 - v8-acceptance subordinate M3U/XMLTV decision projections and aggregate `DecisionManifest`;
 - accepted-state and accepted-output-manifest projections, including semantic self-hash rules;
 - active and previous M3U/XMLTV descriptors with exact Generated/NotGenerated nullability;
 - exact `KeepAcceptedEntry` reconstruction from verified prior bytes and the frozen `candidate-entry-content/v1` slice hash domain;
 - candidate-to-accepted entry comparison, deterministic `ChangeRecord` ordering, accepted binding selection, and fail-closed `ReviewRecord` construction;
-- first-generation and later-generation lineage validation.
+- first-generation and later-generation lineage validation;
+- required `IncludedCandidateEntryIds` and `ExcludedCandidateEntryIds` partition fields. Missing fields are invalid; they are never reconstructed from decision records.
 
 The implementation does not publish a pointer, replace accepted files, advance a journal, promote a generation, recover a transaction, or add runtime/provider/scheduler/UI behavior. Those operations remain outside this Issue #102 change.
 

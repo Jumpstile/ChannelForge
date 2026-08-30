@@ -178,7 +178,7 @@ Describe 'Issue 102 accepted-state projections' {
             { & (Get-Module ChannelForge) { param($d,$s,$o,$a,$b,$generation) Test-ChannelForgeAcceptanceBinding -DecisionManifest $d -AcceptedState $s -OutputManifest $o -CandidateManifestHash $a -BuildIdentity $b -GenerationId $generation } $decision $state $output $hA $hB $generation } | Should -Throw 'FAIL_CLOSED:*'
         }
         $candidateV7 = [pscustomobject][ordered]@{ Version = 'blocker-2-contract/v7'; ContractVersion = 'blocker-2-contract/v7'; Entries = @([pscustomobject]@{ EntryId = $hA }); BindingRecords = @() }
-        { & (Get-Module ChannelForge) { param($candidate,$decision) New-ChannelForgeAcceptedEntries -CandidateManifest $candidate -DecisionManifest $decision -DecisionRecords @() } $candidateV7 $objects.Decision } | Should -Throw 'FAIL_CLOSED:*'
+        { & (Get-Module ChannelForge) { param($candidate,$decision,$m3u) New-ChannelForgeAcceptedEntries -CandidateManifest $candidate -DecisionManifest $decision -M3UDecision $m3u -DecisionRecords @() } $candidateV7 $objects.Decision $objects.Decision } | Should -Throw 'FAIL_CLOSED:*'
     }
 
     It 'requires explicit complete decision coverage and rejects stale or conflicting decisions' {
@@ -190,14 +190,14 @@ Describe 'Issue 102 accepted-state projections' {
             $m3u = New-ChannelForgeDecisionM3U -CandidateManifestHash $b -BuildIdentity $c -AcceptedParentGenerationManifestHash $null -IncludedCandidateEntryIds @($a) -ExcludedCandidateEntryIds @() -DecisionIds @($record.DecisionId)
             $manifest = New-ChannelForgeDecisionManifest -CandidateManifestHash $b -BuildIdentity $c -M3UDecision $m3u -XMLTVDecision $null -XMLTVDecisionStatus NotGenerated
             $candidate = [pscustomobject][ordered]@{ Version = 'blocker-2-contract/v8'; ContractVersion = 'blocker-2-contract/v8'; Entries = @([pscustomobject]@{ EntryId = $a }); BindingRecords = @() }
-            [pscustomobject]@{ Record = [pscustomobject]$record; Manifest = $manifest; Candidate = $candidate }
+            [pscustomobject]@{ Record = [pscustomobject]$record; Manifest = $manifest; M3UDecision = $m3u; Candidate = $candidate }
         } $hA $hB $hC
-        { & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -DecisionRecords @() } $fixture } | Should -Throw 'FAIL_CLOSED:*'
-        $accepted = & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -DecisionRecords @($f.Record) } $fixture
+        { & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -M3UDecision $f.M3UDecision -DecisionRecords @() } $fixture } | Should -Throw 'FAIL_CLOSED:*'
+        $accepted = & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -M3UDecision $f.M3UDecision -DecisionRecords @($f.Record) } $fixture
         $accepted.Count | Should -Be 1
         $stale = [pscustomobject][ordered]@{ DecisionId = $fixture.Record.DecisionId; DecisionType = 'IncludeCandidateEntry'; CandidateEntryId = $hB }
-        { & (Get-Module ChannelForge) { param($f,$record) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -DecisionRecords @($record) } $fixture $stale } | Should -Throw 'FAIL_CLOSED:*'
-        { & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -DecisionRecords @($f.Record,$f.Record) } $fixture } | Should -Throw 'FAIL_CLOSED:*'
+        { & (Get-Module ChannelForge) { param($f,$record) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -M3UDecision $f.M3UDecision -DecisionRecords @($record) } $fixture $stale } | Should -Throw 'FAIL_CLOSED:*'
+        { & (Get-Module ChannelForge) { param($f) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -M3UDecision $f.M3UDecision -DecisionRecords @($f.Record,$f.Record) } $fixture } | Should -Throw 'FAIL_CLOSED:*'
         $conflict = & (Get-Module ChannelForge) {
             param($a)
             $record = [ordered]@{ DecisionType = 'ExcludeCandidateEntry'; CandidateEntryId = $a }
@@ -207,7 +207,7 @@ Describe 'Issue 102 accepted-state projections' {
         } $hA
         $conflictManifest = [pscustomobject]$fixture.Manifest.PSObject.Copy()
         $conflictManifest.DecisionIds = @($fixture.Record.DecisionId,$conflict.DecisionId | Sort-Object)
-        { & (Get-Module ChannelForge) { param($f,$manifest,$conflict) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $manifest -DecisionRecords @($f.Record,$conflict) } $fixture $conflictManifest $conflict } | Should -Throw 'FAIL_CLOSED:*'
+        { & (Get-Module ChannelForge) { param($f,$manifest,$conflict) New-ChannelForgeAcceptedEntries -CandidateManifest $f.Candidate -DecisionManifest $manifest -M3UDecision $f.M3UDecision -DecisionRecords @($f.Record,$conflict) } $fixture $conflictManifest $conflict } | Should -Throw 'FAIL_CLOSED:*'
     }
 
     It 'accepts canonical UTC forms and rejects parseable non-canonical forms' {
@@ -262,5 +262,33 @@ Describe 'Issue 102 accepted-state projections' {
             { & (Get-Module ChannelForge) { param($r,$a,$b,$generation) Test-ChannelForgeAcceptanceBinding -DecisionManifest $r.Decision -AcceptedState $r.State -OutputManifest $r.Output -CandidateManifestHash $a -BuildIdentity $b -GenerationId $generation } $row $hA $hB $generation } | Should -Not -Throw
             $row.Lineage.PreviousStateHash | Should -Be $row.State.PreviousStateHash
         }
+    }
+    It 'requires manifest decision partitions and guards the production acceptance path' {
+        $fixture = & (Get-Module ChannelForge) {
+            param($a,$b,$c)
+            $record = [ordered]@{ DecisionType = 'IncludeCandidateEntry'; CandidateEntryId = $a }
+            $record.DecisionId = Get-ChannelForgeDomainHash -Domain 'decision-manifest/v2' -InputObject $record
+            $m3u = New-ChannelForgeDecisionM3U -CandidateManifestHash $b -BuildIdentity $c -AcceptedParentGenerationManifestHash $null -IncludedCandidateEntryIds @($a) -ExcludedCandidateEntryIds @() -DecisionIds @($record.DecisionId)
+            $manifest = New-ChannelForgeDecisionManifest -CandidateManifestHash $b -BuildIdentity $c -M3UDecision $m3u -XMLTVDecision $null -XMLTVDecisionStatus NotGenerated
+            $candidate = [pscustomobject][ordered]@{ Version = 'blocker-2-contract/v8'; ContractVersion = 'blocker-2-contract/v8'; Entries = @([pscustomobject]@{ EntryId = $a }); BindingRecords = @() }
+            [pscustomobject]@{ Record = [pscustomobject]$record; Manifest = $manifest; M3UDecision = $m3u; Candidate = $candidate }
+        } $hA $hB $hC
+
+        foreach ($missing in @('IncludedCandidateEntryIds','ExcludedCandidateEntryIds')) {
+            $m3u = [pscustomobject]$fixture.M3UDecision.PSObject.Copy()
+            [void]$m3u.PSObject.Properties.Remove($missing)
+            { New-ChannelForgeAcceptance -CandidateManifest $fixture.Candidate -DecisionManifest $fixture.Manifest -M3UDecision $m3u -DecisionRecords @($fixture.Record) } | Should -Throw 'FAIL_CLOSED:*'
+            { & (Get-Module ChannelForge) { param($f,$m3u) New-ChannelForgeAcceptedBindings -CandidateManifest $f.Candidate -DecisionManifest $f.Manifest -M3UDecision $m3u -AcceptedParentEntries @() -DecisionRecords @($f.Record) } $fixture $m3u } | Should -Throw 'FAIL_CLOSED:*'
+        }
+
+        $bothMissing = [pscustomobject]$fixture.M3UDecision.PSObject.Copy()
+        [void]$bothMissing.PSObject.Properties.Remove('IncludedCandidateEntryIds')
+        [void]$bothMissing.PSObject.Properties.Remove('ExcludedCandidateEntryIds')
+        { New-ChannelForgeAcceptance -CandidateManifest $fixture.Candidate -DecisionManifest $fixture.Manifest -M3UDecision $bothMissing -DecisionRecords @($fixture.Record) } | Should -Throw 'FAIL_CLOSED:*'
+
+        { New-ChannelForgeAcceptance -CandidateManifest $fixture.Candidate -DecisionManifest $fixture.Manifest -M3UDecision $fixture.M3UDecision -DecisionRecords @() } | Should -Throw 'FAIL_CLOSED:*'
+        $accepted = New-ChannelForgeAcceptance -CandidateManifest $fixture.Candidate -DecisionManifest $fixture.Manifest -M3UDecision $fixture.M3UDecision -DecisionRecords @($fixture.Record)
+        $accepted.AcceptedEntries.Count | Should -Be 1
+        $accepted.AcceptedBindings.Count | Should -Be 0
     }
 }

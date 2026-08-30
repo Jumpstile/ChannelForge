@@ -459,6 +459,7 @@ function Assert-ChannelForgeAcceptanceDecisionCoverage {
     param(
         [Parameter(Mandatory)]$CandidateManifest,
         [Parameter(Mandatory)]$DecisionManifest,
+        [Parameter(Mandatory)]$M3UDecision,
         [Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries,
         [Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object[]]$Decisions
     )
@@ -466,6 +467,9 @@ function Assert-ChannelForgeAcceptanceDecisionCoverage {
     if ($null -eq $Decisions) { $Decisions = @() }
     Assert-ChannelForgeCandidateVersion $CandidateManifest 'CandidateManifest'
     Assert-ChannelForgeAcceptanceVersion $DecisionManifest 'DecisionManifest'
+    Assert-ChannelForgeAcceptanceVersion $M3UDecision 'M3UDecision'
+    if (-not (Test-ChannelForgeAcceptanceHashProperty $M3UDecision 'decision-m3u/v2' 'M3UDecisionHash')) { throw 'FAIL_CLOSED: forged M3U decision hash.' }
+    if ([string]$M3UDecision.CandidateManifestHash -cne [string]$DecisionManifest.CandidateManifestHash -or [string]$M3UDecision.BuildIdentity -cne [string]$DecisionManifest.BuildIdentity) { throw 'FAIL_CLOSED: M3U decision binding mismatch.' }
     $candidateIds = @($CandidateManifest.Entries | ForEach-Object { [string]$_.EntryId } | Sort-Object)
     $acceptedIds = @($AcceptedParentEntries | ForEach-Object { [string]$_.EntryId } | Sort-Object)
     $bindingIds = @($CandidateManifest.BindingRecords | ForEach-Object { [string]$_.BindingId } | Sort-Object)
@@ -477,12 +481,12 @@ function Assert-ChannelForgeAcceptanceDecisionCoverage {
     Assert-ChannelForgeAcceptanceIds $manifestDecisionIds 'DecisionIds'
     Assert-ChannelForgeAcceptanceDecisionRecords $Decisions
     if (([string]::Join('|', $manifestDecisionIds)) -cne ([string]::Join('|', @($Decisions | ForEach-Object DecisionId)))) { throw 'FAIL_CLOSED: decision IDs do not match records.' }
-    $includedProperty = $DecisionManifest.PSObject.Properties['IncludedCandidateEntryIds']
-    $excludedProperty = $DecisionManifest.PSObject.Properties['ExcludedCandidateEntryIds']
-    $includedIds = if ($null -ne $includedProperty) { @($includedProperty.Value) } else { @($Decisions | Where-Object { [string]$_.DecisionType -in @('IncludeCandidateEntry','MapCandidateToAcceptedEntry') } | ForEach-Object { [string]$_.CandidateEntryId } | Sort-Object -Unique) }
-    $excludedIds = if ($null -ne $excludedProperty) { @($excludedProperty.Value) } else { @($Decisions | Where-Object { [string]$_.DecisionType -eq 'ExcludeCandidateEntry' } | ForEach-Object { [string]$_.CandidateEntryId } | Sort-Object -Unique) }
-    if ($null -eq $includedIds) { $includedIds = @() }
-    if ($null -eq $excludedIds) { $excludedIds = @() }
+    foreach ($name in @('IncludedCandidateEntryIds','ExcludedCandidateEntryIds')) {
+        $property = $M3UDecision.PSObject.Properties[$name]
+        if ($null -eq $property -or $null -eq $property.Value) { throw "FAIL_CLOSED: M3UDecision.$name is required." }
+    }
+    $includedIds = @($M3UDecision.IncludedCandidateEntryIds)
+    $excludedIds = @($M3UDecision.ExcludedCandidateEntryIds)
     Assert-ChannelForgeAcceptanceIds $includedIds 'IncludedCandidateEntryIds'
     Assert-ChannelForgeAcceptanceIds $excludedIds 'ExcludedCandidateEntryIds'
     if (([string]::Join('|', $candidateIds)) -cne ([string]::Join('|', @($includedIds + $excludedIds | Sort-Object)))) { throw 'FAIL_CLOSED: decision entry partition is incomplete.' }
@@ -540,9 +544,9 @@ function Assert-ChannelForgeAcceptanceDecisionCoverage {
 }
 
 function New-ChannelForgeAcceptedEntries {
-    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries = @(),[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
+    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[Parameter(Mandatory)]$M3UDecision,[AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries = @(),[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
     $decisions = @(Get-ChannelForgeAcceptanceDecisionRecords $DecisionManifest $DecisionRecords)
-    Assert-ChannelForgeAcceptanceDecisionCoverage $CandidateManifest $DecisionManifest $AcceptedParentEntries $decisions
+    Assert-ChannelForgeAcceptanceDecisionCoverage $CandidateManifest $DecisionManifest $M3UDecision $AcceptedParentEntries $decisions
     $candidateById = @{}; foreach ($entry in @($CandidateManifest.Entries)) { $candidateById[[string]$entry.EntryId] = $entry }
     $acceptedById = @{}; foreach ($entry in @($AcceptedParentEntries)) { $acceptedById[[string]$entry.EntryId] = $entry }
     $result = [System.Collections.Generic.List[object]]::new()
@@ -559,13 +563,10 @@ function New-ChannelForgeAcceptedEntries {
     }
     return @($result | Sort-Object -Property @{Expression={ [string]$_.EntryId }; Ascending=$true})
 }
-
 function New-ChannelForgeAcceptedBindings {
-    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
-    Assert-ChannelForgeCandidateVersion $CandidateManifest 'CandidateManifest'
-    Assert-ChannelForgeAcceptanceVersion $DecisionManifest 'DecisionManifest'
+    param([Parameter(Mandatory)]$CandidateManifest,[Parameter(Mandatory)]$DecisionManifest,[Parameter(Mandatory)]$M3UDecision,[AllowNull()][AllowEmptyCollection()][object[]]$AcceptedParentEntries = @(),[Alias('Decisions')][AllowNull()][AllowEmptyCollection()][object[]]$DecisionRecords = @())
     $decisions = @(Get-ChannelForgeAcceptanceDecisionRecords $DecisionManifest $DecisionRecords)
-    Assert-ChannelForgeAcceptanceDecisionRecords $decisions
+    Assert-ChannelForgeAcceptanceDecisionCoverage $CandidateManifest $DecisionManifest $M3UDecision $AcceptedParentEntries $decisions
     if (([string]::Join('|', @($DecisionManifest.DecisionIds))) -cne ([string]::Join('|', @($decisions | ForEach-Object DecisionId)))) { throw 'FAIL_CLOSED: decision IDs do not match records.' }
     $byId = @{}; foreach ($binding in @($CandidateManifest.BindingRecords)) { $byId[[string]$binding.BindingId] = $binding }
     $result = [System.Collections.Generic.List[object]]::new()

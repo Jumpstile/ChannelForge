@@ -78,6 +78,7 @@ PowerShellVersion = '7.6'
 # src/ChannelForge/Public/*.ps1 -- see tests/unit/ModuleManifest.Tests.ps1,
 # which fails if this list and the Public/ directory ever disagree.
 FunctionsToExport = @(
+    'New-ChannelForgeAcceptance'
     'Assert-ChannelForgeBackupSourcePath'
     'Assert-ChannelForgePathExists'
     'Assert-ChannelForgeReadPath'
