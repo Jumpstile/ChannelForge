@@ -8,6 +8,7 @@ Describe 'Issue 103 external process restart recovery' {
     It 'classifies durable-boundary process death without in-process exception recovery' {
         $cases=@(
             [pscustomobject]@{ Hook='JournalAfterReplace.Prepared'; Outcome='OLD'; Stage='Prepared' },
+            [pscustomobject]@{ Hook='PointerReplace.AfterBackupMove'; Outcome='NEW'; Stage='PointerSwapped' },
             [pscustomobject]@{ Hook='PointerReplace.After'; Outcome='NEW'; Stage='PointerSwapped' },
             [pscustomobject]@{ Hook='JournalAfterReplace.Committed'; Outcome='NEW'; Stage='Committed' }
         )

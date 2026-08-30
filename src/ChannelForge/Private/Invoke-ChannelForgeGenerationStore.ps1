@@ -3,15 +3,18 @@ $script:ChannelForgeGenerationStages = @('Prepared','GenerationPublished','Point
 
 function Get-ChannelForgeGenerationStoreType { Initialize-ChannelForgeGenerationStore }
 
+function Wait-ChannelForgeGenerationFaultBoundary {
+    param([AllowNull()][string]$FaultHook,[Parameter(Mandatory)][string]$Name)
+    if ($null -ne $FaultHook -and $FaultHook -ceq $Name -and [Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_MODE') -eq '1' -and [Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_HOLD_AT') -ceq $Name) {
+        $marker = [Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_HOLD_MARKER')
+        if (-not [string]::IsNullOrWhiteSpace($marker)) { [IO.File]::WriteAllText($marker,'READY') }
+        while ($true) { Start-Sleep -Milliseconds 100 }
+    }
+}
 function Invoke-ChannelForgeGenerationFaultHook {
     param([AllowNull()][string]$FaultHook,[Parameter(Mandatory)][string]$Name)
     if ($null -ne $FaultHook -and $FaultHook -ceq $Name) {
-        $holdAt = [Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_HOLD_AT')
-        if ([Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_MODE') -eq '1' -and $holdAt -ceq $Name) {
-            $marker = [Environment]::GetEnvironmentVariable('CHANNELFORGE_TEST_HOLD_MARKER')
-            if (-not [string]::IsNullOrWhiteSpace($marker)) { [IO.File]::WriteAllText($marker,'READY') }
-            while ($true) { Start-Sleep -Milliseconds 100 }
-        }
+        Wait-ChannelForgeGenerationFaultBoundary $FaultHook $Name
         throw "FAULT_HOOK: $Name"
     }
 }
@@ -95,17 +98,23 @@ function Ensure-ChannelForgeGenerationDirectory {
 
 function Get-ChannelForgeGenerationIdentityObject {
     param([Parameter(Mandatory)]$Identity)
-    [ordered]@{ VolumeSerial=[uint64]$Identity.VolumeSerial; FileId=[string]$Identity.FileId; ByteLength=[uint64]$Identity.ByteLength; LastWriteUtcTicks=[int64]$Identity.LastWriteUtcTicks }
+    [ordered]@{ VolumeSerial=[uint64]$Identity.VolumeSerial; FileId=[string]$Identity.FileId; ByteLength=[uint64]$Identity.ByteLength; LastWriteUtcTicks=[int64]$Identity.LastWriteUtcTicks; NumberOfLinks=[uint32]$Identity.NumberOfLinks; IsReparsePoint=[bool]$Identity.IsReparsePoint }
 }
 function Get-ChannelForgeGenerationIdentityKey {
     param([Parameter(Mandatory)]$Identity)
     '{0}|{1}|{2}|{3}' -f [uint64]$Identity.VolumeSerial,[string]$Identity.FileId,[uint64]$Identity.ByteLength,[int64]$Identity.LastWriteUtcTicks
 }
+function Get-ChannelForgeGenerationOperationalIdentityKey {
+    param([Parameter(Mandatory)]$Identity)
+    '{0}|{1}|{2}|{3}|{4}|{5}' -f [uint64]$Identity.VolumeSerial,[string]$Identity.FileId,[uint64]$Identity.ByteLength,[int64]$Identity.LastWriteUtcTicks,[uint32]$Identity.NumberOfLinks,([bool]$Identity.IsReparsePoint).ToString()
+}
 function Assert-ChannelForgeGenerationIdentity {
     param([Parameter(Mandatory)]$Expected,[Parameter(Mandatory)]$Actual,[Parameter(Mandatory)][string]$Name)
     if ((Get-ChannelForgeGenerationIdentityKey $Expected) -cne (Get-ChannelForgeGenerationIdentityKey $Actual)) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name FileIdentity changed." }
-    if ($Actual.PSObject.Properties['NumberOfLinks'] -and [uint32]$Actual.NumberOfLinks -ne 1) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name has multiple hard links." }
-    if ($Actual.PSObject.Properties['IsReparsePoint'] -and [bool]$Actual.IsReparsePoint) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name is a reparse point." }
+    if ($null -eq $Expected.NumberOfLinks -or $null -eq $Actual.NumberOfLinks -or [uint32]$Expected.NumberOfLinks -ne [uint32]$Actual.NumberOfLinks) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name NumberOfLinks changed." }
+    if ($null -eq $Expected.IsReparsePoint -or $null -eq $Actual.IsReparsePoint -or [bool]$Expected.IsReparsePoint -ne [bool]$Actual.IsReparsePoint) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name IsReparsePoint changed." }
+    if ([uint32]$Actual.NumberOfLinks -ne 1) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name has multiple hard links." }
+    if ([bool]$Actual.IsReparsePoint) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: $Name is a reparse point." }
 }
 
 function Get-ChannelForgeGenerationVolumePath {
@@ -136,6 +145,17 @@ function Assert-ChannelForgeGenerationMutationPath {
     if ($actual.IsReparsePoint -or $actual.NumberOfLinks -ne 1) { throw "FAIL_CLOSED: unsafe mutation target: $full" }
     if ($null -ne $ExpectedIdentity) { Assert-ChannelForgeGenerationIdentity -Expected $ExpectedIdentity -Actual $actual -Name $full }
     return $full
+}
+function Get-ChannelForgeGenerationMutationBinding {
+    param([Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)][string]$Path,[AllowNull()]$ExpectedIdentity,[switch]$AllowMissing)
+    $full = Assert-ChannelForgeGenerationMutationPath -RepositoryRoot $RepositoryRoot -Path $Path -ExpectedIdentity $ExpectedIdentity -AllowMissing:$AllowMissing
+    if (-not [ChannelForge.GenerationStore]::Exists($full)) {
+        if (-not $AllowMissing) { throw "FAIL_CLOSED: mutation target is missing: $full" }
+        return [pscustomobject][ordered]@{ Path=$full; Identity=$null; Key=$null }
+    }
+    $identity = Get-ChannelForgeGenerationIdentityObject ([ChannelForge.GenerationStore]::ReadPathIdentity($full))
+    if ($null -ne $ExpectedIdentity) { Assert-ChannelForgeGenerationIdentity -Expected $ExpectedIdentity -Actual $identity -Name $full }
+    [pscustomobject][ordered]@{ Path=$full; Identity=$identity; Key=(Get-ChannelForgeGenerationOperationalIdentityKey $identity) }
 }
 
 function Read-ChannelForgeGenerationFile {
@@ -169,13 +189,13 @@ function Write-ChannelForgeGenerationFile {
     $stream=$null; $opened=$null
     try {
         $stream=[ChannelForge.GenerationStore]::CreateExclusive($full)
-        if ($FaultHook -ceq $WriteHook) { $partial=[Math]::Max(1,[Math]::Min($Bytes.Length,[int][Math]::Ceiling($Bytes.Length/2.0))); $stream.Write($Bytes,0,$partial); throw "FAULT_HOOK: $WriteHook" }
+        if ($FaultHook -ceq $WriteHook) { $partial=[Math]::Max(1,[Math]::Min($Bytes.Length,[int][Math]::Ceiling($Bytes.Length/2.0))); $stream.Write($Bytes,0,$partial); Wait-ChannelForgeGenerationFaultBoundary $FaultHook $WriteHook; throw "FAULT_HOOK: $WriteHook" }
         $stream.Write($Bytes,0,$Bytes.Length)
-        if ($FaultHook -ceq $FlushHook) { throw "FAULT_HOOK: $FlushHook" }
+        if ($FaultHook -ceq $FlushHook) { Wait-ChannelForgeGenerationFaultBoundary $FaultHook $FlushHook; throw "FAULT_HOOK: $FlushHook" }
         [ChannelForge.GenerationStore]::Flush($stream)
         $opened=Get-ChannelForgeGenerationIdentityObject ([ChannelForge.GenerationStore]::ReadIdentity($stream))
     } finally { if ($null -ne $stream) { $stream.Dispose() } }
-    if ($FaultHook -ceq $ReopenHook) { throw "FAULT_HOOK: $ReopenHook" }
+    if ($FaultHook -ceq $ReopenHook) { Wait-ChannelForgeGenerationFaultBoundary $FaultHook $ReopenHook; throw "FAULT_HOOK: $ReopenHook" }
     $actual=Read-ChannelForgeGenerationFile -RepositoryRoot $RepositoryRoot -Path $full -Domain $Domain
     Assert-ChannelForgeGenerationIdentity -Expected $opened -Actual $actual.FileIdentity -Name $full
     if (-not (Test-ChannelForgeGenerationBytesEqual $actual.Bytes $Bytes)) { throw 'FAIL_CLOSED: staged bytes changed during reopen verification.' }
@@ -248,7 +268,7 @@ function Assert-ChannelForgeGenerationJournal {
         if ($kind -eq 'Delete' -and ($record.ExpectedOldPresence -ne 'Present' -or $record.ExpectedNewPresence -ne 'Absent')) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: invalid Delete mutation.' }
         if ($kind -in @('Move','Verify')) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: unsupported unpaired mutation kind.' }
         foreach($field in @('ExpectedOldByteHash','ExpectedNewByteHash')) { $present=if($field -like '*Old*'){$record.ExpectedOldPresence}else{$record.ExpectedNewPresence}; $value=Get-ChannelForgeGenerationPropertyValue $record $field; if($present -eq 'Present'){Assert-ChannelForgeGenerationHash $value $field}elseif($null -ne $value){throw 'FAIL_CLOSED_RECOVERY_REQUIRED: absent mutation has a hash.'} }
-        foreach($field in @('ExpectedOldFileIdentity','ExpectedNewFileIdentity')) { $present=if($field -like '*Old*'){$record.ExpectedOldPresence}else{$record.ExpectedNewPresence}; $value=Get-ChannelForgeGenerationPropertyValue $record $field; if($present -eq 'Present'){foreach($n in @('VolumeSerial','FileId','ByteLength','LastWriteUtcTicks')){if($null -eq (Get-ChannelForgeGenerationPropertyValue $value $n)){throw 'FAIL_CLOSED_RECOVERY_REQUIRED: incomplete mutation identity.'}}}elseif($null -ne $value){throw 'FAIL_CLOSED_RECOVERY_REQUIRED: absent mutation has identity.'} }
+        foreach($field in @('ExpectedOldFileIdentity','ExpectedNewFileIdentity')) { $present=if($field -like '*Old*'){$record.ExpectedOldPresence}else{$record.ExpectedNewPresence}; $value=Get-ChannelForgeGenerationPropertyValue $record $field; if($present -eq 'Present'){Assert-ChannelForgeGenerationPropertySequence $value @('VolumeSerial','FileId','ByteLength','LastWriteUtcTicks','NumberOfLinks','IsReparsePoint') 'MutationIdentity'; foreach($n in @('VolumeSerial','FileId','ByteLength','LastWriteUtcTicks','NumberOfLinks','IsReparsePoint')){if($null -eq (Get-ChannelForgeGenerationPropertyValue $value $n)){throw 'FAIL_CLOSED_RECOVERY_REQUIRED: incomplete mutation identity.'}}}elseif($null -ne $value){throw 'FAIL_CLOSED_RECOVERY_REQUIRED: absent mutation has identity.'} }
     }
     foreach($path in $required){if(-not $seen.Contains($path)){throw "FAIL_CLOSED_RECOVERY_REQUIRED: journal missing mutation $path."}}
 }
@@ -260,8 +280,26 @@ function Publish-ChannelForgeGenerationJournal {
     Write-ChannelForgeGenerationFile -RepositoryRoot $RepositoryRoot -Path $StagedPath -Bytes $bytes -FaultHook $FaultHook -WriteHook "JournalWrite.$suffix" -FlushHook "JournalFlush.$suffix" -ReopenHook "JournalReopenHash.$suffix" -Domain 'journal/v2' | Out-Null
     Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalStageFlush.$suffix"; Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalStageReopenHash.$suffix"
     Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalBeforeReplace.$suffix"
-    $backup="$AuthoritativePath.previous"; Assert-ChannelForgeGenerationMutationPath -RepositoryRoot $RepositoryRoot -Path $StagedPath -AllowMissing | Out-Null; Assert-ChannelForgeGenerationMutationPath -RepositoryRoot $RepositoryRoot -Path $AuthoritativePath -AllowMissing | Out-Null; Assert-ChannelForgeGenerationMutationPath -RepositoryRoot $RepositoryRoot -Path $backup -AllowMissing | Out-Null; Assert-ChannelForgeGenerationSameVolume -RepositoryRoot $RepositoryRoot -Paths @($StagedPath,$AuthoritativePath,$backup)
-    if ([IO.File]::Exists($AuthoritativePath)) { if ([IO.File]::Exists($backup)) { $prior=Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $backup -Domain 'journal/v2'; $authority=Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $AuthoritativePath -Domain 'journal/v2'; if ([string]$prior.Object.JournalHash -cne [string]$authority.Object.OldJournalHash){throw 'FAIL_CLOSED: journal chain backup is invalid.'}; [ChannelForge.GenerationStore]::DeleteFile($backup) }; [ChannelForge.GenerationStore]::ReplaceFile($StagedPath,$AuthoritativePath,$backup) } else { [ChannelForge.GenerationStore]::MoveFile($StagedPath,$AuthoritativePath) }
+    $backup="$AuthoritativePath.previous"
+    $stagedBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot $StagedPath
+    $authorityBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot $AuthoritativePath -AllowMissing
+    $backupBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot $backup -AllowMissing
+    $parentBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot (Split-Path -Parent $AuthoritativePath)
+    $backupWasPresent=$null -ne $backupBinding.Identity
+    Assert-ChannelForgeGenerationSameVolume -RepositoryRoot $RepositoryRoot -Paths @($StagedPath,$AuthoritativePath,$backup)
+    if ([IO.File]::Exists($AuthoritativePath)) {
+        if ([IO.File]::Exists($backup)) {
+            if (-not $backupWasPresent) { throw 'FAIL_CLOSED: journal backup appeared after validation.' }
+            $prior=Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $backup -Domain 'journal/v2'; $authority=Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $AuthoritativePath -Domain 'journal/v2'
+            if ([string]$prior.Object.JournalHash -cne [string]$authority.Object.OldJournalHash){throw 'FAIL_CLOSED: journal chain backup is invalid.'}
+            [ChannelForge.GenerationStore]::DeleteFileBound($backup,$backupBinding.Key)
+            $parentBinding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot (Split-Path -Parent $AuthoritativePath)
+        } elseif ($backupWasPresent) { throw 'FAIL_CLOSED: journal backup disappeared after validation.' }
+        [ChannelForge.GenerationStore]::ReplaceFileBound($StagedPath,$AuthoritativePath,$backup,$stagedBinding.Key,$authorityBinding.Key,$parentBinding.Key)
+    } else {
+        if ($backupWasPresent -or [IO.File]::Exists($backup)) { throw 'FAIL_CLOSED: journal backup appeared without authority.' }
+        [ChannelForge.GenerationStore]::MoveFileBound($StagedPath,$AuthoritativePath,$stagedBinding.Key,$parentBinding.Key)
+    }
     $verified=Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $AuthoritativePath -Domain 'journal/v2'; Assert-ChannelForgeGenerationJournal -Journal $verified.Object -RepositoryRoot $RepositoryRoot -Paths (Get-ChannelForgeGenerationPaths $RepositoryRoot); if ([string]$verified.Object.JournalHash -cne [string]$Journal.JournalHash){throw 'FAIL_CLOSED: authoritative journal hash mismatch.'}
     Invoke-ChannelForgeGenerationFaultHook $FaultHook "JournalAfterReplace.$suffix"
     return $verified
@@ -322,6 +360,11 @@ function Assert-ChannelForgeGenerationCleanupOwnership {
     }
 }
 
+function Remove-ChannelForgeGenerationBoundDirectory {
+    param([Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)][string]$Path)
+    $binding=Get-ChannelForgeGenerationMutationBinding $RepositoryRoot $Path
+    [ChannelForge.GenerationStore]::DeleteDirectoryTreeBound($binding.Path,$binding.Key)
+}
 function Publish-ChannelForgeGenerationCore {
     param([Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)]$GenerationManifest,[Parameter(Mandatory)]$AcceptedState,[Parameter(Mandatory)]$AcceptedOutputManifest,[Parameter(Mandatory)]$DecisionManifest,[Parameter(Mandatory)][byte[]]$M3UBytes,[AllowNull()][byte[]]$XMLTVBytes,[AllowNull()][string]$FaultHook)
     $root = [IO.Path]::GetFullPath($RepositoryRoot)
@@ -341,6 +384,7 @@ function Publish-ChannelForgeGenerationCore {
     try {
         try { $lease = [ChannelForge.GenerationStore]::AcquireLock($paths.Lock) } catch { throw "FAIL_CLOSED: $($_.Exception.Message)" }
         $lease.WriteMetadata([Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Json ([ordered]@{TransactionId=$tx;ProcessId=$PID}) -Compress)))
+        $lockIdentity=Get-ChannelForgeGenerationIdentityObject $lease.SnapshotIdentity()
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.GenerationManifest.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.AcceptedState.Before'
@@ -388,16 +432,31 @@ function Publish-ChannelForgeGenerationCore {
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook Prepared | Out-Null
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'GenerationDirectoryMove.Before'
         Assert-ChannelForgeGenerationMutationPath $root $stagedGeneration | Out-Null
-        Assert-ChannelForgeGenerationMutationPath $root $finalGeneration -AllowMissing | Out-Null
-        [ChannelForge.GenerationStore]::MoveDirectory($stagedGeneration,$finalGeneration)
+        $stagedGenerationBinding=Get-ChannelForgeGenerationMutationBinding $root $stagedGeneration
+        $finalGenerationBinding=Get-ChannelForgeGenerationMutationBinding $root $finalGeneration -AllowMissing
+        $generationParentBinding=Get-ChannelForgeGenerationMutationBinding $root $paths.Generations
+        [ChannelForge.GenerationStore]::MoveDirectoryBound($stagedGeneration,$finalGeneration,$stagedGenerationBinding.Key,$generationParentBinding.Key)
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'GenerationDirectoryMove.After'
         $journal = New-ChannelForgeGenerationJournal GenerationPublished $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook GenerationPublished | Out-Null
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'PointerReplace.Before'
-        Assert-ChannelForgeGenerationMutationPath $root (Join-Path $transactionRoot 'accepted-lineup.json') -AllowMissing | Out-Null
-        Assert-ChannelForgeGenerationMutationPath $root $paths.Current -AllowMissing | Out-Null
-        Assert-ChannelForgeGenerationMutationPath $root $paths.Previous -AllowMissing | Out-Null
-        if ($null -ne $current) { [ChannelForge.GenerationStore]::ReplaceFile((Join-Path $transactionRoot 'accepted-lineup.json'),$paths.Current,$paths.Previous) } else { [ChannelForge.GenerationStore]::MoveFile((Join-Path $transactionRoot 'accepted-lineup.json'),$paths.Current) }
+        $stagedPointerPath=Join-Path $transactionRoot 'accepted-lineup.json'
+        $stagedPointerBinding=Get-ChannelForgeGenerationMutationBinding $root $stagedPointerPath
+        $currentPointerBinding=if ($null -eq $current) { Get-ChannelForgeGenerationMutationBinding $root $paths.Current -AllowMissing } else { Get-ChannelForgeGenerationMutationBinding $root $paths.Current -ExpectedIdentity $current.Pointer.FileIdentity }
+        $previousPointerBinding=Get-ChannelForgeGenerationMutationBinding $root $paths.Previous -AllowMissing
+        $pointerParentBinding=Get-ChannelForgeGenerationMutationBinding $root (Split-Path -Parent $paths.Current)
+        if ($null -ne $current) {
+            if ($null -ne $previousPointerBinding.Identity) {
+                [ChannelForge.GenerationStore]::DeleteFileBound($paths.Previous,$previousPointerBinding.Key)
+                $pointerParentBinding=Get-ChannelForgeGenerationMutationBinding $root (Split-Path -Parent $paths.Current)
+            }
+            [ChannelForge.GenerationStore]::MoveFileBound($paths.Current,$paths.Previous,$currentPointerBinding.Key,$pointerParentBinding.Key)
+            Invoke-ChannelForgeGenerationFaultHook $FaultHook 'PointerReplace.AfterBackupMove'
+            $pointerParentBinding=Get-ChannelForgeGenerationMutationBinding $root (Split-Path -Parent $paths.Current)
+            [ChannelForge.GenerationStore]::MoveFileBound($stagedPointerPath,$paths.Current,$stagedPointerBinding.Key,$pointerParentBinding.Key)
+        } else {
+            [ChannelForge.GenerationStore]::MoveFileBound($stagedPointerPath,$paths.Current,$stagedPointerBinding.Key,$pointerParentBinding.Key)
+        }
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'PointerReplace.After'
         $journal = New-ChannelForgeGenerationJournal PointerSwapped $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook PointerSwapped | Out-Null
@@ -409,13 +468,13 @@ function Publish-ChannelForgeGenerationCore {
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.GenerationStage.Before'
         Assert-ChannelForgeGenerationCleanupOwnership $journal $root $paths
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.TransactionDirectory.Before'
-        if ([IO.Directory]::Exists($transactionRoot)) { Assert-ChannelForgeGenerationMutationPath $root $transactionRoot | Out-Null; [ChannelForge.GenerationStore]::DeleteDirectory($transactionRoot) }
+        if ([IO.Directory]::Exists($transactionRoot)) { Remove-ChannelForgeGenerationBoundDirectory -RepositoryRoot $root -Path $transactionRoot }
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.TransactionDirectory.After'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.GenerationStage.After'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.PointerJournalBackup.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.PointerJournalBackup.After'
         if ($null -ne $lease) { $lease.Dispose(); $lease = $null }
-        if ([IO.File]::Exists($paths.Lock)) { Assert-ChannelForgeGenerationMutationPath $root $paths.Lock | Out-Null; [ChannelForge.GenerationStore]::DeleteFile($paths.Lock) }
+        if ([IO.File]::Exists($paths.Lock)) { $lockBinding=Get-ChannelForgeGenerationMutationBinding $root $paths.Lock -ExpectedIdentity $lockIdentity; [ChannelForge.GenerationStore]::DeleteFileBound($lockBinding.Path,$lockBinding.Key) }
         [pscustomobject][ordered]@{Outcome='NEW';TransactionId=$tx;GenerationId=$id;PointerHash=[string]$pointer.PointerHash;GenerationManifestHash=[string]$GenerationManifest.GenerationManifestHash}
     } finally { if ($null -ne $lease) { $lease.Dispose() } }
 }
@@ -444,6 +503,7 @@ function Assert-ChannelForgeGenerationJournalEvidence {
     $stagedPointer = Join-Path $tx 'accepted-lineup.json'
     $currentPointer = if ([IO.File]::Exists($Paths.Current)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Current 'pointer/v2' } else { $null }
     $previousPointer = if ([IO.File]::Exists($Paths.Previous)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Previous 'pointer/v2' } else { $null }
+    $hasStagedPointer = [IO.File]::Exists($stagedPointer)
     $pointer = if ($stage -eq 'Prepared' -or ($stage -eq 'GenerationPublished' -and [IO.File]::Exists($stagedPointer))) { Read-ChannelForgeGenerationDocument $RepositoryRoot $stagedPointer 'pointer/v2' } else { $currentPointer }
     if ($null -eq $pointer -or [string]$pointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: journal pointer evidence mismatch.' }
     if ([string]$pointer.Object.GenerationId -cne $id -or [string]$pointer.Object.GenerationManifestHash -cne [string]$manifest.Object.GenerationManifestHash -or [string]$pointer.Object.AcceptedStateHash -cne [string]$state.Object.AcceptedStateHash -or [string]$pointer.Object.AcceptedOutputManifestHash -cne [string]$output.Object.OutputManifestHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: journal pointer graph mismatch.' }
@@ -457,14 +517,19 @@ function Assert-ChannelForgeGenerationJournalEvidence {
         if ([IO.Directory]::Exists((Join-Path $Paths.Generations $id))) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: Prepared final generation exists.' }
         if ($null -ne $currentPointer) {
             if ($null -eq $Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: Prepared old pointer mismatch.' }
-        } elseif ($null -ne $Journal.ExpectedOldPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: Prepared old pointer is missing.' }
+        } elseif ($null -ne $Journal.ExpectedOldPointerHash) {
+            throw 'FAIL_CLOSED_RECOVERY_REQUIRED: Prepared old pointer is missing.'
+        }
     } elseif ($stage -eq 'GenerationPublished') {
-        $hasStagedPointer = [IO.File]::Exists($stagedPointer)
         if ($hasStagedPointer) {
             if ($null -ne $currentPointer) {
                 if ($null -eq $Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$currentPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer mismatch. actual=$($currentPointer.Object.PointerHash)/$($currentPointer.Object.GenerationId) expected=$($Journal.ExpectedOldPointerHash)/$($Journal.ExpectedOldGenerationId)" }
-            } elseif ($null -ne $Journal.ExpectedOldPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer is missing.' }
-        } elseif ($null -eq $currentPointer -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished pointer state is ambiguous.' }
+            } elseif ($null -ne $Journal.ExpectedOldPointerHash -and ($null -eq $previousPointer -or [string]$previousPointer.Object.PointerHash -cne [string]$Journal.ExpectedOldPointerHash -or [string]$previousPointer.Object.GenerationId -cne [string]$Journal.ExpectedOldGenerationId)) {
+                throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished old pointer is missing or displaced.'
+            }
+        } elseif ($null -eq $currentPointer -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) {
+            throw 'FAIL_CLOSED_RECOVERY_REQUIRED: GenerationPublished pointer state is ambiguous.'
+        }
     } else {
         if ($null -eq $currentPointer -or [string]$currentPointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) { throw "FAIL_CLOSED_RECOVERY_REQUIRED: swapped current pointer mismatch. actual=$($currentPointer.Object.PointerHash) expected=$($Journal.ExpectedNewPointerHash)" }
         if ($null -eq $Journal.ExpectedOldPointerHash) {
@@ -524,7 +589,16 @@ function Recover-ChannelForgeAcceptedStateCore {
             $isNew = $null -ne $current -and [string]$current.Pointer.Object.PointerHash -ceq [string]$object.ExpectedNewPointerHash
             if (-not $isNew) {
                 if (-not [IO.File]::Exists($stagePointer)) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: staged pointer missing.' }
-                if ($null -ne $current) { [ChannelForge.GenerationStore]::ReplaceFile($stagePointer,$paths.Current,$paths.Previous) } else { [ChannelForge.GenerationStore]::MoveFile($stagePointer,$paths.Current) }
+                $stagedPointerBinding=Get-ChannelForgeGenerationMutationBinding $root $stagePointer
+                $currentPointerBinding=if ($null -eq $current) { Get-ChannelForgeGenerationMutationBinding $root $paths.Current -AllowMissing } else { Get-ChannelForgeGenerationMutationBinding $root $paths.Current -ExpectedIdentity $current.Pointer.FileIdentity }
+                $previousPointerBinding=Get-ChannelForgeGenerationMutationBinding $root $paths.Previous -AllowMissing
+                $pointerParentBinding=Get-ChannelForgeGenerationMutationBinding $root (Split-Path -Parent $paths.Current)
+                if ($null -ne $current) {
+                    if ($null -ne $previousPointerBinding.Identity) { [ChannelForge.GenerationStore]::DeleteFileBound($paths.Previous,$previousPointerBinding.Key); $pointerParentBinding=Get-ChannelForgeGenerationMutationBinding $root (Split-Path -Parent $paths.Current) }
+                    [ChannelForge.GenerationStore]::ReplaceFileBound($stagePointer,$paths.Current,$paths.Previous,$stagedPointerBinding.Key,$currentPointerBinding.Key,$pointerParentBinding.Key)
+                } else {
+                    [ChannelForge.GenerationStore]::MoveFileBound($stagePointer,$paths.Current,$stagedPointerBinding.Key,$pointerParentBinding.Key)
+                }
                 $current = Get-ChannelForgeGenerationCurrentSnapshot $root $paths
                 if ([string]$current.Pointer.Object.PointerHash -cne [string]$object.ExpectedNewPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: pointer replacement postcondition mismatch.' }
             }
@@ -541,7 +615,7 @@ function Recover-ChannelForgeAcceptedStateCore {
         if ($object.JournalStage -eq 'Committed') {
             $null = Get-ChannelForgeGenerationCurrentSnapshot $root $paths
             Assert-ChannelForgeGenerationCleanupOwnership $object $root $paths
-            if ([IO.Directory]::Exists($transactionRoot)) { [ChannelForge.GenerationStore]::DeleteDirectory($transactionRoot) }
+            if ([IO.Directory]::Exists($transactionRoot)) { Remove-ChannelForgeGenerationBoundDirectory -RepositoryRoot $root -Path $transactionRoot }
             return [pscustomobject][ordered]@{ Outcome='NEW'; Mutation='CleanupOnly'; JournalStage='Committed'; GenerationId=[string]$current.Pointer.Object.GenerationId }
         }
         throw 'FAIL_CLOSED_RECOVERY_REQUIRED: unsupported journal stage.'
