@@ -79,6 +79,8 @@ PowerShellVersion = '7.6'
 # which fails if this list and the Public/ directory ever disagree.
 FunctionsToExport = @(
     'New-ChannelForgeAcceptance'
+    'Publish-ChannelForgeAcceptedGeneration'
+    'Recover-ChannelForgeAcceptedState'
     'Assert-ChannelForgeBackupSourcePath'
     'Assert-ChannelForgePathExists'
     'Assert-ChannelForgeReadPath'

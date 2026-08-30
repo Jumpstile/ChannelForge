@@ -134,3 +134,13 @@ hash, reconstructs the LF-delimited manifest, and verifies the final
 `RevisionContentId`. It fails closed on a missing, reordered, duplicate,
 mixed-source, or mismatched manifest entry. The verifier does not read
 normative files from the working tree.
+
+## Dated integration update — 2026-08-29 — Issue #103 runtime
+
+The corrected v9 authority above remains unchanged. Issue #103 implements the
+runtime-only immutable generation staging, pointer replacement, journal
+transitions, safe-handle identity checks, and restart classification against
+`ContractRevisionId = blocker-2-contract/v9` and
+`RevisionContentId = 1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192`.
+This entry is nonnormative integration status; it does not modify the frozen
+normative byte set.

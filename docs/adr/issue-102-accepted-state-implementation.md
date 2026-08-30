@@ -1,6 +1,6 @@
 # Issue #102 accepted-state implementation
 
-Status: local implementation/review work only on `review/issue-102-accepted-state-v9`. The v9 freeze itself did not resume Issue #102; #102 remained held until the #110 Candidate Version Registry Migration completed. #110 is now integrated, and the later #102 restart authority clears that implementation hold. This branch still carries no merge or release authorization until its own gates pass.
+Status: Issue #102 implementation is integrated on `main` at `2cf8051275fb6d9f34d68fc12c18a631fde026dd`; its pure acceptance projections remain the input boundary for Issue #103. This record is historical and nonnormative.
 
 ## Scope
 
@@ -14,7 +14,7 @@ The acceptance projection module in `src/ChannelForge/Private/New-ChannelForgeAc
 - first-generation and later-generation lineage validation;
 - required `IncludedCandidateEntryIds` and `ExcludedCandidateEntryIds` partition fields. Missing fields are invalid; they are never reconstructed from decision records.
 
-The implementation does not publish a pointer, replace accepted files, advance a journal, promote a generation, recover a transaction, or add runtime/provider/scheduler/UI behavior. Those operations remain outside this Issue #102 change.
+The implementation does not publish a pointer, replace accepted files, advance a journal, promote a generation, recover a transaction, or add runtime/provider/scheduler/UI behavior. Issue #103 now owns those filesystem publication and recovery operations in separate runtime commands; this Issue #102 slice remains pure.
 
 ## Authority and versions
 
@@ -22,4 +22,4 @@ The frozen v9 EntryOutputSlice erratum is preserved byte-for-byte under [`docs/a
 
 ## Verification
 
-`tests/unit/Issue102AcceptedState.Tests.ps1` covers deterministic field order and hashes, Generated/NotGenerated XMLTV vectors, exact prior-slice reconstruction, candidate/accepted comparison, and invalid actionable review cardinality. Full repository gates are recorded in the local delivery packet for this branch.
+`tests/unit/Issue102AcceptedState.Tests.ps1` covers deterministic field order and hashes, Generated/NotGenerated XMLTV vectors, exact prior-slice reconstruction, candidate/accepted comparison, and invalid actionable review cardinality. Issue #103 adds the immutable generation publication and restart-recovery boundary without changing these projections.
