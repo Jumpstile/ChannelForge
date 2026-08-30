@@ -252,16 +252,12 @@ function Invoke-TlsScenario {
         $serverStream = [System.Net.Security.SslStream]::new($accepted.GetStream(), $false)
         $certificate = $chain.Server
         $options = [System.Net.Security.SslServerAuthenticationOptions]::new()
-        $sniHolder = [pscustomobject]@{ Name = $null }
-        $options.ServerCertificateSelectionCallback = [System.Net.Security.ServerCertificateSelectionCallback]{
-            param($sender, $serverName)
-            $sniHolder.Name = [string]$serverName
-            return $certificate
-        }.GetNewClosure()
+        $tlsCallbacks = [ChannelForgePinnedConnectionTlsCallbacks]::new($certificate)
+        $options.ServerCertificateSelectionCallback = $tlsCallbacks.CreateSelectionCallback()
 
         try {
             $serverStream.AuthenticateAsServerAsync($options).GetAwaiter().GetResult()
-            $observedSni = $sniHolder.Name
+            $observedSni = $tlsCallbacks.ServerName
             if ($MatchingCertificate) {
                 $buffer = New-Object byte[] 4096
                 $null = $serverStream.Read($buffer, 0, $buffer.Length)
@@ -271,7 +267,7 @@ function Invoke-TlsScenario {
             }
         }
         catch {
-            $observedSni = $sniHolder.Name
+            $observedSni = $tlsCallbacks.ServerName
             $serverError = [string]$_.Exception.Message
         }
 
@@ -329,6 +325,34 @@ function Invoke-TlsScenario {
 try {
     Import-Module -Name $manifestPath -Force
     $script:HelperType = Get-HelperType
+    # SslStream may invoke this callback on a worker thread without a PowerShell runspace.
+    $script:TlsCallbackType = Add-Type -TypeDefinition @"
+using System;
+using System.Net.Security;
+using System.Threading;
+using System.Security.Cryptography.X509Certificates;
+
+public sealed class ChannelForgePinnedConnectionTlsCallbacks
+{
+    private readonly X509Certificate2 _certificate;
+    private string _serverName;
+
+    public ChannelForgePinnedConnectionTlsCallbacks(X509Certificate2 certificate)
+    {
+        _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
+    }
+
+    public string ServerName => Volatile.Read(ref _serverName);
+
+    public ServerCertificateSelectionCallback CreateSelectionCallback() => Select;
+
+    public X509Certificate Select(object sender, string serverName)
+    {
+        Volatile.Write(ref _serverName, serverName);
+        return _certificate;
+    }
+}
+"@ -PassThru | Select-Object -First 1
 
     switch ($Scenario) {
         'handler-policy' {
