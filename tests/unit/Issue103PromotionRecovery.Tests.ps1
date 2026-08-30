@@ -175,6 +175,30 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
         } $drives[0].Root @($drives[0].Root,$drives[1].Root)
     }
 
+    It 'persists and validates all operational FileIdentity fields without semantic hash coupling' {
+        $root=Join-Path $TestDrive 'identity-fields'
+        $fixture=New-Issue103Fixture -GenerationId '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $root -GenerationManifest $fixture.GenerationManifest -AcceptedState $fixture.AcceptedState -AcceptedOutputManifest $fixture.AcceptedOutputManifest -DecisionManifest $fixture.DecisionManifest -M3UBytes $fixture.M3UBytes | Out-Null
+        $journalPath=Join-Path $root 'state/accepted-lineup.journal.json'
+        $journal=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($journalPath)) -AsHashtable -Depth 100
+        $identity=$journal.MutationRecords[0].ExpectedNewFileIdentity
+        @('VolumeSerial','FileId','ByteLength','LastWriteUtcTicks','NumberOfLinks','IsReparsePoint') | ForEach-Object { $identity.ContainsKey($_) | Should -BeTrue -Because $_ }
+        $semanticBefore=& (Get-Module ChannelForge) { param($value) Get-ChannelForgeGenerationIdentityKey $value } $identity
+        $operationalVariant=[ordered]@{}; foreach($property in $identity.Keys){$operationalVariant[$property]=$identity[$property]}
+        $operationalVariant.NumberOfLinks=99; $operationalVariant.IsReparsePoint=$true
+        $semanticAfter=& (Get-Module ChannelForge) { param($left,$right) (Get-ChannelForgeGenerationIdentityKey $left) -eq (Get-ChannelForgeGenerationIdentityKey $right) } $identity $operationalVariant
+        $semanticAfter | Should -BeTrue
+        $journal.MutationRecords[0].ExpectedNewFileIdentity.NumberOfLinks=2
+        $projection=[ordered]@{Version=$journal.Version;TransactionId=$journal.TransactionId;JournalStage=$journal.JournalStage;ExpectedOldPointerHash=$journal.ExpectedOldPointerHash;ExpectedNewPointerHash=$journal.ExpectedNewPointerHash;ExpectedOldGenerationId=$journal.ExpectedOldGenerationId;ExpectedNewGenerationId=$journal.ExpectedNewGenerationId;MutationRecords=$journal.MutationRecords;OldJournalHash=$journal.OldJournalHash}
+        $journal.JournalHash=& (Get-Module ChannelForge) { param($projection) Get-ChannelForgeDomainHash -Domain 'journal/v2' -InputObject (ConvertTo-ChannelForgeGenerationCanonicalObject $projection) } $projection
+        [IO.File]::WriteAllBytes($journalPath,(& (Get-Module ChannelForge) { param($value) ConvertTo-ChannelForgeGenerationBytes $value } $journal))
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $root } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
+        $journal.MutationRecords[0].ExpectedNewFileIdentity.NumberOfLinks=1
+        $journal.MutationRecords[0].ExpectedNewFileIdentity.IsReparsePoint=$true
+        $journal.JournalHash=& (Get-Module ChannelForge) { param($projection) Get-ChannelForgeDomainHash -Domain 'journal/v2' -InputObject (ConvertTo-ChannelForgeGenerationCanonicalObject $projection) } $projection
+        [IO.File]::WriteAllBytes($journalPath,(& (Get-Module ChannelForge) { param($value) ConvertTo-ChannelForgeGenerationBytes $value } $journal))
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $root } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
+    }
     It 'rejects self-valid journal tampering of predecessor and file identity' {
         $root=Join-Path $TestDrive 'journal-tamper'
         $fixture=New-Issue103Fixture -GenerationId '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
