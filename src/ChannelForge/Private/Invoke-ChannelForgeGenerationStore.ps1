@@ -464,9 +464,9 @@ function Publish-ChannelForgeGenerationCore {
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'PointerReplace.After'
         $journal = New-ChannelForgeGenerationJournal PointerSwapped $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook PointerSwapped | Out-Null
-        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Before'
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.AfterPointerSwap.Before'
         $null = Get-ChannelForgeGenerationCurrentSnapshot $root $paths
-        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.After'
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.AfterPointerSwap.After'
         $journal = New-ChannelForgeGenerationJournal Committed $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook Committed | Out-Null
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'CleanupDelete.GenerationStage.Before'
