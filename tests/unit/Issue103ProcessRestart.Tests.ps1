@@ -30,6 +30,22 @@ BeforeAll {
             } else { Write-Host ("ISSUE103_RECOVERY_DIR|case=$Case|name=$name|absent") }
         }
     }
+    function global:Wait-Issue103LockReleased {
+        param([Parameter(Mandatory)][string]$Path)
+        $deadline=[DateTime]::UtcNow.AddSeconds(5)
+        do {
+            if(-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+            try {
+                $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+                $stream.Dispose()
+                return
+            } catch {
+                $null=$_.Exception
+            }
+            Start-Sleep -Milliseconds 25
+        } while([DateTime]::UtcNow -lt $deadline)
+        throw "Timed out waiting for external process lock release: $Path"
+    }
 
 Describe 'Issue 103 external process restart recovery' {
     It 'classifies durable-boundary process death without in-process exception recovery' {
@@ -54,6 +70,7 @@ Describe 'Issue 103 external process restart recovery' {
             } finally {
                 if (-not $process.HasExited) { $process.Kill($true) }
                 $process.WaitForExit()
+                Wait-Issue103LockReleased -Path (Join-Path $root 'state/lineup-operation.lock')
                 Remove-Item $marker -Force -ErrorAction SilentlyContinue
             }
             $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root
@@ -77,6 +94,7 @@ Describe 'Issue 103 external process restart recovery' {
             } finally {
                 if (-not $process.HasExited) { $process.Kill($true) }
                 $process.WaitForExit()
+                Wait-Issue103LockReleased -Path (Join-Path $root 'state/lineup-operation.lock')
                 Remove-Item $marker -Force -ErrorAction SilentlyContinue
             }
             (Test-Path (Join-Path $root 'state/accepted-lineup.json')) | Should -BeFalse
@@ -110,7 +128,8 @@ Describe 'Issue 103 external process restart recovery' {
                 (Test-Path $marker) | Should -BeTrue -Because "child reached $($case.Case) $($case.Hook)"
             } finally {
                 if(-not $process.HasExited){$process.Kill($true)}
-                $process.WaitForExit(); Remove-Item $marker -Force -ErrorAction SilentlyContinue
+                $process.WaitForExit()
+                Wait-Issue103LockReleased -Path (Join-Path $root 'state/lineup-operation.lock'); Remove-Item $marker -Force -ErrorAction SilentlyContinue
             }
             $actualClassification=''; $actualException=''
             try { $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root; $actualClassification="$($recovery.Outcome)/$($recovery.JournalStage)" } catch { $actualException=$_.Exception.ToString(); $actualClassification=$_.Exception.Message.Split("`n")[0].Trim() }
