@@ -389,7 +389,7 @@ function Publish-ChannelForgeGenerationCore {
         try { $lease = [ChannelForge.GenerationStore]::AcquireLock($paths.Lock) } catch { throw "FAIL_CLOSED: $($_.Exception.Message)" }
         $lease.WriteMetadata([Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Json ([ordered]@{TransactionId=$tx;ProcessId=$PID}) -Compress)))
         $lockIdentity=Get-ChannelForgeGenerationIdentityObject $lease.SnapshotIdentity()
-        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Before'
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Initial.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.GenerationManifest.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.AcceptedState.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.OutputManifest.Before'
@@ -401,7 +401,7 @@ function Publish-ChannelForgeGenerationCore {
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.OutputManifest.After'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.M3U.After'
         if ([string]$AcceptedOutputManifest.ActiveXMLTVStatus -eq 'Generated') { Invoke-ChannelForgeGenerationFaultHook $FaultHook 'Verify.XMLTV.After' }
-        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.After'
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Initial.After'
         if ($null -eq $current -and [IO.File]::Exists($paths.Previous)) { throw 'FAIL_CLOSED: previous pointer without current.' }
         if ($null -ne $current -and [string]::IsNullOrEmpty([string]$AcceptedState.PreviousStateHash)) { throw 'FAIL_CLOSED: missing parent state hash.' }
         if ($null -ne $current -and [string]$AcceptedState.PreviousStateHash -cne [string]$current.State.Object.AcceptedStateHash) { throw 'FAIL_CLOSED: parent state mismatch.' }
@@ -464,8 +464,10 @@ function Publish-ChannelForgeGenerationCore {
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'PointerReplace.After'
         $journal = New-ChannelForgeGenerationJournal PointerSwapped $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook PointerSwapped | Out-Null
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.Before'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.AfterPointerSwap.Before'
         $null = Get-ChannelForgeGenerationCurrentSnapshot $root $paths
+        Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.After'
         Invoke-ChannelForgeGenerationFaultHook $FaultHook 'VerifyCurrentPointer.AfterPointerSwap.After'
         $journal = New-ChannelForgeGenerationJournal Committed $tx $oldPointerHash $pointer.PointerHash $oldGenerationId $id @($records) $journal.JournalHash
         Publish-ChannelForgeGenerationJournal $root $paths.Journal $stagedJournal $journal $FaultHook Committed | Out-Null
