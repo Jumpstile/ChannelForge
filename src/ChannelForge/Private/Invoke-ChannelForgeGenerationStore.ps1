@@ -507,12 +507,39 @@ function Assert-ChannelForgeGenerationJournalEvidence {
     $stagedPointer = Join-Path $tx 'accepted-lineup.json'
     $currentPointer = if ([IO.File]::Exists($Paths.Current)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Current 'pointer/v2' } else { $null }
     $previousPointer = if ([IO.File]::Exists($Paths.Previous)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Previous 'pointer/v2' } else { $null }
+    $generationRecords=@{}
+    foreach ($finalEntry in [IO.Directory]::GetDirectories($Paths.Generations)) {
+        $finalId=[IO.Path]::GetFileName($finalEntry)
+        $finalManifest=Read-ChannelForgeGenerationDocument $RepositoryRoot (Join-Path $finalEntry 'generation.manifest.json') 'generation-manifest/v2'
+        $finalState=Read-ChannelForgeGenerationDocument $RepositoryRoot (Join-Path $finalEntry 'accepted-state.json') 'accepted-state/v2'
+        $finalOutput=Read-ChannelForgeGenerationDocument $RepositoryRoot (Join-Path $finalEntry 'accepted-output.manifest.json') 'previous-output-manifest/v2'
+        $finalDecision=Read-ChannelForgeGenerationDocument $RepositoryRoot (Join-Path $finalEntry 'decision-manifest.json') 'decision-manifest/v2'
+        Assert-ChannelForgeGenerationAcceptedGraph $finalManifest.Object $finalState.Object $finalOutput.Object $finalDecision.Object $finalId
+        $generationRecords[$finalId]=[pscustomobject]@{Manifest=$finalManifest.Object;State=$finalState.Object;Output=$finalOutput.Object}
+    }
     $allowedGenerationIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     [void]$allowedGenerationIds.Add($id)
     if ($null -ne $currentPointer) { [void]$allowedGenerationIds.Add([string]$currentPointer.Object.GenerationId) }
     if ($null -ne $previousPointer) { [void]$allowedGenerationIds.Add([string]$previousPointer.Object.GenerationId) }
-    foreach ($finalEntry in [IO.Directory]::GetDirectories($Paths.Generations)) {
-        if (-not $allowedGenerationIds.Contains([IO.Path]::GetFileName($finalEntry))) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: unrelated finalized generation exists.' }
+    $expanded=$true
+    while ($expanded) {
+        $expanded=$false
+        foreach ($candidateId in @($generationRecords.Keys)) {
+            if ($allowedGenerationIds.Contains($candidateId)) { continue }
+            $candidate=$generationRecords[$candidateId]
+            foreach ($allowedId in @($allowedGenerationIds)) {
+                if (-not $generationRecords.ContainsKey($allowedId)) { continue }
+                $ancestor=$generationRecords[$allowedId]
+                if ([string]$candidate.State.AcceptedStateHash -ceq [string]$ancestor.State.PreviousStateHash -and [string]$candidate.Output.OutputManifestHash -ceq [string]$ancestor.Manifest.PreviousOutputManifestHash) {
+                    [void]$allowedGenerationIds.Add($candidateId)
+                    $expanded=$true
+                    break
+                }
+            }
+        }
+    }
+    foreach ($finalId in @($generationRecords.Keys)) {
+        if (-not $allowedGenerationIds.Contains($finalId)) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: unrelated finalized generation exists.' }
     }
     $hasStagedPointer = [IO.File]::Exists($stagedPointer)
     $pointer = if ($stage -eq 'Prepared' -or ($stage -eq 'GenerationPublished' -and [IO.File]::Exists($stagedPointer))) { Read-ChannelForgeGenerationDocument $RepositoryRoot $stagedPointer 'pointer/v2' } else { $currentPointer }
