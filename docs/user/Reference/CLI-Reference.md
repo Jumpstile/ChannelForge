@@ -27,13 +27,13 @@ pwsh -File scripts/Build-My-Lineup.ps1
 
 A material ambiguous guide identity pauses for a choice: keep the channels but publish no guide, or cancel. The no-guide path is valid and never invents EPG data.
 
-| Parameter | Required | Notes |
-| --- | --- | --- |
-| `-Root` | No | Repository root. |
-| `-M3UPath` | No | Playlist path. Omit it to be prompted. |
-| `-XMLTVPath` | No | Optional guide path. Omit it, or answer blank at the prompt, for no guide. |
-| `-Accept` | No | Publishes the reviewed lineup. Without it, only the proposal and result reports are written. |
-| `-AmbiguousAction` | No | `KeepWithoutGuide` or `Cancel`; omission prompts when ambiguity exists. |
+| Parameter          | Required | Notes                                                                                        |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------- |
+| `-Root`            | No       | Repository root.                                                                             |
+| `-M3UPath`         | No       | Playlist path. Omit it to be prompted.                                                       |
+| `-XMLTVPath`       | No       | Optional guide path. Omit it, or answer blank at the prompt, for no guide.                   |
+| `-Accept`          | No       | Publishes the reviewed lineup. Without it, only the proposal and result reports are written. |
+| `-AmbiguousAction` | No       | `KeepWithoutGuide` or `Cancel`; omission prompts when ambiguity exists.                      |
 
 **Output:** proposal and result reports under `output/reports/`; after explicit acceptance, use `output/guided-setup/accepted/lineup.m3u` and, when selected, `output/guided-setup/accepted/guide.xml`.
 
