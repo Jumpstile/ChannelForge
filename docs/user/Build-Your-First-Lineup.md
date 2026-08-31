@@ -1,28 +1,75 @@
 # Build Your First Lineup
 
-This walks you from a fresh clone to a real, playable `merged.m3u` file, using your own provider playlist — without ever touching a tracked repository file.
+## What you need
+
+- PowerShell 7.6 or newer (Core edition).
+- One IPTV playlist file in M3U format.
+- An XMLTV guide file if you want guide data. Press Enter at the guide prompt to continue without one.
+- Git and Pester 5.7.1 only if you are validating the checkout.
+  M3U is the channel playlist; XMLTV is optional programme and guide data.
+
+Your playlist and guide are private input. Keep them local; never commit or paste their contents into an issue.
+
+## One safe flow
+
+The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, pauses only for material guide ambiguity, shows a concise proposal, and publishes only after explicit `-Accept`:
 
 ```text
-your provider's M3U file              ChannelForge                 what you get
-──────────────────────────  ──►  scripts/Build-Lineup.ps1  ──►  output/merged.m3u
-  (saved locally,                 (parses, dedupes,                + a build report
-   never committed)                 numbers, merges)                  you can verify
+IPTV playlist (M3U) + optional TV guide (XMLTV)
+             │
+             ▼
+     scripts/Build-My-Lineup.ps1
+             ├─ proposal (accepted lineup unchanged)
+             └─ -Accept → accepted lineup
+```
+
+Run it from the repository root:
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1
+```
+
+The script prompts for the playlist path and optional guide path. For a repeatable or automated run, provide the paths explicitly:
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1 `
+  -M3UPath C:\private\playlist.m3u `
+  -XMLTVPath C:\private\guide.xml
+```
+
+Review the proposal in `output/reports/guided-setup-plan.md`. Nothing is accepted yet. If it is correct, rerun with `-Accept`. When the guide contains a material ambiguous identity, the flow asks whether to keep the channels but publish no guide, or cancel; it never guesses which guide entry belongs to a channel.
+If an accepted lineup already has a guide, the safe result for a later ambiguous guide is cancellation; the existing accepted guide remains unchanged.
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1 `
+  -M3UPath C:\private\playlist.m3u `
+  -XMLTVPath C:\private\guide.xml `
+  -Accept
+```
+
+For a deterministic no-guide run, omit `-XMLTVPath`:
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1 `
+  -M3UPath C:\private\playlist.m3u `
+  -Accept
 ```
 
 ## What you'll have at the end
 
-- A deterministic, deduplicated `output/merged.m3u` file built from your own playlist(s).
-- A build report telling you exactly what happened — channel counts, a checksum, and any warnings — with no secrets in it.
-- Nothing written to a tracked repository file, and nothing committed.
+- An accepted M3U lineup and, when selected, an accepted XMLTV guide.
+- A concise proposal and success/failure summary in `output/reports/`.
+- Stable consumer files: `output/guided-setup/accepted/lineup.m3u` and `output/guided-setup/accepted/guide.xml` when a guide is selected.
+- Existing accepted output preserved when input, review, or publication fails.
 
-## Before you start
+The flow reuses the existing M3U/XMLTV importers and safe publication boundary. It does not modify provider accounts, provider state, or downstream players.
+If the accepted lineup publishes but the stable consumer view cannot be refreshed, the accepted lineup remains authoritative; rerun the command to refresh the consumer files.
 
-You need:
+## Expert/local configuration path
 
-- **PowerShell 7.6 or newer, Core edition**, **Git**, and **Pester 5.7.1**.
-- Either a real M3U playlist file already saved to disk for the local-authoritative path, or a provider configuration with a supported remote HTTPS/443 M3U URL. This walkthrough uses the local path so it is safe to run without a live provider.
+The lower-level `scripts/Build-Lineup.ps1` command remains available for configured multi-source builds. It reads the safe local provider configuration and writes the detailed build reports described below. Use it when you need multiple configured sources or technical controls.
 
-Full install steps and a troubleshooting table are in [INSTALL.md](../reference/INSTALL.md) — this page won't repeat them, only summarize:
+## Repository validation
 
 ```powershell
 git clone https://github.com/Jumpstile/ChannelForge.git

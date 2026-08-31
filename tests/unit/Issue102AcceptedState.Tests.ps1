@@ -71,6 +71,25 @@ Describe 'Issue 102 accepted-state projections' {
         $result.ReviewRecords.Count | Should -Be 0
     }
 
+    It 'classifies added and removed entries without treating them as identity changes' {
+        $result = & (Get-Module ChannelForge) {
+            param($a, $b)
+            $addedManifest = [pscustomobject][ordered]@{
+                Entries = @([pscustomobject][ordered]@{ EntryId = $a; HistoryKey = 'new-history'; HistoryIdentityStatus = 'Unique'; StreamFingerprint = $a; PresentationFingerprint = $a })
+            }
+            $removedAccepted = @([pscustomobject][ordered]@{ EntryId = $b; HistoryKey = 'removed-history'; HistoryIdentityStatus = 'Unique'; StreamFingerprint = $b; PresentationFingerprint = $b })
+            [pscustomobject]@{
+                Added = Compare-ChannelForgeCandidateToAccepted -CandidateManifest $addedManifest -AcceptedEntries @()
+                Removed = Compare-ChannelForgeCandidateToAccepted -CandidateManifest ([pscustomobject]@{ Entries = @() }) -AcceptedEntries $removedAccepted
+            }
+        } $hA $hB
+
+        $result.Added.ChangeRecords.Count | Should -Be 1
+        $result.Added.ChangeRecords[0].Classification | Should -Be 'Added'
+        $result.Removed.ChangeRecords.Count | Should -Be 1
+        $result.Removed.ChangeRecords[0].Classification | Should -Be 'Removed'
+    }
+
     It 'rejects actionable review records with compound entry cardinality' {
         { & (Get-Module ChannelForge) { param($a,$b) New-ChannelForgeReviewRecord -ReviewCategory Actionable -Classification ReviewNeeded -ReasonCode Conflict -CandidateEntryIds @($a,$b) -AcceptedEntryIds @($a) -CandidateBindingIds @() -DecisionTypesAllowed @('MapCandidateToAcceptedEntry') -Evidence @([ordered]@{EvidenceType='Conflict';Value='x';Ordinal=0}) } $hA $hB } | Should -Throw 'FAIL_CLOSED:*'
     }
