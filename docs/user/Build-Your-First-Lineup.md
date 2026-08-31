@@ -6,7 +6,7 @@
 - One IPTV playlist file in M3U format.
 - An XMLTV guide file if you want guide data. Press Enter at the guide prompt to continue without one.
 - Git and Pester 5.7.1 only if you are validating the checkout.
-M3U is the channel playlist; XMLTV is optional programme and guide data.
+  M3U is the channel playlist; XMLTV is optional programme and guide data.
 
 Your playlist and guide are private input. Keep them local; never commit or paste their contents into an issue.
 
