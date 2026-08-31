@@ -65,6 +65,18 @@ pwsh -File scripts/Build-My-Lineup.ps1 `
 The flow reuses the existing M3U/XMLTV importers and safe publication boundary. It does not modify provider accounts, provider state, or downstream players.
 If the accepted lineup publishes but the stable consumer view cannot be refreshed, the accepted lineup remains authoritative; rerun the command to refresh the consumer files.
 
+## Preview source refresh readiness
+
+To see what a future refresh would need without contacting any provider, run:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeSourceRefreshPlan.ps1
+```
+
+The command reads configured sources and validated disposable cache metadata only. It writes `output/reports/source-refresh-plan.json` and `output/reports/source-refresh-plan.md`. A cache is a previously downloaded copy ChannelForge can safely reuse; a validator is ETag or Last-Modified information that can make a later remote check conditional.
+
+This is a read-only plan. It does not fetch sources, publish a lineup, create a generation, replace the accepted pointer, or change provider or downstream state. Local and disabled sources are reported but are not planned for unattended network work.
+
 ## Expert/local configuration path
 
 The lower-level `scripts/Build-Lineup.ps1` command remains available for configured multi-source builds. It reads the safe local provider configuration and writes the detailed build reports described below. Use it when you need multiple configured sources or technical controls.

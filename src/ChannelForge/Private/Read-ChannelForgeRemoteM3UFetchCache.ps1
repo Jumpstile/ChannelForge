@@ -13,7 +13,9 @@ function Read-ChannelForgeRemoteM3UFetchCache {
         [Parameter(Mandatory)]
         [string]$Url,
 
-        [long]$MaxDocumentBytes = [BoundedDecompressionStream]::HardMaximumDecompressedBytes
+        [long]$MaxDocumentBytes = [BoundedDecompressionStream]::HardMaximumDecompressedBytes,
+
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow)
     )
 
     $keyInfo = Get-ChannelForgeRemoteM3UCacheKey `
@@ -167,7 +169,7 @@ function Read-ChannelForgeRemoteM3UFetchCache {
         return [pscustomobject]$result
     }
 
-    $now = [datetimeoffset]::UtcNow
+    $now = $EvaluationTimeUtc
     if ($fetchedAt -gt $now -or $validatedAt -gt $now -or $validatedAt -lt $fetchedAt) {
         $result.InvalidReason = 'InvalidCacheTimestamp'
         return [pscustomobject]$result
