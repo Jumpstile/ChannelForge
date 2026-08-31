@@ -244,7 +244,22 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
 
         $unrelatedRoot=Join-Path $TestDrive 'variant-unrelated'
         Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $unrelatedRoot -GenerationManifest $first.GenerationManifest -AcceptedState $first.AcceptedState -AcceptedOutputManifest $first.AcceptedOutputManifest -DecisionManifest $first.DecisionManifest -M3UBytes $first.M3UBytes | Out-Null
-        { Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $unrelatedRoot -GenerationManifest $second.GenerationManifest -AcceptedState $second.AcceptedState -AcceptedOutputManifest $second.AcceptedOutputManifest -DecisionManifest $second.DecisionManifest -M3UBytes $second.M3UBytes -FaultHook 'GenerationDirectoryMove.After' } | Should -Throw
+        $thirdId='00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
+        $third=New-Issue103Fixture -GenerationId $thirdId -PreviousStateHash $first.AcceptedState.AcceptedStateHash -PreviousOutputManifestHash $first.AcceptedOutputManifest.OutputManifestHash
+        $thirdPath=Join-Path $unrelatedRoot "state/generations/$thirdId"
+        New-Item $thirdPath -ItemType Directory -Force | Out-Null
+        & (Get-Module ChannelForge) {
+            param($path,$fixture)
+            foreach($entry in @(
+                @('generation.manifest.json',(ConvertTo-ChannelForgeGenerationBytes $fixture.GenerationManifest)),
+                @('accepted-state.json',(ConvertTo-ChannelForgeGenerationBytes $fixture.AcceptedState)),
+                @('accepted-output.manifest.json',(ConvertTo-ChannelForgeGenerationBytes $fixture.AcceptedOutputManifest)),
+                @('decision-manifest.json',(ConvertTo-ChannelForgeGenerationBytes $fixture.DecisionManifest)),
+                @('merged.m3u',$fixture.M3UBytes)
+            )) { [IO.File]::WriteAllBytes((Join-Path $path $entry[0]),[byte[]]$entry[1]) }
+        } $thirdPath $third
+        (Test-Path $thirdPath) | Should -BeTrue
+        { Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $unrelatedRoot -GenerationManifest $second.GenerationManifest -AcceptedState $second.AcceptedState -AcceptedOutputManifest $second.AcceptedOutputManifest -DecisionManifest $second.DecisionManifest -M3UBytes $second.M3UBytes -FaultHook 'GenerationDirectoryMove.Before' } | Should -Throw
         { Recover-ChannelForgeAcceptedState -RepositoryRoot $unrelatedRoot } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
 
         $extraRoot=Join-Path $TestDrive 'variant-extra'

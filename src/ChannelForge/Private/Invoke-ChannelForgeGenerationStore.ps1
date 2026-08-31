@@ -507,6 +507,13 @@ function Assert-ChannelForgeGenerationJournalEvidence {
     $stagedPointer = Join-Path $tx 'accepted-lineup.json'
     $currentPointer = if ([IO.File]::Exists($Paths.Current)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Current 'pointer/v2' } else { $null }
     $previousPointer = if ([IO.File]::Exists($Paths.Previous)) { Read-ChannelForgeGenerationDocument $RepositoryRoot $Paths.Previous 'pointer/v2' } else { $null }
+    $allowedGenerationIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    [void]$allowedGenerationIds.Add($id)
+    if ($null -ne $currentPointer) { [void]$allowedGenerationIds.Add([string]$currentPointer.Object.GenerationId) }
+    if ($null -ne $previousPointer) { [void]$allowedGenerationIds.Add([string]$previousPointer.Object.GenerationId) }
+    foreach ($finalEntry in [IO.Directory]::GetDirectories($Paths.Generations)) {
+        if (-not $allowedGenerationIds.Contains([IO.Path]::GetFileName($finalEntry))) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: unrelated finalized generation exists.' }
+    }
     $hasStagedPointer = [IO.File]::Exists($stagedPointer)
     $pointer = if ($stage -eq 'Prepared' -or ($stage -eq 'GenerationPublished' -and [IO.File]::Exists($stagedPointer))) { Read-ChannelForgeGenerationDocument $RepositoryRoot $stagedPointer 'pointer/v2' } else { $currentPointer }
     if ($null -eq $pointer -or [string]$pointer.Object.PointerHash -cne [string]$Journal.ExpectedNewPointerHash) { throw 'FAIL_CLOSED_RECOVERY_REQUIRED: journal pointer evidence mismatch.' }
