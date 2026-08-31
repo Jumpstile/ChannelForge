@@ -3,6 +3,33 @@ BeforeAll {
     Import-Module (Join-Path $repoRoot 'src/ChannelForge/ChannelForge.psd1') -Force
     $child = Join-Path $PSScriptRoot 'Issue103ProcessRestart.Child.ps1'
 }
+    function global:Write-Issue103RecoveryDiagnostics {
+        param([Parameter(Mandatory)][string]$Case,[Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][string]$ExceptionText)
+        Write-Host ("ISSUE103_RECOVERY_DIAGNOSTIC|case=$Case|exception=$ExceptionText")
+        $state=Join-Path $Root 'state'
+        foreach($name in @('accepted-lineup.journal.json','accepted-lineup.journal.json.previous','accepted-lineup.json','accepted-lineup.json.previous')) {
+            $path=Join-Path $state $name
+            if(-not (Test-Path $path)) { Write-Host ("ISSUE103_RECOVERY_FILE|case=$Case|name=$name|absent"); continue }
+            $hash=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+            $summary="sha256=$hash"
+            try {
+                $value=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($path))
+                $fields=@()
+                foreach($field in @('JournalStage','JournalHash','OldJournalHash','PointerHash','GenerationId','GenerationManifestHash','AcceptedStateHash','AcceptedOutputManifestHash')) {
+                    if($null -ne $value.PSObject.Properties[$field]) { $fields += "$field=$($value.$field)" }
+                }
+                if($fields.Count -gt 0) { $summary += '|' + ($fields -join '|') }
+            } catch { $summary += '|parse=FAILED' }
+            Write-Host ("ISSUE103_RECOVERY_FILE|case=$Case|name=$name|$summary")
+        }
+        foreach($name in @('.staging','generations')) {
+            $path=Join-Path $state $name
+            if(Test-Path $path) {
+                $children=@([IO.Directory]::GetFileSystemEntries($path) | ForEach-Object { [IO.Path]::GetFileName($_) })
+                Write-Host ("ISSUE103_RECOVERY_DIR|case=$Case|name=$name|children=" + ($children -join ','))
+            } else { Write-Host ("ISSUE103_RECOVERY_DIR|case=$Case|name=$name|absent") }
+        }
+    }
 
 Describe 'Issue 103 external process restart recovery' {
     It 'classifies durable-boundary process death without in-process exception recovery' {
@@ -85,9 +112,10 @@ Describe 'Issue 103 external process restart recovery' {
                 if(-not $process.HasExited){$process.Kill($true)}
                 $process.WaitForExit(); Remove-Item $marker -Force -ErrorAction SilentlyContinue
             }
-            $actualClassification=''
-            try { $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root; $actualClassification="$($recovery.Outcome)/$($recovery.JournalStage)" } catch { $actualClassification=$_.Exception.Message.Split("`n")[0].Trim() }
-            if($actualClassification -like 'FAIL_CLOSED_RECOVERY_REQUIRED:*'){$actualClassification='FAIL_CLOSED_RECOVERY_REQUIRED'}
+            $actualClassification=''; $actualException=''
+            try { $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root; $actualClassification="$($recovery.Outcome)/$($recovery.JournalStage)" } catch { $actualException=$_.Exception.ToString(); $actualClassification=$_.Exception.Message.Split("`n")[0].Trim() }
+            if($actualClassification -like 'FAIL_CLOSED_RECOVERY_REQUIRED:*') { $actualClassification='FAIL_CLOSED_RECOVERY_REQUIRED' }
+            if($null -ne $actualException -and ($case.Case -eq 'A31' -or $actualClassification -ne $case.Classification)) { Write-Issue103RecoveryDiagnostics -Case $case.Case -Root $root -ExceptionText $actualException }
             $actualClassification | Should -Be $case.Classification -Because $case.Case
             $state=Join-Path $root 'state'
             (Test-Path (Join-Path $state 'accepted-lineup.json')) | Should -Be $case.Current -Because "$($case.Case) current"
