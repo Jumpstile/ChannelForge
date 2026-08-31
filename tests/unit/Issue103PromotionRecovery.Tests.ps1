@@ -52,6 +52,10 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
         [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state/accepted-lineup.json.previous'))) | Should -Be ([Convert]::ToBase64String($oldBytes))
         (Get-Content (Join-Path $root 'state/accepted-lineup.json') -Raw) | Should -Match 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
         (Get-Content (Join-Path $root 'output/merged.m3u') -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        $third=New-Issue103Fixture -GenerationId '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff' -PreviousStateHash $second.AcceptedState.AcceptedStateHash -PreviousOutputManifestHash $second.AcceptedOutputManifest.OutputManifestHash
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $root -GenerationManifest $third.GenerationManifest -AcceptedState $third.AcceptedState -AcceptedOutputManifest $third.AcceptedOutputManifest -DecisionManifest $third.DecisionManifest -M3UBytes $third.M3UBytes -XMLTVBytes $third.XMLTVBytes | Out-Null
+        (Get-ChildItem (Join-Path $root 'state/generations') -Directory).Count | Should -Be 3
+        (Get-Content (Join-Path $root 'state/accepted-lineup.json') -Raw) | Should -Match '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
         $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root
         $recovery.Outcome | Should -Be 'NEW'
         $recovery.JournalStage | Should -Be 'Committed'
