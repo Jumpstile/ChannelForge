@@ -65,8 +65,8 @@ Machine identity is explicit and must never be inferred from a drive letter.
 
 - Desktop engineering work uses the Desktop host and its local `C:\REPOS\ChannelForge` checkout.
 - ARCADE engineering or validation work uses the ARCADE host and its local `E:\REPOS\ChannelForge` checkout.
-- `C:\...` observed from an ARCADE session is still ARCADE-local storage. It is not evidence about the Desktop host.
-- `E:\...` observed from a Desktop session is still Desktop-local storage unless an explicitly configured remote transport proves otherwise.
+- A `C:` path observed from an ARCADE session is still ARCADE-local storage. It is not evidence about the Desktop host.
+- An `E:` path observed from a Desktop session is still Desktop-local storage unless an explicitly configured remote transport proves otherwise.
 - A local copy between drive letters on one host is not a cross-machine transfer.
 - Cross-machine handoff is established only by a pushed GitHub ref/SHA or another explicitly configured remote transport that the receiving host independently verifies.
 - If the expected machine-scoped repository root is missing, stop and report the missing path. Do not substitute another drive or host-local checkout.
