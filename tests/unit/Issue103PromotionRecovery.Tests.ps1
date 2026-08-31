@@ -52,6 +52,9 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
         [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state/accepted-lineup.json.previous'))) | Should -Be ([Convert]::ToBase64String($oldBytes))
         (Get-Content (Join-Path $root 'state/accepted-lineup.json') -Raw) | Should -Match 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
         (Get-Content (Join-Path $root 'output/merged.m3u') -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root
+        $recovery.Outcome | Should -Be 'NEW'
+        $recovery.JournalStage | Should -Be 'Committed'
     }
 
     It 'stages Generated XMLTV only when the output status is Generated' {
