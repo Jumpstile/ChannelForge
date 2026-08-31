@@ -134,7 +134,7 @@ Describe 'Issue 103 external process restart recovery' {
             $actualClassification=''; $actualException=''
             try { $recovery=Recover-ChannelForgeAcceptedState -RepositoryRoot $root; $actualClassification="$($recovery.Outcome)/$($recovery.JournalStage)" } catch { $actualException=$_.Exception.ToString(); $actualClassification=$_.Exception.Message.Split("`n")[0].Trim() }
             if($actualClassification -like 'FAIL_CLOSED_RECOVERY_REQUIRED:*') { $actualClassification='FAIL_CLOSED_RECOVERY_REQUIRED' }
-            if($null -ne $actualException -and ($case.Case -eq 'A31' -or $actualClassification -ne $case.Classification)) { Write-Issue103RecoveryDiagnostics -Case $case.Case -Root $root -ExceptionText $actualException }
+            if(-not [string]::IsNullOrEmpty($actualException) -and ($case.Case -eq 'A31' -or $actualClassification -ne $case.Classification)) { Write-Issue103RecoveryDiagnostics -Case $case.Case -Root $root -ExceptionText $actualException }
             $actualClassification | Should -Be $case.Classification -Because $case.Case
             $state=Join-Path $root 'state'
             (Test-Path (Join-Path $state 'accepted-lineup.json')) | Should -Be $case.Current -Because "$($case.Case) current"
