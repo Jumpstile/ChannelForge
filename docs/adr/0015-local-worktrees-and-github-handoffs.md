@@ -24,16 +24,29 @@ renaming, cleaning, resetting, or rewriting them.
 - GitHub is authoritative for ChannelForge history, branches, reviews, and
   merged content.
 - Every machine and agent works from its own independent local clone or local
-  Git worktree. Before work begins, verify the repository root, remote, branch,
-  exact HEAD, and status.
-- The canonical desktop engineering checkout example is
-  `C:\REPOS\ChannelForge`. A second-machine validation checkout example is
-  `E:\REPOS\ChannelForge`. These are independent local-clone examples, not
-  shared paths; record and verify the actual local repository root used for
-  each validation.
-- A pushed GitHub review or feature branch is the only cross-machine handoff.
+  Git worktree. Before work begins, verify the host identity, repository root,
+  remote, branch, exact HEAD, and status.
+- The approved machine-scoped engineering roots are:
+  - Desktop host: `C:\REPOS\ChannelForge`
+  - ARCADE host: `E:\REPOS\ChannelForge`
+- These paths are normative host/path pairs, not interchangeable examples.
+  A drive letter never identifies another machine. For example,
+  `C:\REPOS\ChannelForge` observed from an ARCADE session is ARCADE-local
+  storage and cannot be treated as Desktop evidence.
+- If a machine's approved repository root is missing, fail closed and report
+  the missing repository path. Do not substitute another local drive, checkout,
+  mapped path, or historical worktree.
+- A pushed GitHub review or feature branch is the normal cross-machine handoff.
   A receiving machine fetches the exact ref or SHA into its own local checkout;
   it does not copy a working directory or use a shared NAS checkout.
+- A copy between two drive letters on the same host is not a cross-machine
+  transfer. A non-GitHub transfer is accepted only when an explicitly configured
+  remote transport targets the actual receiving host and that host independently
+  verifies the artifact.
+- Claims such as `Desktop verified`, `ARCADE verified`, `transferred to Desktop`,
+  or `transferred to ARCADE` require evidence produced by or independently
+  verified from that actual host. Local filesystem evidence from another host
+  cannot substitute for that confirmation.
 - NAS, mapped-drive, synchronized, and SMB paths may hold source data, outputs,
   caches, staging content, evidence, backups, packages, mirrors, or an
   explicitly authorized runtime deployment. They must not be authoritative
@@ -58,23 +71,27 @@ engineering evidence, even when a NAS path is valid for another role.
 
 ## Required handoff sequence
 
-1. Start from an independent local clone or local worktree of the GitHub
+1. Identify the actual current host explicitly.
+2. Use only that host's approved engineering root. If it is missing, stop; do
+   not fall back to another drive or host-local checkout.
+3. Start from an independent local clone or local worktree of the GitHub
    repository.
-2. Verify the remote, branch, exact HEAD, status, intended file scope, and
+4. Verify the remote, branch, exact HEAD, status, intended file scope, and
    expected ancestry or baseline.
-3. Make and validate the change locally.
-4. Push only the review branch when publication of the handoff is authorized.
-5. The receiving machine fetches the exact branch or SHA into its own local
-   checkout and reviews the exact commit and changed paths.
-6. Merge, release, deployment, or NAS mirror actions remain separate explicit
+5. Make and validate the change locally.
+6. Push only the review branch when publication of the handoff is authorized.
+7. The receiving machine fetches the exact branch or SHA into its own local
+   checkout and independently reviews the exact commit and changed paths.
+8. Merge, release, deployment, or NAS mirror actions remain separate explicit
    decisions.
 
 ## Evidence requirements
 
-Validation and release evidence records the local checkout path, branch, HEAD,
-origin ref, clean status, ancestry or baseline, and package or artifact commit
-identity. A shared NAS Git worktree, a dirty checkout, or an unverified mirror
-is not implementation, review, validation, or release evidence.
+Validation and release evidence records the host identity, local checkout path,
+branch, HEAD, origin ref, clean status, ancestry or baseline, and package or
+artifact commit identity. A shared NAS Git worktree, a dirty checkout, an
+unverified mirror, or a path checked only from a different host is not
+implementation, review, validation, transfer, or release evidence.
 
 ## Consequences
 
@@ -82,7 +99,8 @@ is not implementation, review, validation, or release evidence.
   engineering truth.
 - Dirty or stale historical worktrees remain recoverable user data without
   becoming part of the active workflow.
-- Agents repeat small repository-identity checks, making stale-revision and
-  split-brain failures visible before edits begin.
+- Agents repeat small host/repository-identity checks, making stale-revision,
+  wrong-machine, wrong-drive, and split-brain failures visible before edits
+  begin.
 - Local source-data paths may still be network-backed when the product
   explicitly supports them; that does not make the Git checkout network-backed.
