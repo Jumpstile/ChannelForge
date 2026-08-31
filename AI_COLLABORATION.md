@@ -59,6 +59,21 @@ GitHub is the authoritative cross-machine handoff and repository state. Issues a
   edit or remove existing historical records to fix a past violation unless explicitly
   instructed to.
 
+## Machine and Workspace Identity
+
+Machine identity is explicit and must never be inferred from a drive letter.
+
+- Desktop engineering work uses the Desktop host and its local `C:\REPOS\ChannelForge` checkout.
+- ARCADE engineering or validation work uses the ARCADE host and its local `E:\REPOS\ChannelForge` checkout.
+- `C:\...` observed from an ARCADE session is still ARCADE-local storage. It is not evidence about the Desktop host.
+- `E:\...` observed from a Desktop session is still Desktop-local storage unless an explicitly configured remote transport proves otherwise.
+- A local copy between drive letters on one host is not a cross-machine transfer.
+- Cross-machine handoff is established only by a pushed GitHub ref/SHA or another explicitly configured remote transport that the receiving host independently verifies.
+- If the expected machine-scoped repository root is missing, stop and report the missing path. Do not substitute another drive or host-local checkout.
+- Claims such as `Desktop verified`, `ARCADE verified`, `transferred to Desktop`, or `transferred to ARCADE` require evidence produced by or independently verified from that actual host.
+
+These rules are fail-closed. Host identity and path identity are separate facts, and both must be verified before filesystem evidence is accepted. See [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
+
 ## Required Review Habits
 
 Before implementation:
@@ -67,6 +82,7 @@ Before implementation:
 - Verify the repository root, remote, branch, exact HEAD, and clean status from
   an independent local clone or local Git worktree. Cross-machine handoff uses
   a pushed GitHub ref; do not use a shared SMB/NAS Git worktree. See [ADR 0015](docs/adr/0015-local-worktrees-and-github-handoffs.md).
+- Verify the current host identity and use only that host's approved engineering root. Never infer the host from `C:` or `E:`.
 - Read the relevant docs and surrounding files.
 - Check whether an issue already captures the work.
 - Treat repository docs as the engineering source of truth and [`docs/user/`](docs/user/README.md) as the user-facing knowledge base. Follow [DOCUMENTATION.md](DOCUMENTATION.md) and [DOCS_AND_WIKI.md](docs/reference/DOCS_AND_WIKI.md) for the current publication model.
