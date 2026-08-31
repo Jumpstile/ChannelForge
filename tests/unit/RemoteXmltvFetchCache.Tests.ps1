@@ -100,6 +100,20 @@ namespace ChannelForge.Tests
         param([object[]]$Programmes)
         @($Programmes | ForEach-Object { $e=$_.Evidence; [ordered]@{ChannelId=$_.ChannelId;Start=$_.Start.ToString('o',[cultureinfo]::InvariantCulture);End=$_.End.ToString('o',[cultureinfo]::InvariantCulture);Evidence=[ordered]@{SourceKind=$e.SourceKind;SourceReference=$e.SourceReference;TransportContractVersion=$e.TransportContractVersion;HttpStatusCode=$e.HttpStatusCode;ContentType=$e.ContentType;ContentEncodings=@($e.ContentEncodings);RawContentLength=$e.RawContentLength;ProgrammeCount=$e.ProgrammeCount;ChannelCount=$e.ChannelCount;DocumentBytes=$e.DocumentBytes}} | ConvertTo-Json -Depth 8 -Compress }) -join [Environment]::NewLine
     }
+    function Read-TestXmltvCache {
+        param([string]$CacheRoot,[string]$SourceId,[string]$Url,[Nullable[datetimeoffset]]$EvaluationTimeUtc)
+        if ($EvaluationTimeUtc.HasValue) {
+            InModuleScope ChannelForge -Parameters @{ CacheRoot=$CacheRoot; SourceId=$SourceId; Url=$Url; EvaluationTimeUtc=$EvaluationTimeUtc.Value } {
+                param($CacheRoot,$SourceId,$Url,$EvaluationTimeUtc)
+                Read-ChannelForgeRemoteXmltvFetchCache -CacheRoot $CacheRoot -SourceId $SourceId -Url $Url -EvaluationTimeUtc $EvaluationTimeUtc
+            }
+        } else {
+            InModuleScope ChannelForge -Parameters @{ CacheRoot=$CacheRoot; SourceId=$SourceId; Url=$Url } {
+                param($CacheRoot,$SourceId,$Url)
+                Read-ChannelForgeRemoteXmltvFetchCache -CacheRoot $CacheRoot -SourceId $SourceId -Url $Url
+            }
+        }
+    }
 }
 
 AfterAll { Remove-Variable -Name ChannelForgeRemoteXmltvCachePayloadQueue,ChannelForgeRemoteXmltvCacheObservedCalls -Scope Global -ErrorAction SilentlyContinue }
@@ -341,5 +355,29 @@ Describe 'Remote XMLTV disposable fetch cache' {
         $final=Get-Content -LiteralPath (Get-CacheMetadataPath $cacheRoot) -Raw | ConvertFrom-Json
         ((Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash).ToLowerInvariant() | Should -Be $final.PayloadSha256
         Get-CacheMetadataPath $cacheRoot | Should -Not -BeNullOrEmpty
+    }
+    It 'uses explicit evaluation time deterministically at the exact TTL boundary' {
+        $cacheRoot=Join-Path $TestDrive 'evaluation-time'
+        Set-CacheMockQueue @(New-CachePayload -ETag '"evaluation-v1"')
+        $null=@(Import-ChannelForgeConfiguredXmltvSource -Source (New-CacheSource) -CacheRoot $cacheRoot)
+        $metadataPath=Get-CacheMetadataPath $cacheRoot
+        $metadata=Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+        $base=[datetimeoffset]'2026-01-01T00:00:00Z'
+        $metadata.FetchedAtUtc=$base.ToString('o',[cultureinfo]::InvariantCulture)
+        $metadata.ValidatedAtUtc=$metadata.FetchedAtUtc
+        [io.file]::WriteAllText($metadataPath,($metadata|ConvertTo-Json -Depth 12 -Compress),[text.utf8encoding]::new($false))
+        $fresh=InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteXmltvFetchCache -CacheRoot $CacheRoot -SourceId 'remote-cache-fixture' -Url 'https://example.invalid/guide.xml' -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T05:59:59Z') }
+        $repeat=InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteXmltvFetchCache -CacheRoot $CacheRoot -SourceId 'remote-cache-fixture' -Url 'https://example.invalid/guide.xml' -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T05:59:59Z') }
+        $fresh.MetadataValid|Should -BeTrue;$fresh.PayloadValid|Should -BeTrue;$fresh.AgeSeconds|Should -Be $repeat.AgeSeconds;$fresh.IsFresh|Should -BeTrue;$fresh.IsFresh|Should -Be $repeat.IsFresh;$fresh.CanConditional|Should -BeTrue;$fresh.CanConditional|Should -Be $repeat.CanConditional
+        $expired=InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteXmltvFetchCache -CacheRoot $CacheRoot -SourceId 'remote-cache-fixture' -Url 'https://example.invalid/guide.xml' -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T06:00:00Z') }
+        $expired.MetadataValid|Should -BeTrue;$expired.PayloadValid|Should -BeTrue;$expired.IsFresh|Should -BeFalse;$expired.CanConditional|Should -BeTrue
+    }
+
+    It 'keeps omitted evaluation time backward compatible' {
+        $cacheRoot=Join-Path $TestDrive 'evaluation-default'
+        Set-CacheMockQueue @(New-CachePayload)
+        $null=@(Import-ChannelForgeConfiguredXmltvSource -Source (New-CacheSource) -CacheRoot $cacheRoot)
+        $result=Read-TestXmltvCache -CacheRoot $cacheRoot -SourceId 'remote-cache-fixture' -Url 'https://example.invalid/guide.xml'
+        $result.MetadataValid|Should -BeTrue;$result.PayloadValid|Should -BeTrue
     }
 }

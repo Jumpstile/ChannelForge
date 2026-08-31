@@ -126,6 +126,20 @@ namespace ChannelForge.Tests
                 ConvertTo-Json -Depth 4 -Compress
         }) -join "`n"
     }
+    function Read-TestM3UCache {
+        param([string]$CacheRoot,[string]$SourceId,[string]$Url,[Nullable[datetimeoffset]]$EvaluationTimeUtc)
+        if ($EvaluationTimeUtc.HasValue) {
+            InModuleScope ChannelForge -Parameters @{ CacheRoot=$CacheRoot; SourceId=$SourceId; Url=$Url; EvaluationTimeUtc=$EvaluationTimeUtc.Value } {
+                param($CacheRoot,$SourceId,$Url,$EvaluationTimeUtc)
+                Read-ChannelForgeRemoteM3UFetchCache -CacheRoot $CacheRoot -ProviderId 'fixture-provider' -SourceId $SourceId -Url $Url -EvaluationTimeUtc $EvaluationTimeUtc
+            }
+        } else {
+            InModuleScope ChannelForge -Parameters @{ CacheRoot=$CacheRoot; SourceId=$SourceId; Url=$Url } {
+                param($CacheRoot,$SourceId,$Url)
+                Read-ChannelForgeRemoteM3UFetchCache -CacheRoot $CacheRoot -ProviderId 'fixture-provider' -SourceId $SourceId -Url $Url
+            }
+        }
+    }
 }
 
 AfterAll {
@@ -347,5 +361,39 @@ Describe 'Remote M3U disposable fetch cache' {
         @($global:ChannelForgeRemoteM3UCacheObservedCalls).Count | Should -Be 2
         (Get-Content -LiteralPath (Get-CacheMetadataPath $cacheRoot) -Raw) | Should -Not -Match 'https?://'
         (Get-Content -LiteralPath (Get-CacheMetadataPath $cacheRoot) -Raw) | Should -Not -Match 'live/'
+    }
+    It 'uses explicit evaluation time deterministically at the exact TTL boundary' {
+        $cacheRoot = Join-Path $TestDrive 'evaluation-time'
+        Set-CacheMockQueue @(New-CachePayload -ETag '"evaluation-v1"')
+        $null = @(Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot)
+        $metadataPath = Get-CacheMetadataPath $cacheRoot
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+        $base = [datetimeoffset]'2026-01-01T00:00:00Z'
+        $metadata.FetchedAtUtc = $base.ToString('o', [cultureinfo]::InvariantCulture)
+        $metadata.ValidatedAtUtc = $metadata.FetchedAtUtc
+        [io.file]::WriteAllText($metadataPath, ($metadata | ConvertTo-Json -Depth 12 -Compress), [text.utf8encoding]::new($false))
+        $fresh = InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteM3UFetchCache -CacheRoot $CacheRoot -ProviderId 'fixture-provider' -SourceId 'remote-m3u-cache-fixture' -Url 'https://example.invalid/iptv/cache-fixture' -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T23:59:59Z') }
+        $repeat = InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteM3UFetchCache -CacheRoot $CacheRoot -ProviderId 'fixture-provider' -SourceId 'remote-m3u-cache-fixture' -Url 'https://example.invalid/iptv/cache-fixture' -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T23:59:59Z') }
+        $fresh.MetadataValid | Should -BeTrue
+        $fresh.PayloadValid | Should -BeTrue
+        $fresh.AgeSeconds | Should -Be $repeat.AgeSeconds
+        $fresh.IsFresh | Should -BeTrue
+        $fresh.IsFresh | Should -Be $repeat.IsFresh
+        $fresh.CanConditional | Should -BeTrue
+        $fresh.CanConditional | Should -Be $repeat.CanConditional
+        $expired = InModuleScope ChannelForge -Parameters @{ CacheRoot=$cacheRoot } { param($CacheRoot) Read-ChannelForgeRemoteM3UFetchCache -CacheRoot $CacheRoot -ProviderId 'fixture-provider' -SourceId 'remote-m3u-cache-fixture' -Url 'https://example.invalid/iptv/cache-fixture' -EvaluationTimeUtc ([datetimeoffset]'2026-01-02T00:00:00Z') }
+        $expired.MetadataValid | Should -BeTrue
+        $expired.PayloadValid | Should -BeTrue
+        $expired.IsFresh | Should -BeFalse
+        $expired.CanConditional | Should -BeTrue
+    }
+
+    It 'keeps omitted evaluation time backward compatible' {
+        $cacheRoot = Join-Path $TestDrive 'evaluation-default'
+        Set-CacheMockQueue @(New-CachePayload)
+        $null = @(Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot)
+        $result = Read-TestM3UCache -CacheRoot $cacheRoot -SourceId 'remote-m3u-cache-fixture' -Url 'https://example.invalid/iptv/cache-fixture'
+        $result.MetadataValid | Should -BeTrue
+        $result.PayloadValid | Should -BeTrue
     }
 }
