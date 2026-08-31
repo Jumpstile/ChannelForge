@@ -221,4 +221,37 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
         } (Join-Path $root 'state/accepted-lineup.journal.json')
         { Recover-ChannelForgeAcceptedState -RepositoryRoot $root } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
     }
+    It 'fails closed for malformed predecessors, missing staged pointers, unrelated finals, and extra children' {
+        $firstId='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        $secondId='fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
+        $previousRoot=Join-Path $TestDrive 'variant-previous'
+        $first=New-Issue103Fixture -GenerationId $firstId
+        $second=New-Issue103Fixture -GenerationId $secondId -PreviousStateHash $first.AcceptedState.AcceptedStateHash -PreviousOutputManifestHash $first.AcceptedOutputManifest.OutputManifestHash
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $previousRoot -GenerationManifest $first.GenerationManifest -AcceptedState $first.AcceptedState -AcceptedOutputManifest $first.AcceptedOutputManifest -DecisionManifest $first.DecisionManifest -M3UBytes $first.M3UBytes | Out-Null
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $previousRoot -GenerationManifest $second.GenerationManifest -AcceptedState $second.AcceptedState -AcceptedOutputManifest $second.AcceptedOutputManifest -DecisionManifest $second.DecisionManifest -M3UBytes $second.M3UBytes | Out-Null
+        $previousPath=Join-Path $previousRoot 'state/accepted-lineup.json.previous'
+        $previous=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($previousPath))
+        $previous.GenerationId='0'*64
+        $previous.PointerHash=& (Get-Module ChannelForge) { param($value) Get-ChannelForgeDomainHash -Domain 'pointer/v2' -InputObject (ConvertTo-ChannelForgeGenerationCanonicalObject $value) } $previous
+        [IO.File]::WriteAllText($previousPath,(ConvertTo-Json $previous -Compress -Depth 20))
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $previousRoot } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
+
+        $stagedRoot=Join-Path $TestDrive 'variant-staged'
+        { Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $stagedRoot -GenerationManifest $first.GenerationManifest -AcceptedState $first.AcceptedState -AcceptedOutputManifest $first.AcceptedOutputManifest -DecisionManifest $first.DecisionManifest -M3UBytes $first.M3UBytes -FaultHook 'PointerReplace.Before' } | Should -Throw
+        $stagedJournal=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText((Join-Path $stagedRoot 'state/accepted-lineup.journal.json')))
+        Remove-Item (Join-Path $stagedRoot "state/.staging/$($stagedJournal.TransactionId)/accepted-lineup.json") -Force
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $stagedRoot } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
+
+        $unrelatedRoot=Join-Path $TestDrive 'variant-unrelated'
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $unrelatedRoot -GenerationManifest $first.GenerationManifest -AcceptedState $first.AcceptedState -AcceptedOutputManifest $first.AcceptedOutputManifest -DecisionManifest $first.DecisionManifest -M3UBytes $first.M3UBytes | Out-Null
+        { Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $unrelatedRoot -GenerationManifest $second.GenerationManifest -AcceptedState $second.AcceptedState -AcceptedOutputManifest $second.AcceptedOutputManifest -DecisionManifest $second.DecisionManifest -M3UBytes $second.M3UBytes -FaultHook 'GenerationDirectoryMove.After' } | Should -Throw
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $unrelatedRoot } | Should -Throw 'FAIL_CLOSED_RECOVERY_REQUIRED:*'
+
+        $extraRoot=Join-Path $TestDrive 'variant-extra'
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $extraRoot -GenerationManifest $first.GenerationManifest -AcceptedState $first.AcceptedState -AcceptedOutputManifest $first.AcceptedOutputManifest -DecisionManifest $first.DecisionManifest -M3UBytes $first.M3UBytes | Out-Null
+        $extraGeneration=Join-Path $extraRoot "state/generations/$firstId"
+        [IO.File]::WriteAllText((Join-Path $extraGeneration 'unowned.tmp'),'unowned')
+        Remove-Item (Join-Path $extraRoot 'state/accepted-lineup.journal.json') -Force
+        { Recover-ChannelForgeAcceptedState -RepositoryRoot $extraRoot } | Should -Throw 'FAIL_CLOSED*'
+    }
 }
