@@ -7,10 +7,10 @@ function Import-ChannelForgeConfiguredXmltvSource {
         [long]$MaxDocumentBytes = 268435456,
 
         [long]$MaxRawResponseBytes = 268435456,
-
         [AllowEmptyString()]
         [string]$CacheRoot = '',
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
@@ -67,6 +67,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -CacheRoot $CacheRoot `
                         -MaxDocumentBytes $MaxDocumentBytes `
                         -MaxRawResponseBytes $MaxRawResponseBytes `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -ForceUnconditional:$forceUnconditional
                 }
                 else {
@@ -99,7 +100,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 $hashingStream = $null
                 $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
                 $parserCompleted = $true
-
+                if (@($programmes).Count -eq 0) {
+                    throw 'Remote XMLTV response contained no programmes; cache promotion was rejected.'
+                }
                 if ($null -ne $opened.Stream) {
                     $opened.Stream.Dispose()
                 }
