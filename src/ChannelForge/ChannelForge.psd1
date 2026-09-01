@@ -97,6 +97,7 @@ FunctionsToExport = @(
     'New-ChannelForgeBuildContext'
     'New-ChannelForgeChannel'
     'New-ChannelForgeProgramme'
+    'Get-ChannelForgeSourceRefreshPlan'
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
