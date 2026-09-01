@@ -43,6 +43,26 @@ A material ambiguous guide identity pauses for a choice: keep the channels but p
 pwsh -File scripts/Build-Lineup.ps1 -ProviderPath provider.local.json
 ```
 
+## `scripts/Get-ChannelForgeSourceRefreshPlan.ps1`
+
+Read-only planning evidence for configured provider and EPG sources. It reads configuration and validated disposable cache metadata without contacting any source.
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeSourceRefreshPlan.ps1
+```
+
+For deterministic evaluation or a separate report location:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeSourceRefreshPlan.ps1 `
+  -EvaluationTimeUtc 2026-01-01T00:00:00Z `
+  -OutputRoot C:\private\reports
+```
+
+The plan reports `USE_VALID_CACHE`, `CONDITIONAL_REFRESH`, `FULL_REFRESH`, or `REVIEW`. It never creates a generation, publishes output, replaces the accepted pointer, or changes provider/downstream state.
+
+**Output:** `output/reports/source-refresh-plan.json` and `output/reports/source-refresh-plan.md`.
+
 ## Verifying your environment
 
 ```powershell

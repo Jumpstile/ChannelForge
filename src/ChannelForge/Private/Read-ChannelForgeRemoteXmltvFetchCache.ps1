@@ -10,7 +10,9 @@ function Read-ChannelForgeRemoteXmltvFetchCache {
         [Parameter(Mandatory)]
         [string]$Url,
 
-        [long]$MaxDocumentBytes = [BoundedDecompressionStream]::HardMaximumDecompressedBytes
+        [long]$MaxDocumentBytes = [BoundedDecompressionStream]::HardMaximumDecompressedBytes,
+
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow)
     )
 
     $keyInfo = Get-ChannelForgeRemoteXmltvCacheKey `
@@ -143,7 +145,7 @@ function Read-ChannelForgeRemoteXmltvFetchCache {
         return [pscustomobject]$result
     }
 
-    $now = [datetimeoffset]::UtcNow
+    $now = $EvaluationTimeUtc
     if ($fetchedAt -gt $now -or $validatedAt -gt $now -or
         $validatedAt -lt $fetchedAt) {
         $result.InvalidReason = 'InvalidCacheTimestamp'
