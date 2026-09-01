@@ -380,4 +380,13 @@ Describe 'Remote XMLTV disposable fetch cache' {
         $result=Read-TestXmltvCache -CacheRoot $cacheRoot -SourceId 'remote-cache-fixture' -Url 'https://example.invalid/guide.xml'
         $result.MetadataValid|Should -BeTrue;$result.PayloadValid|Should -BeTrue
     }
+
+    It 'rejects empty remote content before cache promotion' {
+        $cacheRoot=Join-Path $TestDrive 'empty-response'
+        $payload=New-CachePayload -Bytes ([text.encoding]::UTF8.GetBytes('<tv />'))
+        Set-CacheMockQueue @($payload)
+        { Import-ChannelForgeConfiguredXmltvSource -Source (New-CacheSource) -CacheRoot $cacheRoot } | Should -Throw '*no programmes*'
+        $payload.Disposed | Should -BeTrue
+        Get-CacheMetadataPath $cacheRoot | Should -BeNullOrEmpty
+    }
 }

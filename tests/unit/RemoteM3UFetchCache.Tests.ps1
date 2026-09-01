@@ -396,4 +396,13 @@ Describe 'Remote M3U disposable fetch cache' {
         $result.MetadataValid | Should -BeTrue
         $result.PayloadValid | Should -BeTrue
     }
+
+    It 'rejects empty remote content before cache promotion' {
+        $cacheRoot = Join-Path $TestDrive 'empty-response'
+        $payload = New-CachePayload -Bytes ([text.encoding]::UTF8.GetBytes("#EXTM3U`n"))
+        Set-CacheMockQueue @($payload)
+        { Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot } | Should -Throw '*no channels*'
+        $payload.Disposed | Should -BeTrue
+        Get-CacheMetadataPath $cacheRoot | Should -BeNullOrEmpty
+    }
 }

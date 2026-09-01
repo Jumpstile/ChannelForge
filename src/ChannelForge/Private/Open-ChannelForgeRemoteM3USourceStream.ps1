@@ -321,6 +321,8 @@ function Open-ChannelForgeRemoteM3USourceStreamWithCache {
 
         [long]$MaxRawResponseBytes = 268435456,
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
+
         [switch]$ForceUnconditional
     )
 
@@ -347,7 +349,8 @@ function Open-ChannelForgeRemoteM3USourceStreamWithCache {
             -ProviderId $providerId `
             -SourceId $sourceId `
             -Url $url `
-            -MaxDocumentBytes $MaxDocumentBytes
+            -MaxDocumentBytes $MaxDocumentBytes `
+            -EvaluationTimeUtc $EvaluationTimeUtc
     }
 
     if ($null -ne $candidate -and $candidate.MetadataValid -and

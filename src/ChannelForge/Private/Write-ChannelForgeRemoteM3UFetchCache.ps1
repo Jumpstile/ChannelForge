@@ -71,11 +71,12 @@ function Remove-ChannelForgeRemoteM3UFetchCacheEntry {
         [psobject]$CacheEntry
     )
 
-    foreach ($path in @(
-        $CacheEntry.MetadataPath
-        $CacheEntry.PayloadPath
-        $CacheEntry.TempPayloadPath
-    )) {
+    $paths = if ($CacheEntry.PSObject.Properties.Name -contains 'Tee') {
+        @($CacheEntry.TempPayloadPath)
+    } else {
+        @($CacheEntry.MetadataPath, $CacheEntry.PayloadPath, $CacheEntry.TempPayloadPath)
+    }
+    foreach ($path in $paths) {
         if (-not [string]::IsNullOrWhiteSpace([string]$path) -and
             (Test-Path -LiteralPath $path -PathType Leaf)) {
             Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue

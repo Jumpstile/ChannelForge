@@ -77,6 +77,18 @@ The command reads configured sources and validated disposable cache metadata onl
 
 This is a read-only plan. It does not fetch sources, publish a lineup, create a generation, replace the accepted pointer, or change provider or downstream state. Local and disabled sources are reported but are not planned for unattended network work.
 
+## Run a one-shot source refresh
+
+After configuring remote sources, refresh disposable source cache evidence without publishing a lineup:
+
+```powershell
+pwsh -File scripts/Invoke-ChannelForgeSourceRefresh.ps1
+```
+
+The command reuses fresh validated caches, performs a **conditional refresh** for expired caches with ETag or Last-Modified evidence, and performs a full refresh when no validator is available. A conditional refresh asks whether previously downloaded content changed. A **last-known-good** cache is the most recent validated source copy ChannelForge keeps using when a new refresh cannot be trusted.
+
+If a request fails or its response is empty, malformed, unsafe, or otherwise invalid, the working last-known-good cache is preserved. The command writes `output/reports/source-refresh-result.json` and `output/reports/source-refresh-result.md`. It does not publish a lineup, create a generation, replace the accepted pointer, or change downstream state.
+
 ## Expert/local configuration path
 
 The lower-level `scripts/Build-Lineup.ps1` command remains available for configured multi-source builds. It reads the safe local provider configuration and writes the detailed build reports described below. Use it when you need multiple configured sources or technical controls.
