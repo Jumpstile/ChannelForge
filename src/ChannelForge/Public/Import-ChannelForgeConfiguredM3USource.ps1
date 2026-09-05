@@ -128,6 +128,7 @@ function Import-ChannelForgeConfiguredM3USource {
                     -ProviderId $providerId `
                     -SourceId $sourceId `
                     -MaxDocumentBytes $MaxDocumentBytes `
+                    -EvaluationTimeUtc $EvaluationTimeUtc `
                     -Reason $reason | Out-Null
             }
             elseif ($null -ne $opened.CacheValidation) {
@@ -135,6 +136,7 @@ function Import-ChannelForgeConfiguredM3USource {
                     -CacheEntry $opened.CacheEntry `
                     -ETag ([string]$opened.CacheValidation.ETag) `
                     -LastModified $opened.CacheValidation.LastModified `
+                    -EvaluationTimeUtc $EvaluationTimeUtc `
                     -StatusCode 304 | Out-Null
             }
 
