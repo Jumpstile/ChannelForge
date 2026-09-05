@@ -389,4 +389,42 @@ Describe 'Remote XMLTV disposable fetch cache' {
         $payload.Disposed | Should -BeTrue
         Get-CacheMetadataPath $cacheRoot | Should -BeNullOrEmpty
     }
+    It 'uses explicit evaluation time for promotion timestamps and TTL boundaries' {
+        $cacheRoot = Join-Path $TestDrive 'executor-time'
+        $evaluationTime = [datetimeoffset]'2026-01-01T00:00:00Z'
+        Set-CacheMockQueue @(New-CachePayload -ETag '"executor-time-v1"')
+        $null = @(Import-ChannelForgeConfiguredXmltvSource `
+                -Source (New-CacheSource) `
+                -CacheRoot $cacheRoot `
+                -EvaluationTimeUtc $evaluationTime)
+
+        $metadataPath = Get-CacheMetadataPath $cacheRoot
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+        $expectedTimestamp = $evaluationTime.ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture)
+        ([datetimeoffset]$metadata.FetchedAtUtc).ToUniversalTime().ToString('o') | Should -Be $expectedTimestamp
+        ([datetimeoffset]$metadata.ValidatedAtUtc).ToUniversalTime().ToString('o') | Should -Be $expectedTimestamp
+
+        $fresh = InModuleScope ChannelForge -Parameters @{ CacheRoot = $cacheRoot } {
+            param($CacheRoot)
+            Read-ChannelForgeRemoteXmltvFetchCache `
+                -CacheRoot $CacheRoot `
+                -SourceId 'remote-cache-fixture' `
+                -Url 'https://example.invalid/guide.xml' `
+                -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T05:59:59Z')
+        }
+        $fresh.IsFresh | Should -BeTrue
+
+        $expired = InModuleScope ChannelForge -Parameters @{ CacheRoot = $cacheRoot } {
+            param($CacheRoot)
+            Read-ChannelForgeRemoteXmltvFetchCache `
+                -CacheRoot $CacheRoot `
+                -SourceId 'remote-cache-fixture' `
+                -Url 'https://example.invalid/guide.xml' `
+                -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T06:00:00Z')
+        }
+        $expired.IsFresh | Should -BeFalse
+    }
+
 }

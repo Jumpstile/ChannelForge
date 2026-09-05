@@ -60,6 +60,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
             $hashingStream = $null
             $hasher = $null
             $parserCompleted = $false
+            $cacheWriteToRemove = $null
             try {
                 if ($useCache) {
                     $opened = Open-ChannelForgeRemoteXmltvSourceStreamWithCache `
@@ -120,6 +121,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -Programmes $programmes `
                         -SourceId $sourceId `
                         -MaxDocumentBytes $MaxDocumentBytes `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -Reason $reason | Out-Null
                 }
                 elseif ($null -ne $opened.CacheValidation) {
@@ -127,6 +129,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -CacheEntry $opened.CacheEntry `
                         -ETag ([string]$opened.CacheValidation.ETag) `
                         -LastModified $opened.CacheValidation.LastModified `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -StatusCode 304 | Out-Null
                 }
 
@@ -156,6 +159,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 return $programmes
             }
             catch {
+                if ($null -ne $opened -and $null -ne $opened.CacheWrite) {
+                    $cacheWriteToRemove = $opened.CacheWrite
+                }
                 if (-not $parserCompleted -and
                     $useCache -and
                     -not $cacheRetryUsed -and
@@ -191,6 +197,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                     foreach ($resource in @($opened.Resources)) {
                         try { $resource.Dispose() } catch { }
                     }
+                }
+                if ($null -ne $cacheWriteToRemove) {
+                    Remove-ChannelForgeRemoteXmltvFetchCacheEntry -CacheEntry $cacheWriteToRemove
                 }
             }
         }

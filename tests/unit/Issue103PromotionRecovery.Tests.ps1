@@ -175,11 +175,27 @@ Describe 'Issue 103 immutable generation promotion and recovery' {
     }
     It 'rejects cross-volume authority and staging paths' {
         $drives=@(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -and (Test-Path $_.Root) })
-        if ($drives.Count -lt 2) { Set-ItResult -Skipped -Because 'only one filesystem volume is available on this workstation'; return }
+        $volumeRoots=@(
+            @(
+                foreach ($drive in $drives) {
+                    try {
+                        $identity=& (Get-Module ChannelForge) {
+                            param($path)
+                            Initialize-ChannelForgeGenerationStore
+                            [ChannelForge.GenerationStore]::ReadPathIdentity($path)
+                        } $drive.Root
+                        [pscustomobject]@{Root=$drive.Root;VolumeSerial=[uint32]$identity.VolumeSerial}
+                    } catch {
+                        continue
+                    }
+                }
+            ) | Group-Object VolumeSerial | ForEach-Object { $_.Group[0] }
+        )
+        if ($volumeRoots.Count -lt 2) { Set-ItResult -Skipped -Because 'fewer than two physical filesystem volumes are available on this workstation'; return }
         & (Get-Module ChannelForge) {
             param($root,$paths)
             { Assert-ChannelForgeGenerationSameVolume -RepositoryRoot $root -Paths $paths } | Should -Throw 'FAIL_CLOSED:*'
-        } $drives[0].Root @($drives[0].Root,$drives[1].Root)
+        } $volumeRoots[0].Root @($volumeRoots[0].Root,$volumeRoots[1].Root)
     }
 
     It 'persists and validates all operational FileIdentity fields without semantic hash coupling' {

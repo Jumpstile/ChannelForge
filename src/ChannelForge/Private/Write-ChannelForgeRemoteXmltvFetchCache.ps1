@@ -106,6 +106,8 @@ function Write-ChannelForgeRemoteXmltvFetchCache {
         [Parameter(Mandatory)]
         [long]$MaxDocumentBytes,
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
+
         [ValidateSet('FreshFetched', 'HashMatched200', 'InvalidatedThenFetched')]
         [string]$Reason = 'FreshFetched'
     )
@@ -162,7 +164,7 @@ function Write-ChannelForgeRemoteXmltvFetchCache {
             0
         }
 
-        $now = [datetimeoffset]::UtcNow.ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
+        $now = $EvaluationTimeUtc.ToUniversalTime().ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
         $metadata = [ordered]@{
             CacheFormatVersion       = $policy.CacheFormatVersion
             CacheVersion             = $policy.CacheVersion
@@ -238,7 +240,9 @@ function Update-ChannelForgeRemoteXmltvFetchCacheValidation {
 
         [Nullable[datetimeoffset]]$LastModified,
 
-        [int]$StatusCode = 304
+        [int]$StatusCode = 304,
+
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow)
     )
 
     if (-not $CacheEntry.MetadataValid -or -not $CacheEntry.PayloadValid) {
@@ -250,7 +254,7 @@ function Update-ChannelForgeRemoteXmltvFetchCacheValidation {
         $updated[$property.Name] = $property.Value
     }
 
-    $updated.ValidatedAtUtc = [datetimeoffset]::UtcNow.ToString(
+    $updated.ValidatedAtUtc = $EvaluationTimeUtc.ToUniversalTime().ToString(
         'o',
         [System.Globalization.CultureInfo]::InvariantCulture)
     $updated.LastValidationStatus = $StatusCode
