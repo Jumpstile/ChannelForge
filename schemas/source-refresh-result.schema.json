@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/source-refresh-result.schema.json",
+  "title": "ChannelForge source refresh result",
+  "description": "Report-only disposable source cache refresh evidence. It does not represent accepted lineup authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "EvaluationTimeUtc",
+    "ReviewNeeded",
+    "ReviewNeededCount",
+    "Sources"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "source-refresh-result/v2" },
+    "EvaluationTimeUtc": { "type": "string", "format": "date-time" },
+    "ReviewNeeded": { "type": "boolean" },
+    "ReviewNeededCount": { "type": "integer", "minimum": 0 },
+    "Sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "SourceId",
+          "Name",
+          "Kind",
+          "PlannedAction",
+          "Attempted",
+          "Result",
+          "Classification",
+          "ReasonCode",
+          "CacheChanged",
+          "LastKnownGoodPreserved",
+          "ValidatorOutcome",
+          "SafeReason"
+        ],
+        "properties": {
+          "SourceId": { "type": "string", "minLength": 1 },
+          "Name": { "type": "string", "minLength": 1 },
+          "Kind": { "enum": ["local", "remote"] },
+          "PlannedAction": {
+            "enum": [
+              "USE_VALID_CACHE",
+              "CONDITIONAL_REFRESH",
+              "FULL_REFRESH",
+              "REVIEW"
+            ]
+          },
+          "Attempted": { "type": "boolean" },
+          "Result": {
+            "enum": [
+              "NOT_ATTEMPTED",
+              "CONDITIONAL_REFRESHED",
+              "FULL_REFRESHED",
+              "REFRESH_FAILED",
+              "REUSED_VALID_CACHE",
+              "REVIEW_REQUIRED",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "Classification": {
+            "enum": ["AutoHandled", "Degraded", "ReviewNeeded", "NoAction"]
+          },
+          "ReasonCode": {
+            "enum": [
+              "ReusedValidCache",
+              "ConditionalUnchanged",
+              "ConditionalChanged",
+              "FullRefreshValidated",
+              "RefreshFailedLkgPreserved",
+              "RefreshFailedNoLkg",
+              "InvalidCache",
+              "DisabledSource",
+              "LocalSource"
+            ]
+          },
+          "CacheChanged": { "type": "boolean" },
+          "LastKnownGoodPreserved": { "type": "boolean" },
+          "ValidatorOutcome": {
+            "enum": ["NONE", "ETAG", "LAST_MODIFIED", "ETAG_AND_LAST_MODIFIED"]
+          },
+          "SafeReason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

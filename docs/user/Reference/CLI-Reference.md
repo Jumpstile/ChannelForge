@@ -75,6 +75,8 @@ Fresh validated caches are reused without a request. Expired caches use a **cond
 
 Disabled and local sources are not fetched. The executor does not publish a lineup, create a generation, replace the accepted pointer, or modify downstream state.
 
+The result JSON uses `source-refresh-result/v2`. `Result` remains the operation outcome; `Classification` is the attention layer with `AutoHandled`, `Degraded`, `ReviewNeeded`, or `NoAction`. Only `Classification=ReviewNeeded` contributes to top-level `ReviewNeeded` and `ReviewNeededCount`. The operational cache is disposable; accepted lineup authority still comes only from immutable generation promotion.
+
 **Output:** `output/reports/source-refresh-result.json` and `output/reports/source-refresh-result.md`.
 
 ## Verifying your environment
