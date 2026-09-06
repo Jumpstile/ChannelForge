@@ -297,16 +297,17 @@ Describe 'Invoke-ChannelForgeAutoUpdate -Apply -WhatIf' {
         $versionFile = Join-Path $installRoot 'VERSION'
         Set-Content -LiteralPath $versionFile -Value '0.1.0' -NoNewline
 
-        Mock -ModuleName ChannelForgeAutoUpdate.Core Get-ChannelForgeLatestReleaseInfo {
+        # The orchestrator calls the exported release lookup from script scope,
+        # so a module-scoped mock of Get-ChannelForgeLatestReleaseInfo cannot
+        # intercept that call. Mock its module-internal HTTP dependency instead
+        # to keep this WhatIf behavior test entirely fixture-backed.
+        Mock -ModuleName ChannelForgeAutoUpdate.Core Invoke-GitHubJsonRequest {
             [pscustomobject]@{
-                Found   = $true
-                Release = [pscustomobject]@{
-                    tag_name = 'v0.2.0'
-                    assets   = @([pscustomobject]@{
-                        name                  = 'ChannelForge.zip'
-                        browser_download_url = 'https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/ChannelForge.zip'
-                    })
-                }
+                tag_name = 'v0.2.0'
+                assets   = @([pscustomobject]@{
+                    name                  = 'ChannelForge.zip'
+                    browser_download_url = 'https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/ChannelForge.zip'
+                })
             }
         }
         Mock -ModuleName ChannelForgeAutoUpdate.Core Invoke-WebRequest { throw 'Invoke-WebRequest should not be called during -WhatIf' }
