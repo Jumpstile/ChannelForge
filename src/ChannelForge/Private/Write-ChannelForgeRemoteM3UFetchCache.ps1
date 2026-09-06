@@ -71,11 +71,12 @@ function Remove-ChannelForgeRemoteM3UFetchCacheEntry {
         [psobject]$CacheEntry
     )
 
-    foreach ($path in @(
-        $CacheEntry.MetadataPath
-        $CacheEntry.PayloadPath
-        $CacheEntry.TempPayloadPath
-    )) {
+    $paths = if ($CacheEntry.PSObject.Properties.Name -contains 'Tee') {
+        @($CacheEntry.TempPayloadPath)
+    } else {
+        @($CacheEntry.MetadataPath, $CacheEntry.PayloadPath, $CacheEntry.TempPayloadPath)
+    }
+    foreach ($path in $paths) {
         if (-not [string]::IsNullOrWhiteSpace([string]$path) -and
             (Test-Path -LiteralPath $path -PathType Leaf)) {
             Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
@@ -107,6 +108,8 @@ function Write-ChannelForgeRemoteM3UFetchCache {
 
         [Parameter(Mandatory)]
         [long]$MaxDocumentBytes,
+
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
 
         [ValidateSet('FreshFetched', 'HashMatched200', 'InvalidatedThenFetched')]
         [string]$Reason = 'FreshFetched'
@@ -150,7 +153,7 @@ function Write-ChannelForgeRemoteM3UFetchCache {
             [System.IO.File]::Move($temporaryPayload, $payloadPath)
         }
 
-        $now = [datetimeoffset]::UtcNow.ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
+        $now = $EvaluationTimeUtc.ToUniversalTime().ToString('o', [System.Globalization.CultureInfo]::InvariantCulture)
         $metadata = [ordered]@{
             CacheFormatVersion       = $policy.CacheFormatVersion
             CacheVersion             = $policy.CacheVersion
@@ -226,7 +229,9 @@ function Update-ChannelForgeRemoteM3UFetchCacheValidation {
 
         [Nullable[datetimeoffset]]$LastModified,
 
-        [int]$StatusCode = 304
+        [int]$StatusCode = 304,
+
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow)
     )
 
     if (-not $CacheEntry.MetadataValid -or -not $CacheEntry.PayloadValid) {
@@ -238,7 +243,7 @@ function Update-ChannelForgeRemoteM3UFetchCacheValidation {
         $updated[$property.Name] = $property.Value
     }
 
-    $updated.ValidatedAtUtc = [datetimeoffset]::UtcNow.ToString(
+    $updated.ValidatedAtUtc = $EvaluationTimeUtc.ToUniversalTime().ToString(
         'o',
         [System.Globalization.CultureInfo]::InvariantCulture)
     $updated.LastValidationStatus = $StatusCode

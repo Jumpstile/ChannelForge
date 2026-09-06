@@ -13,6 +13,7 @@ function Import-ChannelForgeConfiguredM3USource {
         [AllowEmptyString()]
         [string]$CacheRoot = '',
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
@@ -69,6 +70,7 @@ function Import-ChannelForgeConfiguredM3USource {
                     -CacheRoot $CacheRoot `
                     -MaxDocumentBytes $MaxDocumentBytes `
                     -MaxRawResponseBytes $MaxRawResponseBytes `
+                    -EvaluationTimeUtc $EvaluationTimeUtc `
                     -ForceUnconditional:$forceUnconditional
             }
             else {
@@ -99,8 +101,9 @@ function Import-ChannelForgeConfiguredM3USource {
                 -Playlist $sourceId `
                 -CandidateContractVersion $CandidateContractVersion)
             $parserCompleted = $true
-
-            $reader.Dispose()
+            if (@($channels).Count -eq 0) {
+                throw 'Remote M3U response contained no channels; cache promotion was rejected.'
+            }
             $reader = $null
             $hashingStream = $null
             $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
@@ -125,6 +128,7 @@ function Import-ChannelForgeConfiguredM3USource {
                     -ProviderId $providerId `
                     -SourceId $sourceId `
                     -MaxDocumentBytes $MaxDocumentBytes `
+                    -EvaluationTimeUtc $EvaluationTimeUtc `
                     -Reason $reason | Out-Null
             }
             elseif ($null -ne $opened.CacheValidation) {
@@ -132,6 +136,7 @@ function Import-ChannelForgeConfiguredM3USource {
                     -CacheEntry $opened.CacheEntry `
                     -ETag ([string]$opened.CacheValidation.ETag) `
                     -LastModified $opened.CacheValidation.LastModified `
+                    -EvaluationTimeUtc $EvaluationTimeUtc `
                     -StatusCode 304 | Out-Null
             }
 
