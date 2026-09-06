@@ -1,6 +1,7 @@
 BeforeAll {
     $script:Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:Executor = Join-Path $script:Root 'scripts/Invoke-ChannelForgeSourceRefresh.ps1'
+    $script:ResultSchema = Join-Path $script:Root 'schemas/source-refresh-result.schema.json'
     function Invoke-ExecutorHarness {
         param(
             [Parameter(Mandatory)]
@@ -171,7 +172,13 @@ Describe 'one-shot source refresh executor' {
         Set-Content -LiteralPath (Join-Path $root 'data/epg/epg_sources.local.json') -Value '{"epg_sources":[]}'
         $result = & $script:Executor -Root $root
         $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        Test-Json -Path $result.JsonPath -SchemaFile $script:ResultSchema | Should -BeTrue
+        $report.SchemaVersion | Should -Be 'source-refresh-result/v2'
+        $report.ReviewNeeded | Should -BeFalse
+        $report.ReviewNeededCount | Should -Be 0
         $report.Sources[0].Result | Should -Be 'REVIEW_REQUIRED'
+        $report.Sources[0].Classification | Should -Be 'NoAction'
+        $report.Sources[0].ReasonCode | Should -Be 'DisabledSource'
         $report.Sources[0].Attempted | Should -BeFalse
         $report.Sources[0].SafeReason | Should -Not -Match 'example.invalid|secret'
         Test-Path $result.MarkdownPath | Should -BeTrue
@@ -196,6 +203,11 @@ Describe 'one-shot source refresh executor' {
         $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
         @($report.Sources | ForEach-Object Name) | Should -Be @('Alpha','Zulu','Guide')
         ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'ACCOUNT_ID|API_TOKEN|example.invalid'
+        Test-Json -Path $result.JsonPath -SchemaFile $script:ResultSchema | Should -BeTrue
+        $report.Sources[0].Classification | Should -Be 'NoAction'
+        $report.Sources[0].ReasonCode | Should -Be 'DisabledSource'
+        $report.ReviewNeeded | Should -BeFalse
+        $report.ReviewNeededCount | Should -Be 0
     }
     It 'reports validated 304 responses as unchanged for both source formats' {
         foreach ($kind in @('m3u', 'xmltv')) {
@@ -225,6 +237,8 @@ Describe 'one-shot source refresh executor' {
             $row.LastKnownGoodPreserved | Should -BeFalse
             $row.ValidatorOutcome | Should -Be $plan.Validator
             $row.SafeReason | Should -Match 'unchanged.*cache payload.*retained'
+            $row.Classification | Should -Be 'AutoHandled'
+            $row.ReasonCode | Should -Be 'ConditionalUnchanged'
             @($harness.Calls).Count | Should -Be 1
             $harness.Calls[0].EvaluationTimeUtc | Should -Be ([datetimeoffset]'2026-01-01T00:00:00Z')
         }
@@ -256,6 +270,8 @@ Describe 'one-shot source refresh executor' {
             $row.Result | Should -Be 'CONDITIONAL_REFRESHED'
             $row.CacheChanged | Should -BeTrue
             $row.ValidatorOutcome | Should -Be 'ETAG'
+            $row.Classification | Should -Be 'AutoHandled'
+            $row.ReasonCode | Should -Be 'ConditionalChanged'
             $row.SafeReason | Should -Match 'changed source content was validated.*cache payload was updated'
             @($harness.Calls).Count | Should -Be 1
         }
@@ -286,6 +302,10 @@ Describe 'one-shot source refresh executor' {
             $row.Result | Should -Be 'REFRESH_FAILED'
             $row.CacheChanged | Should -BeFalse
             $row.LastKnownGoodPreserved | Should -BeTrue
+            $row.Classification | Should -Be 'Degraded'
+            $row.ReasonCode | Should -Be 'RefreshFailedLkgPreserved'
+            $harness.Report.ReviewNeeded | Should -BeFalse
+            $harness.Report.ReviewNeededCount | Should -Be 0
             $row.SafeReason | Should -Match 'last-known-good cache was preserved'
             @($harness.Calls).Count | Should -Be 1
             Test-Path -LiteralPath (Join-Path $harness.Root 'output/accepted') | Should -BeFalse
@@ -312,9 +332,80 @@ Describe 'one-shot source refresh executor' {
         $row.Result | Should -Be 'REUSED_VALID_CACHE'
         $row.Attempted | Should -BeFalse
         $row.CacheChanged | Should -BeFalse
+        $row.Classification | Should -Be 'AutoHandled'
+        $row.ReasonCode | Should -Be 'ReusedValidCache'
         $row.SafeReason | Should -Match 'no network request was made'
         ([datetimeoffset]$harness.Report.EvaluationTimeUtc).ToUniversalTime().ToString('o') | Should -Be $evaluationTime.ToUniversalTime().ToString('o')
         @($harness.Calls).Count | Should -Be 0
+    }
+
+    It 'classifies unresolved planned review and counts only review-needed rows' {
+        $plan = [pscustomobject][ordered]@{
+            SourceId          = 'm3u-invalid'
+            Name              = 'Invalid Fixture'
+            Kind              = 'remote'
+            Enabled           = $true
+            RecommendedAction = 'REVIEW'
+            CacheState        = 'INVALID'
+            Validator         = 'NONE'
+            Reason            = 'Cache cannot be planned safely: MalformedMetadata.'
+        }
+        $harness = Invoke-ExecutorHarness `
+            -Plan $plan `
+            -Status ([ordered]@{})
+        $row = @($harness.Report.Sources)[0]
+        Test-Json -Path $harness.Result.JsonPath -SchemaFile $script:ResultSchema | Should -BeTrue
+        $row.Result | Should -Be 'REVIEW_REQUIRED'
+        $row.Classification | Should -Be 'ReviewNeeded'
+        $row.ReasonCode | Should -Be 'InvalidCache'
+        $harness.Report.ReviewNeeded | Should -BeTrue
+        $harness.Report.ReviewNeededCount | Should -Be 1
+    }
+
+    It 'does not count local sources as review-needed' {
+        $root = Join-Path $TestDrive 'local-project'
+        $playlist = Join-Path $root 'data/playlists/local.m3u'
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $playlist), (Join-Path $root 'data/providers'), (Join-Path $root 'data/epg') | Out-Null
+        Set-Content -LiteralPath $playlist -Value '#EXTM3U'
+        Set-Content -LiteralPath (Join-Path $root 'data/providers/provider.local.json') -Value '{"provider":"fixture","sources":[{"name":"Local","url":"https://example.invalid/local.m3u","enabled":true,"local_playlist":"data/playlists/local.m3u"}]}'
+        Set-Content -LiteralPath (Join-Path $root 'data/epg/epg_sources.local.json') -Value '{"epg_sources":[]}'
+        $result = & $script:Executor -Root $root
+        $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        $row = @($report.Sources)[0]
+        Test-Json -Path $result.JsonPath -SchemaFile $script:ResultSchema | Should -BeTrue
+        $row.Classification | Should -Be 'NoAction'
+        $row.ReasonCode | Should -Be 'LocalSource'
+        $report.ReviewNeeded | Should -BeFalse
+        $report.ReviewNeededCount | Should -Be 0
+    }
+
+    It 'classifies a validated full refresh as automatically handled' {
+        $plan = [pscustomobject][ordered]@{
+            SourceId          = 'm3u-full'
+            Name              = 'Full Fixture'
+            Kind              = 'remote'
+            Enabled           = $true
+            RecommendedAction = 'FULL_REFRESH'
+            CacheState        = 'MISSING'
+            Validator         = 'NONE'
+            Reason            = 'No validated cache metadata was found; a complete refresh is required.'
+        }
+        $status = [ordered]@{
+            Outcome         = 'Fetched'
+            Reason          = 'FreshFetched'
+            StatusCode      = 200
+            HasETag         = $false
+            HasLastModified = $false
+        }
+        $harness = Invoke-ExecutorHarness `
+            -Plan $plan `
+            -Status $status
+        $row = @($harness.Report.Sources)[0]
+        $row.Result | Should -Be 'FULL_REFRESHED'
+        $row.Classification | Should -Be 'AutoHandled'
+        $row.ReasonCode | Should -Be 'FullRefreshValidated'
+        $harness.Report.ReviewNeeded | Should -BeFalse
+        $harness.Report.ReviewNeededCount | Should -Be 0
     }
 
 }
