@@ -7,10 +7,10 @@ function Import-ChannelForgeConfiguredXmltvSource {
         [long]$MaxDocumentBytes = 268435456,
 
         [long]$MaxRawResponseBytes = 268435456,
-
         [AllowEmptyString()]
         [string]$CacheRoot = '',
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
@@ -60,6 +60,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
             $hashingStream = $null
             $hasher = $null
             $parserCompleted = $false
+            $cacheWriteToRemove = $null
             try {
                 if ($useCache) {
                     $opened = Open-ChannelForgeRemoteXmltvSourceStreamWithCache `
@@ -67,6 +68,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -CacheRoot $CacheRoot `
                         -MaxDocumentBytes $MaxDocumentBytes `
                         -MaxRawResponseBytes $MaxRawResponseBytes `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -ForceUnconditional:$forceUnconditional
                 }
                 else {
@@ -99,7 +101,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 $hashingStream = $null
                 $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
                 $parserCompleted = $true
-
+                if (@($programmes).Count -eq 0) {
+                    throw 'Remote XMLTV response contained no programmes; cache promotion was rejected.'
+                }
                 if ($null -ne $opened.Stream) {
                     $opened.Stream.Dispose()
                 }
@@ -117,6 +121,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -Programmes $programmes `
                         -SourceId $sourceId `
                         -MaxDocumentBytes $MaxDocumentBytes `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -Reason $reason | Out-Null
                 }
                 elseif ($null -ne $opened.CacheValidation) {
@@ -124,6 +129,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -CacheEntry $opened.CacheEntry `
                         -ETag ([string]$opened.CacheValidation.ETag) `
                         -LastModified $opened.CacheValidation.LastModified `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -StatusCode 304 | Out-Null
                 }
 
@@ -153,6 +159,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 return $programmes
             }
             catch {
+                if ($null -ne $opened -and $null -ne $opened.CacheWrite) {
+                    $cacheWriteToRemove = $opened.CacheWrite
+                }
                 if (-not $parserCompleted -and
                     $useCache -and
                     -not $cacheRetryUsed -and
@@ -188,6 +197,9 @@ function Import-ChannelForgeConfiguredXmltvSource {
                     foreach ($resource in @($opened.Resources)) {
                         try { $resource.Dispose() } catch { }
                     }
+                }
+                if ($null -ne $cacheWriteToRemove) {
+                    Remove-ChannelForgeRemoteXmltvFetchCacheEntry -CacheEntry $cacheWriteToRemove
                 }
             }
         }

@@ -63,6 +63,20 @@ The plan reports `USE_VALID_CACHE`, `CONDITIONAL_REFRESH`, `FULL_REFRESH`, or `R
 
 **Output:** `output/reports/source-refresh-plan.json` and `output/reports/source-refresh-plan.md`.
 
+## `scripts/Invoke-ChannelForgeSourceRefresh.ps1`
+
+Run one bounded refresh of disposable source cache evidence:
+
+```powershell
+pwsh -File scripts/Invoke-ChannelForgeSourceRefresh.ps1
+```
+
+Fresh validated caches are reused without a request. Expired caches use a **conditional refresh** when ETag or Last-Modified evidence exists; this asks whether previously downloaded content changed. Otherwise, ChannelForge performs a full refresh and validates the response before promotion. The **last-known-good** cache is the most recent validated source copy retained when a new refresh cannot be trusted. Failed, malformed, empty, unsafe, or invalid responses never replace it.
+
+Disabled and local sources are not fetched. The executor does not publish a lineup, create a generation, replace the accepted pointer, or modify downstream state.
+
+**Output:** `output/reports/source-refresh-result.json` and `output/reports/source-refresh-result.md`.
+
 ## Verifying your environment
 
 ```powershell

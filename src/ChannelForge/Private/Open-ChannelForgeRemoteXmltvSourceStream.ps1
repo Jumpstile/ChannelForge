@@ -394,6 +394,8 @@ function Open-ChannelForgeRemoteXmltvSourceStreamWithCache {
 
         [long]$MaxRawResponseBytes = 268435456,
 
+        [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
+
         [switch]$ForceUnconditional
     )
 
@@ -423,7 +425,8 @@ function Open-ChannelForgeRemoteXmltvSourceStreamWithCache {
             -CacheRoot $CacheRoot `
             -SourceId $sourceId `
             -Url $url `
-            -MaxDocumentBytes $MaxDocumentBytes
+            -MaxDocumentBytes $MaxDocumentBytes `
+            -EvaluationTimeUtc $EvaluationTimeUtc
     }
 
     if ($null -ne $candidate -and

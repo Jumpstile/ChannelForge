@@ -396,4 +396,53 @@ Describe 'Remote M3U disposable fetch cache' {
         $result.MetadataValid | Should -BeTrue
         $result.PayloadValid | Should -BeTrue
     }
+
+    It 'rejects empty remote content before cache promotion' {
+        $cacheRoot = Join-Path $TestDrive 'empty-response'
+        $payload = New-CachePayload -Bytes ([text.encoding]::UTF8.GetBytes("#EXTM3U`n"))
+        Set-CacheMockQueue @($payload)
+        { Import-ChannelForgeConfiguredM3USource -Source (New-CacheSource) -CacheRoot $cacheRoot } | Should -Throw '*no channels*'
+        $payload.Disposed | Should -BeTrue
+        Get-CacheMetadataPath $cacheRoot | Should -BeNullOrEmpty
+    }
+    It 'uses explicit evaluation time for promotion timestamps and TTL boundaries' {
+        $cacheRoot = Join-Path $TestDrive 'executor-time'
+        $evaluationTime = [datetimeoffset]'2026-01-01T00:00:00Z'
+        Set-CacheMockQueue @(New-CachePayload -ETag '"executor-time-v1"')
+        $null = @(Import-ChannelForgeConfiguredM3USource `
+                -Source (New-CacheSource) `
+                -CacheRoot $cacheRoot `
+                -EvaluationTimeUtc $evaluationTime)
+
+        $metadataPath = Get-CacheMetadataPath $cacheRoot
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+        $expectedTimestamp = $evaluationTime.ToUniversalTime().ToString(
+            'o',
+            [cultureinfo]::InvariantCulture)
+        ([datetimeoffset]$metadata.FetchedAtUtc).ToUniversalTime().ToString('o') | Should -Be $expectedTimestamp
+        ([datetimeoffset]$metadata.ValidatedAtUtc).ToUniversalTime().ToString('o') | Should -Be $expectedTimestamp
+
+        $fresh = InModuleScope ChannelForge -Parameters @{ CacheRoot = $cacheRoot } {
+            param($CacheRoot)
+            Read-ChannelForgeRemoteM3UFetchCache `
+                -CacheRoot $CacheRoot `
+                -ProviderId 'fixture-provider' `
+                -SourceId 'remote-m3u-cache-fixture' `
+                -Url 'https://example.invalid/iptv/cache-fixture' `
+                -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T23:59:59Z')
+        }
+        $fresh.IsFresh | Should -BeTrue
+
+        $expired = InModuleScope ChannelForge -Parameters @{ CacheRoot = $cacheRoot } {
+            param($CacheRoot)
+            Read-ChannelForgeRemoteM3UFetchCache `
+                -CacheRoot $CacheRoot `
+                -ProviderId 'fixture-provider' `
+                -SourceId 'remote-m3u-cache-fixture' `
+                -Url 'https://example.invalid/iptv/cache-fixture' `
+                -EvaluationTimeUtc ([datetimeoffset]'2026-01-02T00:00:00Z')
+        }
+        $expired.IsFresh | Should -BeFalse
+    }
+
 }
