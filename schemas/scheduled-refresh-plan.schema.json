@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-refresh-plan.schema.json",
+  "title": "ChannelForge scheduled refresh plan",
+  "description": "Report-only scheduled refresh planning evidence. It authorizes no lock, worker, network, cache, accepted-state, generation, pointer, or publication behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "EvaluatedAtUtc",
+    "TriggerKind",
+    "PolicyDigest",
+    "PolicyEnabled",
+    "InputValidation",
+    "InputResult",
+    "Schedule",
+    "Counts",
+    "Notification",
+    "LockObservation",
+    "Safety"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-refresh-plan/v1" },
+    "EvaluatedAtUtc": { "type": "string", "format": "date-time" },
+    "TriggerKind": { "enum": ["Scheduled", "Manual"] },
+    "PolicyDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "PolicyEnabled": { "type": "boolean" },
+    "InputValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "Errors"],
+      "properties": {
+        "Status": { "enum": ["Valid", "Invalid"] },
+        "Errors": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "InputResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "SchemaVersion",
+        "EvaluationTimeUtc",
+        "InputDigest",
+        "ReviewNeeded",
+        "ReviewNeededCount"
+      ],
+      "properties": {
+        "SchemaVersion": { "const": "source-refresh-result/v2" },
+        "EvaluationTimeUtc": { "type": "string", "format": "date-time" },
+        "InputDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "ReviewNeeded": { "type": "boolean" },
+        "ReviewNeededCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Decision",
+        "ReasonCode",
+        "NominalDueUtc",
+        "WindowStartUtc",
+        "WindowEndUtc",
+        "JitterOffsetMinutes",
+        "ProposedStartUtc",
+        "NextDueUtc"
+      ],
+      "properties": {
+        "Decision": {
+          "enum": [
+            "DISABLED",
+            "WAITING_FOR_CADENCE",
+            "WAITING_FOR_WINDOW",
+            "READY_SCHEDULED",
+            "READY_MANUAL",
+            "BLOCKED_BY_LOCK",
+            "MANUAL_NOT_ALLOWED",
+            "INPUT_INVALID",
+            "POLICY_INVALID"
+          ]
+        },
+        "ReasonCode": {
+          "enum": [
+            "ScheduleDisabled",
+            "ScheduledSlotNotDue",
+            "OutsideAllowedWindow",
+            "JitterOutsideWindow",
+            "ScheduledRunReady",
+            "ManualOverrideReady",
+            "ObservedLockBusy",
+            "ObservedStaleLockEvidence",
+            "ObservedLockUnknown",
+            "ManualOverrideDisabled",
+            "InputContractInvalid",
+            "PolicyContractInvalid"
+          ]
+        },
+        "NominalDueUtc": { "type": ["string", "null"], "format": "date-time" },
+        "WindowStartUtc": { "type": ["string", "null"], "format": "date-time" },
+        "WindowEndUtc": { "type": ["string", "null"], "format": "date-time" },
+        "JitterOffsetMinutes": {
+          "type": "integer",
+          "minimum": -60,
+          "maximum": 60
+        },
+        "ProposedStartUtc": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "NextDueUtc": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "Counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["AutoHandled", "Degraded", "ReviewNeeded", "NoAction"],
+      "properties": {
+        "AutoHandled": { "type": "integer", "minimum": 0 },
+        "Degraded": { "type": "integer", "minimum": 0 },
+        "ReviewNeeded": { "type": "integer", "minimum": 0 },
+        "NoAction": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Level", "SummaryCode", "Items"],
+      "properties": {
+        "Level": {
+          "enum": ["Quiet", "Warning", "Interrupt", "EscalatedInterrupt"]
+        },
+        "SummaryCode": {
+          "enum": [
+            "NoNotification",
+            "DegradedWarning",
+            "DegradedEscalated",
+            "ReviewNeededInterrupt",
+            "ReviewNeededActive",
+            "ReviewNeededEscalated",
+            "InputContractInvalid",
+            "OperationalStatus"
+          ]
+        },
+        "Items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "SourceId",
+              "Classification",
+              "ReasonCode",
+              "IssueFingerprint",
+              "Action",
+              "ConsecutiveScheduledFailureCount"
+            ],
+            "properties": {
+              "SourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "Classification": {
+                "enum": ["AutoHandled", "Degraded", "ReviewNeeded", "NoAction"]
+              },
+              "ReasonCode": {
+                "enum": [
+                  "ReusedValidCache",
+                  "ConditionalUnchanged",
+                  "ConditionalChanged",
+                  "FullRefreshValidated",
+                  "RefreshFailedLkgPreserved",
+                  "RefreshFailedNoLkg",
+                  "InvalidCache",
+                  "DisabledSource",
+                  "LocalSource"
+                ]
+              },
+              "IssueFingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "Action": {
+                "enum": [
+                  "NoNotification",
+                  "NotifyWarning",
+                  "NotifyInterrupt",
+                  "SuppressDuplicate",
+                  "EscalateInterrupt"
+                ]
+              },
+              "ConsecutiveScheduledFailureCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "LockObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "ReasonCode"],
+      "properties": {
+        "Status": {
+          "enum": ["NotAttempted", "Busy", "StaleEvidence", "Unknown"]
+        },
+        "ReasonCode": {
+          "enum": [
+            "ReportOnlyNoLockAcquisition",
+            "ObservedLockBusy",
+            "ObservedStaleLockEvidence",
+            "ObservedLockUnknown"
+          ]
+        }
+      }
+    },
+    "Safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "MutationScope",
+        "AcceptedStateMutation",
+        "GenerationMutation",
+        "PointerMutation",
+        "PublishedOutputMutation",
+        "ProviderStateMutation",
+        "IdentityEvidenceMutation"
+      ],
+      "properties": {
+        "MutationScope": { "const": "ReportOnly" },
+        "AcceptedStateMutation": { "const": "None" },
+        "GenerationMutation": { "const": "None" },
+        "PointerMutation": { "const": "None" },
+        "PublishedOutputMutation": { "const": "None" },
+        "ProviderStateMutation": { "const": "None" },
+        "IdentityEvidenceMutation": { "const": "None" }
+      }
+    }
+  }
+}

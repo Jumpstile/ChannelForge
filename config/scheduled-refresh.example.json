@@ -1,0 +1,35 @@
+{
+  "SchemaVersion": "scheduled-refresh-policy/v1",
+  "Enabled": false,
+  "TimeZoneId": "UTC",
+  "Cadence": {
+    "Mode": "Daily",
+    "At": "03:00"
+  },
+  "AllowedWindow": {
+    "Start": "02:00",
+    "End": "05:00"
+  },
+  "JitterMinutes": 30,
+  "MaxRunDurationMinutes": 30,
+  "StaleRunThresholdMinutes": 10,
+  "HeartbeatIntervalSeconds": 30,
+  "Retry": {
+    "MaxAttemptsPerScheduleSlot": 1
+  },
+  "ManualOverride": {
+    "Allowed": true,
+    "AllowedWhenDisabled": true,
+    "BypassAllowedWindow": true,
+    "CountsTowardScheduledCadence": false
+  },
+  "Notification": {
+    "DegradedWarningAfterConsecutiveRuns": 2,
+    "RepeatedFailureEscalationAfterConsecutiveRuns": 3,
+    "SuppressDuplicateIssueUntilFingerprintChanges": true
+  },
+  "Retention": {
+    "MaxRunRecords": 30,
+    "MaxAgeDays": 90
+  }
+}

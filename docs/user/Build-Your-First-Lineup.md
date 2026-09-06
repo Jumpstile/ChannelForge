@@ -91,6 +91,32 @@ If a request fails or its response is empty, malformed, unsafe, or otherwise inv
 
 The JSON result uses `source-refresh-result/v2`. Each source has a machine-readable `Classification`: `AutoHandled` means validated cache evidence was reused or refreshed, `Degraded` means a failed refresh preserved last-known-good data, `ReviewNeeded` means no safe usable result remains, and `NoAction` means the source is intentionally disabled or local. `ReviewNeeded` and `ReviewNeededCount` summarize only sources classified as `ReviewNeeded`; cache data remains disposable and does not become accepted lineup authority.
 
+## Preview the scheduled refresh plan
+
+To evaluate the daily schedule and notification result without starting a scheduler or contacting a source, run:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1
+```
+
+The planner uses `config/scheduled-refresh.local.json` when present and otherwise uses the safe tracked example policy. It consumes the existing `source-refresh-result/v2` report, validates its classifications and review counts, calculates the UTC cadence/window/jitter, and writes:
+
+```text
+output/reports/scheduled-refresh-plan.json
+output/reports/scheduled-refresh-plan.md
+```
+
+This is report-only evidence. It does not acquire a lock, start a worker, fetch a source, mutate a cache, create accepted state or a generation, replace a pointer, or publish M3U/XMLTV output.
+
+An explicit manual plan is allowed while scheduling is disabled and outside the scheduled window:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1 `
+  -TriggerKind Manual
+```
+
+Manual planning does not consume the next scheduled cadence slot. `AutoHandled` and `NoAction` remain quiet; `Degraded` becomes a warning only after its configured repeated-run threshold; `ReviewNeeded` interrupts for a new issue and remains active when an unchanged duplicate is suppressed.
+
 ## Expert/local configuration path
 
 The lower-level `scripts/Build-Lineup.ps1` command remains available for configured multi-source builds. It reads the safe local provider configuration and writes the detailed build reports described below. Use it when you need multiple configured sources or technical controls.

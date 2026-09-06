@@ -19,7 +19,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 ## Not implemented yet
 
 - **No graphical interface.** Everything is PowerShell scripts run from a cloned repository. A GUI is planned (see Milestone 3 in [ROADMAP.md](../../ROADMAP.md)) but hasn't started.
-- **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, scheduling, and live-network CI are not supported.
+- **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, live scheduling, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.

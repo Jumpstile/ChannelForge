@@ -1039,7 +1039,7 @@ foreach ($orphan in @($m3uXmltvOrphanedXmltvChannels)) {
 $md += ""
 $md += "Known limitations:"
 $md += '- Remote XMLTV and provider M3U acquisition: bounded HTTPS only; no redirects, proxies, credentials, retries, or live-network CI.'
-$md += '- Scheduled refresh, durable source snapshots, and GUI workflows: deferred.'
+$md += '- Live scheduled refresh, durable source snapshots, and GUI workflows: deferred; report-only schedule planning is available separately.'
 $md += '- Target-specific EPG assignment and automatic Plex refresh: deferred; exact M3U/XMLTV identity bindings are reported separately and generated M3U/XMLTV remain separate outputs.'
 $md += ""
 $md += "## Provider M3U Sources"
