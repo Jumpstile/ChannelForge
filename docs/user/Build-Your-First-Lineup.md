@@ -89,6 +89,8 @@ The command reuses fresh validated caches, performs a **conditional refresh** fo
 
 If a request fails or its response is empty, malformed, unsafe, or otherwise invalid, the working last-known-good cache is preserved. The command writes `output/reports/source-refresh-result.json` and `output/reports/source-refresh-result.md`. It does not publish a lineup, create a generation, replace the accepted pointer, or change downstream state.
 
+The JSON result uses `source-refresh-result/v2`. Each source has a machine-readable `Classification`: `AutoHandled` means validated cache evidence was reused or refreshed, `Degraded` means a failed refresh preserved last-known-good data, `ReviewNeeded` means no safe usable result remains, and `NoAction` means the source is intentionally disabled or local. `ReviewNeeded` and `ReviewNeededCount` summarize only sources classified as `ReviewNeeded`; cache data remains disposable and does not become accepted lineup authority.
+
 ## Expert/local configuration path
 
 The lower-level `scripts/Build-Lineup.ps1` command remains available for configured multi-source builds. It reads the safe local provider configuration and writes the detailed build reports described below. Use it when you need multiple configured sources or technical controls.
