@@ -79,6 +79,43 @@ The result JSON uses `source-refresh-result/v2`. `Result` remains the operation 
 
 **Output:** `output/reports/source-refresh-result.json` and `output/reports/source-refresh-result.md`.
 
+## `scripts/Get-ChannelForgeScheduledRefreshPlan.ps1`
+
+Generate report-only scheduled refresh evidence from the existing `source-refresh-result/v2` report:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1
+```
+
+The planner resolves policy in this order:
+
+1. `config/scheduled-refresh.local.json`
+2. `config/scheduled-refresh.example.json`
+
+It calculates the daily UTC cadence, start-inclusive/end-exclusive window, deterministic jitter, notification level, and safety boundary. It never acquires a lock, starts a worker, fetches a source, mutates a cache, creates accepted state or a generation, replaces a pointer, or publishes M3U/XMLTV output.
+
+For an explicit manual plan:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1 `
+  -TriggerKind Manual
+```
+
+Manual planning is permitted while scheduling is disabled and outside the scheduled window. It does not count toward scheduled failure counters or shift the next scheduled cadence by default.
+
+Optional deterministic inputs:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1 `
+  -EvaluationTimeUtc 2026-01-01T03:00:00Z `
+  -ObservedLockState Busy `
+  -OutputRoot C:\private\reports
+```
+
+`-ObservedLockState` is report-only input. This slice never attempts lock acquisition.
+
+**Output:** `output/reports/scheduled-refresh-plan.json` and `output/reports/scheduled-refresh-plan.md`.
+
 ## Verifying your environment
 
 ```powershell

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-refresh-policy.schema.json",
+  "title": "ChannelForge scheduled refresh policy",
+  "description": "Validated report-only scheduling policy. It authorizes no scheduler, worker, lock, cache, accepted-state, generation, pointer, or publication behavior by itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "Enabled",
+    "TimeZoneId",
+    "Cadence",
+    "AllowedWindow",
+    "JitterMinutes",
+    "MaxRunDurationMinutes",
+    "StaleRunThresholdMinutes",
+    "HeartbeatIntervalSeconds",
+    "Retry",
+    "ManualOverride",
+    "Notification",
+    "Retention"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-refresh-policy/v1" },
+    "Enabled": { "type": "boolean" },
+    "TimeZoneId": { "const": "UTC" },
+    "Cadence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Mode", "At"],
+      "properties": {
+        "Mode": { "const": "Daily" },
+        "At": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      }
+    },
+    "AllowedWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Start", "End"],
+      "properties": {
+        "Start": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "End": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      }
+    },
+    "JitterMinutes": { "type": "integer", "minimum": 0, "maximum": 60 },
+    "MaxRunDurationMinutes": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 120
+    },
+    "StaleRunThresholdMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    },
+    "HeartbeatIntervalSeconds": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 300
+    },
+    "Retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["MaxAttemptsPerScheduleSlot"],
+      "properties": {
+        "MaxAttemptsPerScheduleSlot": { "const": 1 }
+      }
+    },
+    "ManualOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Allowed",
+        "AllowedWhenDisabled",
+        "BypassAllowedWindow",
+        "CountsTowardScheduledCadence"
+      ],
+      "properties": {
+        "Allowed": { "type": "boolean" },
+        "AllowedWhenDisabled": { "type": "boolean" },
+        "BypassAllowedWindow": { "type": "boolean" },
+        "CountsTowardScheduledCadence": { "type": "boolean" }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "DegradedWarningAfterConsecutiveRuns",
+        "RepeatedFailureEscalationAfterConsecutiveRuns",
+        "SuppressDuplicateIssueUntilFingerprintChanges"
+      ],
+      "properties": {
+        "DegradedWarningAfterConsecutiveRuns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "RepeatedFailureEscalationAfterConsecutiveRuns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "SuppressDuplicateIssueUntilFingerprintChanges": { "type": "boolean" }
+      }
+    },
+    "Retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["MaxRunRecords", "MaxAgeDays"],
+      "properties": {
+        "MaxRunRecords": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "MaxAgeDays": { "type": "integer", "minimum": 1, "maximum": 3650 }
+      }
+    }
+  }
+}

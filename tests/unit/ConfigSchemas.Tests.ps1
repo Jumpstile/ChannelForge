@@ -6,6 +6,7 @@ BeforeAll {
     $script:NumberingBlocksSchema = Join-Path $RepoRoot 'schemas\numbering_blocks.schema.json'
     $script:CategoriesSchema = Join-Path $RepoRoot 'schemas\categories.schema.json'
     $script:AliasesSchema = Join-Path $RepoRoot 'schemas\aliases.schema.json'
+    $script:ScheduledPolicySchema = Join-Path $RepoRoot 'schemas\scheduled-refresh-policy.schema.json'
 }
 
 Describe 'Provider source schema' {
@@ -268,5 +269,17 @@ Describe 'Schemas supplement, not replace, runtime validation' {
 
         Test-Json -Path $path -SchemaFile $script:EpgSchema | Should -BeTrue
         { Read-ChannelForgeEpgSource -Path $path } | Should -Throw
+    }
+}
+
+Describe 'Scheduled refresh policy schema' {
+    It 'accepts the tracked report-only example policy' {
+        $path = Join-Path $RepoRoot 'config\scheduled-refresh.example.json'
+        Test-Json -Path $path -SchemaFile $script:ScheduledPolicySchema | Should -BeTrue
+    }
+
+    It 'rejects an unknown policy property' {
+        $json = '{"SchemaVersion":"scheduled-refresh-policy/v1","Enabled":false,"TimeZoneId":"UTC","Cadence":{"Mode":"Daily","At":"03:00"},"AllowedWindow":{"Start":"02:00","End":"05:00"},"JitterMinutes":0,"MaxRunDurationMinutes":30,"StaleRunThresholdMinutes":10,"HeartbeatIntervalSeconds":30,"Retry":{"MaxAttemptsPerScheduleSlot":1},"ManualOverride":{"Allowed":true,"AllowedWhenDisabled":true,"BypassAllowedWindow":true,"CountsTowardScheduledCadence":false},"Notification":{"DegradedWarningAfterConsecutiveRuns":2,"RepeatedFailureEscalationAfterConsecutiveRuns":3,"SuppressDuplicateIssueUntilFingerprintChanges":true},"Retention":{"MaxRunRecords":30,"MaxAgeDays":90},"unexpected":"value"}'
+        { Test-Json -Json $json -SchemaFile $script:ScheduledPolicySchema -ErrorAction Stop } | Should -Throw
     }
 }
