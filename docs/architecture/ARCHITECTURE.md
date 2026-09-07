@@ -91,6 +91,14 @@ This is the build pipeline `scripts/Build-Lineup.ps1` runs via `Merge-ChannelFor
 - **Plex EPG/guide binding remains deferred.** The build can produce `output/merged.xml`, but downstream channel-to-guide binding and automatic Plex refresh are separate work.
 - **Category-to-numbering-block matching is intentionally simple.** A channel is numbered only if its M3U `group-title` exactly matches (case-insensitive) a `numbering_blocks.json` category. Smarter category inference is Confidence Engine territory (Roadmap Milestone 2), not this pipeline.
 
+## Scheduled refresh run boundary
+
+`scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1` is a manual foreground entry point. It invokes the report-only scheduled-refresh planner with `TriggerKind=Manual`, acquires only `output/operations/scheduled-refresh.lock` through the existing safe exclusive-file machinery, and invokes `scripts/Invoke-ChannelForgeSourceRefresh.ps1` at most once when the generated plan is `READY_MANUAL`.
+
+The lock handle, not the marker file, establishes ownership. Marker fields are diagnostic crash evidence and contain only an owner-token hash, process timing, plan digest, and bounded state. A failed lock acquisition never deletes or adopts a stale marker. A successful acquisition may record a prior `Running` marker as abandoned before starting the new run.
+
+The run reports under `output/reports/` are operational evidence. The wrapper itself performs no network request and writes no cache directly. The existing source-refresh executor may update disposable source cache according to its established contract. Accepted state, generations, pointers, published M3U/XMLTV output, provider state, and downstream state remain outside this boundary. This command is not a scheduler, daemon, service, worker, or retry loop.
+
 ## Source of truth
 
 Provider sources, EPG sources, and rules live in `data/` as declarative JSON/CSV files (see [ADR 0001](../adr/0001-source-of-truth.md)). Generated outputs under `output/` are disposable artifacts, not source data.

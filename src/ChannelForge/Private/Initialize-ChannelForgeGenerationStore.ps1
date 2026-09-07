@@ -55,6 +55,14 @@ namespace ChannelForge
 
         public void Flush() => _stream.Flush(true);
         public FileIdentity SnapshotIdentity() => GenerationStore.ReadIdentity(_stream);
+        public byte[] ReadMetadata()
+        {
+            if (_stream == null) throw new ObjectDisposedException(nameof(LockLease));
+            _stream.Position = 0;
+            using var memory = new MemoryStream();
+            _stream.CopyTo(memory);
+            return memory.ToArray();
+        }
         public void WriteMetadata(byte[] bytes)
         {
             if (bytes == null) throw new ArgumentNullException(nameof(bytes));
