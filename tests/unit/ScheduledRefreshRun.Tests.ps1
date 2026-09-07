@@ -8,9 +8,12 @@ BeforeAll {
 $script:PolicySchema = Join-Path $script:Root 'schemas/scheduled-refresh-policy.schema.json'
     $script:RunSchema = Join-Path $script:Root 'schemas/scheduled-refresh-run.schema.json'
     $script:LockSchema = Join-Path $script:Root 'schemas/scheduled-refresh-lock.schema.json'
+    $script:RegistrationSchema = Join-Path $script:Root 'schemas/scheduled-refresh-registration.schema.json'
+    $script:HistorySchema = Join-Path $script:Root 'schemas/scheduled-refresh-history.schema.json'
     $script:LockInitializer = Join-Path $script:Root 'src/ChannelForge/Private/Initialize-ChannelForgeGenerationStore.ps1'
     $script:ProcessJobInitializer = Join-Path $script:Root 'src/ChannelForge/Private/Initialize-ChannelForgeProcessJob.ps1'
-
+    $script:ScheduledOperationHelper = Join-Path $script:Root 'src/ChannelForge/Private/Initialize-ChannelForgeScheduledOperation.ps1'
+    . $script:ScheduledOperationHelper
     function Write-TestJson {
         param([Parameter(Mandatory)][object]$Value, [Parameter(Mandatory)][string]$Path)
         [IO.File]::WriteAllText($Path, (($Value | ConvertTo-Json -Depth 20) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
@@ -72,6 +75,9 @@ $script:PolicySchema = Join-Path $script:Root 'schemas/scheduled-refresh-policy.
         Copy-Item -LiteralPath $script:RunSchema -Destination (Join-Path $projectRoot 'schemas/scheduled-refresh-run.schema.json')
         Copy-Item -LiteralPath $script:LockSchema -Destination (Join-Path $projectRoot 'schemas/scheduled-refresh-lock.schema.json')
         Copy-Item -LiteralPath $script:LockInitializer -Destination (Join-Path $projectRoot 'src/ChannelForge/Private/Initialize-ChannelForgeGenerationStore.ps1')
+        Copy-Item -LiteralPath $script:RegistrationSchema -Destination (Join-Path $projectRoot 'schemas/scheduled-refresh-registration.schema.json')
+        Copy-Item -LiteralPath $script:HistorySchema -Destination (Join-Path $projectRoot 'schemas/scheduled-refresh-history.schema.json')
+        Copy-Item -LiteralPath $script:ScheduledOperationHelper -Destination (Join-Path $projectRoot 'src/ChannelForge/Private/Initialize-ChannelForgeScheduledOperation.ps1')
         Copy-Item -LiteralPath $script:ProcessJobInitializer -Destination (Join-Path $projectRoot 'src/ChannelForge/Private/Initialize-ChannelForgeProcessJob.ps1')
         Set-Content -LiteralPath (Join-Path $projectRoot 'data/providers/provider.example.json') -Value '{"provider":"fixture","sources":[]}' -Encoding utf8
         Set-Content -LiteralPath (Join-Path $projectRoot 'data/epg/epg_sources.example.json') -Value '{"epg_sources":[]}' -Encoding utf8
@@ -134,6 +140,38 @@ New-Item -ItemType Directory -Force -Path `$OutputRoot | Out-Null
     function Read-TestReport {
         param([Parameter(Mandatory)][psobject]$Project)
         Get-Content -LiteralPath (Join-Path $Project.Root 'output/reports/scheduled-refresh-run.json') -Raw | ConvertFrom-Json
+    }
+    function Invoke-TestScheduledWrapper {
+        param([Parameter(Mandatory)][psobject]$Project)
+        $policy = Get-Content -LiteralPath (Join-Path $Project.Root 'config/scheduled-refresh.example.json') -Raw | ConvertFrom-Json
+        $policy.Enabled = $true
+        $policy.JitterMinutes = 0
+        Write-TestJson -Value $policy -Path (Join-Path $Project.Root 'config/scheduled-refresh.local.json')
+        $rootInfo = Resolve-ChannelForgeScheduledOperationRoot -Root $Project.Root
+        $policyInfo = Get-ChannelForgeScheduledOperationPolicyInfo -Path (Join-Path $Project.Root 'config/scheduled-refresh.local.json') -SchemaPath (Join-Path $Project.Root 'schemas/scheduled-refresh-policy.schema.json')
+        $identity = Get-ChannelForgeScheduledOperationTaskIdentity -RootInfo $rootInfo
+        $registration = [ordered]@{
+            SchemaVersion = 'scheduled-refresh-registration/v1'
+            Owner = 'ChannelForge'
+            TaskPath = '\ChannelForge\'
+            TaskName = $identity.TaskName
+            RootDigest = $identity.RootDigest
+            PolicyDigest = $policyInfo.Digest
+            TaskDefinitionDigest = ('0' * 64)
+            RegisteredAtUtc = '2026-01-01T00:00:00.0000000Z'
+            TriggerKind = 'Scheduled'
+            CadenceMode = 'Daily'
+            CadenceAtUtc = '03:00'
+            StartBoundaryUtc = '2026-01-01T03:00:00.0000000Z'
+            ExecutionTimeLimitMinutes = 31
+            RuntimeVersion = $PSVersionTable.PSVersion.ToString()
+            RuntimeContract = 'PowerShell Core 7.6 or newer'
+            WrapperContract = 'scheduled-refresh-wrapper/v1'
+            ReadyForFirstRun = $true
+        }
+        New-Item -ItemType Directory -Force -Path (Join-Path $Project.Root 'output/operations') | Out-Null
+        Write-TestJson -Value $registration -Path (Join-Path $Project.Root 'output/operations/scheduled-refresh-registration.json')
+        @(& $script:Wrapper -Root $Project.Root -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T03:00:00Z') -ScheduledInvocation)
     }
 }
 
@@ -294,5 +332,36 @@ Describe 'manual scheduled refresh run wrapper' {
         Test-Path -LiteralPath (Join-Path $project.Root 'output/accepted') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $project.Root 'output/generations') | Should -BeFalse
         $json.TrimStart() | Should -Match '^\{\r?\n  "SchemaVersion"'
+    }
+}
+
+Describe 'scheduler-owned scheduled refresh run mode' {
+    It 'passes Scheduled trigger ownership to the planner and writes bounded history' {
+        $project = New-TestProject -Mode success
+        $result = Invoke-TestScheduledWrapper -Project $project
+        $result.TriggerKind | Should -Be 'Scheduled'
+        $result.PlanDecision | Should -Be 'READY_SCHEDULED'
+        $result.ExecutorInvocationCount | Should -Be 1
+        $result.Evidence.HistoryWritten | Should -BeTrue
+        $historyPath = Join-Path $project.Root 'output/operations/scheduled-refresh-history.json'
+        Test-Json -Path $historyPath -SchemaFile $script:HistorySchema | Should -BeTrue
+        $history = Get-Content -LiteralPath $historyPath -Raw | ConvertFrom-Json
+        $history.Runs.Count | Should -Be 1
+        $history.Runs[0].TriggerKind | Should -Be 'Scheduled'
+        (Get-Content -LiteralPath $historyPath -Raw) | Should -Not -Match 'https?://|[A-Za-z]:\\|\\\\|PASSWORD|TOKEN|ETag|Last-Modified'
+    }
+
+    It 'blocks scheduled invocation when registration policy evidence is stale' {
+        $project = New-TestProject -Mode success
+        $null = Invoke-TestScheduledWrapper -Project $project
+        $registrationPath = Join-Path $project.Root 'output/operations/scheduled-refresh-registration.json'
+        $registration = Get-Content -LiteralPath $registrationPath -Raw | ConvertFrom-Json
+        $registration.PolicyDigest = ('f' * 64)
+        Write-TestJson -Value $registration -Path $registrationPath
+        $result = @(& $script:Wrapper -Root $project.Root -EvaluationTimeUtc ([datetimeoffset]'2026-01-01T03:00:00Z') -ScheduledInvocation)
+        $result[-1].Status | Should -Be 'BLOCKED'
+        $result[-1].FailureCode | Should -Be 'ScheduledRegistrationMismatch'
+        Test-Path -LiteralPath $project.Calls | Should -BeTrue
+        (Get-Content -LiteralPath $project.Calls).Count | Should -Be 1
     }
 }
