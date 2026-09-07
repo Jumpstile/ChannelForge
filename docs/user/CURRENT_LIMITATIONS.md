@@ -18,7 +18,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ## Not implemented yet
 
-- **No graphical interface.** Everything is PowerShell scripts run from a cloned repository. A GUI is planned (see Milestone 3 in [ROADMAP.md](../../ROADMAP.md)) but hasn't started.
+- **GUI is foundation-only.** A static Tauri/React desktop shell and deterministic state gallery exist for internal development review. They do not read provider data, invoke PowerShell, perform refresh/build/accept operations, expose real workspace paths, or constitute a tester-facing release.
 - **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
