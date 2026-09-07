@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-refresh-history.schema.json",
+  "title": "ChannelForge scheduled refresh history evidence",
+  "description": "Bounded redacted history for scheduled refresh runs. It excludes source payloads, URLs, credentials, paths, headers, and child process text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["SchemaVersion", "Runs"],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-refresh-history/v1" },
+    "Runs": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "RunId",
+          "ScheduleSlotId",
+          "TriggerKind",
+          "Status",
+          "RequestedAtUtc",
+          "StartedAtUtc",
+          "FinishedAtUtc",
+          "PolicyDigest",
+          "InputResultDigest",
+          "PlanDecision",
+          "PlanReasonCode",
+          "FailureCode",
+          "Counts",
+          "Notification",
+          "ExecutorStatus",
+          "ExecutorInvocationCount",
+          "ExecutorTermination",
+          "Sources"
+        ],
+        "properties": {
+          "RunId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+          "ScheduleSlotId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+          },
+          "TriggerKind": { "enum": ["Manual", "Scheduled"] },
+          "Status": {
+            "enum": [
+              "BLOCKED",
+              "RUNNING",
+              "SUCCEEDED",
+              "DEGRADED",
+              "FAILED",
+              "TIMED_OUT"
+            ]
+          },
+          "RequestedAtUtc": { "type": "string", "format": "date-time" },
+          "StartedAtUtc": { "type": ["string", "null"], "format": "date-time" },
+          "FinishedAtUtc": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "PolicyDigest": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "InputResultDigest": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "PlanDecision": {
+            "type": ["string", "null"],
+            "enum": [
+              "DISABLED",
+              "WAITING_FOR_CADENCE",
+              "WAITING_FOR_WINDOW",
+              "READY_SCHEDULED",
+              "READY_MANUAL",
+              "BLOCKED_BY_LOCK",
+              "MANUAL_NOT_ALLOWED",
+              "INPUT_INVALID",
+              "POLICY_INVALID",
+              null
+            ]
+          },
+          "PlanReasonCode": { "type": ["string", "null"], "minLength": 1 },
+          "FailureCode": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+          },
+          "Counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["AutoHandled", "Degraded", "ReviewNeeded", "NoAction"],
+            "properties": {
+              "AutoHandled": { "type": "integer", "minimum": 0 },
+              "Degraded": { "type": "integer", "minimum": 0 },
+              "ReviewNeeded": { "type": "integer", "minimum": 0 },
+              "NoAction": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "Notification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Level", "Action", "SummaryCode"],
+            "properties": {
+              "Level": {
+                "enum": ["Quiet", "Warning", "Interrupt", "EscalatedInterrupt"]
+              },
+              "Action": {
+                "enum": [
+                  "NoNotification",
+                  "NotifyWarning",
+                  "NotifyInterrupt",
+                  "EscalateInterrupt"
+                ]
+              },
+              "SummaryCode": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+              }
+            }
+          },
+          "ExecutorStatus": {
+            "enum": [
+              "NotAttempted",
+              "Started",
+              "Succeeded",
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "ExecutorInvocationCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "ExecutorTermination": {
+            "enum": ["NotAttempted", "Exited", "Killed", "Unconfirmed"]
+          },
+          "Sources": {
+            "type": "array",
+            "maxItems": 512,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "SourceId",
+                "Classification",
+                "ReasonCode",
+                "IssueFingerprint"
+              ],
+              "properties": {
+                "SourceId": {
+                  "type": "string",
+                  "pattern": "^source-[0-9a-f]{16}$"
+                },
+                "Classification": {
+                  "enum": [
+                    "AutoHandled",
+                    "Degraded",
+                    "ReviewNeeded",
+                    "NoAction"
+                  ]
+                },
+                "ReasonCode": {
+                  "enum": [
+                    "ReusedValidCache",
+                    "ConditionalUnchanged",
+                    "ConditionalChanged",
+                    "FullRefreshValidated",
+                    "RefreshFailedLkgPreserved",
+                    "RefreshFailedNoLkg",
+                    "InvalidCache",
+                    "DisabledSource",
+                    "LocalSource"
+                  ]
+                },
+                "IssueFingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

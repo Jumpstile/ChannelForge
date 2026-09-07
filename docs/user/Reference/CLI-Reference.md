@@ -118,15 +118,21 @@ pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1 `
 
 ## `scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1`
 
-Run one eligible manual scheduled refresh in the foreground:
+Run one bounded refresh in the foreground. Manual invocation is the default:
 
 ```powershell
 pwsh -File scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1
 ```
 
-The command invokes the report-only planner with `TriggerKind=Manual`, acquires the separate operational lock at `output/operations/scheduled-refresh.lock`, and calls the existing source-refresh executor at most once. The live operating-system exclusive handle is authoritative; lock marker timestamps and process IDs are diagnostic evidence only.
+Windows Task Scheduler invokes the same wrapper with the scheduler-owned switch:
 
-It fails closed when the generated plan is invalid or not `READY_MANUAL`, when the operational lock is busy, or when the source-refresh result cannot be validated. `Degraded` and `ReviewNeeded` source rows map to a `DEGRADED` run with an appropriate notification decision; there is no separate `ReviewNeeded` run status.
+```powershell
+pwsh -File scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1 -ScheduledInvocation
+```
+
+Manual mode invokes the report-only planner with `TriggerKind=Manual`; scheduler-owned mode uses `TriggerKind=Scheduled`. Both modes acquire the separate operational lock at `output/operations/scheduled-refresh.lock` and call the existing source-refresh executor at most once. Scheduled mode accepts only a fresh `READY_SCHEDULED` plan and may perform one bounded foreground wait for deterministic jitter.
+
+The command fails closed when the generated plan is invalid or not eligible, the scheduled registration evidence is missing or stale, the operational lock is busy, or the source-refresh result cannot be validated. `Degraded` and `ReviewNeeded` source rows map to a `DEGRADED` run with an appropriate notification decision; there is no separate `ReviewNeeded` run status.
 
 The command never creates a generation, changes accepted state, replaces a pointer, publishes active M3U/XMLTV output, or mutates provider/downstream state. The existing executor may update disposable source cache according to its own bounded contract.
 
@@ -134,9 +140,43 @@ The command never creates a generation, changes accepted state, replaces a point
 
 - `output/reports/scheduled-refresh-run.json`
 - `output/reports/scheduled-refresh-run.md`
+- `output/operations/scheduled-refresh-history.json` for scheduler-owned runs
 - the existing scheduled plan and source-refresh result reports
 
-This is a manual one-shot command, not a scheduler, daemon, service, worker, or retry loop.
+## Windows scheduled refresh registration
+
+Scheduling is an explicit, local Windows Task Scheduler integration. It requires an enabled `config/scheduled-refresh.local.json`, PowerShell Core 7.6 or newer, and an interactive user session. The tracked example remains disabled.
+
+Preview and approve installation or update by typing the exact phrase `ENABLE` when prompted:
+
+```powershell
+pwsh -File scripts/Install-ChannelForgeScheduledRefresh.ps1
+```
+
+For non-interactive automation, pass the explicit approval switch:
+
+```powershell
+pwsh -File scripts/Install-ChannelForgeScheduledRefresh.ps1 -Approve
+```
+
+The installer owns exactly one daily task at `\ChannelForge\ScheduledRefresh-<root-digest-prefix>`. It stores an explicit UTC `StartBoundary`, resolves an absolute `pwsh.exe`, runs with least privilege and `MultipleInstancesPolicy=IgnoreNew`, and writes redacted registration evidence under `output/operations/`.
+
+List only ChannelForge-owned tasks and inspect one repository root without changing anything:
+
+```powershell
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshTask.ps1
+pwsh -File scripts/Get-ChannelForgeScheduledRefreshStatus.ps1
+```
+
+Uninstall requires typing `REMOVE` or passing `-Approve`:
+
+```powershell
+pwsh -File scripts/Uninstall-ChannelForgeScheduledRefresh.ps1 -Approve
+```
+
+Foreign or mismatched tasks are never replaced or removed. Disabling the policy blocks future scheduled runs but does not silently unregister the task; use the explicit uninstall command when removal is intended. There is no daemon, service, worker, retry loop, or cross-platform scheduler backend.
+
+This is a manual one-shot command plus an opt-in Windows registration, not a scheduler implementation inside ChannelForge.
 
 ## Verifying your environment
 

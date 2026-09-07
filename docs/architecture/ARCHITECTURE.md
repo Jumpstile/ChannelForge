@@ -93,11 +93,13 @@ This is the build pipeline `scripts/Build-Lineup.ps1` runs via `Merge-ChannelFor
 
 ## Scheduled refresh run boundary
 
-`scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1` is a manual foreground entry point. It invokes the report-only scheduled-refresh planner with `TriggerKind=Manual`, acquires only `output/operations/scheduled-refresh.lock` through the existing safe exclusive-file machinery, and invokes `scripts/Invoke-ChannelForgeSourceRefresh.ps1` at most once when the generated plan is `READY_MANUAL`.
+`scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1` is a manual foreground entry point by default. The same wrapper has a scheduler-owned `-ScheduledInvocation` mode that invokes the report-only planner with `TriggerKind=Scheduled`, accepts only a fresh `READY_SCHEDULED` plan, and invokes `scripts/Invoke-ChannelForgeSourceRefresh.ps1` at most once. A deterministic jitter delay is one bounded foreground wait, not a worker or retry loop.
+
+The opt-in Windows registration is owned by the four `scripts/*ScheduledRefresh*.ps1` lifecycle/status commands. It registers one daily CalendarTrigger under `\ChannelForge\` with an explicit UTC `StartBoundary`, an absolute PowerShell Core 7.6+ executable, least-privilege interactive principal, and `MultipleInstancesPolicy=IgnoreNew`. Registration and history evidence under `output/operations/` contain digests and bounded statuses only.
 
 The lock handle, not the marker file, establishes ownership. Marker fields are diagnostic crash evidence and contain only an owner-token hash, process timing, plan digest, and bounded state. A failed lock acquisition never deletes or adopts a stale marker. A successful acquisition may record a prior `Running` marker as abandoned before starting the new run.
 
-The run reports under `output/reports/` are operational evidence. The wrapper itself performs no network request and writes no cache directly. The existing source-refresh executor may update disposable source cache according to its established contract. Accepted state, generations, pointers, published M3U/XMLTV output, provider state, and downstream state remain outside this boundary. This command is not a scheduler, daemon, service, worker, or retry loop.
+The run reports under `output/reports/` are operational evidence. The wrapper itself performs no network request and writes no cache directly. The existing source-refresh executor may update disposable source cache according to its established contract. Accepted state, generations, pointers, published M3U/XMLTV output, provider state, and downstream state remain outside this boundary. ChannelForge does not provide a daemon, service, worker, autonomous retry loop, or cross-platform scheduler backend.
 
 ## Source of truth
 

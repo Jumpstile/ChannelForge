@@ -9,10 +9,15 @@ param(
     [string]$NotificationHistoryPath,
     [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
     [ValidateRange(0, 7200)]
-    [int]$TimeoutSeconds = 0
+    [int]$TimeoutSeconds = 0,
+    [switch]$ScheduledInvocation
 )
 
 $ErrorActionPreference = 'Stop'
+$scheduledHelperPath = Join-Path $PSScriptRoot '..\src\ChannelForge\Private\Initialize-ChannelForgeScheduledOperation.ps1'
+if (-not (Test-Path -LiteralPath $scheduledHelperPath -PathType Leaf)) { throw 'ScheduledOperationHelperMissing' }
+. $scheduledHelperPath
+$triggerKind = if ($ScheduledInvocation) { 'Scheduled' } else { 'Manual' }
 
 function Get-UtcText {
     param([AllowNull()][datetimeoffset]$Value)
@@ -107,13 +112,14 @@ function New-ReportsProjection {
 function New-RunReport {
     param(
         [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$RequestedAtUtc
+        [Parameter(Mandatory)][string]$RequestedAtUtc,
+        [Parameter(Mandatory)][ValidateSet('Manual', 'Scheduled')][string]$TriggerKind
     )
     [ordered]@{
         SchemaVersion = 'scheduled-refresh-run/v1'
         RunId = $RunId
-        ScheduleSlotId = 'manual-pending'
-        TriggerKind = 'Manual'
+        ScheduleSlotId = if ($TriggerKind -eq 'Scheduled') { 'scheduled-pending' } else { 'manual-pending' }
+        TriggerKind = $TriggerKind
         Status = 'BLOCKED'
         RequestedAtUtc = $RequestedAtUtc
         StartedAtUtc = $null
@@ -169,6 +175,7 @@ function New-RunReport {
             ExecutorInvoked = $false
             ExecutorResultValidated = $false
             TerminationConfirmed = $false
+            HistoryWritten = $false
             ReportsWritten = $false
         }
     }
@@ -202,14 +209,17 @@ function Get-PlanReasonCode {
 }
 
 function Get-SafeRunExplanation {
-    param([Parameter(Mandatory)][System.Collections.IDictionary]$Report)
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Report
+    )
+    $runType = if ([string]$Report.TriggerKind -eq 'Scheduled') { 'scheduled' } else { 'manual' }
     switch ([string]$Report.Status) {
-        'SUCCEEDED' { return 'The manual plan was eligible and the existing source-refresh executor completed with only automatically handled or no-action sources.' }
-        'DEGRADED' { return 'The existing source-refresh executor completed, but one or more source results need attention or preserved last-known-good evidence.' }
-        'TIMED_OUT' { return 'The source-refresh executor exceeded the bounded foreground deadline and was terminated or could not be confirmed stopped.' }
+        'SUCCEEDED' { return "The $runType plan was eligible and the existing source-refresh executor completed with only automatically handled or no-action sources." }
+        'DEGRADED' { return "The $runType source-refresh executor completed, but one or more source results need attention or preserved last-known-good evidence." }
+        'TIMED_OUT' { return "The source-refresh executor exceeded the bounded foreground deadline and was terminated or could not be confirmed stopped." }
         'FAILED' { return 'The wrapper could not complete a validated source-refresh execution.' }
-        'BLOCKED' { return 'The policy, generated plan, or operational lock did not authorize a source-refresh execution.' }
-        default { return 'This report records the current operational state of one manual scheduled-refresh run.' }
+        'BLOCKED' { return "The policy, generated $runType plan, or operational lock did not authorize a source-refresh execution." }
+        default { return "This report records the current operational state of one $runType scheduled-refresh run." }
     }
 }
 
@@ -317,13 +327,14 @@ function New-LockMetadata {
         [Parameter(Mandatory)][string]$OwnerTokenHash,
         [Parameter(Mandatory)][string]$ProcessStartUtc,
         [Parameter(Mandatory)][string]$StartedAtUtc,
+        [Parameter(Mandatory)][ValidateSet('Manual', 'Scheduled')][string]$TriggerKind,
         [AllowNull()][string]$PlanDigest
     )
     [ordered]@{
         SchemaVersion = 'scheduled-refresh-lock/v1'
         RunId = $RunId
         ScheduleSlotId = $ScheduleSlotId
-        TriggerKind = 'Manual'
+        TriggerKind = $TriggerKind
         State = 'Running'
         OwnerTokenHash = $OwnerTokenHash
         ProcessId = [int][Diagnostics.Process]::GetCurrentProcess().Id
@@ -355,6 +366,21 @@ function Update-Heartbeat {
     $Metadata.HeartbeatAtUtc = $now
     $Report.LastHeartbeatUtc = $now
     Write-LockMetadata -Lease $Lease -Metadata $Metadata
+}
+function Try-WriteScheduledHistory {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Report,
+        [AllowNull()][object]$Plan,
+        [Parameter(Mandatory)][object]$PolicyInfo,
+        [AllowNull()][string]$HistoryPath,
+        [AllowNull()][string]$HistorySchemaPath
+    )
+    if ($Report.TriggerKind -ne 'Scheduled' -or [string]::IsNullOrWhiteSpace($HistoryPath) -or [string]::IsNullOrWhiteSpace($HistorySchemaPath)) { return }
+    try {
+        Write-ChannelForgeScheduledOperationHistory -Report ([pscustomobject]$Report) -Plan $Plan -PolicyInfo $PolicyInfo -Path $HistoryPath -SchemaPath $HistorySchemaPath
+        $Report.Evidence.HistoryWritten = $true
+    }
+    catch { }
 }
 
 function Get-ProcessExecutable {
@@ -481,7 +507,10 @@ $plannerPath = Join-Path $rootFull 'scripts/Get-ChannelForgeScheduledRefreshPlan
 $executorPath = Join-Path $rootFull 'scripts/Invoke-ChannelForgeSourceRefresh.ps1'
 $lockInitializerPath = Join-Path $rootFull 'src/ChannelForge/Private/Initialize-ChannelForgeGenerationStore.ps1'
 $processJobPath = Join-Path $rootFull 'src/ChannelForge/Private/Initialize-ChannelForgeProcessJob.ps1'
-$report = New-RunReport -RunId $runId -RequestedAtUtc $requestedAtUtc
+$scheduledHelperPath = Join-Path $rootFull 'src/ChannelForge/Private/Initialize-ChannelForgeScheduledOperation.ps1'
+$historySchemaPath = Join-Path $rootFull 'schemas/scheduled-refresh-history.schema.json'
+$registrationSchemaPath = Join-Path $rootFull 'schemas/scheduled-refresh-registration.schema.json'
+$report = New-RunReport -RunId $runId -RequestedAtUtc $requestedAtUtc -TriggerKind $triggerKind
 $lease = $null
 $lockMetadata = $null
 
@@ -493,7 +522,9 @@ try {
         [pscustomobject]$report
         return
     }
-    foreach ($requiredPath in @($plannerPath, $executorPath, $lockInitializerPath, $processJobPath, $policySchemaPath, $planSchemaPath, $sourceResultSchemaPath, $runSchemaPath, $lockSchemaPath)) {
+    $requiredPaths = @($plannerPath, $executorPath, $lockInitializerPath, $processJobPath, $policySchemaPath, $planSchemaPath, $sourceResultSchemaPath, $runSchemaPath, $lockSchemaPath, $scheduledHelperPath)
+    if ($ScheduledInvocation) { $requiredPaths += @($historySchemaPath, $registrationSchemaPath) }
+    foreach ($requiredPath in $requiredPaths) {
         if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) { throw 'Required implementation file is missing.' }
     }
     $policyPath = Resolve-DefaultPath -Value $PolicyPath -FirstChoice (Join-Path $rootFull 'config/scheduled-refresh.local.json') -FallbackChoice (Join-Path $rootFull 'config/scheduled-refresh.example.json')
@@ -501,6 +532,7 @@ try {
     $providerPath = Resolve-DefaultPath -Value $ProviderConfigPath -FirstChoice (Join-Path $rootFull 'data/providers/provider.local.json') -FallbackChoice (Join-Path $rootFull 'data/providers/provider.example.json')
     $epgPath = Resolve-DefaultPath -Value $EpgConfigPath -FirstChoice (Join-Path $rootFull 'data/epg/epg_sources.local.json') -FallbackChoice (Join-Path $rootFull 'data/epg/epg_sources.example.json')
     $cachePath = if ([string]::IsNullOrWhiteSpace($CacheRoot)) { Join-Path $rootFull 'output/cache' } else { [IO.Path]::GetFullPath($CacheRoot) }
+    $historyPath = if ($ScheduledInvocation -and [string]::IsNullOrWhiteSpace($NotificationHistoryPath)) { Join-Path $operationsRoot 'scheduled-refresh-history.json' } elseif ([string]::IsNullOrWhiteSpace($NotificationHistoryPath)) { $null } else { [IO.Path]::GetFullPath($NotificationHistoryPath) }
     Assert-SafePath -Path $policyPath -AllowedRoot (Join-Path $rootFull 'config') | Out-Null
     Assert-SafePath -Path $sourceResultPath -AllowedRoot $reportsRoot | Out-Null
     Assert-SafePath -Path $providerPath -AllowedRoot (Join-Path $rootFull 'data/providers') | Out-Null
@@ -510,6 +542,10 @@ try {
     Assert-SafePath -Path $operationsRoot -AllowedRoot (Join-Path $rootFull 'output') | Out-Null
     New-Item -ItemType Directory -Force -Path $reportsRoot, $operationsRoot, $cachePath | Out-Null
     Assert-SafePath -Path $operationsRoot -AllowedRoot (Join-Path $rootFull 'output') | Out-Null
+    if ($ScheduledInvocation -and -not (Test-Path -LiteralPath $historyPath -PathType Leaf)) {
+        $emptyHistory = [ordered]@{ SchemaVersion = 'scheduled-refresh-history/v1'; Runs = @() }
+        [IO.File]::WriteAllText($historyPath, (($emptyHistory | ConvertTo-Json -Depth 10) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+    }
 
     if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) {
         $report.FailureCode = 'PolicyMissing'
@@ -519,17 +555,36 @@ try {
         [pscustomobject]$report
         return
     }
+    $policyInfo = $null
     try {
         if (-not (Test-Json -Path $policyPath -SchemaFile $policySchemaPath -ErrorAction Stop)) { throw 'Policy schema invalid.' }
         $policyRaw = Get-Content -LiteralPath $policyPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $policyInfo = Get-ChannelForgeScheduledOperationPolicyInfo -Path $policyPath -SchemaPath $policySchemaPath
     }
     catch {
-        $report.FailureCode = if ($_.Exception.Message -match 'schema') { 'PolicySchemaInvalid' } else { 'PolicyUnreadable' }
+        $report.FailureCode = if ($_.Exception.Message -match 'schema') { 'PolicySchemaInvalid' } elseif ($_.Exception.Message -match 'Missing') { 'PolicyMissing' } elseif ($_.Exception.Message -match 'Semantic|Overnight|Threshold') { 'PolicySemanticInvalid' } else { 'PolicyUnreadable' }
         $report.Status = 'BLOCKED'
         $report.NotificationDecision = Get-NotificationDecision -Status 'BLOCKED' -ReviewNeededCount 0 -DegradedCount 0
         Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath
         [pscustomobject]$report
         return
+    }
+    if ($ScheduledInvocation) {
+        try {
+            $registration = Read-ChannelForgeScheduledOperationRegistrationEvidence -Root $rootFull -SchemaPath $registrationSchemaPath
+            $rootInfo = Resolve-ChannelForgeScheduledOperationRoot -Root $rootFull
+            $identity = Get-ChannelForgeScheduledOperationTaskIdentity -RootInfo $rootInfo
+            if ($null -eq $registration) { throw 'ScheduledRegistrationMissing' }
+            if ($registration.RootDigest -ne $identity.RootDigest -or $registration.TaskName -ne $identity.TaskName -or $registration.PolicyDigest -ne $policyInfo.Digest) { throw 'ScheduledRegistrationMismatch' }
+        }
+        catch {
+            $report.FailureCode = if ($_.Exception.Message -match 'Missing') { 'ScheduledRegistrationMissing' } else { 'ScheduledRegistrationMismatch' }
+            $report.Status = 'BLOCKED'
+            $report.NotificationDecision = Get-NotificationDecision -Status 'BLOCKED' -ReviewNeededCount 0 -DegradedCount 0
+            Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath
+            [pscustomobject]$report
+            return
+        }
     }
     $policyTimeout = [int]$policyRaw.MaxRunDurationMinutes * 60
     $effectiveTimeout = if ($TimeoutSeconds -gt 0) { [Math]::Min($TimeoutSeconds, $policyTimeout) } else { $policyTimeout }
@@ -572,7 +627,7 @@ try {
 
     $ownerTokenHash = Get-Sha256Hex -Value ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N'))
     $startedAtUtc = Get-UtcText -Value ([datetimeoffset]::UtcNow)
-    $lockMetadata = New-LockMetadata -RunId $runId -ScheduleSlotId $report.ScheduleSlotId -OwnerTokenHash $ownerTokenHash -ProcessStartUtc (Get-CurrentProcessStartUtc) -StartedAtUtc $startedAtUtc -PlanDigest $null
+    $lockMetadata = New-LockMetadata -RunId $runId -ScheduleSlotId $report.ScheduleSlotId -OwnerTokenHash $ownerTokenHash -ProcessStartUtc (Get-CurrentProcessStartUtc) -StartedAtUtc $startedAtUtc -TriggerKind $triggerKind -PlanDigest $null
     $report.Status = 'RUNNING'
     $report.StartedAtUtc = $startedAtUtc
     $report.LastHeartbeatUtc = $startedAtUtc
@@ -605,10 +660,10 @@ try {
         SourceRefreshResultPath = $sourceResultPath
         EvaluationTimeUtc = $EvaluationTimeUtc
         OutputRoot = $reportsRoot
-        TriggerKind = 'Manual'
+        TriggerKind = $triggerKind
         ObservedLockState = 'NotAttempted'
     }
-    if (-not [string]::IsNullOrWhiteSpace($NotificationHistoryPath)) { $plannerArguments.NotificationHistoryPath = [IO.Path]::GetFullPath($NotificationHistoryPath) }
+    if (-not [string]::IsNullOrWhiteSpace($historyPath)) { $plannerArguments.NotificationHistoryPath = $historyPath }
     $report.Evidence.PlanInvoked = $true
     $plannerSucceeded = $true
     try { & $plannerPath @plannerArguments | Out-Null } catch { $plannerSucceeded = $false }
@@ -632,16 +687,50 @@ try {
             $plan = $null
         }
     }
+    $expectedDecision = if ($triggerKind -eq 'Scheduled') { 'READY_SCHEDULED' } else { 'READY_MANUAL' }
     $planValid = $plannerSucceeded -and $null -ne $plan -and
         [string]$plan.SchemaVersion -eq 'scheduled-refresh-plan/v1' -and
-        [string]$plan.TriggerKind -eq 'Manual' -and
+        [string]$plan.TriggerKind -eq $triggerKind -and
         [string]$plan.InputValidation.Status -eq 'Valid' -and
-        [string]$plan.Schedule.Decision -eq 'READY_MANUAL' -and
+        [string]$plan.Schedule.Decision -eq $expectedDecision -and
         [string]$plan.LockObservation.Status -eq 'NotAttempted' -and
         ([datetimeoffset]$plan.EvaluatedAtUtc).ToUniversalTime() -eq $EvaluationTimeUtc.ToUniversalTime()
+    if (-not $planValid -and $ScheduledInvocation -and $null -ne $plan -and [string]$plan.TriggerKind -eq 'Scheduled' -and [string]$plan.InputValidation.Status -eq 'Valid' -and [string]$plan.Schedule.Decision -eq 'WAITING_FOR_CADENCE') {
+        $proposedStart = [datetimeoffset]$plan.Schedule.ProposedStartUtc
+        $waitSeconds = [int][Math]::Ceiling(($proposedStart - [datetimeoffset]::UtcNow).TotalSeconds)
+        $maxWaitSeconds = ([int]$policyRaw.JitterMinutes * 60) + 60
+        if ($waitSeconds -gt $maxWaitSeconds) { $waitSeconds = $maxWaitSeconds }
+        while ($waitSeconds -gt 0) {
+            $sleepSeconds = [Math]::Min($waitSeconds, [Math]::Max(1, [int]$policyRaw.HeartbeatIntervalSeconds))
+            Start-Sleep -Seconds $sleepSeconds
+            Update-Heartbeat -Lease $lease -Metadata $lockMetadata -Report $report
+            $waitSeconds = [int][Math]::Ceiling(($proposedStart - [datetimeoffset]::UtcNow).TotalSeconds)
+        }
+        $EvaluationTimeUtc = [datetimeoffset]::UtcNow
+        $plannerArguments.EvaluationTimeUtc = $EvaluationTimeUtc
+        try { & $plannerPath @plannerArguments | Out-Null; $plannerSucceeded = $true } catch { $plannerSucceeded = $false }
+        $plan = $null
+        if (Test-Path -LiteralPath $planPath -PathType Leaf) {
+            try {
+                if (-not (Test-Json -Path $planPath -SchemaFile $planSchemaPath -ErrorAction Stop)) { throw 'Plan schema invalid.' }
+                $plan = Get-Content -LiteralPath $planPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+                $report.PlanDigest = Get-FileSha256 -Path $planPath
+                $report.PlanDecision = [string]$plan.Schedule.Decision
+                $report.PlanReasonCode = Get-PlanReasonCode -Plan $plan
+                $report.PolicyDigest = [string]$plan.PolicyDigest
+                if ($null -ne $plan.InputResult) {
+                    $report.InputResultSchemaVersion = [string]$plan.InputResult.SchemaVersion
+                    $report.InputResultDigest = [string]$plan.InputResult.InputDigest
+                }
+                $report.Evidence.PlanValidated = $true
+            }
+            catch { $plan = $null }
+        }
+        $planValid = $plannerSucceeded -and $null -ne $plan -and [string]$plan.SchemaVersion -eq 'scheduled-refresh-plan/v1' -and [string]$plan.TriggerKind -eq $triggerKind -and [string]$plan.InputValidation.Status -eq 'Valid' -and [string]$plan.Schedule.Decision -eq $expectedDecision -and [string]$plan.LockObservation.Status -eq 'NotAttempted' -and ([datetimeoffset]$plan.EvaluatedAtUtc).ToUniversalTime() -eq $EvaluationTimeUtc.ToUniversalTime()
+    }
     if (-not $planValid) {
         $report.Status = 'BLOCKED'
-        $report.FailureCode = if ($null -eq $plan) { if ($plannerSucceeded) { 'PlanMissing' } else { 'PlanGenerationFailed' } } elseif ([string]$plan.InputValidation.Status -ne 'Valid') { 'PlanInputInvalid' } elseif ([string]$plan.TriggerKind -ne 'Manual') { 'TriggerKindNotSupported' } elseif ([string]$plan.Schedule.Decision -ne 'READY_MANUAL') { 'PlanNotEligible' } elseif ([string]$plan.LockObservation.Status -ne 'NotAttempted') { 'PlanLockObservationBlocked' } else { 'PlanNotFresh' }
+        $report.FailureCode = if ($null -eq $plan) { if ($plannerSucceeded) { 'PlanMissing' } else { 'PlanGenerationFailed' } } elseif ([string]$plan.InputValidation.Status -ne 'Valid') { 'PlanInputInvalid' } elseif ([string]$plan.TriggerKind -ne $triggerKind) { 'TriggerKindNotSupported' } elseif ([string]$plan.Schedule.Decision -ne $expectedDecision) { 'PlanNotEligible' } elseif ([string]$plan.LockObservation.Status -ne 'NotAttempted') { 'PlanLockObservationBlocked' } else { 'PlanNotFresh' }
         $report.NotificationDecision = Get-NotificationDecision -Status 'BLOCKED' -ReviewNeededCount 0 -DegradedCount 0
         $lockMetadata.State = 'Completed'
         Write-LockMetadata -Lease $lease -Metadata $lockMetadata
@@ -660,8 +749,8 @@ try {
         $report.NotificationDecision = Get-NotificationDecision -Status 'BLOCKED' -ReviewNeededCount 0 -DegradedCount 0
         $lockMetadata.State = 'Completed'; Write-LockMetadata -Lease $lease -Metadata $lockMetadata; $lease.Dispose(); $lease = $null; $report.LockEvidence.ReleaseResult = 'Released'; $report.FinishedAtUtc = Get-UtcText -Value ([datetimeoffset]::UtcNow); Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath; [pscustomobject]$report; return
     }
-    $slotSeed = if ($null -ne $plan.Schedule.NominalDueUtc) { "scheduled|$($plan.PolicyDigest)|$($plan.Schedule.NominalDueUtc)" } else { "manual|$($plan.PolicyDigest)|$($plan.EvaluatedAtUtc)" }
-    $report.ScheduleSlotId = ('manual-' + (Get-Sha256Hex -Value $slotSeed).Substring(0, 16))
+    $slotSeed = if ($null -ne $plan.Schedule.NominalDueUtc) { "$($triggerKind.ToLowerInvariant())|$($plan.PolicyDigest)|$($plan.Schedule.NominalDueUtc)" } else { "$($triggerKind.ToLowerInvariant())|$($plan.PolicyDigest)|$($plan.EvaluatedAtUtc)" }
+    $report.ScheduleSlotId = (($triggerKind.ToLowerInvariant()) + '-' + (Get-Sha256Hex -Value $slotSeed).Substring(0, 16))
     $lockMetadata.ScheduleSlotId = $report.ScheduleSlotId
     $lockMetadata.PlanDigest = $report.PlanDigest
     Update-Heartbeat -Lease $lease -Metadata $lockMetadata -Report $report
@@ -716,6 +805,7 @@ try {
         Write-LockMetadata -Lease $lease -Metadata $lockMetadata
         $report.LockEvidence.ReleaseResult = 'Retained'
         $report.FinishedAtUtc = Get-UtcText -Value ([datetimeoffset]::UtcNow)
+        Try-WriteScheduledHistory -Report $report -Plan $plan -PolicyInfo $policyInfo -HistoryPath $historyPath -HistorySchemaPath $historySchemaPath
         Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath
         [pscustomobject]$report
         return
@@ -726,6 +816,7 @@ try {
     $lease.Dispose(); $lease = $null
     $report.LockEvidence.ReleaseResult = 'Released'
     $report.FinishedAtUtc = Get-UtcText -Value ([datetimeoffset]::UtcNow)
+    Try-WriteScheduledHistory -Report $report -Plan $plan -PolicyInfo $policyInfo -HistoryPath $historyPath -HistorySchemaPath $historySchemaPath
     Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath
     [pscustomobject]$report
 }

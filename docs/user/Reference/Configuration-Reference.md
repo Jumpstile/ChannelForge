@@ -39,20 +39,21 @@ Local EPG paths retain `.xml`, `.gz`, and single-entry `.zip` support. Remote UR
 
 ## Scheduled refresh policy
 
-The report-only scheduled refresh planner reads `config/scheduled-refresh.local.json` when it exists and otherwise uses the tracked `config/scheduled-refresh.example.json`. The local file is ignored by Git; it must contain policy only, never provider URLs, credentials, tokens, or source payloads.
+The report-only scheduled refresh planner and the bounded foreground wrapper read `config/scheduled-refresh.local.json` when it exists and otherwise use the tracked `config/scheduled-refresh.example.json`. The local file is ignored by Git; it must contain policy only, never provider URLs, credentials, tokens, or source payloads.
 
-| Field                                       | Required | Notes                                                                                                 |
-| ------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `SchemaVersion`                             | Yes      | Must be `scheduled-refresh-policy/v1`.                                                                |
-| `Enabled`                                   | Yes      | Autonomous scheduling switch. The safe example default is `false`; manual planning remains available. |
-| `TimeZoneId`                                | Yes      | `UTC` in v1.                                                                                          |
-| `Cadence.Mode` / `Cadence.At`               | Yes      | Daily cadence at `HH:mm`.                                                                             |
-| `AllowedWindow.Start` / `AllowedWindow.End` | Yes      | Start-inclusive/end-exclusive UTC window. Overnight windows are rejected.                             |
-| `JitterMinutes`                             | Yes      | Deterministic bounded jitter; it never uses process randomness.                                       |
-| `MaxRunDurationMinutes`                     | Yes      | Future execution deadline; this report-only slice never starts a run.                                 |
-| `StaleRunThresholdMinutes`                  | Yes      | Future heartbeat inactivity threshold.                                                                |
-| `ManualOverride`                            | Yes      | Controls explicit manual planning while disabled or outside the window.                               |
-| `Notification`                              | Yes      | Consecutive scheduled-run thresholds for Degraded and ReviewNeeded items.                             |
+| Field                         | Required | Notes                                                                                          |
+| ----------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `SchemaVersion`               | Yes      | Must be `scheduled-refresh-policy/v1`.                                                         |
+| `Enabled`                     | Yes      | Enables the explicit Windows Task Scheduler registration; the safe example default is `false`. |
+| `TimeZoneId`                  | Yes      | `UTC` in v1.                                                                                   |
+| `Cadence.Mode` / `Cadence.At` | Yes      | Daily cadence at `HH:mm` UTC.                                                                  |
+| `AllowedWindow.Start` / `End` | Yes      | Start-inclusive/end-exclusive UTC window. Overnight windows are rejected.                      |
+| `JitterMinutes`               | Yes      | Deterministic bounded jitter; it never uses process randomness.                                |
+| `MaxRunDurationMinutes`       | Yes      | Bounded executor deadline; the registered task includes jitter wait plus this limit.           |
+| `StaleRunThresholdMinutes`    | Yes      | Heartbeat evidence threshold for the operational lock.                                         |
+| `ManualOverride`              | Yes      | Controls explicit manual planning while disabled or outside the window.                        |
+| `Notification`                | Yes      | Consecutive scheduled-run thresholds for Degraded and ReviewNeeded items.                      |
+| `Retention`                   | Yes      | Bounds redacted scheduled history records by count and age.                                    |
 
 Validate the example policy with:
 
@@ -61,7 +62,7 @@ Test-Json -Path config/scheduled-refresh.example.json `
   -SchemaFile schemas/scheduled-refresh-policy.schema.json
 ```
 
-The policy is planning input only. It does not start a scheduler, acquire a lock, fetch a source, mutate a cache, create accepted state, create a generation, replace a pointer, or publish M3U/XMLTV output.
+The policy is planning and registration input. It does not itself install a task, start a worker, acquire a lock, fetch a source, mutate a cache, create accepted state or a generation, replace a pointer, or publish M3U/XMLTV output. Use the explicit installer and `ENABLE`/`-Approve` consent to register the task.
 
 ## Aliases
 
