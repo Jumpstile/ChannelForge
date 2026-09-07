@@ -190,6 +190,9 @@
         "PolicyMissing",
         "PolicyUnreadable",
         "PolicySchemaInvalid",
+        "PolicySemanticInvalid",
+        "ScheduledRegistrationMissing",
+        "ScheduledRegistrationMismatch",
         "PlanGenerationFailed",
         "PlanMissing",
         "PlanUnreadable",
@@ -315,6 +318,7 @@
         "ExecutorInvoked",
         "ExecutorResultValidated",
         "TerminationConfirmed",
+        "HistoryWritten",
         "ReportsWritten"
       ],
       "properties": {
@@ -325,6 +329,7 @@
         "ExecutorInvoked": { "type": "boolean" },
         "ExecutorResultValidated": { "type": "boolean" },
         "TerminationConfirmed": { "type": "boolean" },
+        "HistoryWritten": { "type": "boolean" },
         "ReportsWritten": { "type": "boolean" }
       }
     }
