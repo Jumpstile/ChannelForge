@@ -5,12 +5,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Schemas are always loaded from this script's own location, never from
-# -Root. -Root only redirects where data/ is read from (so tests can point
-# it at fixture data); the schema contracts themselves are not a
-# per-deployment concern.
+# -Root. -Root only redirects where repository-owned data/ and config/
+# fixtures are read from (so tests can point it at fixture inputs); the
+# schema contracts themselves are not a per-deployment concern.
 $ScriptRoot = Split-Path -Parent $PSScriptRoot
 $schemasDir = Join-Path $ScriptRoot 'schemas'
 $dataDir = Join-Path $Root 'data'
+$configDir = Join-Path $Root 'config'
 
 # Deterministic local validation entry point for every tracked
 # source-of-truth JSON file against its schema (see issue #3). CI (issue #4)
@@ -22,6 +23,7 @@ $dataDir = Join-Path $Root 'data'
 #
 # Add a new entry here whenever a new schema is added under schemas/.
 $targets = @(
+    @{ Path = Join-Path $configDir 'scheduled-refresh.example.json'; Schema = Join-Path $schemasDir 'scheduled-refresh-policy.schema.json' }
     @{ Path = Join-Path $dataDir 'providers\mybunny.json'; Schema = Join-Path $schemasDir 'provider.schema.json' }
     @{ Path = Join-Path $dataDir 'providers\provider.example.json'; Schema = Join-Path $schemasDir 'provider.schema.json' }
     @{ Path = Join-Path $dataDir 'epg\epg_sources.json'; Schema = Join-Path $schemasDir 'epg_sources.schema.json' }
