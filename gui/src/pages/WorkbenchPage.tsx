@@ -5,6 +5,7 @@ import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
 type WorkbenchPageProps = {
   onOpenGallery: () => void
+  onOpenSetup: () => void
 }
 
 const workflowSteps = [
@@ -14,7 +15,7 @@ const workflowSteps = [
   { number: 4, label: 'Saved lineup', state: 'upcoming' as const },
 ]
 
-export function WorkbenchPage({ onOpenGallery }: WorkbenchPageProps) {
+export function WorkbenchPage({ onOpenGallery, onOpenSetup }: WorkbenchPageProps) {
   return (
     <div className="page-stack">
       <PageHeader
@@ -30,7 +31,7 @@ export function WorkbenchPage({ onOpenGallery }: WorkbenchPageProps) {
       />
 
       <StatusBanner status="Not configured" title="Add your playlist and guide">
-        <p>This screen is only a preview. Setup is coming next.</p>
+        <p>This screen is only a preview. Open Guided Setup to see the next steps.</p>
       </StatusBanner>
 
       <StepRail steps={workflowSteps} />
@@ -40,9 +41,9 @@ export function WorkbenchPage({ onOpenGallery }: WorkbenchPageProps) {
         <div className="next-action-copy">
           <p className="eyebrow">Your next step</p>
           <h2 id="next-action-title">Add your playlist and guide</h2>
-          <p>Add your playlist and guide files to get started.</p>
+          <p>Choose a workspace, then add your playlist and guide.</p>
         </div>
-        <button className="button button-primary" disabled type="button">Coming next</button>
+        <button className="button button-primary" type="button" onClick={onOpenSetup}>Open Guided Setup</button>
       </section>
 
       <section className="workbench-grid" aria-label="Workspace summary">

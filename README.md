@@ -106,6 +106,16 @@ Working today:
 
 - Documentation architecture
 
+### GUI status
+
+| Area                                                    | Status                  |
+| ------------------------------------------------------- | ----------------------- |
+| Workbench shell and navigation                          | Works now               |
+| Guided Setup: choose workspace, add playlist, add guide | Preview only            |
+| Lineup review and saved lineup                          | Planned / not built yet |
+| Automatic updates                                       | Planned / not built yet |
+| Real file selection and import                          | Blocked / needs review  |
+
 ---
 
 ## Engineering foundation
