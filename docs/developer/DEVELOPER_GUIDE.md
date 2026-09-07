@@ -131,6 +131,14 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 - `Backup-IPTVBoss.ps1` refuses to overwrite an existing backup archive unless `-Force` is passed explicitly.
 - `Assert-ChannelForgeReadPath -Path <target> -AllowedRoot <root>` is the read-side counterpart, added for issue #7 Phase 1: `Build-Lineup.ps1` calls it on every resolved `local_playlist` path with `data/playlists/` as the allowed root, before that path is ever opened. It reuses the same full-path containment check as `Assert-ChannelForgeWritePath` (`Test-ChannelForgeWritePath`), so `..` traversal, an absolute path elsewhere on disk, a UNC path, or a drive-root/system path are all rejected the same way a write outside an approved root would be.
 
+## Scheduled refresh run implementation boundary
+
+The manual run wrapper lives in `scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1`, not in the public module API. It invokes the scheduled-refresh planner with `TriggerKind=Manual`, uses the fixed operational lock at `output/operations/scheduled-refresh.lock`, and invokes the existing source-refresh executor at most once after the generated plan is validated as `READY_MANUAL`.
+
+The lock's live exclusive handle is authoritative. The JSON marker is diagnostic evidence only and must never be deleted or adopted because of a timestamp or PID. Run reports use the fixed relative paths `output/reports/scheduled-refresh-run.json` and `output/reports/scheduled-refresh-run.md`; they must contain only redacted operational evidence.
+
+The wrapper performs no network or direct cache operation. It must not mutate accepted state, generations, pointers, published outputs, provider state, or downstream state. `Degraded` and `ReviewNeeded` source rows map to `DEGRADED`; notification level carries the attention distinction. There is no scheduler, daemon, service, worker, or retry loop in this boundary.
+
 ## Lineup build pipeline (M3U/XMLTV acquisition)
 
 `scripts/Build-Lineup.ps1` produces a deterministic merged M3U from local provider playlists or configured remote M3U sources and, when configured, imports local XMLTV `.xml`, `.gz`, or single-entry `.zip` sources or bounded remote XMLTV sources and writes deterministic `output/merged.xml`. Remote acquisition uses the v5 pinned HTTPS/443 boundary — see "Known limitations" below.
