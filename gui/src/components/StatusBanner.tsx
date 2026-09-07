@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleAlert, CircleDashed, CircleX, Clock3, Info, LoaderCircle, ShieldAlert } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { UiStatus } from './StatusBadge'
 import { StatusBadge } from './StatusBadge'
 
@@ -16,7 +17,7 @@ const bannerIcons = {
   Disabled: Info,
 } as const
 
-export function StatusBanner({ status, title, children }: { status: UiStatus; title: string; children: string }) {
+export function StatusBanner({ status, title, children }: { status: UiStatus; title: string; children: ReactNode }) {
   const Icon = bannerIcons[status]
   return (
     <section className={`status-banner status-banner-${status.toLowerCase().replaceAll(' ', '-')}`} aria-label={`${status}: ${title}`}>
@@ -26,7 +27,7 @@ export function StatusBanner({ status, title, children }: { status: UiStatus; ti
           <h2>{title}</h2>
           <StatusBadge status={status} />
         </div>
-        <p>{children}</p>
+        <div className="status-banner-message">{children}</div>
       </div>
     </section>
   )

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 
 test('renders the guided workbench shell without operational controls', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Your lineup workbench' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Workflow pages' })).toBeVisible()
   await expect(page.getByText('root-7a91…d42c')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Coming next' })).toBeDisabled()

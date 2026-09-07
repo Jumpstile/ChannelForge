@@ -22,21 +22,21 @@ export const navigationGroups: NavigationGroup[] = [
   {
     label: 'Setup',
     items: [
-      { id: 'sources', label: 'Sources', description: 'Add playlist and guide sources', available: false },
-      { id: 'validation', label: 'Validate & refresh', description: 'Check source readiness', available: false },
+      { id: 'sources', label: 'Playlist', description: 'Add playlist', available: false },
+      { id: 'validation', label: 'Guide', description: 'Add guide', available: false },
     ],
   },
   {
     label: 'Decide',
     items: [
-      { id: 'build', label: 'Build & review', description: 'Compare a candidate lineup', available: false },
-      { id: 'accepted', label: 'Accepted lineup', description: 'View the trusted generation', available: false },
+      { id: 'build', label: 'Lineup', description: 'Review your lineup', available: false },
+      { id: 'accepted', label: 'Saved lineup', description: 'See what you saved', available: false },
     ],
   },
   {
     label: 'Operate',
     items: [
-      { id: 'schedule', label: 'Schedule', description: 'Review local schedule health', available: false },
+      { id: 'schedule', label: 'Automatic updates', description: 'Review automatic updates', available: false },
     ],
   },
   {

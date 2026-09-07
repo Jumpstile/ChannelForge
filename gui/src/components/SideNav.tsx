@@ -12,7 +12,7 @@ export function SideNav({ activePage, onNavigate }: SideNavProps) {
     <aside className="side-nav" aria-label="ChannelForge workflow">
       <div className="side-nav-intro">
         <p className="eyebrow">Guided workbench</p>
-        <p className="side-nav-copy">Build a lineup you can explain and trust.</p>
+        <p className="side-nav-copy">Build your TV lineup from a playlist and guide.</p>
       </div>
       <nav aria-label="Workflow pages">
         {navigationGroups.map((group) => (

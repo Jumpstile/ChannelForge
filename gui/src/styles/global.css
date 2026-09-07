@@ -78,7 +78,8 @@ a { color: var(--cf-color-brand); }
 .status-banner-copy { min-width: 0; flex: 1; }
 .status-banner-heading { justify-content: space-between; gap: var(--cf-space-4); }
 .status-banner h2 { margin: 0; font-size: var(--cf-font-size-section-title); line-height: var(--cf-line-height-tight); }
-.status-banner p { max-width: 52rem; margin: var(--cf-space-2) 0 0; color: var(--cf-color-ink-muted); }
+.status-banner-message { display: grid; gap: var(--cf-space-1); margin-top: var(--cf-space-2); color: var(--cf-color-ink-muted); }
+.status-banner-message p { margin: 0; }
 .step-rail { display: flex; align-items: center; gap: var(--cf-space-2); margin: 0; padding: 0; list-style: none; }
 .step-rail-item { display: inline-flex; min-height: 2.4rem; align-items: center; gap: var(--cf-space-2); padding: 0 var(--cf-space-3); border-radius: var(--cf-radius-pill); color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
 .step-number { display: grid; width: 1.5rem; height: 1.5rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: var(--cf-font-size-label); }
