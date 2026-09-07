@@ -116,6 +116,28 @@ pwsh -File scripts/Get-ChannelForgeScheduledRefreshPlan.ps1 `
 
 **Output:** `output/reports/scheduled-refresh-plan.json` and `output/reports/scheduled-refresh-plan.md`.
 
+## `scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1`
+
+Run one eligible manual scheduled refresh in the foreground:
+
+```powershell
+pwsh -File scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1
+```
+
+The command invokes the report-only planner with `TriggerKind=Manual`, acquires the separate operational lock at `output/operations/scheduled-refresh.lock`, and calls the existing source-refresh executor at most once. The live operating-system exclusive handle is authoritative; lock marker timestamps and process IDs are diagnostic evidence only.
+
+It fails closed when the generated plan is invalid or not `READY_MANUAL`, when the operational lock is busy, or when the source-refresh result cannot be validated. `Degraded` and `ReviewNeeded` source rows map to a `DEGRADED` run with an appropriate notification decision; there is no separate `ReviewNeeded` run status.
+
+The command never creates a generation, changes accepted state, replaces a pointer, publishes active M3U/XMLTV output, or mutates provider/downstream state. The existing executor may update disposable source cache according to its own bounded contract.
+
+**Outputs:**
+
+- `output/reports/scheduled-refresh-run.json`
+- `output/reports/scheduled-refresh-run.md`
+- the existing scheduled plan and source-refresh result reports
+
+This is a manual one-shot command, not a scheduler, daemon, service, worker, or retry loop.
+
 ## Verifying your environment
 
 ```powershell

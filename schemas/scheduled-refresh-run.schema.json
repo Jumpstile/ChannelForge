@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-refresh-run.schema.json",
+  "title": "ChannelForge scheduled refresh run",
+  "description": "Operational evidence for one manual scheduled-refresh execution. It is not accepted lineup authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "RunId",
+    "ScheduleSlotId",
+    "TriggerKind",
+    "Status",
+    "RequestedAtUtc",
+    "StartedAtUtc",
+    "LastHeartbeatUtc",
+    "FinishedAtUtc",
+    "PolicyDigest",
+    "InputResultSchemaVersion",
+    "InputResultDigest",
+    "Counts",
+    "NotificationDecision",
+    "LockEvidence",
+    "MutationScope",
+    "FailureCode",
+    "Safety",
+    "PlanDecision",
+    "PlanReasonCode",
+    "PlanDigest",
+    "ExecutorStatus",
+    "ExecutorInvocationCount",
+    "ExecutorExitCode",
+    "ExecutorTermination",
+    "Reports",
+    "Evidence"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-refresh-run/v1" },
+    "RunId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "ScheduleSlotId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "TriggerKind": { "enum": ["Manual", "Scheduled"] },
+    "Status": {
+      "enum": [
+        "BLOCKED",
+        "RUNNING",
+        "SUCCEEDED",
+        "DEGRADED",
+        "FAILED",
+        "TIMED_OUT",
+        "ABANDONED"
+      ]
+    },
+    "RequestedAtUtc": { "type": "string", "format": "date-time" },
+    "StartedAtUtc": { "type": ["string", "null"], "format": "date-time" },
+    "LastHeartbeatUtc": { "type": ["string", "null"], "format": "date-time" },
+    "FinishedAtUtc": { "type": ["string", "null"], "format": "date-time" },
+    "PolicyDigest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "InputResultSchemaVersion": {
+      "type": ["string", "null"],
+      "enum": ["source-refresh-result/v2", null]
+    },
+    "InputResultDigest": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "Counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "SourceCount",
+        "AttemptedCount",
+        "CacheChangedCount",
+        "LastKnownGoodPreservedCount",
+        "AutoHandled",
+        "Degraded",
+        "ReviewNeeded",
+        "NoAction"
+      ],
+      "properties": {
+        "SourceCount": { "type": "integer", "minimum": 0 },
+        "AttemptedCount": { "type": "integer", "minimum": 0 },
+        "CacheChangedCount": { "type": "integer", "minimum": 0 },
+        "LastKnownGoodPreservedCount": { "type": "integer", "minimum": 0 },
+        "AutoHandled": { "type": "integer", "minimum": 0 },
+        "Degraded": { "type": "integer", "minimum": 0 },
+        "ReviewNeeded": { "type": "integer", "minimum": 0 },
+        "NoAction": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "NotificationDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Level", "Action", "SummaryCode"],
+      "properties": {
+        "Level": {
+          "enum": ["Quiet", "Warning", "Interrupt", "EscalatedInterrupt"]
+        },
+        "Action": {
+          "enum": [
+            "NoNotification",
+            "NotifyWarning",
+            "NotifyInterrupt",
+            "EscalateInterrupt"
+          ]
+        },
+        "SummaryCode": {
+          "enum": [
+            "NoNotification",
+            "DegradedWarning",
+            "ReviewNeededInterrupt",
+            "ReviewNeededEscalated",
+            "RunBlocked",
+            "RunFailed",
+            "RunTimedOut",
+            "OperationalStatus"
+          ]
+        }
+      }
+    },
+    "LockEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Path",
+        "Acquisition",
+        "PriorRunId",
+        "PriorRunStatus",
+        "PriorHeartbeatUtc",
+        "PriorOwnerTokenHash",
+        "OwnerTokenHash",
+        "MarkerState",
+        "ReleaseResult"
+      ],
+      "properties": {
+        "Path": { "const": "output/operations/scheduled-refresh.lock" },
+        "Acquisition": {
+          "enum": ["NotAttempted", "Acquired", "Busy", "Rejected"]
+        },
+        "PriorRunId": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "PriorRunStatus": {
+          "enum": [
+            "None",
+            "Abandoned",
+            "Completed",
+            "TimedOut",
+            "Malformed",
+            "Unknown"
+          ]
+        },
+        "PriorHeartbeatUtc": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "PriorOwnerTokenHash": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "OwnerTokenHash": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "MarkerState": {
+          "enum": [
+            "None",
+            "Running",
+            "Completed",
+            "TimedOut",
+            "Abandoned",
+            "Stopping",
+            "TerminationUnconfirmed",
+            "Malformed"
+          ]
+        },
+        "ReleaseResult": {
+          "enum": ["NotAttempted", "Released", "Retained", "Failed"]
+        }
+      }
+    },
+    "MutationScope": { "enum": ["ReportOnly", "DisposableSourceCacheOnly"] },
+    "FailureCode": {
+      "enum": [
+        "None",
+        "RootPathUnsafe",
+        "PolicyMissing",
+        "PolicyUnreadable",
+        "PolicySchemaInvalid",
+        "PlanGenerationFailed",
+        "PlanMissing",
+        "PlanUnreadable",
+        "PlanJsonInvalid",
+        "PlanSchemaInvalid",
+        "PlanVersionUnsupported",
+        "TriggerKindNotSupported",
+        "PlanNotFresh",
+        "PlanNotEligible",
+        "PlanInputInvalid",
+        "PlanLockObservationBlocked",
+        "PlanChangedAfterLock",
+        "LockPathUnsafe",
+        "LockBusy",
+        "LockAcquisitionFailed",
+        "LockMetadataMalformed",
+        "ExecutorIsolationUnsupported",
+        "ExecutorStartFailed",
+        "ExecutorFailed",
+        "ExecutorTimedOut",
+        "ExecutorTerminationUnconfirmed",
+        "ExecutorResultMissing",
+        "ExecutorResultJsonInvalid",
+        "ExecutorResultSchemaInvalid",
+        "ExecutorResultEvaluationMismatch",
+        "RunReportWriteFailed",
+        "RunReportSchemaInvalid",
+        "LockReleaseFailed",
+        "InternalError"
+      ]
+    },
+    "Safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "AcceptedStateMutation",
+        "GenerationMutation",
+        "PointerMutation",
+        "PublishedOutputMutation",
+        "ProviderStateMutation",
+        "IdentityEvidenceMutation",
+        "LockMutation",
+        "SourceCacheMutation",
+        "WrapperNetworkCalls",
+        "RetryCount"
+      ],
+      "properties": {
+        "AcceptedStateMutation": { "const": "None" },
+        "GenerationMutation": { "const": "None" },
+        "PointerMutation": { "const": "None" },
+        "PublishedOutputMutation": { "const": "None" },
+        "ProviderStateMutation": { "const": "None" },
+        "IdentityEvidenceMutation": { "const": "None" },
+        "LockMutation": { "enum": ["None", "AcquireRelease", "Retained"] },
+        "SourceCacheMutation": {
+          "enum": ["None", "ExecutorOnly", "ExecutorMayHaveChanged"]
+        },
+        "WrapperNetworkCalls": { "const": 0 },
+        "RetryCount": { "const": 0 }
+      }
+    },
+    "PlanDecision": {
+      "type": ["string", "null"],
+      "enum": [
+        "DISABLED",
+        "WAITING_FOR_CADENCE",
+        "WAITING_FOR_WINDOW",
+        "READY_SCHEDULED",
+        "READY_MANUAL",
+        "BLOCKED_BY_LOCK",
+        "MANUAL_NOT_ALLOWED",
+        "INPUT_INVALID",
+        "POLICY_INVALID",
+        null
+      ]
+    },
+    "PlanReasonCode": { "type": ["string", "null"] },
+    "PlanDigest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "ExecutorStatus": {
+      "enum": ["NotAttempted", "Started", "Succeeded", "Failed", "TimedOut"]
+    },
+    "ExecutorInvocationCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "ExecutorExitCode": { "type": ["integer", "null"] },
+    "ExecutorTermination": {
+      "enum": ["NotAttempted", "Exited", "Killed", "Unconfirmed"]
+    },
+    "Reports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "RunJson",
+        "RunMarkdown",
+        "PlanJson",
+        "PlanMarkdown",
+        "SourceResultJson",
+        "SourceResultMarkdown"
+      ],
+      "properties": {
+        "RunJson": { "const": "output/reports/scheduled-refresh-run.json" },
+        "RunMarkdown": { "const": "output/reports/scheduled-refresh-run.md" },
+        "PlanJson": { "const": "output/reports/scheduled-refresh-plan.json" },
+        "PlanMarkdown": { "const": "output/reports/scheduled-refresh-plan.md" },
+        "SourceResultJson": {
+          "const": "output/reports/source-refresh-result.json"
+        },
+        "SourceResultMarkdown": {
+          "const": "output/reports/source-refresh-result.md"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PlanInvoked",
+        "PlanValidated",
+        "LockAcquired",
+        "PriorRunAbandoned",
+        "ExecutorInvoked",
+        "ExecutorResultValidated",
+        "TerminationConfirmed",
+        "ReportsWritten"
+      ],
+      "properties": {
+        "PlanInvoked": { "type": "boolean" },
+        "PlanValidated": { "type": "boolean" },
+        "LockAcquired": { "type": "boolean" },
+        "PriorRunAbandoned": { "type": "boolean" },
+        "ExecutorInvoked": { "type": "boolean" },
+        "ExecutorResultValidated": { "type": "boolean" },
+        "TerminationConfirmed": { "type": "boolean" },
+        "ReportsWritten": { "type": "boolean" }
+      }
+    }
+  }
+}
