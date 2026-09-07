@@ -35,7 +35,33 @@ Full schema: [`schemas/provider.schema.json`](../../../schemas/provider.schema.j
 | `epg_sources[].enabled`  | Yes                 |                                                                                                                                                   |
 | `epg_sources[].role`     | Yes                 | Free-text role label, e.g. `primary`, `fallback`.                                                                                                 |
 
-Local EPG paths retain `.xml`, `.gz`, and single-entry `.zip` support. Remote URLs support plain XML plus HTTP identity/gzip/x-gzip codings only; cache, scheduling, ZIP-over-HTTP, and degraded publication remain out of scope. Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
+Local EPG paths retain `.xml`, `.gz`, and single-entry `.zip` support. Remote URLs support plain XML plus HTTP identity/gzip/x-gzip codings only; cache, autonomous scheduling, ZIP-over-HTTP, and degraded publication remain out of scope. Full schema: [`schemas/epg_sources.schema.json`](../../../schemas/epg_sources.schema.json).
+
+## Scheduled refresh policy
+
+The report-only scheduled refresh planner reads `config/scheduled-refresh.local.json` when it exists and otherwise uses the tracked `config/scheduled-refresh.example.json`. The local file is ignored by Git; it must contain policy only, never provider URLs, credentials, tokens, or source payloads.
+
+| Field                                       | Required | Notes                                                                                                 |
+| ------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `SchemaVersion`                             | Yes      | Must be `scheduled-refresh-policy/v1`.                                                                |
+| `Enabled`                                   | Yes      | Autonomous scheduling switch. The safe example default is `false`; manual planning remains available. |
+| `TimeZoneId`                                | Yes      | `UTC` in v1.                                                                                          |
+| `Cadence.Mode` / `Cadence.At`               | Yes      | Daily cadence at `HH:mm`.                                                                             |
+| `AllowedWindow.Start` / `AllowedWindow.End` | Yes      | Start-inclusive/end-exclusive UTC window. Overnight windows are rejected.                             |
+| `JitterMinutes`                             | Yes      | Deterministic bounded jitter; it never uses process randomness.                                       |
+| `MaxRunDurationMinutes`                     | Yes      | Future execution deadline; this report-only slice never starts a run.                                 |
+| `StaleRunThresholdMinutes`                  | Yes      | Future heartbeat inactivity threshold.                                                                |
+| `ManualOverride`                            | Yes      | Controls explicit manual planning while disabled or outside the window.                               |
+| `Notification`                              | Yes      | Consecutive scheduled-run thresholds for Degraded and ReviewNeeded items.                             |
+
+Validate the example policy with:
+
+```powershell
+Test-Json -Path config/scheduled-refresh.example.json `
+  -SchemaFile schemas/scheduled-refresh-policy.schema.json
+```
+
+The policy is planning input only. It does not start a scheduler, acquire a lock, fetch a source, mutate a cache, create accepted state, create a generation, replace a pointer, or publish M3U/XMLTV output.
 
 ## Aliases
 
