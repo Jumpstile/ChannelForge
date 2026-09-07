@@ -242,3 +242,22 @@ Schemas catch shape mistakes early (a contributor typo, a missing field) before 
 ## Development workflow
 
 Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and review workflow. This guide covers where code lives and how to verify it; CONTRIBUTING.md covers the process around a change.
+
+## GUI foundation
+
+The isolated `gui/` application is the first desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench layout, semantic status components, privacy-safe workspace identity display, and a deterministic synthetic state gallery. This slice does not read provider files, invoke PowerShell, run refresh/build/accept operations, or package a tester release.
+
+Use Node.js 22 LTS with npm 10, Rust/Cargo, the Tauri CLI, and WebView2:
+
+```powershell
+Set-Location gui
+npm ci
+npm run typecheck
+npm test
+npm run test:e2e
+npm run test:visual
+npm run build
+npm run tauri build -- --no-bundle
+```
+
+The GUI owns presentation only at this stage. Do not add a second source-of-truth model, bridge, provider credential, or backend operation from this foundation slice. Any later operational integration must preserve the existing PowerShell behavior and redaction boundaries, and must be separately reviewed.
