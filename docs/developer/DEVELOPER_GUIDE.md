@@ -133,11 +133,15 @@ See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for how these fit togethe
 
 ## Scheduled refresh run implementation boundary
 
-The manual run wrapper lives in `scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1`, not in the public module API. It invokes the scheduled-refresh planner with `TriggerKind=Manual`, uses the fixed operational lock at `output/operations/scheduled-refresh.lock`, and invokes the existing source-refresh executor at most once after the generated plan is validated as `READY_MANUAL`.
+The manual run wrapper lives in `scripts/Invoke-ChannelForgeScheduledRefreshRun.ps1`, not in the public module API. Manual mode remains the default; Windows Task Scheduler invokes the same wrapper with `-ScheduledInvocation`, which internally passes `TriggerKind=Scheduled` to the planner and accepts only `READY_SCHEDULED`.
+
+The four lifecycle/status scripts own one opt-in Windows Task Scheduler task per canonical local repository root. The task uses an explicit UTC XML `StartBoundary`, an absolute PowerShell Core 7.6+ runtime, an absolute wrapper and root, an interactive least-privilege principal, no stored password, and `MultipleInstancesPolicy=IgnoreNew`. The task does not use `-TimeZone`, random delay, repetition, restart-on-failure, boot/logon triggers, or `ExecutionPolicy Bypass`.
+
+Install/update requires the exact interactive phrase `ENABLE` or explicit `-Approve`; uninstall requires `REMOVE` or `-Approve`. Foreign or mismatched tasks are never replaced or removed. Registration and scheduled history evidence are redacted and digest-based; they exclude repository paths, provider data, URLs, credentials, headers, payloads, and child process text.
 
 The lock's live exclusive handle is authoritative. The JSON marker is diagnostic evidence only and must never be deleted or adopted because of a timestamp or PID. Run reports use the fixed relative paths `output/reports/scheduled-refresh-run.json` and `output/reports/scheduled-refresh-run.md`; they must contain only redacted operational evidence.
 
-The wrapper performs no network or direct cache operation. It must not mutate accepted state, generations, pointers, published outputs, provider state, or downstream state. `Degraded` and `ReviewNeeded` source rows map to `DEGRADED`; notification level carries the attention distinction. There is no scheduler, daemon, service, worker, or retry loop in this boundary.
+The wrapper performs no network or direct cache operation. It must not mutate accepted state, generations, pointers, published outputs, provider state, or downstream state. `Degraded` and `ReviewNeeded` source rows map to `DEGRADED`; notification level carries the attention distinction. There is no always-on worker, daemon, service, autonomous retry loop, or cross-platform scheduler backend.
 
 ## Lineup build pipeline (M3U/XMLTV acquisition)
 
