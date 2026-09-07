@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-refresh-lock.schema.json",
+  "title": "ChannelForge scheduled refresh operational lock",
+  "description": "Diagnostic metadata held behind the scheduled-refresh OS-level exclusive lock. File contents never establish ownership.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "RunId",
+    "ScheduleSlotId",
+    "TriggerKind",
+    "State",
+    "OwnerTokenHash",
+    "ProcessId",
+    "ProcessStartUtc",
+    "StartedAtUtc",
+    "HeartbeatAtUtc",
+    "PlanDigest",
+    "ExecutorStarted",
+    "ExecutorInvocationCount"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-refresh-lock/v1" },
+    "RunId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "ScheduleSlotId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "TriggerKind": { "enum": ["Manual", "Scheduled"] },
+    "State": {
+      "enum": [
+        "Running",
+        "Completed",
+        "TimedOut",
+        "Abandoned",
+        "Stopping",
+        "TerminationUnconfirmed"
+      ]
+    },
+    "OwnerTokenHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "ProcessId": { "type": "integer", "minimum": 0 },
+    "ProcessStartUtc": { "type": "string", "format": "date-time" },
+    "StartedAtUtc": { "type": "string", "format": "date-time" },
+    "HeartbeatAtUtc": { "type": "string", "format": "date-time" },
+    "PlanDigest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "ExecutorStarted": { "type": "boolean" },
+    "ExecutorInvocationCount": { "type": "integer", "minimum": 0, "maximum": 1 }
+  }
+}
