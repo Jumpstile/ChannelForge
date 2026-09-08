@@ -1,6 +1,6 @@
 # CLI Reference
 
-ChannelForge has no GUI yet (see [Current Limitations](../CURRENT_LIMITATIONS.md)) — everything runs from PowerShell. This page lists the commands a user runs; for the full module API (functions used internally, like `Read-ChannelForgeProvider`), see the [Developer Guide](../../developer/DEVELOPER_GUIDE.md).
+The Tauri/React shell includes a native picker bridge, but all supported lineup commands and workflows still run from PowerShell (see [Current Limitations](../CURRENT_LIMITATIONS.md)). This page lists the commands a user runs; for the full module API (functions used internally, like `Read-ChannelForgeProvider`), see the [Developer Guide](../../developer/DEVELOPER_GUIDE.md).
 
 ## `scripts/Build-Lineup.ps1`
 

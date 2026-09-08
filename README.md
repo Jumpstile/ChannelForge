@@ -111,7 +111,8 @@ Working today:
 | Area                                                    | Status                  |
 | ------------------------------------------------------- | ----------------------- |
 | Workbench shell and navigation                          | Works now               |
-| Guided Setup: choose workspace, add playlist, add guide | Preview only            |
+| Guided Setup layout                                     | Preview only            |
+| Native file-picker bridge                              | Works now               |
 | Display-safe selection state                            | Works now               |
 | File selection and validation                           | Blocked / needs review  |
 | Lineup review and saved lineup                          | Planned / not built yet |

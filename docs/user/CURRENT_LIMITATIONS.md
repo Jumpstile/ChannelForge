@@ -18,7 +18,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ## Not implemented yet
 
-- **GUI Guided Setup is preview-only.** The Tauri/React desktop shell includes the Workbench and a three-step Guided Setup layout for choosing a workspace, adding a playlist, and adding a guide. It displays safe `Not selected` and `Not checked` states without exposing paths, URLs, credentials, or file contents. The controls do not open files, read provider data, save changes, perform lineup work, or enable automatic updates.
+- **GUI Guided Setup is validation-preview-only.** The Tauri/React desktop shell includes the Workbench and a three-step Guided Setup layout for choosing a workspace, adding a playlist, and adding a guide. Its Rust-owned native picker bridge opens one item at a time in the order workspace → playlist → guide, then returns only safe selection/status values; React never receives paths, filenames, URLs, credentials, tokens, or file contents. Selection is not validation: the bridge does not read, parse, import, persist, or use the selected items for lineup work, and the browser preview keeps picker controls disabled.
 - **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
@@ -32,6 +32,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 | ------------------------------ | ----------------------- |
 | Workbench shell and navigation | Works now               |
 | Guided Setup layout            | Preview only            |
+| Native file-picker bridge     | Works now               |
 | Display-safe selection status  | Works now               |
 | Lineup review and saved lineup | Planned / not built yet |
 | Automatic updates              | Planned / not built yet |

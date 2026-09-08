@@ -136,6 +136,7 @@ a { color: var(--cf-color-brand); }
 .setup-step-selection > span:last-child { color: var(--cf-color-ink-muted); font-size: var(--cf-font-size-small); }
 .setup-step-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-3); padding-top: var(--cf-space-4); border-top: 1px solid var(--cf-color-border); }
 .setup-step-status { color: var(--cf-color-disabled); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
+.setup-picker-error { margin: 0; padding: var(--cf-space-3) var(--cf-space-4); border: 1px solid var(--cf-color-error); border-radius: var(--cf-radius-md); background: var(--cf-color-error-surface); color: var(--cf-color-error); font-weight: var(--cf-font-weight-semibold); }
 .setup-progress-card { display: grid; gap: var(--cf-space-5); }
 .setup-progress-list { display: grid; gap: var(--cf-space-3); margin: 0; padding: 0; list-style: none; }
 .setup-progress-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-4); padding-bottom: var(--cf-space-3); border-bottom: 1px solid var(--cf-color-border); color: var(--cf-color-ink-muted); }
