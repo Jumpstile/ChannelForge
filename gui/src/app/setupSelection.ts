@@ -1,16 +1,23 @@
 export type SetupSelectionKind = 'workspace' | 'playlist' | 'guide'
 
 export type SetupSelectionStatus = 'not-selected' | 'selected'
-export type SetupValidationStatus = 'not-checked'
+export type SetupValidationStatus = 'not-checked' | 'checking' | 'ready-to-inspect' | 'needs-attention'
 export type SetupSelectionOutcome = 'selected' | 'cancelled' | 'rejected' | 'unavailable'
-export type PickerErrorCode = 'picker-unavailable' | 'permission-denied' | 'wrong-kind' | 'unknown'
+export type PickerReasonCode =
+  | 'picker-unavailable'
+  | 'permission-denied'
+  | 'wrong-kind'
+  | 'unknown'
+  | 'not-found'
+  | 'not-readable'
+  | 'check-unavailable'
 
 export type SetupSelectionResult = {
   kind: SetupSelectionKind
   outcome: SetupSelectionOutcome
   selectionStatus: SetupSelectionStatus
   validationStatus: SetupValidationStatus
-  errorCode: PickerErrorCode | null
+  reasonCode: PickerReasonCode | null
 }
 
 export type SetupSelectionState = {
@@ -25,6 +32,19 @@ export type SetupSelectionState = {
 export type SetupSelectionStates = Record<SetupSelectionKind, SetupSelectionState>
 
 export type SetupPicker = (kind: SetupSelectionKind) => Promise<SetupSelectionResult>
+
+const kindLabels: Record<SetupSelectionKind, string> = {
+  workspace: 'Workspace',
+  playlist: 'Playlist',
+  guide: 'Guide',
+}
+
+const validationLabels: Record<SetupValidationStatus, string> = {
+  'not-checked': 'Not checked',
+  checking: 'Checking',
+  'ready-to-inspect': 'Ready to inspect',
+  'needs-attention': 'Needs attention',
+}
 
 export function createInitialSetupSelectionState(kind: SetupSelectionKind): SetupSelectionState {
   return {
@@ -45,14 +65,37 @@ export const setupSelectionStates: SetupSelectionStates = {
 
 export function selectionStateFromResult(result: SetupSelectionResult): SetupSelectionState {
   const selected = result.outcome === 'selected' && result.selectionStatus === 'selected'
+  const validationStatus = selected ? result.validationStatus : 'not-checked'
+  const kindLabel = kindLabels[result.kind]
+  const detail = !selected
+    ? `No ${result.kind} is selected.`
+    : validationStatus === 'ready-to-inspect'
+      ? `${kindLabel} is ready to inspect.`
+      : validationStatus === 'needs-attention'
+        ? `${kindLabel} needs attention.`
+        : validationStatus === 'checking'
+          ? `Checking ${result.kind}...`
+          : `${kindLabel} selected.`
 
   return {
     kind: result.kind,
     status: selected ? 'selected' : 'not-selected',
-    validationStatus: 'not-checked',
+    validationStatus,
     displayLabel: selected ? 'Selected' : 'Not selected',
-    validationLabel: 'Not checked',
-    detail: selected ? `${result.kind[0].toUpperCase()}${result.kind.slice(1)} selected.` : `No ${result.kind} is selected.`,
+    validationLabel: validationLabels[validationStatus],
+    detail,
+  }
+}
+
+export function setSetupSelectionChecking(states: SetupSelectionStates, kind: SetupSelectionKind): SetupSelectionStates {
+  return {
+    ...states,
+    [kind]: {
+      ...states[kind],
+      validationStatus: 'checking',
+      validationLabel: validationLabels.checking,
+      detail: `Checking ${kind}...`,
+    },
   }
 }
 
@@ -76,11 +119,24 @@ export function applySetupSelectionResult(states: SetupSelectionStates, result: 
   return nextStates
 }
 
-const pickerErrorMessages: Record<PickerErrorCode, string> = {
-  'picker-unavailable': 'File selection is unavailable right now.',
-  'permission-denied': 'Could not complete this selection.',
-  'wrong-kind': 'That selection cannot be used here.',
-  unknown: 'Could not complete this selection.',
+function safeReasonMessage(kind: SetupSelectionKind, reasonCode: PickerReasonCode): string {
+  if (reasonCode === 'picker-unavailable') {
+    return 'File selection is unavailable right now.'
+  }
+  if (reasonCode === 'permission-denied' || reasonCode === 'unknown') {
+    return 'Could not complete this selection.'
+  }
+  if (reasonCode === 'wrong-kind') {
+    return kind === 'workspace' ? 'Choose a folder for the workspace.' : `Choose a file for the ${kind}.`
+  }
+  if (reasonCode === 'not-found') {
+    return `${kindLabels[kind]} is not available.`
+  }
+  if (reasonCode === 'not-readable') {
+    return `${kindLabels[kind]} cannot be opened.`
+  }
+
+  return 'Could not check this selection.'
 }
 
 export function safePickerMessage(result: SetupSelectionResult): string | null {
@@ -88,5 +144,5 @@ export function safePickerMessage(result: SetupSelectionResult): string | null {
     return 'Selection cancelled.'
   }
 
-  return result.errorCode === null ? null : pickerErrorMessages[result.errorCode]
+  return result.reasonCode === null ? null : safeReasonMessage(result.kind, result.reasonCode)
 }
