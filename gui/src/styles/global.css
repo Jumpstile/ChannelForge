@@ -121,6 +121,23 @@ a { color: var(--cf-color-brand); }
 .state-card-action { display: grid; gap: var(--cf-space-1); padding-top: var(--cf-space-3); border-top: 1px solid var(--cf-color-border); color: var(--cf-color-ink); font-size: var(--cf-font-size-small); }
 .back-link { width: fit-content; gap: var(--cf-space-2); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); text-decoration: none; }
 
+.setup-step-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cf-space-4); }
+.setup-step-card, .setup-progress-card { padding: var(--cf-space-6); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); box-shadow: var(--cf-shadow-panel); }
+.setup-step-card { display: grid; gap: var(--cf-space-5); }
+.setup-step-heading, .setup-progress-heading { display: flex; align-items: flex-start; gap: var(--cf-space-3); }
+.setup-step-icon, .setup-progress-icon { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; border-radius: var(--cf-radius-md); background: var(--cf-color-info-surface); color: var(--cf-color-brand); }
+.setup-step-number { margin: 0 0 var(--cf-space-1); color: var(--cf-color-brand); font-size: var(--cf-font-size-label); font-weight: var(--cf-font-weight-bold); letter-spacing: 0.08em; text-transform: uppercase; }
+.setup-step-card h2, .setup-progress-card h2 { margin: 0; font-size: var(--cf-font-size-section-title); line-height: var(--cf-line-height-tight); }
+.setup-step-description { min-height: 4.5rem; margin: 0; color: var(--cf-color-ink-muted); }
+.setup-step-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-3); padding-top: var(--cf-space-4); border-top: 1px solid var(--cf-color-border); }
+.setup-step-status { color: var(--cf-color-disabled); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
+.setup-progress-card { display: grid; gap: var(--cf-space-5); }
+.setup-progress-list { display: grid; gap: var(--cf-space-3); margin: 0; padding: 0; list-style: none; }
+.setup-progress-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-4); padding-bottom: var(--cf-space-3); border-bottom: 1px solid var(--cf-color-border); color: var(--cf-color-ink-muted); }
+.setup-progress-list li:last-child { padding-bottom: 0; border-bottom: 0; }
+.setup-progress-list strong { color: var(--cf-color-ink); font-size: var(--cf-font-size-small); }
+.setup-progress-note { display: flex; align-items: center; gap: var(--cf-space-2); margin: 0; color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-small); }
+
 @media (max-width: 1120px) {
   .main-content { padding-right: var(--cf-space-8); padding-left: var(--cf-space-8); }
   .app-footer { padding-right: var(--cf-space-8); padding-left: var(--cf-space-8); }
