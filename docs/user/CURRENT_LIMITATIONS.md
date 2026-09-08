@@ -32,7 +32,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 | ------------------------------ | ----------------------- |
 | Workbench shell and navigation | Works now               |
 | Guided Setup layout            | Preview only            |
-| Native file-picker bridge     | Works now               |
+| Native file-picker bridge      | Works now               |
 | Display-safe selection status  | Works now               |
 | Lineup review and saved lineup | Planned / not built yet |
 | Automatic updates              | Planned / not built yet |

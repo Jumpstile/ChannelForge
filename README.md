@@ -108,15 +108,15 @@ Working today:
 
 ### GUI status
 
-| Area                                                    | Status                  |
-| ------------------------------------------------------- | ----------------------- |
-| Workbench shell and navigation                          | Works now               |
-| Guided Setup layout                                     | Preview only            |
-| Native file-picker bridge                              | Works now               |
-| Display-safe selection state                            | Works now               |
-| File selection and validation                           | Blocked / needs review  |
-| Lineup review and saved lineup                          | Planned / not built yet |
-| Automatic updates                                       | Planned / not built yet |
+| Area                           | Status                  |
+| ------------------------------ | ----------------------- |
+| Workbench shell and navigation | Works now               |
+| Guided Setup layout            | Preview only            |
+| Native file-picker bridge      | Works now               |
+| Display-safe selection state   | Works now               |
+| File selection and validation  | Blocked / needs review  |
+| Lineup review and saved lineup | Planned / not built yet |
+| Automatic updates              | Planned / not built yet |
 
 ---
 

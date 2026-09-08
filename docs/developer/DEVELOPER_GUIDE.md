@@ -253,7 +253,7 @@ The isolated `gui/` application is the desktop-shell slice for issue #35. It is 
 | ------------------------------ | ----------------------- |
 | Workbench shell and navigation | Works now               |
 | Guided Setup layout            | Preview only            |
-| Native file-picker bridge     | Works now               |
+| Native file-picker bridge      | Works now               |
 | Display-safe selection state   | Works now               |
 | Lineup review and saved lineup | Planned / not built yet |
 | Automatic updates              | Planned / not built yet |
