@@ -29,6 +29,26 @@ export type PlaylistContentResult = {
   reasonCode: PlaylistContentReasonCode | null
 }
 
+export type GuideContentStatus = 'not-checked' | 'checking' | 'checked' | 'needs-attention'
+export type GuideContentReasonCode =
+  | 'missing-root'
+  | 'empty-guide'
+  | 'incomplete-channel'
+  | 'incomplete-programme'
+  | 'invalid-encoding'
+  | 'too-large'
+  | 'unsupported-format'
+  | 'malformed-xml'
+  | 'unreadable'
+  | 'check-unavailable'
+
+export type GuideContentResult = {
+  contentStatus: GuideContentStatus
+  channelCount: number | null
+  programmeCount: number | null
+  reasonCode: GuideContentReasonCode | null
+}
+
 export type SetupSelectionResult = {
   kind: SetupSelectionKind
   outcome: SetupSelectionOutcome
@@ -36,6 +56,7 @@ export type SetupSelectionResult = {
   validationStatus: SetupValidationStatus
   reasonCode: PickerReasonCode | null
   playlistContent?: PlaylistContentResult | null
+  guideContent?: GuideContentResult | null
 }
 
 export type SetupSelectionState = {
@@ -54,6 +75,14 @@ export type PlaylistContentState = {
   label: string
   detail: string
   entryCount: number | null
+}
+
+export type GuideContentState = {
+  status: GuideContentStatus
+  label: string
+  detail: string
+  channelCount: number | null
+  programmeCount: number | null
 }
 
 export type SetupPicker = (kind: SetupSelectionKind) => Promise<SetupSelectionResult>
@@ -78,6 +107,13 @@ const playlistContentLabels: Record<PlaylistContentStatus, string> = {
   'needs-attention': 'Needs attention',
 }
 
+const guideContentLabels: Record<GuideContentStatus, string> = {
+  'not-checked': 'Not checked',
+  checking: 'Checking',
+  checked: 'Checked',
+  'needs-attention': 'Needs attention',
+}
+
 export function createInitialPlaylistContentState(): PlaylistContentState {
   return {
     status: 'not-checked',
@@ -93,6 +129,91 @@ export function setPlaylistContentChecking(): PlaylistContentState {
     label: playlistContentLabels.checking,
     detail: 'Checking playlist content...',
     entryCount: null,
+  }
+}
+
+export function createInitialGuideContentState(): GuideContentState {
+  return {
+    status: 'not-checked',
+    label: guideContentLabels['not-checked'],
+    detail: 'Guide content has not been checked.',
+    channelCount: null,
+    programmeCount: null,
+  }
+}
+
+export function setGuideContentChecking(): GuideContentState {
+  return {
+    status: 'checking',
+    label: guideContentLabels.checking,
+    detail: 'Checking guide content...',
+    channelCount: null,
+    programmeCount: null,
+  }
+}
+
+function guideContentReasonMessage(reasonCode: GuideContentReasonCode | null): string {
+  if (reasonCode === 'missing-root') {
+    return 'Guide content needs attention. The file must contain a <tv> root.'
+  }
+  if (reasonCode === 'empty-guide') {
+    return 'Guide content needs attention. No channel or programme entries were found.'
+  }
+  if (reasonCode === 'incomplete-channel') {
+    return 'Guide content needs attention. A channel entry is missing its required ID.'
+  }
+  if (reasonCode === 'incomplete-programme') {
+    return 'Guide content needs attention. A programme entry is missing required fields.'
+  }
+  if (reasonCode === 'invalid-encoding') {
+    return 'Guide content needs attention. The file is not valid UTF-8 XMLTV.'
+  }
+  if (reasonCode === 'unsupported-format') {
+    return 'Guide content could not be checked for this file type. Choose an XMLTV file.'
+  }
+  if (reasonCode === 'too-large') {
+    return 'Could not check guide content. The file is too large.'
+  }
+  if (reasonCode === 'malformed-xml') {
+    return 'Guide content needs attention. The file is not a valid XMLTV document.'
+  }
+
+  return 'Could not check guide content. Try another file.'
+}
+
+export function guideContentStateFromResult(result: SetupSelectionResult): GuideContentState {
+  const content = result.kind === 'guide'
+    && result.outcome === 'selected'
+    && result.selectionStatus === 'selected'
+    ? result.guideContent
+    : null
+
+  if (!content || content.contentStatus === 'not-checked') {
+    return createInitialGuideContentState()
+  }
+  if (content.contentStatus === 'checking') {
+    return setGuideContentChecking()
+  }
+  if (
+    content.contentStatus === 'checked'
+    && content.channelCount !== null
+    && content.programmeCount !== null
+  ) {
+    return {
+      status: 'checked',
+      label: guideContentLabels.checked,
+      detail: `Guide content checked. ${content.channelCount} channels and ${content.programmeCount} programmes found.`,
+      channelCount: content.channelCount,
+      programmeCount: content.programmeCount,
+    }
+  }
+
+  return {
+    status: 'needs-attention',
+    label: guideContentLabels['needs-attention'],
+    detail: guideContentReasonMessage(content.reasonCode),
+    channelCount: null,
+    programmeCount: null,
   }
 }
 

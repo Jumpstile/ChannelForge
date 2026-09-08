@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   applySetupSelectionResult,
+  createInitialGuideContentState,
   createInitialPlaylistContentState,
+  guideContentStateFromResult,
   playlistContentStateFromResult,
   setSetupSelectionChecking,
   setupSelectionStates,
@@ -86,6 +88,57 @@ describe('display-safe setup selection contract', () => {
       label: 'Needs attention',
       detail: 'Playlist content needs attention. The file contains an unexpected stream line.',
       entryCount: null,
+    })
+  })
+
+  it('maps only the guide content summary into fixed display-safe copy', () => {
+    const checked = guideContentStateFromResult({
+      kind: 'guide',
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      guideContent: {
+        contentStatus: 'checked',
+        channelCount: 2,
+        programmeCount: 4,
+        reasonCode: null,
+      },
+    })
+    const attention = guideContentStateFromResult({
+      kind: 'guide',
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      guideContent: {
+        contentStatus: 'needs-attention',
+        channelCount: null,
+        programmeCount: null,
+        reasonCode: 'malformed-xml',
+      },
+    })
+
+    expect(createInitialGuideContentState()).toEqual({
+      status: 'not-checked',
+      label: 'Not checked',
+      detail: 'Guide content has not been checked.',
+      channelCount: null,
+      programmeCount: null,
+    })
+    expect(checked).toEqual({
+      status: 'checked',
+      label: 'Checked',
+      detail: 'Guide content checked. 2 channels and 4 programmes found.',
+      channelCount: 2,
+      programmeCount: 4,
+    })
+    expect(attention).toMatchObject({
+      status: 'needs-attention',
+      label: 'Needs attention',
+      detail: 'Guide content needs attention. The file is not a valid XMLTV document.',
+      channelCount: null,
+      programmeCount: null,
     })
   })
 
