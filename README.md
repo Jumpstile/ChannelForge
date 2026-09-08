@@ -112,9 +112,10 @@ Working today:
 | ------------------------------------------------------- | ----------------------- |
 | Workbench shell and navigation                          | Works now               |
 | Guided Setup: choose workspace, add playlist, add guide | Preview only            |
+| Display-safe selection state                            | Works now               |
+| File selection and validation                           | Blocked / needs review  |
 | Lineup review and saved lineup                          | Planned / not built yet |
 | Automatic updates                                       | Planned / not built yet |
-| Real file selection and import                          | Blocked / needs review  |
 
 ---
 

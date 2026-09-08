@@ -2,6 +2,7 @@ import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
+import { setupSelectionStates } from '../app/setupSelection'
 
 const setupSteps = [
   {
@@ -9,6 +10,7 @@ const setupSteps = [
     title: 'Choose workspace',
     description: 'Choose where ChannelForge keeps your lineup work.',
     buttonLabel: 'Choose workspace',
+    selectionKind: 'workspace' as const,
     icon: FolderOpen,
   },
   {
@@ -16,6 +18,7 @@ const setupSteps = [
     title: 'Add playlist',
     description: 'Your playlist tells ChannelForge what channels you have.',
     buttonLabel: 'Add playlist',
+    selectionKind: 'playlist' as const,
     icon: ListVideo,
   },
   {
@@ -23,6 +26,7 @@ const setupSteps = [
     title: 'Add guide',
     description: 'Your guide tells ChannelForge what is on those channels.',
     buttonLabel: 'Add guide',
+    selectionKind: 'guide' as const,
     icon: FileText,
   },
 ]
@@ -30,6 +34,8 @@ const setupSteps = [
 const setupProgress = [
   { label: 'Workbench', status: 'Works now' },
   { label: 'Guided Setup layout', status: 'Preview only' },
+  { label: 'Display-safe selection status', status: 'Works now' },
+  { label: 'File selection and validation', status: 'Blocked / needs review' },
   { label: 'Saved lineup', status: 'Planned / not built yet' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
@@ -44,7 +50,7 @@ export function GuidedSetupPage() {
       />
 
       <StatusBanner status="Disabled" title="Preview only">
-        <p>This setup layout is ready to review. These controls do not open files or save changes yet.</p>
+        <p>No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.</p>
       </StatusBanner>
 
       <StepRail
@@ -56,22 +62,37 @@ export function GuidedSetupPage() {
       />
 
       <section className="setup-step-grid" aria-label="Guided setup steps">
-        {setupSteps.map(({ number, title, description, buttonLabel, icon: Icon }) => (
-          <article className="setup-step-card" key={title}>
-            <div className="setup-step-heading">
-              <div className="setup-step-icon" aria-hidden="true"><Icon size={22} /></div>
-              <div>
-                <p className="setup-step-number">Step {number}</p>
-                <h2>{title}</h2>
+        {setupSteps.map(({ number, title, description, buttonLabel, selectionKind, icon: Icon }) => {
+          const selection = setupSelectionStates[selectionKind]
+
+          return (
+            <article className="setup-step-card" key={title}>
+              <div className="setup-step-heading">
+                <div className="setup-step-icon" aria-hidden="true"><Icon size={22} /></div>
+                <div>
+                  <p className="setup-step-number">Step {number}</p>
+                  <h2>{title}</h2>
+                </div>
               </div>
-            </div>
-            <p className="setup-step-description">{description}</p>
-            <div className="setup-step-footer">
-              <span className="setup-step-status">Preview only</span>
-              <button className="button button-secondary" disabled type="button">{buttonLabel}</button>
-            </div>
-          </article>
-        ))}
+              <p className="setup-step-description">{description}</p>
+              <div className="setup-step-selection" role="status" aria-label={`${title} selection status`}>
+                <div className="setup-step-selection-row">
+                  <span className="setup-step-selection-label">Selection</span>
+                  <strong>{selection.displayLabel}</strong>
+                </div>
+                <div className="setup-step-selection-row">
+                  <span className="setup-step-selection-label">Validation</span>
+                  <strong>{selection.validationLabel}</strong>
+                </div>
+                <span>{selection.detail}</span>
+              </div>
+              <div className="setup-step-footer">
+                <span className="setup-step-status">Preview only</span>
+                <button className="button button-secondary" disabled type="button">{buttonLabel}</button>
+              </div>
+            </article>
+          )
+        })}
       </section>
 
       <section className="setup-progress-card" aria-labelledby="setup-progress-title">
@@ -90,7 +111,7 @@ export function GuidedSetupPage() {
             </li>
           ))}
         </ul>
-        <p className="setup-progress-note"><BookOpen size={15} aria-hidden="true" /> This screen is presentation only until the setup controls are connected.</p>
+        <p className="setup-progress-note"><BookOpen size={15} aria-hidden="true" /> This screen only displays setup state. It does not open, read, or store files.</p>
       </section>
     </div>
   )
