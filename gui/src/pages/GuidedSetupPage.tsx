@@ -1,8 +1,16 @@
+import { useState } from 'react'
 import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
-import { setupSelectionStates } from '../app/setupSelection'
+import { nativePickerAvailable, chooseSetupItem } from '../app/setupPicker'
+import {
+  applySetupSelectionResult,
+  safePickerMessage,
+  setupSelectionStates,
+  type SetupPicker,
+  type SetupSelectionKind,
+} from '../app/setupSelection'
 
 const setupSteps = [
   {
@@ -35,12 +43,48 @@ const setupProgress = [
   { label: 'Workbench', status: 'Works now' },
   { label: 'Guided Setup layout', status: 'Preview only' },
   { label: 'Display-safe selection status', status: 'Works now' },
+  { label: 'Native file-picker bridge', status: 'Works now' },
   { label: 'File selection and validation', status: 'Blocked / needs review' },
   { label: 'Saved lineup', status: 'Planned / not built yet' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
 
-export function GuidedSetupPage() {
+type GuidedSetupPageProps = {
+  picker?: SetupPicker
+  pickerAvailable?: boolean
+}
+
+export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = nativePickerAvailable }: GuidedSetupPageProps = {}) {
+  const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
+  const [pendingKind, setPendingKind] = useState<SetupSelectionKind | null>(null)
+  const [pickerError, setPickerError] = useState<string | null>(null)
+
+  const handleSelect = async (kind: SetupSelectionKind) => {
+    setPendingKind(kind)
+    setPickerError(null)
+
+    try {
+      const result = await picker(kind)
+      setSelectionStates((states) => applySetupSelectionResult(states, result))
+      setPickerError(safePickerMessage(result))
+    } catch {
+      setPickerError('Could not complete this selection.')
+    } finally {
+      setPendingKind(null)
+    }
+  }
+
+  const workspaceSelected = selectionStates.workspace.status === 'selected'
+  const playlistSelected = selectionStates.playlist.status === 'selected'
+  const bannerStatus = pickerAvailable ? 'Not checked' : 'Disabled'
+  const bannerTitle = pickerAvailable ? 'Selection available' : 'Preview only'
+  const bannerMessage = pickerAvailable
+    ? 'Native selection is connected. Files are not read, parsed, or validated yet.'
+    : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
+  const progressNote = pickerAvailable
+    ? 'This screen opens a native picker but does not read, parse, validate, or store selected files.'
+    : 'This screen only displays setup state. It does not open, read, or store files.'
+
   return (
     <div className="page-stack">
       <PageHeader
@@ -49,9 +93,11 @@ export function GuidedSetupPage() {
         title="Set up your workspace"
       />
 
-      <StatusBanner status="Disabled" title="Preview only">
-        <p>No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.</p>
+      <StatusBanner status={bannerStatus} title={bannerTitle}>
+        <p>{bannerMessage}</p>
       </StatusBanner>
+
+      {pickerError ? <p className="setup-picker-error" role="alert">{pickerError} Try again.</p> : null}
 
       <StepRail
         steps={setupSteps.map(({ number, title }) => ({
@@ -63,7 +109,10 @@ export function GuidedSetupPage() {
 
       <section className="setup-step-grid" aria-label="Guided setup steps">
         {setupSteps.map(({ number, title, description, buttonLabel, selectionKind, icon: Icon }) => {
-          const selection = setupSelectionStates[selectionKind]
+          const selection = selectionStates[selectionKind]
+          const canSelect = pickerAvailable
+            && (selectionKind === 'workspace' || (selectionKind === 'playlist' && workspaceSelected) || (selectionKind === 'guide' && workspaceSelected && playlistSelected))
+          const isPending = pendingKind === selectionKind
 
           return (
             <article className="setup-step-card" key={title}>
@@ -87,8 +136,16 @@ export function GuidedSetupPage() {
                 <span>{selection.detail}</span>
               </div>
               <div className="setup-step-footer">
-                <span className="setup-step-status">Preview only</span>
-                <button className="button button-secondary" disabled type="button">{buttonLabel}</button>
+                <span className="setup-step-status">{pickerAvailable ? 'Selection enabled' : 'Preview only'}</span>
+                <button
+                  aria-busy={isPending}
+                  className="button button-secondary"
+                  disabled={!canSelect || pendingKind !== null}
+                  type="button"
+                  onClick={() => void handleSelect(selectionKind)}
+                >
+                  {isPending ? 'Choosing…' : buttonLabel}
+                </button>
               </div>
             </article>
           )
@@ -111,7 +168,7 @@ export function GuidedSetupPage() {
             </li>
           ))}
         </ul>
-        <p className="setup-progress-note"><BookOpen size={15} aria-hidden="true" /> This screen only displays setup state. It does not open, read, or store files.</p>
+        <p className="setup-progress-note"><BookOpen size={15} aria-hidden="true" /> {progressNote}</p>
       </section>
     </div>
   )
