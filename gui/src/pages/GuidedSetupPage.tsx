@@ -6,7 +6,10 @@ import { StepRail } from '../components/StepRail'
 import { nativePickerAvailable, chooseSetupItem } from '../app/setupPicker'
 import {
   applySetupSelectionResult,
+  createInitialPlaylistContentState,
+  playlistContentStateFromResult,
   safePickerMessage,
+  setPlaylistContentChecking,
   setSetupSelectionChecking,
   setupSelectionStates,
   type SetupPicker,
@@ -45,7 +48,8 @@ const setupProgress = [
   { label: 'Guided Setup layout', status: 'Preview only' },
   { label: 'Display-safe selection status', status: 'Works now' },
   { label: 'Pre-parse selection checks', status: 'Works now' },
-  { label: 'Playlist and guide content validation', status: 'Blocked / needs review' },
+  { label: 'Playlist structural content validation', status: 'Works now — structural only' },
+  { label: 'Guide content validation', status: 'Blocked / needs review' },
   { label: 'Saved lineup', status: 'Planned / not built yet' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
@@ -56,13 +60,19 @@ type GuidedSetupPageProps = {
 }
 
 export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = nativePickerAvailable }: GuidedSetupPageProps = {}) {
+
   const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
+  const [playlistContent, setPlaylistContent] = useState(createInitialPlaylistContentState)
   const [pendingKind, setPendingKind] = useState<SetupSelectionKind | null>(null)
   const [pickerError, setPickerError] = useState<string | null>(null)
 
   const handleSelect = async (kind: SetupSelectionKind) => {
     const previousStates = selectionStates
+    const previousPlaylistContent = playlistContent
     setSelectionStates((states) => setSetupSelectionChecking(states, kind))
+    if (kind === 'playlist') {
+      setPlaylistContent(setPlaylistContentChecking())
+    }
     setPendingKind(kind)
     setPickerError(null)
 
@@ -70,27 +80,44 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
       const result = await picker(kind)
       if (result.outcome === 'selected' && result.selectionStatus === 'selected') {
         setSelectionStates((states) => applySetupSelectionResult(states, result))
+        if (kind === 'playlist') {
+          setPlaylistContent(playlistContentStateFromResult(result))
+        } else if (kind === 'workspace') {
+          setPlaylistContent(createInitialPlaylistContentState())
+        }
       } else {
         setSelectionStates(previousStates)
+        if (kind === 'playlist') {
+          setPlaylistContent(previousPlaylistContent)
+        }
       }
       setPickerError(safePickerMessage(result))
     } catch {
       setSelectionStates(previousStates)
+      if (kind === 'playlist') {
+        setPlaylistContent(previousPlaylistContent)
+      }
       setPickerError('Could not complete this selection.')
     } finally {
       setPendingKind(null)
     }
   }
 
-  const workspaceReady = selectionStates.workspace.validationStatus === 'ready-to-inspect'
-  const playlistReady = selectionStates.playlist.validationStatus === 'ready-to-inspect'
+  const workspaceReady = selectionStates.workspace.status === 'selected'
+    && selectionStates.workspace.validationStatus === 'ready-to-inspect'
+  const playlistReady = selectionStates.playlist.status === 'selected'
+    && selectionStates.playlist.validationStatus === 'ready-to-inspect'
+    && playlistContent.status === 'checked'
   const bannerStatus = pickerAvailable ? 'Not checked' : 'Disabled'
   const bannerTitle = pickerAvailable ? 'Selection available' : 'Preview only'
   const bannerMessage = pickerAvailable
-    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist and guide contents remain unchecked.'
+    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist content is checked for safe M3U structure only; guide contents remain unchecked.'
     : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
+  const playlistContentMessage = pickerAvailable
+    ? 'The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.'
+    : 'Preview only. Playlist content is not checked here.'
   const progressNote = pickerAvailable
-    ? 'This screen opens a native picker and performs only pre-parse checks. It does not read file bytes, parse, import, validate content, or store selected files.'
+    ? 'This screen opens a native picker and performs bounded playlist structure checks only. It does not open stream URLs, inspect guide content, import, or store selected files.'
     : 'This screen only displays setup state. It does not open, read, or store files.'
 
 
@@ -142,7 +169,19 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
                   <span className="setup-step-selection-label">Validation</span>
                   <strong>{selection.validationLabel}</strong>
                 </div>
+                {selectionKind === 'playlist' ? (
+                  <div className="setup-step-selection-row">
+                    <span className="setup-step-selection-label">Content</span>
+                    <strong>{playlistContent.label}</strong>
+                  </div>
+                ) : null}
+                {selectionKind === 'playlist' ? (
+                  <span>{playlistContentMessage}</span>
+                ) : null}
                 <span>{selection.detail}</span>
+                {selectionKind === 'playlist' && (selection.status === 'selected' || isPending) ? (
+                  <span>{playlistContent.detail}</span>
+                ) : null}
               </div>
               <div className="setup-step-footer">
                 <span className="setup-step-status">{pickerAvailable ? 'Selection enabled' : 'Preview only'}</span>
@@ -153,7 +192,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
                   type="button"
                   onClick={() => void handleSelect(selectionKind)}
                 >
-                  {isPending ? 'Choosing…' : buttonLabel}
+                  {isPending ? (selectionKind === 'playlist' ? 'Checking…' : 'Choosing…') : buttonLabel}
                 </button>
               </div>
             </article>

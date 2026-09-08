@@ -12,12 +12,30 @@ export type PickerReasonCode =
   | 'not-readable'
   | 'check-unavailable'
 
+export type PlaylistContentStatus = 'not-checked' | 'checking' | 'checked' | 'needs-attention'
+export type PlaylistContentReasonCode =
+  | 'missing-header'
+  | 'empty-playlist'
+  | 'incomplete-entry'
+  | 'orphan-stream-line'
+  | 'invalid-encoding'
+  | 'too-large'
+  | 'unreadable'
+  | 'check-unavailable'
+
+export type PlaylistContentResult = {
+  contentStatus: PlaylistContentStatus
+  entryCount: number | null
+  reasonCode: PlaylistContentReasonCode | null
+}
+
 export type SetupSelectionResult = {
   kind: SetupSelectionKind
   outcome: SetupSelectionOutcome
   selectionStatus: SetupSelectionStatus
   validationStatus: SetupValidationStatus
   reasonCode: PickerReasonCode | null
+  playlistContent?: PlaylistContentResult | null
 }
 
 export type SetupSelectionState = {
@@ -30,6 +48,13 @@ export type SetupSelectionState = {
 }
 
 export type SetupSelectionStates = Record<SetupSelectionKind, SetupSelectionState>
+
+export type PlaylistContentState = {
+  status: PlaylistContentStatus
+  label: string
+  detail: string
+  entryCount: number | null
+}
 
 export type SetupPicker = (kind: SetupSelectionKind) => Promise<SetupSelectionResult>
 
@@ -44,6 +69,78 @@ const validationLabels: Record<SetupValidationStatus, string> = {
   checking: 'Checking',
   'ready-to-inspect': 'Ready to inspect',
   'needs-attention': 'Needs attention',
+}
+
+const playlistContentLabels: Record<PlaylistContentStatus, string> = {
+  'not-checked': 'Not checked',
+  checking: 'Checking',
+  checked: 'Checked',
+  'needs-attention': 'Needs attention',
+}
+
+export function createInitialPlaylistContentState(): PlaylistContentState {
+  return {
+    status: 'not-checked',
+    label: playlistContentLabels['not-checked'],
+    detail: 'Playlist content has not been checked.',
+    entryCount: null,
+  }
+}
+
+export function setPlaylistContentChecking(): PlaylistContentState {
+  return {
+    status: 'checking',
+    label: playlistContentLabels.checking,
+    detail: 'Checking playlist content...',
+    entryCount: null,
+  }
+}
+
+function playlistContentReasonMessage(reasonCode: PlaylistContentReasonCode | null): string {
+  if (reasonCode === 'missing-header') {
+    return 'Playlist content needs attention. The file must start with #EXTM3U.'
+  }
+  if (reasonCode === 'empty-playlist') {
+    return 'Playlist content needs attention. No channel entries found.'
+  }
+  if (reasonCode === 'incomplete-entry') {
+    return 'Playlist content needs attention. An entry is missing its stream line.'
+  }
+  if (reasonCode === 'orphan-stream-line') {
+    return 'Playlist content needs attention. The file contains an unexpected stream line.'
+  }
+
+  return 'Could not check playlist content. Try another file.'
+}
+
+export function playlistContentStateFromResult(result: SetupSelectionResult): PlaylistContentState {
+  const content = result.kind === 'playlist'
+    && result.outcome === 'selected'
+    && result.selectionStatus === 'selected'
+    ? result.playlistContent
+    : null
+
+  if (!content || content.contentStatus === 'not-checked') {
+    return createInitialPlaylistContentState()
+  }
+  if (content.contentStatus === 'checking') {
+    return setPlaylistContentChecking()
+  }
+  if (content.contentStatus === 'checked' && content.entryCount !== null) {
+    return {
+      status: 'checked',
+      label: playlistContentLabels.checked,
+      detail: `Playlist content checked. ${content.entryCount} channel entries found.`,
+      entryCount: content.entryCount,
+    }
+  }
+
+  return {
+    status: 'needs-attention',
+    label: playlistContentLabels['needs-attention'],
+    detail: playlistContentReasonMessage(content.reasonCode),
+    entryCount: null,
+  }
 }
 
 export function createInitialSetupSelectionState(kind: SetupSelectionKind): SetupSelectionState {
