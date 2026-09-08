@@ -10,7 +10,7 @@ It doesn't blindly trust playlist names or provider metadata. It validates input
 
 **Honestly: only if you're comfortable with PowerShell and an early, unfinished tool.**
 
-ChannelForge is **Early Alpha**. There is no installer and no GUI yet — everything today runs from PowerShell scripts against a cloned copy of the repository. If that doesn't sound like your kind of weekend, it's not ready for you yet. If it does, [Build Your First Lineup](Build-Your-First-Lineup.md) will get you to a working result in about ten minutes.
+ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge, but lineup creation, validation, persistence, and automatic updates still run through the PowerShell workflow. If that doesn't sound like your kind of weekend, it's not ready for you yet. If it does, [Build Your First Lineup](Build-Your-First-Lineup.md) will get you to a working result in about ten minutes.
 
 ## What does it do today?
 
