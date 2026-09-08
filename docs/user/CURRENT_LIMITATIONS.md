@@ -34,10 +34,10 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 | Guided Setup layout                   | Preview only            |
 | Native file-picker bridge             | Works now               |
 | Display-safe selection state          | Works now               |
-| Pre-parse selection checks             | Works now               |
-| Playlist and guide content validation  | Blocked / needs review  |
-| Lineup review and saved lineup         | Planned / not built yet |
-| Automatic updates                      | Planned / not built yet |
+| Pre-parse selection checks            | Works now               |
+| Playlist and guide content validation | Blocked / needs review  |
+| Lineup review and saved lineup        | Planned / not built yet |
+| Automatic updates                     | Planned / not built yet |
 
 ## Why these are deferred, not abandoned
 
