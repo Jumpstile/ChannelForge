@@ -16,7 +16,7 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 
-  it('opens Guided Setup from Workbench and keeps setup controls preview-only', async () => {
+  it('opens Guided Setup and shows display-safe unselected states without enabling controls', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -24,6 +24,12 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
     expect(screen.getByText('Your playlist tells ChannelForge what channels you have.')).toBeInTheDocument()
     expect(screen.getByText('Your guide tells ChannelForge what is on those channels.')).toBeInTheDocument()
+    expect(screen.getByText('No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.')).toBeInTheDocument()
+    expect(screen.getAllByText('Not selected')).toHaveLength(3)
+    expect(screen.getAllByText('Not checked')).toHaveLength(3)
+    expect(screen.getByText('No workspace is selected.')).toBeInTheDocument()
+    expect(screen.getByText('No playlist is selected.')).toBeInTheDocument()
+    expect(screen.getByText('No guide is selected.')).toBeInTheDocument()
     for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled()
     }

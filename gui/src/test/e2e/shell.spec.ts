@@ -11,19 +11,27 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
   await expect(page.locator('body')).not.toContainText('https://')
 })
 
-test('renders the preview-only Guided Setup shell', async ({ page }) => {
+test('renders the preview-only Guided Setup selection contract', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Guided setup steps' })).toBeVisible()
   await expect(page.getByText('Your playlist tells ChannelForge what channels you have.')).toBeVisible()
   await expect(page.getByText('Your guide tells ChannelForge what is on those channels.')).toBeVisible()
+  await expect(page.getByText('No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.')).toBeVisible()
+  await expect(page.getByText('Not selected')).toHaveCount(3)
+  await expect(page.getByText('Not checked')).toHaveCount(3)
+  await expect(page.getByText('No workspace is selected.')).toBeVisible()
+  await expect(page.getByText('No playlist is selected.')).toBeVisible()
+  await expect(page.getByText('No guide is selected.')).toBeVisible()
   for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
     await expect(page.getByRole('button', { name: label })).toBeDisabled()
   }
   await expect(page.getByText('Preview only')).toHaveCount(5)
   await expect(page.locator('body')).not.toContainText('C:\\')
+  await expect(page.locator('body')).not.toContainText('C:/')
   await expect(page.locator('body')).not.toContainText('https://')
+  await expect(page.locator('body')).not.toContainText('file://')
 })
 
 test('passes the axe accessibility scan on the workbench', async ({ page }) => {

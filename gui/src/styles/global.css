@@ -129,6 +129,11 @@ a { color: var(--cf-color-brand); }
 .setup-step-number { margin: 0 0 var(--cf-space-1); color: var(--cf-color-brand); font-size: var(--cf-font-size-label); font-weight: var(--cf-font-weight-bold); letter-spacing: 0.08em; text-transform: uppercase; }
 .setup-step-card h2, .setup-progress-card h2 { margin: 0; font-size: var(--cf-font-size-section-title); line-height: var(--cf-line-height-tight); }
 .setup-step-description { min-height: 4.5rem; margin: 0; color: var(--cf-color-ink-muted); }
+.setup-step-selection { display: grid; gap: var(--cf-space-1); padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface-subtle); }
+.setup-step-selection-row { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-3); }
+.setup-step-selection-label { color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-label); font-weight: var(--cf-font-weight-bold); letter-spacing: 0.06em; text-transform: uppercase; }
+.setup-step-selection strong { color: var(--cf-color-ink); font-size: var(--cf-font-size-small); }
+.setup-step-selection > span:last-child { color: var(--cf-color-ink-muted); font-size: var(--cf-font-size-small); }
 .setup-step-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-3); padding-top: var(--cf-space-4); border-top: 1px solid var(--cf-color-border); }
 .setup-step-status { color: var(--cf-color-disabled); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
 .setup-progress-card { display: grid; gap: var(--cf-space-5); }
