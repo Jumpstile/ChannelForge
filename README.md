@@ -116,7 +116,7 @@ Working today:
 | Display-safe selection state           | Works now                   |
 | Pre-parse selection checks             | Works now                   |
 | Playlist structural content validation | Works now — structural only |
-| Guide content validation               | Blocked / needs review      |
+| Guide structural content validation    | Works now — structural only |
 | Lineup review and saved lineup         | Planned / not built yet     |
 | Automatic updates                      | Planned / not built yet     |
 

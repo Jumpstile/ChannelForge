@@ -21,7 +21,7 @@ describe('shell accessibility scaffolding', () => {
     expect(screen.getByRole('region', { name: 'Guided setup steps' })).toBeInTheDocument()
   })
 
-  it('names each display-safe selection status and playlist content status', async () => {
+  it('names each display-safe selection and content status', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -32,5 +32,6 @@ describe('shell accessibility scaffolding', () => {
       expect(screen.getByRole('status', { name: `${label} selection status` })).toHaveTextContent('Not checked')
     }
     expect(screen.getByRole('status', { name: 'Add playlist selection status' })).toHaveTextContent('Content')
+    expect(screen.getByRole('status', { name: 'Add guide selection status' })).toHaveTextContent('Content')
   })
 })

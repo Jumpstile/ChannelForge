@@ -19,7 +19,16 @@ function selectedResult(kind: SetupSelectionKind): SetupSelectionResult {
             reasonCode: null,
           },
         }
-      : {}),
+      : kind === 'guide'
+        ? {
+            guideContent: {
+              contentStatus: 'checked',
+              channelCount: 2,
+              programmeCount: 4,
+              reasonCode: null,
+            },
+          }
+        : {}),
   }
 }
 
@@ -39,7 +48,7 @@ describe('native picker bridge flow', () => {
     const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
     render(<GuidedSetupPage picker={picker} pickerAvailable />)
     expect(screen.getByRole('heading', { name: 'Selection available' })).toBeInTheDocument()
-    expect(screen.getByText('Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist content is checked for safe M3U structure only; guide contents remain unchecked.')).toBeInTheDocument()
+    expect(screen.getByText('Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist content is checked for safe M3U structure only; guide content is checked for safe XMLTV structure only. Playlist/guide matching remains unchecked.')).toBeInTheDocument()
     expect(screen.getByText('The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.')).toBeInTheDocument()
     expect(screen.getAllByText('Selection enabled')).toHaveLength(3)
 
@@ -58,6 +67,7 @@ describe('native picker bridge flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     expect(screen.getByText('Guide is ready to inspect.')).toBeInTheDocument()
+    expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Guided setup steps' })).getAllByText('Ready to inspect')).toHaveLength(3)
     expect(picker).toHaveBeenNthCalledWith(1, 'workspace')
     expect(picker).toHaveBeenNthCalledWith(2, 'playlist')
@@ -124,6 +134,28 @@ describe('native picker bridge flow', () => {
 
     resolvePicker(selectedResult('playlist'))
     await waitFor(() => expect(screen.getByText('Playlist content checked. 2 channel entries found.')).toBeInTheDocument())
+  })
+
+  it('shows guide content checking while the guide scan is pending', async () => {
+    const user = userEvent.setup()
+    let resolvePicker!: (result: SetupSelectionResult) => void
+    const pickerPromise = new Promise<SetupSelectionResult>((resolve) => {
+      resolvePicker = resolve
+    })
+    const picker = vi.fn<SetupPicker>()
+      .mockResolvedValueOnce(selectedResult('workspace'))
+      .mockResolvedValueOnce(selectedResult('playlist'))
+      .mockReturnValueOnce(pickerPromise)
+    render(<GuidedSetupPage picker={picker} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    expect(screen.getByText('Checking guide content...')).toBeInTheDocument()
+    expect(within(screen.getByRole('status', { name: 'Add guide selection status' })).getAllByText('Checking')).toHaveLength(2)
+
+    resolvePicker(selectedResult('guide'))
+    await waitFor(() => expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument())
   })
 
   it('preserves prior state on cancellation and maps attention reasons to fixed copy', async () => {
