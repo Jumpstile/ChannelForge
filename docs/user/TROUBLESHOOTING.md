@@ -40,7 +40,7 @@ A malformed provider/EPG URL or an out-of-bounds path fails the whole build on p
 Yes — running `Build-Lineup.ps1` against the repository's tracked example data (no `*.local.json`, no real playlist) validates your source-of-truth configuration and produces a report with `Status: SOURCE_OF_TRUTH_VALIDATED`, just without a `merged.m3u` (no source has a `local_playlist` configured). This is a safe way to confirm your environment works before bringing in real data.
 
 **Is there a GUI I'm missing?**
-There is a Tauri/React desktop shell with a native picker bridge, but it does not yet build lineups, validate or parse selections, save changes, or update providers. See [Current Limitations](CURRENT_LIMITATIONS.md).
+There is a Tauri/React desktop shell with a native picker bridge that checks only pre-parse availability, expected kind, and read access. It does not yet build lineups, inspect playlist or guide content, save changes, or update providers. See [Current Limitations](CURRENT_LIMITATIONS.md).
 
 ## Reporting a bug safely
 
