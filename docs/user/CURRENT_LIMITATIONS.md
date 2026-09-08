@@ -18,13 +18,23 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ## Not implemented yet
 
-- **GUI is foundation-only.** A static Tauri/React desktop shell and deterministic state gallery exist for internal development review. They do not read provider data, invoke PowerShell, perform refresh/build/accept operations, expose real workspace paths, or constitute a tester-facing release.
+- **GUI Guided Setup is preview-only.** The Tauri/React desktop shell includes the Workbench and a three-step Guided Setup layout for choosing a workspace, adding a playlist, and adding a guide. The controls do not open files, read provider data, save changes, perform lineup work, or enable automatic updates.
 - **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.
 - **No confidence/evidence scoring or alias conflict review UI yet** — alias resolution exists, but the broader "confidence engine" described in the project's five pillars (see the [repository README](../../README.md#five-pillars)) is still ahead (Milestones 1–2 in [ROADMAP.md](../../ROADMAP.md)).
+
+### GUI status
+
+| Area                           | Status                  |
+| ------------------------------ | ----------------------- |
+| Workbench shell and navigation | Works now               |
+| Guided Setup layout            | Preview only            |
+| Lineup review and saved lineup | Planned / not built yet |
+| Automatic updates              | Planned / not built yet |
+| Real file selection and import | Blocked / needs review  |
 
 ## Why these are deferred, not abandoned
 

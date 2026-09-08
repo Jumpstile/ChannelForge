@@ -16,6 +16,19 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 
+  it('opens Guided Setup from Workbench and keeps setup controls preview-only', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open Guided Setup' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
+    expect(screen.getByText('Your playlist tells ChannelForge what channels you have.')).toBeInTheDocument()
+    expect(screen.getByText('Your guide tells ChannelForge what is on those channels.')).toBeInTheDocument()
+    for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
+      expect(screen.getByRole('button', { name: label })).toBeDisabled()
+    }
+  })
+
   it('does not expose future workflow pages as active controls', () => {
     render(<App />)
 

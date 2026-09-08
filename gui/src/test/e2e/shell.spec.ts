@@ -1,18 +1,40 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
-test('renders the guided workbench shell without operational controls', async ({ page }) => {
+test('renders the guided workbench shell and links to setup', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Workflow pages' })).toBeVisible()
   await expect(page.getByText('root-7a91…d42c')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Coming next' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Open Guided Setup' })).toBeEnabled()
+  await expect(page.locator('body')).not.toContainText('C:\\')
+  await expect(page.locator('body')).not.toContainText('https://')
+})
+
+test('renders the preview-only Guided Setup shell', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Guided setup steps' })).toBeVisible()
+  await expect(page.getByText('Your playlist tells ChannelForge what channels you have.')).toBeVisible()
+  await expect(page.getByText('Your guide tells ChannelForge what is on those channels.')).toBeVisible()
+  for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
+    await expect(page.getByRole('button', { name: label })).toBeDisabled()
+  }
+  await expect(page.getByText('Preview only')).toHaveCount(5)
   await expect(page.locator('body')).not.toContainText('C:\\')
   await expect(page.locator('body')).not.toContainText('https://')
 })
 
 test('passes the axe accessibility scan on the workbench', async ({ page }) => {
   await page.goto('/')
+  const results = await new AxeBuilder({ page }).analyze()
+  expect(results.violations).toEqual([])
+})
+
+test('passes the axe accessibility scan on Guided Setup', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   const results = await new AxeBuilder({ page }).analyze()
   expect(results.violations).toEqual([])
 })

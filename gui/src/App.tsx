@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AppShell } from './app/AppShell'
 import type { NavigationId } from './app/navigation'
+import { GuidedSetupPage } from './pages/GuidedSetupPage'
 import { StateGalleryPage } from './pages/StateGalleryPage'
 import { WorkbenchPage } from './pages/WorkbenchPage'
 
@@ -11,8 +12,13 @@ function App() {
     <AppShell activePage={activePage} onNavigate={setActivePage}>
       {activePage === 'gallery' ? (
         <StateGalleryPage onBack={() => setActivePage('workbench')} />
+      ) : activePage === 'setup' ? (
+        <GuidedSetupPage />
       ) : (
-        <WorkbenchPage onOpenGallery={() => setActivePage('gallery')} />
+        <WorkbenchPage
+          onOpenGallery={() => setActivePage('gallery')}
+          onOpenSetup={() => setActivePage('setup')}
+        />
       )}
     </AppShell>
   )
