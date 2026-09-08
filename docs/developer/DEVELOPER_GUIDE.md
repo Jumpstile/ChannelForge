@@ -245,7 +245,7 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ## GUI foundation
 
-The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, a Rust-owned native picker bridge, and a deterministic synthetic state gallery. Guided Setup invokes the native bridge sequentially for workspace, playlist, and guide; the bridge performs pre-parse existence, expected-kind, and read-access checks, then performs a bounded, read-only structural scan for selected M3U playlists. The scan caps files at 64 MiB and logical lines at 1 MiB. It returns only safe status, reason codes, and entry counts; it never returns paths, raw content, stream URLs, or guide data. It does not import, persist, or use provider files for lineup work, and it does not package a tester release.
+The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, a Rust-owned native picker bridge, and a deterministic synthetic state gallery. Guided Setup invokes the native bridge sequentially for workspace, playlist, and guide; the bridge performs pre-parse existence, expected-kind, and read-access checks, then performs bounded, read-only structural scans for selected M3U playlists and local XMLTV guides. Playlist scans cap files at 64 MiB and logical lines at 1 MiB. Guide scans cap final XMLTV output at 64 MiB and compressed input at 64 MiB, accept UTF-8 with an optional BOM, require a `<tv>` root, and count only direct channels with non-empty `id` and direct programmes with non-empty `channel`, `start`, and `stop`. Plain `.xml`/`.xmltv`, `.gz`, and single-guide `.zip` files are supported; ZIP archives reject encrypted, empty, multi-guide, nested-compressed, and ambiguous contents. The bridge returns only safe status, reason codes, and aggregate counts; it never returns paths, filenames, URLs, playlist stream lines, programme titles, guide channel IDs, credentials, or tokens.
 
 ### GUI status tally
 
@@ -257,7 +257,7 @@ The isolated `gui/` application is the desktop-shell slice for issue #35. It is 
 | Display-safe selection state           | Works now                   |
 | Pre-parse selection checks             | Works now                   |
 | Playlist structural content validation | Works now — structural only |
-| Guide content validation               | Blocked / needs review      |
+| Guide structural content validation    | Works now — structural only |
 | Lineup review and saved lineup         | Planned / not built yet     |
 | Automatic updates                      | Planned / not built yet     |
 
