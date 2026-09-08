@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { applySetupSelectionResult, setSetupSelectionChecking, setupSelectionStates } from '../app/setupSelection'
+import {
+  applySetupSelectionResult,
+  createInitialPlaylistContentState,
+  playlistContentStateFromResult,
+  setSetupSelectionChecking,
+  setupSelectionStates,
+} from '../app/setupSelection'
 
 describe('display-safe setup selection contract', () => {
   it('starts each setup item with truthful unselected and unchecked states', () => {
@@ -35,6 +41,52 @@ describe('display-safe setup selection contract', () => {
     })
     expect(JSON.stringify(states)).not.toMatch(/[A-Za-z]:[\\/]|\\\\|https?:\/\//i)
     expect(JSON.stringify(states)).not.toMatch(/(?:token|password|secret|credential)/i)
+  })
+
+  it('maps only the playlist content summary into fixed display-safe copy', () => {
+    const checked = playlistContentStateFromResult({
+      kind: 'playlist',
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      playlistContent: {
+        contentStatus: 'checked',
+        entryCount: 4,
+        reasonCode: null,
+      },
+    })
+    const attention = playlistContentStateFromResult({
+      kind: 'playlist',
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      playlistContent: {
+        contentStatus: 'needs-attention',
+        entryCount: null,
+        reasonCode: 'orphan-stream-line',
+      },
+    })
+
+    expect(createInitialPlaylistContentState()).toEqual({
+      status: 'not-checked',
+      label: 'Not checked',
+      detail: 'Playlist content has not been checked.',
+      entryCount: null,
+    })
+    expect(checked).toEqual({
+      status: 'checked',
+      label: 'Checked',
+      detail: 'Playlist content checked. 4 channel entries found.',
+      entryCount: 4,
+    })
+    expect(attention).toMatchObject({
+      status: 'needs-attention',
+      label: 'Needs attention',
+      detail: 'Playlist content needs attention. The file contains an unexpected stream line.',
+      entryCount: null,
+    })
   })
 
   it('represents an in-flight check without changing selection identity', () => {

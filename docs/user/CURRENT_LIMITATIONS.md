@@ -18,7 +18,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ## Not implemented yet
 
-- **GUI Guided Setup is validation-preview-only.** The Tauri/React desktop shell includes the Workbench and a three-step Guided Setup layout for choosing a workspace, adding a playlist, and adding a guide. Its Rust-owned native picker bridge opens one item at a time in the order workspace → playlist → guide, then performs only pre-parse existence, expected-kind, and read-access checks before returning safe selection/status values; React never receives paths, filenames, URLs, credentials, tokens, or file contents. Selection checks do not inspect playlist or guide content: the bridge does not read bytes, parse, import, persist, or use the selected items for lineup work, and the browser preview keeps picker controls disabled.
+- **GUI Guided Setup is still validation-preview-only.** The Tauri/React desktop shell includes the Workbench and a three-step Guided Setup layout for choosing a workspace, adding a playlist, and adding a guide. Its Rust-owned native picker bridge opens one item at a time in the order workspace → playlist → guide, performs pre-parse existence, expected-kind, and read-access checks, then performs a bounded read-only structural scan of a selected M3U playlist. The playlist scan accepts UTF-8 with an optional BOM, requires `#EXTM3U` as the first non-empty line, counts complete channel entries, and returns only safe status, reason code, and entry count. The scan is capped at 64 MiB per file and 1 MiB per logical line. React never receives paths, filenames, URLs, credentials, tokens, or file contents. Stream URLs are never opened or displayed; guide content remains unchecked, and the browser preview keeps picker controls disabled. The bridge does not import, persist, or use the selected items for lineup work.
 - **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
@@ -28,16 +28,17 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ### GUI status
 
-| Area                                  | Status                  |
-| ------------------------------------- | ----------------------- |
-| Workbench shell and navigation        | Works now               |
-| Guided Setup layout                   | Preview only            |
-| Native file-picker bridge             | Works now               |
-| Display-safe selection state          | Works now               |
-| Pre-parse selection checks            | Works now               |
-| Playlist and guide content validation | Blocked / needs review  |
-| Lineup review and saved lineup        | Planned / not built yet |
-| Automatic updates                     | Planned / not built yet |
+| Area                                   | Status                      |
+| -------------------------------------- | --------------------------- |
+| Workbench shell and navigation         | Works now                   |
+| Guided Setup layout                    | Preview only                |
+| Native file-picker bridge              | Works now                   |
+| Display-safe selection state           | Works now                   |
+| Pre-parse selection checks             | Works now                   |
+| Playlist structural content validation | Works now — structural only |
+| Guide content validation               | Blocked / needs review      |
+| Lineup review and saved lineup         | Planned / not built yet     |
+| Automatic updates                      | Planned / not built yet     |
 
 ## Why these are deferred, not abandoned
 
