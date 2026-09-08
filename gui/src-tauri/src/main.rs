@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  channelforge_gui_lib::run();
+    channelforge_gui_lib::run();
 }
