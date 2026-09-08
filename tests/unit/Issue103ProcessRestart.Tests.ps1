@@ -2,6 +2,8 @@ BeforeAll {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $repoRoot 'src/ChannelForge/ChannelForge.psd1') -Force
     $child = Join-Path $PSScriptRoot 'Issue103ProcessRestart.Child.ps1'
+    # External CI runners can need more than 20 seconds to build a restart fixture before reaching the marker.
+    $childReadyTimeoutSeconds = 60
 }
     function global:Write-Issue103RecoveryDiagnostics {
         param([Parameter(Mandatory)][string]$Case,[Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][string]$ExceptionText)
@@ -64,7 +66,7 @@ Describe 'Issue 103 external process restart recovery' {
             foreach ($argument in @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$child,'-RepositoryRoot',$root,'-FaultHook',$case.Hook,'-Marker',$marker)) { [void]$psi.ArgumentList.Add($argument) }
             $process=[Diagnostics.Process]::Start($psi)
             try {
-                $deadline=[DateTime]::UtcNow.AddSeconds(20)
+                $deadline=[DateTime]::UtcNow.AddSeconds($childReadyTimeoutSeconds)
                 while (-not (Test-Path $marker) -and -not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
                 (Test-Path $marker) | Should -BeTrue -Because "child reached $($case.Hook) before external termination"
             } finally {
@@ -88,7 +90,7 @@ Describe 'Issue 103 external process restart recovery' {
             foreach ($argument in @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$child,'-RepositoryRoot',$root,'-FaultHook',$hook,'-Marker',$marker)) { [void]$psi.ArgumentList.Add($argument) }
             $process=[Diagnostics.Process]::Start($psi)
             try {
-                $deadline=[DateTime]::UtcNow.AddSeconds(20)
+                $deadline=[DateTime]::UtcNow.AddSeconds($childReadyTimeoutSeconds)
                 while (-not (Test-Path $marker) -and -not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
                 (Test-Path $marker) | Should -BeTrue -Because "child reached $hook before external termination"
             } finally {
@@ -123,7 +125,7 @@ Describe 'Issue 103 external process restart recovery' {
             foreach($argument in @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$child,'-RepositoryRoot',$root,'-FaultHook',$case.Hook,'-Marker',$marker)){[void]$psi.ArgumentList.Add($argument)}
             $process=[Diagnostics.Process]::Start($psi)
             try {
-                $deadline=[DateTime]::UtcNow.AddSeconds(20)
+                $deadline=[DateTime]::UtcNow.AddSeconds($childReadyTimeoutSeconds)
                 while(-not(Test-Path $marker) -and -not $process.HasExited -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 100}
                 (Test-Path $marker) | Should -BeTrue -Because "child reached $($case.Case) $($case.Hook)"
             } finally {
