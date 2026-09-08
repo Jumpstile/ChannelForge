@@ -7,6 +7,7 @@ import { nativePickerAvailable, chooseSetupItem } from '../app/setupPicker'
 import {
   applySetupSelectionResult,
   safePickerMessage,
+  setSetupSelectionChecking,
   setupSelectionStates,
   type SetupPicker,
   type SetupSelectionKind,
@@ -43,8 +44,8 @@ const setupProgress = [
   { label: 'Workbench', status: 'Works now' },
   { label: 'Guided Setup layout', status: 'Preview only' },
   { label: 'Display-safe selection status', status: 'Works now' },
-  { label: 'Native file-picker bridge', status: 'Works now' },
-  { label: 'File selection and validation', status: 'Blocked / needs review' },
+  { label: 'Pre-parse selection checks', status: 'Works now' },
+  { label: 'Playlist and guide content validation', status: 'Blocked / needs review' },
   { label: 'Saved lineup', status: 'Planned / not built yet' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
@@ -60,30 +61,38 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
   const [pickerError, setPickerError] = useState<string | null>(null)
 
   const handleSelect = async (kind: SetupSelectionKind) => {
+    const previousStates = selectionStates
+    setSelectionStates((states) => setSetupSelectionChecking(states, kind))
     setPendingKind(kind)
     setPickerError(null)
 
     try {
       const result = await picker(kind)
-      setSelectionStates((states) => applySetupSelectionResult(states, result))
+      if (result.outcome === 'selected' && result.selectionStatus === 'selected') {
+        setSelectionStates((states) => applySetupSelectionResult(states, result))
+      } else {
+        setSelectionStates(previousStates)
+      }
       setPickerError(safePickerMessage(result))
     } catch {
+      setSelectionStates(previousStates)
       setPickerError('Could not complete this selection.')
     } finally {
       setPendingKind(null)
     }
   }
 
-  const workspaceSelected = selectionStates.workspace.status === 'selected'
-  const playlistSelected = selectionStates.playlist.status === 'selected'
+  const workspaceReady = selectionStates.workspace.validationStatus === 'ready-to-inspect'
+  const playlistReady = selectionStates.playlist.validationStatus === 'ready-to-inspect'
   const bannerStatus = pickerAvailable ? 'Not checked' : 'Disabled'
   const bannerTitle = pickerAvailable ? 'Selection available' : 'Preview only'
   const bannerMessage = pickerAvailable
-    ? 'Native selection is connected. Files are not read, parsed, or validated yet.'
+    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist and guide contents remain unchecked.'
     : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
   const progressNote = pickerAvailable
-    ? 'This screen opens a native picker but does not read, parse, validate, or store selected files.'
+    ? 'This screen opens a native picker and performs only pre-parse checks. It does not read file bytes, parse, import, validate content, or store selected files.'
     : 'This screen only displays setup state. It does not open, read, or store files.'
+
 
   return (
     <div className="page-stack">
@@ -111,7 +120,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
         {setupSteps.map(({ number, title, description, buttonLabel, selectionKind, icon: Icon }) => {
           const selection = selectionStates[selectionKind]
           const canSelect = pickerAvailable
-            && (selectionKind === 'workspace' || (selectionKind === 'playlist' && workspaceSelected) || (selectionKind === 'guide' && workspaceSelected && playlistSelected))
+            && (selectionKind === 'workspace' || (selectionKind === 'playlist' && workspaceReady) || (selectionKind === 'guide' && workspaceReady && playlistReady))
           const isPending = pendingKind === selectionKind
 
           return (
