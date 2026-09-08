@@ -255,10 +255,10 @@ The isolated `gui/` application is the desktop-shell slice for issue #35. It is 
 | Guided Setup layout                   | Preview only            |
 | Native file-picker bridge             | Works now               |
 | Display-safe selection state          | Works now               |
-| Pre-parse selection checks             | Works now               |
-| Playlist and guide content validation  | Blocked / needs review  |
-| Lineup review and saved lineup         | Planned / not built yet |
-| Automatic updates                      | Planned / not built yet |
+| Pre-parse selection checks            | Works now               |
+| Playlist and guide content validation | Blocked / needs review  |
+| Lineup review and saved lineup        | Planned / not built yet |
+| Automatic updates                     | Planned / not built yet |
 
 Use Node.js 22 LTS with npm 10, Rust/Cargo, the Tauri CLI, and WebView2:
 
