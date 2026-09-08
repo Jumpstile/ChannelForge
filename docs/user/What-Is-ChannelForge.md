@@ -10,7 +10,7 @@ It doesn't blindly trust playlist names or provider metadata. It validates input
 
 **Honestly: only if you're comfortable with PowerShell and an early, unfinished tool.**
 
-ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge that performs only pre-parse availability checks, but lineup creation, content validation, persistence, and automatic updates still run through the PowerShell workflow. If that doesn't sound like your kind of weekend, it's not ready for you yet. If it does, [Build Your First Lineup](Build-Your-First-Lineup.md) will get you to a working result in about ten minutes.
+ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge that performs pre-parse availability checks and a bounded structural check for selected M3U playlists. The GUI reports only safe playlist status, reason codes, and complete-entry counts; it never opens or displays stream URLs. Guide content validation, lineup creation, persistence, and automatic updates still run through the PowerShell workflow. If that doesn't sound like your kind of weekend, it's not ready for you yet. If it does, [Build Your First Lineup](Build-Your-First-Lineup.md) will get you to a working result in about ten minutes.
 
 ## What does it do today?
 
@@ -23,7 +23,7 @@ ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow 
 
 ## What doesn't it do yet?
 
-- **No graphical interface.** Command line / PowerShell only.
+- **No complete graphical interface workflow.** Guided Setup can select local inputs and structurally check an M3U playlist, but it does not validate guide content, create lineups, persist selections, or refresh targets.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.
