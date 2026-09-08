@@ -20,4 +20,16 @@ describe('shell accessibility scaffolding', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Guided setup steps' })).toBeInTheDocument()
   })
+
+  it('names each display-safe selection status', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Guided Setup' }))
+
+    for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
+      expect(screen.getByRole('status', { name: `${label} selection status` })).toHaveTextContent('Not selected')
+      expect(screen.getByRole('status', { name: `${label} selection status` })).toHaveTextContent('Not checked')
+    }
+  })
 })

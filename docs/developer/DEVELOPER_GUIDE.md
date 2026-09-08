@@ -245,7 +245,7 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ## GUI foundation
 
-The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, and a deterministic synthetic state gallery. Guided Setup currently presents preview-only workspace, playlist, and guide steps; it does not read provider files, invoke PowerShell, run refresh/build/accept operations, or package a tester release.
+The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, and a deterministic synthetic state gallery. Guided Setup currently presents preview-only workspace, playlist, and guide steps with `Not selected` and `Not checked` statuses; it does not read provider files, invoke PowerShell, run refresh/build/accept operations, or package a tester release.
 
 ### GUI status tally
 
@@ -253,9 +253,10 @@ The isolated `gui/` application is the desktop-shell slice for issue #35. It is 
 | ------------------------------ | ----------------------- |
 | Workbench shell and navigation | Works now               |
 | Guided Setup layout            | Preview only            |
+| Display-safe selection state   | Works now               |
 | Lineup review and saved lineup | Planned / not built yet |
 | Automatic updates              | Planned / not built yet |
-| Real file selection and import | Blocked / needs review  |
+| File selection and validation  | Blocked / needs review  |
 
 Use Node.js 22 LTS with npm 10, Rust/Cargo, the Tauri CLI, and WebView2:
 
