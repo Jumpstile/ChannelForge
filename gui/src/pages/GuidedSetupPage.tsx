@@ -1,20 +1,25 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
-import { nativePickerAvailable, chooseSetupItem } from '../app/setupPicker'
+import { nativePickerAvailable, chooseSetupItem, checkPlaylistGuideMatch } from '../app/setupPicker'
 import {
   applySetupSelectionResult,
   createInitialGuideContentState,
   createInitialPlaylistContentState,
+  createInitialPlaylistGuideMatchState,
   guideContentStateFromResult,
   playlistContentStateFromResult,
+  playlistGuideMatchStateFromResult,
+  safeMatchMessage,
   safePickerMessage,
   setGuideContentChecking,
   setPlaylistContentChecking,
+  setPlaylistGuideMatchChecking,
   setSetupSelectionChecking,
   setupSelectionStates,
+  type SetupMatcher,
   type SetupPicker,
   type SetupSelectionKind,
 } from '../app/setupSelection'
@@ -51,29 +56,45 @@ const setupProgress = [
   { label: 'Guided Setup layout', status: 'Preview only' },
   { label: 'Display-safe selection status', status: 'Works now' },
   { label: 'Pre-parse selection checks', status: 'Works now' },
-  { label: 'Playlist structural content validation', status: 'Works now — structural only' },
-  { label: 'Guide structural content validation', status: 'Works now — structural only' },
+  {
+    label: 'Playlist structural content validation',
+    status: 'Works now — structural only',
+  },
+  {
+    label: 'Guide structural content validation',
+    status: 'Works now — structural only',
+  },
+  {
+    label: 'Playlist/guide exact matching',
+    status: 'Implemented — local checks passed; PR/CI pending',
+  },
   { label: 'Saved lineup', status: 'Planned / not built yet' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
 
 type GuidedSetupPageProps = {
   picker?: SetupPicker
+  matcher?: SetupMatcher
   pickerAvailable?: boolean
 }
 
-export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = nativePickerAvailable }: GuidedSetupPageProps = {}) {
-
+export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlaylistGuideMatch, pickerAvailable = nativePickerAvailable }: GuidedSetupPageProps = {}) {
   const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
   const [playlistContent, setPlaylistContent] = useState(createInitialPlaylistContentState)
   const [guideContent, setGuideContent] = useState(createInitialGuideContentState)
+  const [matchState, setMatchState] = useState(createInitialPlaylistGuideMatchState)
   const [pendingKind, setPendingKind] = useState<SetupSelectionKind | null>(null)
+  const [matching, setMatching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
+  const selectionVersion = useRef(0)
 
   const handleSelect = async (kind: SetupSelectionKind) => {
+    const operationVersion = selectionVersion.current + 1
+    selectionVersion.current = operationVersion
     const previousStates = selectionStates
     const previousPlaylistContent = playlistContent
     const previousGuideContent = guideContent
+    setMatchState(createInitialPlaylistGuideMatchState())
     setSelectionStates((states) => setSetupSelectionChecking(states, kind))
     if (kind === 'playlist') {
       setPlaylistContent(setPlaylistContentChecking())
@@ -85,6 +106,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
 
     try {
       const result = await picker(kind)
+      if (operationVersion !== selectionVersion.current) return
       if (result.outcome === 'selected' && result.selectionStatus === 'selected') {
         setSelectionStates((states) => applySetupSelectionResult(states, result))
         if (kind === 'playlist') {
@@ -106,6 +128,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
       }
       setPickerError(safePickerMessage(result))
     } catch {
+      if (operationVersion !== selectionVersion.current) return
       setSelectionStates(previousStates)
       if (kind === 'playlist') {
         setPlaylistContent(previousPlaylistContent)
@@ -114,19 +137,52 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
       }
       setPickerError('Could not complete this selection.')
     } finally {
-      setPendingKind(null)
+      if (operationVersion === selectionVersion.current) {
+        setPendingKind(null)
+      }
     }
   }
 
-  const workspaceReady = selectionStates.workspace.status === 'selected'
-    && selectionStates.workspace.validationStatus === 'ready-to-inspect'
-  const playlistReady = selectionStates.playlist.status === 'selected'
-    && selectionStates.playlist.validationStatus === 'ready-to-inspect'
-    && playlistContent.status === 'checked'
+  const handleMatch = async () => {
+    const operationVersion = selectionVersion.current
+    setMatching(true)
+    setMatchState(setPlaylistGuideMatchChecking())
+    setPickerError(null)
+    try {
+      const result = await matcher()
+      if (operationVersion !== selectionVersion.current) return
+      setMatchState(playlistGuideMatchStateFromResult(result))
+      setPickerError(safeMatchMessage(result))
+    } catch {
+      if (operationVersion !== selectionVersion.current) return
+      const result = {
+        matchStatus: 'blocked' as const,
+        playlistEntryCount: null,
+        guideChannelCount: null,
+        matchedCount: null,
+        unmatchedPlaylistCount: null,
+        ambiguousCount: null,
+        guideOnlyCount: null,
+        requiresReview: false,
+        reasonCode: 'check-unavailable' as const,
+      }
+      setMatchState(playlistGuideMatchStateFromResult(result))
+      setPickerError(safeMatchMessage(result))
+    } finally {
+      if (operationVersion === selectionVersion.current) {
+        setMatching(false)
+      }
+    }
+  }
+
+  const workspaceReady = selectionStates.workspace.status === 'selected' && selectionStates.workspace.validationStatus === 'ready-to-inspect'
+  const playlistReady = selectionStates.playlist.status === 'selected' && selectionStates.playlist.validationStatus === 'ready-to-inspect' && playlistContent.status === 'checked'
+  const guideReady = selectionStates.guide.status === 'selected' && selectionStates.guide.validationStatus === 'ready-to-inspect' && guideContent.status === 'checked'
+  const canMatch = pickerAvailable && playlistReady && guideReady && pendingKind === null && !matching
   const bannerStatus = pickerAvailable ? 'Not checked' : 'Disabled'
   const bannerTitle = pickerAvailable ? 'Selection available' : 'Preview only'
   const bannerMessage = pickerAvailable
-    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist content is checked for safe M3U structure only; guide content is checked for safe XMLTV structure only. Playlist/guide matching remains unchecked.'
+    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist and guide matching runs only after both structural checks pass and reports aggregate counts without changing files.'
     : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
   const playlistContentMessage = pickerAvailable
     ? 'The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.'
@@ -135,23 +191,21 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
     ? 'The guide is checked for safe XMLTV structure only. Plain XML/XMLTV, gzip, and single-guide ZIP content are supported; programme titles and channel IDs are not displayed.'
     : 'Preview only. Guide content is not checked here.'
   const progressNote = pickerAvailable
-    ? 'This screen opens a native picker and performs bounded playlist and guide structure checks only. It does not open stream URLs, match playlist and guide identities, import, or store selected files.'
+    ? 'This screen opens a native picker, performs bounded structure checks, and compares one playlist with one guide using exact identity matching only. It does not open stream URLs, import, mutate, or store selected files.'
     : 'This screen only displays setup state. It does not open, read, or store files.'
-
-
   return (
     <div className="page-stack">
-      <PageHeader
-        description="Choose a workspace, add your playlist, and add your guide."
-        eyebrow="Guided setup"
-        title="Set up your workspace"
-      />
+      <PageHeader description="Choose a workspace, add your playlist, and add your guide." eyebrow="Guided setup" title="Set up your workspace" />
 
       <StatusBanner status={bannerStatus} title={bannerTitle}>
         <p>{bannerMessage}</p>
       </StatusBanner>
 
-      {pickerError ? <p className="setup-picker-error" role="alert">{pickerError} Try again.</p> : null}
+      {pickerError ? (
+        <p className="setup-picker-error" role="alert">
+          {pickerError} Try again.
+        </p>
+      ) : null}
 
       <StepRail
         steps={setupSteps.map(({ number, title }) => ({
@@ -164,14 +218,15 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
       <section className="setup-step-grid" aria-label="Guided setup steps">
         {setupSteps.map(({ number, title, description, buttonLabel, selectionKind, icon: Icon }) => {
           const selection = selectionStates[selectionKind]
-          const canSelect = pickerAvailable
-            && (selectionKind === 'workspace' || (selectionKind === 'playlist' && workspaceReady) || (selectionKind === 'guide' && workspaceReady && playlistReady))
+          const canSelect = pickerAvailable && (selectionKind === 'workspace' || (selectionKind === 'playlist' && workspaceReady) || (selectionKind === 'guide' && workspaceReady && playlistReady))
           const isPending = pendingKind === selectionKind
 
           return (
             <article className="setup-step-card" key={title}>
               <div className="setup-step-heading">
-                <div className="setup-step-icon" aria-hidden="true"><Icon size={22} /></div>
+                <div className="setup-step-icon" aria-hidden="true">
+                  <Icon size={22} />
+                </div>
                 <div>
                   <p className="setup-step-number">Step {number}</p>
                   <h2>{title}</h2>
@@ -199,26 +254,18 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
                     <strong>{guideContent.label}</strong>
                   </div>
                 ) : null}
-                {selectionKind === 'playlist' ? (
-                  <span>{playlistContentMessage}</span>
-                ) : null}
-                {selectionKind === 'guide' ? (
-                  <span>{guideContentMessage}</span>
-                ) : null}
+                {selectionKind === 'playlist' ? <span>{playlistContentMessage}</span> : null}
+                {selectionKind === 'guide' ? <span>{guideContentMessage}</span> : null}
                 <span>{selection.detail}</span>
-                {selectionKind === 'playlist' && (selection.status === 'selected' || isPending) ? (
-                  <span>{playlistContent.detail}</span>
-                ) : null}
-                {selectionKind === 'guide' && (selection.status === 'selected' || isPending) ? (
-                  <span>{guideContent.detail}</span>
-                ) : null}
+                {selectionKind === 'playlist' && (selection.status === 'selected' || isPending) ? <span>{playlistContent.detail}</span> : null}
+                {selectionKind === 'guide' && (selection.status === 'selected' || isPending) ? <span>{guideContent.detail}</span> : null}
               </div>
               <div className="setup-step-footer">
                 <span className="setup-step-status">{pickerAvailable ? 'Selection enabled' : 'Preview only'}</span>
                 <button
                   aria-busy={isPending}
                   className="button button-secondary"
-                  disabled={!canSelect || pendingKind !== null}
+                  disabled={!canSelect || pendingKind !== null || matching}
                   type="button"
                   onClick={() => void handleSelect(selectionKind)}
                 >
@@ -230,9 +277,52 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
         })}
       </section>
 
+      <section className="setup-match-card" aria-labelledby="setup-match-title">
+        <div className="setup-match-heading">
+          <div className="setup-progress-icon" aria-hidden="true">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <p className="eyebrow">Playlist and guide</p>
+            <h2 id="setup-match-title">Check their match</h2>
+          </div>
+        </div>
+        <div className="setup-match-status" role="status" aria-live="polite">
+          <strong>{matchState.label}</strong>
+          <span>{matchState.detail}</span>
+        </div>
+        <div className="setup-match-grid" aria-label="Playlist and guide match counts">
+          <div className="setup-match-metric">
+            <span>Matched</span>
+            <strong>{matchState.matchedCount ?? '—'}</strong>
+          </div>
+          <div className="setup-match-metric">
+            <span>Not matched</span>
+            <strong>{matchState.unmatchedPlaylistCount ?? '—'}</strong>
+          </div>
+          <div className="setup-match-metric">
+            <span>Needs review</span>
+            <strong>{matchState.ambiguousCount ?? '—'}</strong>
+          </div>
+          <div className="setup-match-metric">
+            <span>Guide-only</span>
+            <strong>{matchState.guideOnlyCount ?? '—'}</strong>
+          </div>
+        </div>
+        <p className="setup-match-note">This is a comparison only. Nothing changes automatically. Channel IDs, programme titles, and stream URLs stay hidden.</p>
+        <div className="setup-step-footer">
+          <span className="setup-step-status">{canMatch ? 'Ready to check' : 'Check both files first'}</span>
+          <button aria-busy={matching} className="button button-primary" disabled={!canMatch} type="button" onClick={() => void handleMatch()}>
+            {matching ? 'Checking match…' : 'Check playlist and guide'}
+          </button>
+        </div>
+      </section>
+
       <section className="setup-progress-card" aria-labelledby="setup-progress-title">
         <div className="setup-progress-heading">
-          <div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div>
+          <div className="setup-progress-icon" aria-hidden="true">
+            <CheckCircle2 size={20} />
+          </div>
           <div>
             <p className="eyebrow">Running tally</p>
             <h2 id="setup-progress-title">What works today</h2>
@@ -246,7 +336,9 @@ export function GuidedSetupPage({ picker = chooseSetupItem, pickerAvailable = na
             </li>
           ))}
         </ul>
-        <p className="setup-progress-note"><BookOpen size={15} aria-hidden="true" /> {progressNote}</p>
+        <p className="setup-progress-note">
+          <BookOpen size={15} aria-hidden="true" /> {progressNote}
+        </p>
       </section>
     </div>
   )

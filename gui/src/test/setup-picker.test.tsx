@@ -2,7 +2,13 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GuidedSetupPage } from '../pages/GuidedSetupPage'
-import type { SetupPicker, SetupSelectionKind, SetupSelectionResult } from '../app/setupSelection'
+import type {
+  PlaylistGuideMatchResult,
+  SetupMatcher,
+  SetupPicker,
+  SetupSelectionKind,
+  SetupSelectionResult,
+} from '../app/setupSelection'
 
 function selectedResult(kind: SetupSelectionKind): SetupSelectionResult {
   return {
@@ -48,8 +54,12 @@ describe('native picker bridge flow', () => {
     const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
     render(<GuidedSetupPage picker={picker} pickerAvailable />)
     expect(screen.getByRole('heading', { name: 'Selection available' })).toBeInTheDocument()
-    expect(screen.getByText('Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist content is checked for safe M3U structure only; guide content is checked for safe XMLTV structure only. Playlist/guide matching remains unchecked.')).toBeInTheDocument()
-    expect(screen.getByText('The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Playlist and guide matching runs only after both structural checks pass/),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.'),
+    ).toBeInTheDocument()
     expect(screen.getAllByText('Selection enabled')).toHaveLength(3)
 
     expect(screen.getByRole('button', { name: 'Choose workspace' })).toBeEnabled()
@@ -59,7 +69,9 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     expect(screen.getByText('Workspace is ready to inspect.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add playlist' })).toBeEnabled()
-
+    expect(within(screen.getByRole('region', { name: 'Guided setup steps' })).getAllByText('Not checked')).toHaveLength(
+      4,
+    )
     await user.click(screen.getByRole('button', { name: 'Add playlist' }))
     expect(screen.getByText('Playlist is ready to inspect.')).toBeInTheDocument()
     expect(screen.getByText('Playlist content checked. 2 channel entries found.')).toBeInTheDocument()
@@ -68,15 +80,145 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     expect(screen.getByText('Guide is ready to inspect.')).toBeInTheDocument()
     expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Guided setup steps' })).getAllByText('Ready to inspect')).toHaveLength(3)
+    expect(
+      within(screen.getByRole('region', { name: 'Guided setup steps' })).getAllByText('Ready to inspect'),
+    ).toHaveLength(3)
     expect(picker).toHaveBeenNthCalledWith(1, 'workspace')
     expect(picker).toHaveBeenNthCalledWith(2, 'playlist')
     expect(picker).toHaveBeenNthCalledWith(3, 'guide')
   })
 
+  it('checks a valid playlist and guide and displays only aggregate match evidence', async () => {
+    const user = userEvent.setup()
+    const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
+    const matcher = vi.fn<SetupMatcher>().mockResolvedValue({
+      matchStatus: 'needs-attention',
+      playlistEntryCount: 3,
+      guideChannelCount: 2,
+      matchedCount: 1,
+      unmatchedPlaylistCount: 2,
+      ambiguousCount: 0,
+      guideOnlyCount: 1,
+      requiresReview: false,
+      reasonCode: 'unmatched-identity',
+    })
+    render(<GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+
+    expect(matcher).toHaveBeenCalledOnce()
+    expect(screen.getByText('Match checked. 2 playlist channel entries have no guide match.')).toBeInTheDocument()
+    expect(screen.getByText('Matched')).toBeInTheDocument()
+    expect(screen.getByText('Guide-only')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This is a comparison only. Nothing changes automatically. Channel IDs, programme titles, and stream URLs stay hidden.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Check playlist and guide' })).toBeEnabled()
+  })
+
+  it('shows aggregate matching checking state while the native match scan is pending', async () => {
+    const user = userEvent.setup()
+    let resolveMatch!: (result: PlaylistGuideMatchResult) => void
+    const matcher = vi.fn<SetupMatcher>(
+      () =>
+        new Promise((resolve) => {
+          resolveMatch = resolve
+        }),
+    )
+    const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
+    render(<GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+
+    await waitFor(() => expect(matcher).toHaveBeenCalledOnce())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Checking match…' })).toBeDisabled())
+    expect(screen.getByText(/Checking playlist and guide/)).toBeInTheDocument()
+
+    resolveMatch({
+      matchStatus: 'checked',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 2,
+      unmatchedPlaylistCount: 0,
+      ambiguousCount: 0,
+      guideOnlyCount: 0,
+      requiresReview: false,
+      reasonCode: null,
+    })
+    await waitFor(() =>
+      expect(screen.getByText('Match checked. 2 playlist channel entries matched.')).toBeInTheDocument(),
+    )
+  })
+
+  it('shows review needed for ambiguous matches without an acceptance action', async () => {
+    const user = userEvent.setup()
+    const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
+    const matcher = vi.fn<SetupMatcher>().mockResolvedValue({
+      matchStatus: 'review-needed',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 0,
+      unmatchedPlaylistCount: 0,
+      ambiguousCount: 2,
+      guideOnlyCount: 0,
+      requiresReview: true,
+      reasonCode: 'ambiguous-identity',
+    })
+    render(<GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+
+    expect(screen.getByText('Review needed. 2 playlist channel entries need review.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /accept|apply|save/i })).not.toBeInTheDocument()
+  })
+
+  it('clears old match counts when a file selection is cancelled', async () => {
+    const user = userEvent.setup()
+    const picker = vi
+      .fn<SetupPicker>()
+      .mockResolvedValueOnce(selectedResult('workspace'))
+      .mockResolvedValueOnce(selectedResult('playlist'))
+      .mockResolvedValueOnce(selectedResult('guide'))
+      .mockResolvedValueOnce(cancelledResult('guide'))
+    const matcher = vi.fn<SetupMatcher>().mockResolvedValue({
+      matchStatus: 'checked',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 2,
+      unmatchedPlaylistCount: 0,
+      ambiguousCount: 0,
+      guideOnlyCount: 0,
+      requiresReview: false,
+      reasonCode: null,
+    })
+    render(<GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+    expect(screen.getByText('Match checked. 2 playlist channel entries matched.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    expect(screen.getByText('Playlist and guide matching has not been checked.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Check playlist and guide' })).toBeEnabled()
+  })
+
   it('keeps guide selection gated when playlist content needs attention', async () => {
     const user = userEvent.setup()
-    const picker = vi.fn<SetupPicker>()
+    const picker = vi
+      .fn<SetupPicker>()
       .mockResolvedValueOnce(selectedResult('workspace'))
       .mockResolvedValueOnce({
         kind: 'playlist',
@@ -122,7 +264,8 @@ describe('native picker bridge flow', () => {
     const pickerPromise = new Promise<SetupSelectionResult>((resolve) => {
       resolvePicker = resolve
     })
-    const picker = vi.fn<SetupPicker>()
+    const picker = vi
+      .fn<SetupPicker>()
       .mockResolvedValueOnce(selectedResult('workspace'))
       .mockReturnValueOnce(pickerPromise)
     render(<GuidedSetupPage picker={picker} pickerAvailable />)
@@ -130,10 +273,14 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     await user.click(screen.getByRole('button', { name: 'Add playlist' }))
     expect(screen.getByText('Checking playlist content...')).toBeInTheDocument()
-    expect(within(screen.getByRole('status', { name: 'Add playlist selection status' })).getAllByText('Checking')).toHaveLength(2)
+    expect(
+      within(screen.getByRole('status', { name: 'Add playlist selection status' })).getAllByText('Checking'),
+    ).toHaveLength(2)
 
     resolvePicker(selectedResult('playlist'))
-    await waitFor(() => expect(screen.getByText('Playlist content checked. 2 channel entries found.')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Playlist content checked. 2 channel entries found.')).toBeInTheDocument(),
+    )
   })
 
   it('shows guide content checking while the guide scan is pending', async () => {
@@ -142,7 +289,8 @@ describe('native picker bridge flow', () => {
     const pickerPromise = new Promise<SetupSelectionResult>((resolve) => {
       resolvePicker = resolve
     })
-    const picker = vi.fn<SetupPicker>()
+    const picker = vi
+      .fn<SetupPicker>()
       .mockResolvedValueOnce(selectedResult('workspace'))
       .mockResolvedValueOnce(selectedResult('playlist'))
       .mockReturnValueOnce(pickerPromise)
@@ -152,15 +300,20 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add playlist' }))
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     expect(screen.getByText('Checking guide content...')).toBeInTheDocument()
-    expect(within(screen.getByRole('status', { name: 'Add guide selection status' })).getAllByText('Checking')).toHaveLength(2)
+    expect(
+      within(screen.getByRole('status', { name: 'Add guide selection status' })).getAllByText('Checking'),
+    ).toHaveLength(2)
 
     resolvePicker(selectedResult('guide'))
-    await waitFor(() => expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument(),
+    )
   })
 
   it('preserves prior state on cancellation and maps attention reasons to fixed copy', async () => {
     const user = userEvent.setup()
-    const picker = vi.fn<SetupPicker>()
+    const picker = vi
+      .fn<SetupPicker>()
       .mockResolvedValueOnce(selectedResult('workspace'))
       .mockResolvedValueOnce(cancelledResult('workspace'))
       .mockResolvedValueOnce({
@@ -196,12 +349,15 @@ describe('native picker bridge flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a folder for the workspace. Try again.')
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/(?:[A-Za-z]:[\\/]|https?:\/\/|token|password|secret|credential)/i)
+    expect(screen.getByRole('alert')).not.toHaveTextContent(
+      /(?:[A-Za-z]:[\\/]|https?:\/\/|token|password|secret|credential)/i,
+    )
   })
 
   it('resets downstream display state when an earlier selection changes', async () => {
     const user = userEvent.setup()
-    const picker = vi.fn<SetupPicker>()
+    const picker = vi
+      .fn<SetupPicker>()
       .mockResolvedValueOnce(selectedResult('workspace'))
       .mockResolvedValueOnce(selectedResult('playlist'))
       .mockResolvedValueOnce(selectedResult('workspace'))
@@ -216,5 +372,4 @@ describe('native picker bridge flow', () => {
     expect(screen.getByRole('button', { name: 'Add playlist' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Add guide' })).toBeDisabled()
   })
-
 })

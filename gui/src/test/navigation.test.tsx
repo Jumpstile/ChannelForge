@@ -24,11 +24,15 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
     expect(screen.getByText('Your playlist tells ChannelForge what channels you have.')).toBeInTheDocument()
     expect(screen.getByText('Your guide tells ChannelForge what is on those channels.')).toBeInTheDocument()
-    expect(screen.getByText('No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.',
+      ),
+    ).toBeInTheDocument()
     expect(screen.getByText('Preview only. Playlist content is not checked here.')).toBeInTheDocument()
     expect(screen.getByText('Preview only. Guide content is not checked here.')).toBeInTheDocument()
     expect(screen.getAllByText('Not selected')).toHaveLength(3)
-    expect(screen.getAllByText('Not checked')).toHaveLength(5)
+    expect(screen.getAllByText('Not checked')).toHaveLength(6)
     expect(screen.getByText('No workspace is selected.')).toBeInTheDocument()
     expect(screen.getByText('No playlist is selected.')).toBeInTheDocument()
     expect(screen.getByText('No guide is selected.')).toBeInTheDocument()
