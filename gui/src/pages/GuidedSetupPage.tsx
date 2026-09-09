@@ -68,9 +68,9 @@ const setupProgress = [
   },
   {
     label: 'Playlist/guide exact matching',
-    status: 'Implemented — local checks passed; PR/CI pending',
+    status: 'Implemented — local checks passed',
   },
-  { label: 'Saved lineup', status: 'Planned / not built yet' },
+  { label: 'Saved lineup', status: 'Implemented — explicit confirmation required' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
 

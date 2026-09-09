@@ -5,6 +5,7 @@ use std::{
     fs,
     io::{self, BufRead, BufReader, Read},
     path::{Path, PathBuf},
+    process::Command,
     sync::Mutex,
 };
 use tauri::{State, Window};
@@ -52,16 +53,105 @@ pub struct PlaylistGuideMatchSummary {
     pub requires_review: bool,
     pub reason_code: Option<MatchReasonCode>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SavedLineupPlanStatus {
+    NotReady,
+    Ready,
+    Blocked,
+    Stale,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AcceptedLineupStatus {
+    None,
+    Present,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CandidateFreshness {
+    Current,
+    Stale,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SavedLineupReasonCode {
+    NotEligible,
+    StaleCandidate,
+    StaleParent,
+    NativeUnavailable,
+    AcceptanceFailed,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLineupPlan {
+    pub plan_status: SavedLineupPlanStatus,
+    pub playlist_entry_count: Option<u64>,
+    pub guide_channel_count: Option<u64>,
+    pub matched_count: Option<u64>,
+    pub unmatched_playlist_count: Option<u64>,
+    pub ambiguous_count: Option<u64>,
+    pub guide_only_count: Option<u64>,
+    pub requires_review: bool,
+    pub accepted_lineup_status: AcceptedLineupStatus,
+    pub candidate_freshness: CandidateFreshness,
+    pub accepted_entry_count: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLineupResult {
+    pub save_status: String,
+    pub accepted_lineup_status: AcceptedLineupStatus,
+    pub accepted_entry_count: Option<u64>,
+    pub reason_code: Option<SavedLineupReasonCode>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct MachineWorkflowResult {
+    #[serde(rename = "Status", default)]
+    status: Option<String>,
+    #[serde(rename = "CandidateManifestHash", default)]
+    candidate_manifest_hash: Option<String>,
+    #[serde(rename = "BuildIdentity", default)]
+    build_identity: Option<String>,
+    #[serde(rename = "ParentGenerationManifestHash", default)]
+    parent_generation_manifest_hash: Option<String>,
+    #[serde(rename = "AcceptedLineupStatus", default)]
+    accepted_lineup_status: Option<String>,
+    #[serde(rename = "AcceptedEntryCount", default)]
+    accepted_entry_count: Option<u64>,
+}
+
+#[derive(Clone)]
+struct SavedLineupPlanContext {
+    workspace_path: PathBuf,
+    playlist_path: PathBuf,
+    guide_path: PathBuf,
+    generation: u64,
+    candidate_manifest_hash: String,
+    build_identity: String,
+    parent_generation_manifest_hash: Option<String>,
+}
 
 #[derive(Default)]
 pub struct SetupSession {
+    workspace_path: Option<PathBuf>,
     playlist_path: Option<PathBuf>,
     guide_path: Option<PathBuf>,
     generation: u64,
+    saved_plan: Option<SavedLineupPlanContext>,
 }
 
 #[derive(Clone)]
 struct SetupSessionSnapshot {
+    workspace_path: Option<PathBuf>,
     playlist_path: Option<PathBuf>,
     guide_path: Option<PathBuf>,
     generation: u64,
@@ -1304,8 +1394,10 @@ fn choose_setup_item_with_adapter(
 
 fn remember_selection(session: &mut SetupSession, kind: SetupSelectionKind, path: PathBuf) {
     session.generation = session.generation.saturating_add(1);
+    session.saved_plan = None;
     match kind {
         SetupSelectionKind::Workspace => {
+            session.workspace_path = Some(path);
             session.playlist_path = None;
             session.guide_path = None;
         }
@@ -1325,6 +1417,7 @@ fn check_selected_playlist_guide(session: &Mutex<SetupSession>) -> PlaylistGuide
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         SetupSessionSnapshot {
+            workspace_path: session.workspace_path.clone(),
             playlist_path: session.playlist_path.clone(),
             guide_path: session.guide_path.clone(),
             generation: session.generation,
@@ -1345,6 +1438,377 @@ fn check_selected_playlist_guide(session: &Mutex<SetupSession>) -> PlaylistGuide
         return blocked_match(MatchReasonCode::StaleSelection);
     }
     result
+}
+
+const MACHINE_RESULT_PREFIX: &str = "CHANNELFORGE_MACHINE_RESULT:";
+
+fn saved_lineup_plan_from_match(
+    summary: &PlaylistGuideMatchSummary,
+    plan_status: SavedLineupPlanStatus,
+    accepted_lineup_status: AcceptedLineupStatus,
+    candidate_freshness: CandidateFreshness,
+    accepted_entry_count: Option<u64>,
+) -> SavedLineupPlan {
+    SavedLineupPlan {
+        plan_status,
+        playlist_entry_count: summary.playlist_entry_count,
+        guide_channel_count: summary.guide_channel_count,
+        matched_count: summary.matched_count,
+        unmatched_playlist_count: summary.unmatched_playlist_count,
+        ambiguous_count: summary.ambiguous_count,
+        guide_only_count: summary.guide_only_count,
+        requires_review: summary.requires_review,
+        accepted_lineup_status,
+        candidate_freshness,
+        accepted_entry_count,
+    }
+}
+
+fn unavailable_saved_lineup_plan() -> SavedLineupPlan {
+    SavedLineupPlan {
+        plan_status: SavedLineupPlanStatus::Blocked,
+        playlist_entry_count: None,
+        guide_channel_count: None,
+        matched_count: None,
+        unmatched_playlist_count: None,
+        ambiguous_count: None,
+        guide_only_count: None,
+        requires_review: false,
+        accepted_lineup_status: AcceptedLineupStatus::Unavailable,
+        candidate_freshness: CandidateFreshness::Unknown,
+        accepted_entry_count: None,
+    }
+}
+
+fn saved_lineup_result(
+    save_status: &str,
+    accepted_lineup_status: AcceptedLineupStatus,
+    accepted_entry_count: Option<u64>,
+    reason_code: Option<SavedLineupReasonCode>,
+) -> SavedLineupResult {
+    SavedLineupResult {
+        save_status: save_status.to_string(),
+        accepted_lineup_status,
+        accepted_entry_count,
+        reason_code,
+    }
+}
+
+fn session_snapshot(session: &Mutex<SetupSession>) -> SetupSessionSnapshot {
+    let session = session
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    SetupSessionSnapshot {
+        workspace_path: session.workspace_path.clone(),
+        playlist_path: session.playlist_path.clone(),
+        guide_path: session.guide_path.clone(),
+        generation: session.generation,
+    }
+}
+
+fn accepted_lineup_status(machine: &MachineWorkflowResult) -> AcceptedLineupStatus {
+    match machine.accepted_lineup_status.as_deref() {
+        Some(status) if status.eq_ignore_ascii_case("present") => AcceptedLineupStatus::Present,
+        Some(status) if status.eq_ignore_ascii_case("none") => AcceptedLineupStatus::None,
+        _ => AcceptedLineupStatus::Unavailable,
+    }
+}
+
+fn machine_status(machine: &MachineWorkflowResult) -> &str {
+    machine.status.as_deref().unwrap_or("")
+}
+
+fn valid_saved_workflow_paths(
+    snapshot: &SetupSessionSnapshot,
+) -> Option<(PathBuf, PathBuf, PathBuf)> {
+    let workspace = fs::canonicalize(snapshot.workspace_path.as_ref()?).ok()?;
+    let playlist = fs::canonicalize(snapshot.playlist_path.as_ref()?).ok()?;
+    let guide = fs::canonicalize(snapshot.guide_path.as_ref()?).ok()?;
+    if !workspace.is_dir()
+        || !playlist.is_file()
+        || !guide.is_file()
+        || !playlist.starts_with(&workspace)
+        || !guide.starts_with(&workspace)
+    {
+        return None;
+    }
+    Some((workspace, playlist, guide))
+}
+fn saved_workflow_script(workspace: &Path) -> Option<PathBuf> {
+    let workspace_script = workspace.join("scripts").join("Build-My-Lineup.ps1");
+    if workspace_script.is_file() {
+        return Some(workspace_script);
+    }
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/Build-My-Lineup.ps1")
+        .canonicalize()
+        .ok()
+        .filter(|path| path.is_file())
+}
+
+fn run_saved_workflow(
+    workspace: &Path,
+    playlist: &Path,
+    guide: &Path,
+    accept: Option<(&str, &str, &str)>,
+) -> Result<MachineWorkflowResult, SavedLineupReasonCode> {
+    let Some(script) = saved_workflow_script(workspace) else {
+        return Err(SavedLineupReasonCode::NativeUnavailable);
+    };
+    let mut command = Command::new("pwsh");
+    command
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-File")
+        .arg(script)
+        .arg("-Root")
+        .arg(workspace)
+        .arg("-M3UPath")
+        .arg(playlist)
+        .arg("-XMLTVPath")
+        .arg(guide)
+        .arg("-MachineResult");
+    match accept {
+        Some((candidate_hash, build_identity, parent_hash)) => {
+            command
+                .arg("-Accept")
+                .arg("-AmbiguousAction")
+                .arg("Cancel")
+                .arg("-ExpectedCandidateManifestHash")
+                .arg(candidate_hash)
+                .arg("-ExpectedParentGenerationManifestHash")
+                .arg(parent_hash)
+                .arg("-ExpectedBuildIdentity")
+                .arg(build_identity);
+        }
+        None => {
+            command.arg("-PlanOnly");
+        }
+    }
+    let output = command
+        .output()
+        .map_err(|_| SavedLineupReasonCode::NativeUnavailable)?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let marker = stdout
+        .lines()
+        .rev()
+        .find_map(|line| line.strip_prefix(MACHINE_RESULT_PREFIX))
+        .ok_or(SavedLineupReasonCode::AcceptanceFailed)?;
+    let machine = serde_json::from_str::<MachineWorkflowResult>(marker)
+        .map_err(|_| SavedLineupReasonCode::AcceptanceFailed)?;
+    if !output.status.success() && !machine_status(&machine).eq_ignore_ascii_case("STALE") {
+        return Err(SavedLineupReasonCode::AcceptanceFailed);
+    }
+    Ok(machine)
+}
+
+fn prepare_saved_lineup_plan_inner(session: &Mutex<SetupSession>) -> SavedLineupPlan {
+    let summary = check_selected_playlist_guide(session);
+    if summary.match_status != MatchStatus::Checked {
+        let plan_status = match summary.match_status {
+            MatchStatus::NotChecked | MatchStatus::Checking => SavedLineupPlanStatus::NotReady,
+            _ => SavedLineupPlanStatus::Blocked,
+        };
+        let plan = saved_lineup_plan_from_match(
+            &summary,
+            plan_status,
+            AcceptedLineupStatus::Unavailable,
+            CandidateFreshness::Unknown,
+            None,
+        );
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return plan;
+    }
+
+    let snapshot = session_snapshot(session);
+    let Some((workspace, playlist, guide)) = valid_saved_workflow_paths(&snapshot) else {
+        return unavailable_saved_lineup_plan();
+    };
+    let machine = match run_saved_workflow(&workspace, &playlist, &guide, None) {
+        Ok(machine) => machine,
+        Err(_) => return unavailable_saved_lineup_plan(),
+    };
+    let status = machine_status(&machine);
+    let accepted_status = accepted_lineup_status(&machine);
+    let candidate_ready = status.eq_ignore_ascii_case("PROPOSAL_READY")
+        && machine
+            .candidate_manifest_hash
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        && machine
+            .build_identity
+            .as_deref()
+            .is_some_and(|value| !value.is_empty());
+    let freshness = if candidate_ready {
+        CandidateFreshness::Current
+    } else if status.eq_ignore_ascii_case("STALE") {
+        CandidateFreshness::Stale
+    } else {
+        CandidateFreshness::Unknown
+    };
+    let plan = saved_lineup_plan_from_match(
+        &summary,
+        if candidate_ready {
+            SavedLineupPlanStatus::Ready
+        } else if freshness == CandidateFreshness::Stale {
+            SavedLineupPlanStatus::Stale
+        } else {
+            SavedLineupPlanStatus::Blocked
+        },
+        accepted_status,
+        freshness,
+        machine.accepted_entry_count,
+    );
+    if !candidate_ready {
+        return plan;
+    }
+    let Some(candidate_manifest_hash) = machine.candidate_manifest_hash else {
+        return unavailable_saved_lineup_plan();
+    };
+    let Some(build_identity) = machine.build_identity else {
+        return unavailable_saved_lineup_plan();
+    };
+    let context = SavedLineupPlanContext {
+        workspace_path: workspace,
+        playlist_path: playlist,
+        guide_path: guide,
+        generation: snapshot.generation,
+        candidate_manifest_hash,
+        build_identity,
+        parent_generation_manifest_hash: machine.parent_generation_manifest_hash,
+    };
+    let mut session = session
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if session.generation != snapshot.generation {
+        session.saved_plan = None;
+        return SavedLineupPlan {
+            plan_status: SavedLineupPlanStatus::Stale,
+            candidate_freshness: CandidateFreshness::Stale,
+            ..plan
+        };
+    }
+    session.saved_plan = Some(context);
+    plan
+}
+
+fn accept_saved_lineup_inner(session: &Mutex<SetupSession>) -> SavedLineupResult {
+    let context = {
+        let session = session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        session.saved_plan.clone()
+    };
+    let Some(context) = context else {
+        return saved_lineup_result(
+            "blocked",
+            AcceptedLineupStatus::Unavailable,
+            None,
+            Some(SavedLineupReasonCode::NotEligible),
+        );
+    };
+    let snapshot = session_snapshot(session);
+    let Some((workspace, playlist, guide)) = valid_saved_workflow_paths(&snapshot) else {
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return saved_lineup_result(
+            "stale",
+            AcceptedLineupStatus::Unavailable,
+            None,
+            Some(SavedLineupReasonCode::StaleCandidate),
+        );
+    };
+    if snapshot.generation != context.generation
+        || workspace != context.workspace_path
+        || playlist != context.playlist_path
+        || guide != context.guide_path
+    {
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return saved_lineup_result(
+            "stale",
+            AcceptedLineupStatus::Unavailable,
+            None,
+            Some(SavedLineupReasonCode::StaleCandidate),
+        );
+    }
+    let summary = check_selected_playlist_guide(session);
+    if summary.match_status != MatchStatus::Checked {
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return saved_lineup_result(
+            "blocked",
+            AcceptedLineupStatus::Unavailable,
+            None,
+            Some(SavedLineupReasonCode::NotEligible),
+        );
+    }
+    let parent_hash = context
+        .parent_generation_manifest_hash
+        .as_deref()
+        .unwrap_or("");
+    let machine = match run_saved_workflow(
+        &context.workspace_path,
+        &context.playlist_path,
+        &context.guide_path,
+        Some((
+            &context.candidate_manifest_hash,
+            &context.build_identity,
+            parent_hash,
+        )),
+    ) {
+        Ok(machine) => machine,
+        Err(reason) => {
+            return saved_lineup_result(
+                "blocked",
+                AcceptedLineupStatus::Unavailable,
+                None,
+                Some(reason),
+            );
+        }
+    };
+    let status = machine_status(&machine);
+    if status.eq_ignore_ascii_case("STALE") {
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return saved_lineup_result(
+            "stale",
+            AcceptedLineupStatus::Unavailable,
+            None,
+            Some(SavedLineupReasonCode::StaleCandidate),
+        );
+    }
+    if status.eq_ignore_ascii_case("PUBLISHED") || status.eq_ignore_ascii_case("ALREADY_ACCEPTED") {
+        session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .saved_plan = None;
+        return saved_lineup_result(
+            "saved",
+            AcceptedLineupStatus::Present,
+            machine.accepted_entry_count,
+            None,
+        );
+    }
+    saved_lineup_result(
+        "blocked",
+        accepted_lineup_status(&machine),
+        machine.accepted_entry_count,
+        Some(SavedLineupReasonCode::AcceptanceFailed),
+    )
 }
 
 fn choose_setup_item_with_session(
@@ -1386,9 +1850,25 @@ mod command {
     ) -> Result<PlaylistGuideMatchSummary, String> {
         Ok(check_selected_playlist_guide(session.inner()))
     }
+
+    #[tauri::command]
+    pub async fn prepare_saved_lineup_plan(
+        session: State<'_, Mutex<SetupSession>>,
+    ) -> Result<SavedLineupPlan, String> {
+        Ok(prepare_saved_lineup_plan_inner(session.inner()))
+    }
+
+    #[tauri::command]
+    pub async fn accept_saved_lineup(
+        session: State<'_, Mutex<SetupSession>>,
+    ) -> Result<SavedLineupResult, String> {
+        Ok(accept_saved_lineup_inner(session.inner()))
+    }
 }
 
-pub use command::{check_playlist_guide_match, choose_setup_item};
+pub use command::{
+    accept_saved_lineup, check_playlist_guide_match, choose_setup_item, prepare_saved_lineup_plan,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1396,7 +1876,9 @@ pub fn run() {
         .manage(Mutex::new(SetupSession::default()))
         .invoke_handler(tauri::generate_handler![
             command::choose_setup_item,
-            command::check_playlist_guide_match
+            command::check_playlist_guide_match,
+            command::prepare_saved_lineup_plan,
+            command::accept_saved_lineup
         ])
         .run(tauri::generate_context!())
         .expect("error while running ChannelForge");
@@ -2122,5 +2604,50 @@ mod tests {
         let session = session.lock().expect("session should lock");
         assert_eq!(session.guide_path, None);
         assert_eq!(session.playlist_path, Some(PathBuf::from("two.m3u")));
+    }
+    #[test]
+    fn saved_lineup_plan_is_checked_only_and_redacts_source_values() {
+        let summary = PlaylistGuideMatchSummary {
+            match_status: MatchStatus::Checked,
+            playlist_entry_count: Some(2),
+            guide_channel_count: Some(2),
+            matched_count: Some(2),
+            unmatched_playlist_count: Some(0),
+            ambiguous_count: Some(0),
+            guide_only_count: Some(0),
+            requires_review: false,
+            reason_code: None,
+        };
+        let plan = saved_lineup_plan_from_match(
+            &summary,
+            SavedLineupPlanStatus::Ready,
+            AcceptedLineupStatus::None,
+            CandidateFreshness::Current,
+            None,
+        );
+        assert_eq!(plan.plan_status, SavedLineupPlanStatus::Ready);
+        let serialized = serde_json::to_string(&plan).expect("plan should serialize");
+        for forbidden in [
+            "candidate_manifest_hash",
+            "generation",
+            "https://",
+            "stream",
+            "path",
+            "token",
+            "password",
+        ] {
+            assert!(!serialized.contains(forbidden));
+        }
+    }
+
+    #[test]
+    fn acceptance_without_a_native_plan_is_blocked() {
+        let result = accept_saved_lineup_inner(&Mutex::new(SetupSession::default()));
+        assert_eq!(result.save_status, "blocked");
+        assert_eq!(result.reason_code, Some(SavedLineupReasonCode::NotEligible));
+        assert_eq!(
+            result.accepted_lineup_status,
+            AcceptedLineupStatus::Unavailable
+        );
     }
 }

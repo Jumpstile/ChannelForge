@@ -245,25 +245,25 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ## GUI foundation
 
-The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, a Rust-owned native picker and matching bridge, and a deterministic synthetic state gallery. Guided Setup invokes the native bridge sequentially for workspace, playlist, and guide; the bridge performs pre-parse existence, expected-kind, and read-access checks, then performs bounded, read-only structural scans and one-playlist/one-guide exact identity matching. Matching compares only playlist `tvg-id` to XMLTV channel identity and returns aggregate match, unmatched, ambiguous, and guide-only counts; it never invokes PowerShell, opens stream URLs, mutates lineup or accepted state, or returns raw identities. Playlist scans cap files at 64 MiB and logical lines at 1 MiB. Guide scans cap final XMLTV output at 64 MiB and compressed input at 64 MiB, accept UTF-8 with an optional BOM, require a `<tv>` root, and count only direct channels with non-empty `id` and direct programmes with non-empty `channel`, `start`, and `stop`. Plain `.xml`/`.xmltv`, `.gz`, and single-guide `.zip` files are supported; ZIP archives reject encrypted, empty, multi-guide, nested-compressed, and ambiguous contents. The bridge returns only safe status, reason codes, and aggregate counts; it never returns paths, filenames, URLs, playlist stream lines, programme titles, guide channel IDs, credentials, or tokens.
+The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, a Rust-owned native picker/matching/acceptance bridge, and a deterministic synthetic state gallery. Guided Setup invokes the native bridge sequentially for workspace, playlist, and guide; the bridge performs pre-parse existence, expected-kind, and read-access checks, bounded read-only structural scans, one-playlist/one-guide exact identity matching, and saved-lineup plan/acceptance commands. Matching compares only playlist `tvg-id` to XMLTV channel identity and returns aggregate match, unmatched, ambiguous, and guide-only counts.
 
-Lineup review is a presentation-only surface over the existing aggregate match state. It preserves native status precedence: blocked, review-needed, needs-attention, then checked. It shows counts for playlist entries, guide channels, exact matches, unmatched playlist entries, ambiguous relationships, and guide-only channels. It does not expose individual identities or provide accept, apply, save, export, or publish actions; the saved-lineup surface remains unavailable.
+Lineup review is a presentation-only surface over aggregate match state until a native saved-lineup plan is prepared. It preserves native status precedence: blocked, review-needed, needs-attention, then checked. Only checked status can produce a ready plan; needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states remain save-blocking. The explicit acknowledgement dialog is GUI-owned presentation state only. The Rust bridge delegates the existing PowerShell workflow, passes candidate and accepted-parent expectations, captures machine output without forwarding it, and treats only the native `PUBLISHED`/`ALREADY_ACCEPTED` result as saved. Rust/PowerShell remain the authority for staging, journal, pointer, recovery, and accepted state. React does not promote files or maintain a second accepted-state model.
 
 ### GUI status tally
 
-| Area                                   | Status                                           |
-| -------------------------------------- | ------------------------------------------------ |
-| Workbench shell and navigation         | Works now                                        |
-| Guided Setup layout                    | Preview only                                     |
-| Native file-picker bridge              | Works now                                        |
-| Display-safe selection state           | Works now                                        |
-| Pre-parse selection checks             | Works now                                        |
-| Playlist structural content validation | Works now — structural only                      |
-| Guide structural content validation    | Works now — structural only                      |
-| Playlist/guide exact matching          | Implemented — local checks passed; PR/CI pending |
-| Lineup review                          | Implemented — local checks passed; PR/CI pending |
-| Saved lineup                           | Planned / not built yet                          |
-| Automatic updates                      | Planned / not built yet                          |
+| Area                                   | Status                                         |
+| -------------------------------------- | ---------------------------------------------- |
+| Workbench shell and navigation         | Works now                                      |
+| Guided Setup layout                    | Preview only                                   |
+| Native file-picker bridge              | Works now                                      |
+| Display-safe selection state           | Works now                                      |
+| Pre-parse selection checks             | Works now                                      |
+| Playlist structural content validation | Works now — structural only                    |
+| Guide structural content validation    | Works now — structural only                    |
+| Playlist/guide exact matching          | Implemented — local checks passed              |
+| Lineup review                          | Implemented — local checks passed              |
+| Saved lineup                           | Implemented — native acceptance + local checks |
+| Automatic updates                      | Planned / not built yet                        |
 
 Use Node.js 22 LTS with npm 10, Rust/Cargo, the Tauri CLI, and WebView2:
 
@@ -279,4 +279,4 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build -- --no-bundle
 ```
 
-The GUI owns presentation and the approved native picker boundary only at this stage. Do not add a second source-of-truth model, provider credential, or backend operation from this foundation slice. Any later operational integration must preserve the existing PowerShell behavior and redaction boundaries, and must be separately reviewed.
+The GUI owns presentation plus approved native picker, matching, and saved-lineup acceptance boundaries. Do not add a React promotion model, second accepted-state source of truth, provider credential, export, scheduler, release, target-publishing, or tester-distribution operation. Preserve the existing PowerShell behavior and redaction boundaries; any later operational integration requires separate review.

@@ -173,3 +173,18 @@ a { color: var(--cf-color-brand); }
 .lineup-review-metric span { color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-label); font-weight: var(--cf-font-weight-bold); letter-spacing: 0.04em; text-transform: uppercase; }
 .lineup-review-metric strong { color: var(--cf-color-ink); font-size: 1.25rem; }
 .lineup-review-note { margin: 0; color: var(--cf-color-ink-muted); font-size: var(--cf-font-size-small); }
+.saved-lineup-action-card { border-color: var(--cf-color-border-strong); }
+.saved-lineup-action-row { display: flex; align-items: center; justify-content: space-between; gap: var(--cf-space-4); }
+.saved-lineup-success { padding: var(--cf-space-3) var(--cf-space-4); border-left: 4px solid var(--cf-color-ready); background: var(--cf-color-ready-surface); color: var(--cf-color-ink); font-weight: var(--cf-font-weight-semibold); }
+.saved-lineup-dialog-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: var(--cf-space-6); background: rgb(23 32 42 / 0.4); }
+.saved-lineup-dialog { display: grid; gap: var(--cf-space-5); width: min(32rem, 100%); padding: var(--cf-space-6); border: 1px solid var(--cf-color-border-strong); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); box-shadow: var(--cf-shadow-dialog); }
+.saved-lineup-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cf-space-4); }
+.saved-lineup-dialog-heading h2 { margin: 0; font-size: var(--cf-font-size-section-title); line-height: var(--cf-line-height-tight); }
+.saved-lineup-dialog p { margin: 0; color: var(--cf-color-ink-muted); font-size: var(--cf-font-size-small); }
+.saved-lineup-acknowledgement { display: flex; align-items: flex-start; gap: var(--cf-space-3); color: var(--cf-color-ink); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
+.saved-lineup-acknowledgement input { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin-top: 0.1rem; accent-color: var(--cf-color-brand); }
+.saved-lineup-dialog-actions { display: flex; justify-content: flex-end; gap: var(--cf-space-3); }
+
+@media (max-width: 720px) {
+  .saved-lineup-action-row, .saved-lineup-dialog-actions { align-items: stretch; flex-direction: column; }
+}
