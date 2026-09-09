@@ -15,10 +15,14 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - A safe, local-only provider configuration workflow that never requires editing a tracked file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
 - A ChannelForge Guided Setup / Beginner Workflow (`scripts/Build-My-Lineup.ps1`) that stages a candidate, reports exact/ambiguous guide identity, supports no-guide builds, requires explicit acceptance, and promotes through the immutable accepted-generation boundary.
+- A GUI saved-lineup flow that prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
+
+The GUI saved-lineup flow does not provide export, scheduling, target publishing, release packaging, or tester distribution. It also cannot save needs-attention, review-needed, blocked, checking, not-checked, stale, or unavailable states.
 
 ## Not implemented yet
 
-- **Saved lineup remains unavailable.** Guided Setup uses the Rust-owned native picker bridge for workspace, playlist, and guide selection, bounded structural checks, and one-playlist/one-guide exact identity matching. The read-only lineup review presents only aggregate matched, unmatched, ambiguous, and guide-only counts. It never automatically accepts ambiguous relationships, displays source identities, opens stream URLs, displays programme titles, persists selections, mutates a lineup, exports, or refreshes a target.
+- **Export, scheduling, release, and tester distribution remain unavailable.** The GUI saved-lineup view reflects native accepted state only; it does not create downstream packages, schedule refreshes, publish to Plex or another target, create releases, or distribute artifacts.
+- **Native GUI runtime prerequisites remain local.** The GUI acceptance boundary requires the repository PowerShell workflow and `pwsh`; unavailable or stale native results fail closed without changing accepted state.
 - **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
@@ -28,19 +32,19 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 
 ### GUI status
 
-| Area                                   | Status                                           |
-| -------------------------------------- | ------------------------------------------------ |
-| Workbench shell and navigation         | Works now                                        |
-| Guided Setup layout                    | Preview only                                     |
-| Native file-picker bridge              | Works now                                        |
-| Display-safe selection state           | Works now                                        |
-| Pre-parse selection checks             | Works now                                        |
-| Playlist structural content validation | Works now — structural only                      |
-| Guide structural content validation    | Works now — structural only                      |
-| Playlist/guide exact matching          | Implemented — local checks passed; PR/CI pending |
-| Lineup review                          | Implemented — local checks passed; PR/CI pending |
-| Saved lineup                           | Planned / not built yet                          |
-| Automatic updates                      | Planned / not built yet                          |
+| Area                                   | Status                                         |
+| -------------------------------------- | ---------------------------------------------- |
+| Workbench shell and navigation         | Works now                                      |
+| Guided Setup layout                    | Preview only                                   |
+| Native file-picker bridge              | Works now                                      |
+| Display-safe selection state           | Works now                                      |
+| Pre-parse selection checks             | Works now                                      |
+| Playlist structural content validation | Works now — structural only                    |
+| Guide structural content validation    | Works now — structural only                    |
+| Playlist/guide exact matching          | Implemented — local checks passed              |
+| Lineup review                          | Implemented — local checks passed              |
+| Saved lineup                           | Implemented — native acceptance + local checks |
+| Automatic updates                      | Planned / not built yet                        |
 
 ## Why these are deferred, not abandoned
 

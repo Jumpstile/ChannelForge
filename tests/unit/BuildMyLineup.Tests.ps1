@@ -39,6 +39,47 @@ Describe 'Build-My-Lineup.ps1 beginner workflow' {
         ($summary | ConvertTo-Json -Depth 12) | Should -Not -Match '[0-9a-f]{64}'
     }
 
+
+    It 'returns a safe machine plan without mutating accepted state' {
+        $root = New-GuidedSetupRoot -Name 'machine-plan'
+        $machineLine = @(
+            & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -PlanOnly -MachineResult |
+                Where-Object { $_ -is [string] -and $_.StartsWith('CHANNELFORGE_MACHINE_RESULT:') } |
+                Select-Object -Last 1
+        )
+
+        $machineLine.Count | Should -Be 1
+        $machine = ($machineLine -replace '^CHANNELFORGE_MACHINE_RESULT:', '') | ConvertFrom-Json
+        $machine.Status | Should -Be 'PROPOSAL_READY'
+        $machine.CandidateManifestHash | Should -Match '^[0-9a-f]{64}$'
+        $machine.BuildIdentity | Should -Match '^[0-9a-f]{64}$'
+        $machine.AcceptedLineupStatus | Should -Be 'none'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'fails closed when the candidate or accepted parent is stale' {
+        $root = New-GuidedSetupRoot -Name 'machine-stale'
+        $planLine = @(
+            & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -PlanOnly -MachineResult |
+                Where-Object { $_ -is [string] -and $_.StartsWith('CHANNELFORGE_MACHINE_RESULT:') } |
+                Select-Object -Last 1
+        )
+        $plan = ($planLine -replace '^CHANNELFORGE_MACHINE_RESULT:', '') | ConvertFrom-Json
+
+        {
+            & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -Accept -AmbiguousAction Cancel `
+                -ExpectedCandidateManifestHash ('0' * 64) -ExpectedBuildIdentity $plan.BuildIdentity `
+                -ExpectedParentGenerationManifestHash ''
+        } | Should -Throw '*candidate is no longer current*'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+
+        {
+            & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -Accept -AmbiguousAction Cancel `
+                -ExpectedCandidateManifestHash $plan.CandidateManifestHash -ExpectedBuildIdentity $plan.BuildIdentity `
+                -ExpectedParentGenerationManifestHash ('1' * 64)
+        } | Should -Throw '*accepted parent is no longer current*'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
     It 'reports several material guide ambiguities before acceptance' {
         $root = New-GuidedSetupRoot -Name 'several-ambiguities'
         $guide = Join-Path $TestDrive 'several-ambiguities.xml'

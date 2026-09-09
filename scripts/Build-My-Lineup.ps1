@@ -7,7 +7,12 @@ param(
     [string]$AmbiguousAction,
     [switch]$Accept,
     [string]$OutputRoot,
-    [string]$FaultHook = ''
+    [string]$FaultHook = '',
+    [string]$ExpectedCandidateManifestHash,
+    [string]$ExpectedBuildIdentity,
+    [string]$ExpectedParentGenerationManifestHash,
+    [switch]$PlanOnly,
+    [switch]$MachineResult
 )
 
 $ErrorActionPreference = 'Stop'
@@ -389,6 +394,11 @@ $report = [ordered]@{
     Changed = 'No accepted output was changed.'
     Next = 'Correct the input and run Build-My-Lineup.ps1 again.'
 }
+$machineCandidateManifestHash = $null
+$machineBuildIdentity = $null
+$machineParentGenerationManifestHash = $null
+$machineAcceptedEntryCount = $null
+$prior = $null
 $stagedInputs = @()
 $acceptedPublicationCompleted = $false
 $acceptedGenerationChanged = $false
@@ -428,6 +438,16 @@ try {
     $candidateDirectory = [System.IO.Path]::GetFullPath([string]$candidateResult[0].CandidateDirectory)
     $manifestPath = Get-WorkflowCandidateFile -CandidateDirectory $candidateDirectory -Name 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $machineCandidateManifestHash = [string]$manifest.CandidateManifestHash
+    $machineBuildIdentity = [string]$manifest.BuildIdentity
+    if (($PSBoundParameters.ContainsKey('ExpectedCandidateManifestHash') -and
+         $machineCandidateManifestHash -cne [string]$ExpectedCandidateManifestHash) -or
+        ($PSBoundParameters.ContainsKey('ExpectedBuildIdentity') -and
+         $machineBuildIdentity -cne [string]$ExpectedBuildIdentity)) {
+        $report.Status = 'STALE'
+        if ($MachineResult) { return }
+        throw 'The candidate is no longer current; nothing was published.'
+    }
     $candidateM3UPath = Get-WorkflowCandidateFile -CandidateDirectory $candidateDirectory -Name 'merged.m3u'
     [byte[]]$candidateM3UBytes = [IO.File]::ReadAllBytes($candidateM3UPath)
     $candidateXMLTVPath = Join-Path $candidateDirectory 'merged.xml'
@@ -447,7 +467,21 @@ try {
         $report.GuideOnlyCount = 0
     }
 
+    if ($PlanOnly -or $Accept) {
+        $prior = Get-WorkflowCurrentSnapshot -RepositoryRoot $rootFull
+        $machineParentGenerationManifestHash = if ($null -eq $prior) { $null } else { [string]$prior.Manifest.Object.GenerationManifestHash }
+        $machineAcceptedEntryCount = if ($null -eq $prior) { $null } else { @($prior.State.Object.IncludedCandidateEntryIds).Count }
+        if ($Accept -and $PSBoundParameters.ContainsKey('ExpectedParentGenerationManifestHash')) {
+            $expectedParent = if ([string]::IsNullOrWhiteSpace($ExpectedParentGenerationManifestHash)) { $null } else { [string]$ExpectedParentGenerationManifestHash }
+            if ($machineParentGenerationManifestHash -cne $expectedParent) {
+                $report.Status = 'STALE'
+                if ($MachineResult) { return }
+                throw 'The accepted parent is no longer current; nothing was published.'
+            }
+        }
+    }
     $report.WhatHappened = "Analyzed $($report.ChannelCount) channels."
+
     $report.Next = if ($report.AmbiguityCount -gt 0) {
         'Review the ambiguous guide matches, then run again with -Accept and a choice.'
     }
@@ -469,11 +503,13 @@ try {
         $report.Status = 'PROPOSAL_READY'
         $report.Changed = 'Candidate and proposal reports only; accepted output was not changed.'
         $report.Preserved = 'All existing accepted output was preserved.'
+        if ($PlanOnly) {
+            return
+        }
         $reportFiles = Write-WorkflowReport -Root $rootFull -Report ([pscustomobject]$report)
         Write-Host "`nProposal saved to $($reportFiles.PlanPath). Nothing was published." -ForegroundColor Yellow
         return
     }
-    $prior = Get-WorkflowCurrentSnapshot -RepositoryRoot $rootFull
     $ambiguous = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' })
     foreach ($binding in $ambiguous) {
         $entry = @($manifest.Entries | Where-Object { [string]$_.EntryId -ceq [string]$binding.EntryId }) | Select-Object -First 1
@@ -529,6 +565,7 @@ try {
         $report.Next = 'Use the accepted lineup in your downstream player or guide consumer.'
         $acceptedGenerationChanged = $true
     }
+    $machineAcceptedEntryCount = $included.Count
     $acceptedPublicationCompleted = $true
     $consumerOutputs = Write-WorkflowConsumerOutputs -Root $rootFull -M3UBytes $acceptedM3UBytes -XMLTVBytes $candidateXMLTVBytes -FaultHook $FaultHook
     $report.ConsumerM3UPath = $consumerOutputs.M3UPath
@@ -617,6 +654,18 @@ catch {
 finally {
     foreach ($path in @($stagedInputs)) {
         if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
+    }
+    if ($MachineResult) {
+        $machineAcceptedLineupStatus = if ($acceptedPublicationCompleted -or $null -ne $prior) { 'present' } else { 'none' }
+        $machinePayload = [ordered]@{
+            Status = [string]$report.Status
+            CandidateManifestHash = $machineCandidateManifestHash
+            BuildIdentity = $machineBuildIdentity
+            ParentGenerationManifestHash = $machineParentGenerationManifestHash
+            AcceptedLineupStatus = $machineAcceptedLineupStatus
+            AcceptedEntryCount = $machineAcceptedEntryCount
+        }
+        Write-Output ("CHANNELFORGE_MACHINE_RESULT:" + ($machinePayload | ConvertTo-Json -Compress))
     }
 }
 
