@@ -259,6 +259,10 @@ export function playlistGuideMatchStateFromResult(result: PlaylistGuideMatchResu
   }
 }
 
+export function isPlaylistGuideReviewAvailable(state: PlaylistGuideMatchState): boolean {
+  return state.status === 'checked' || state.status === 'needs-attention' || state.status === 'review-needed'
+}
+
 export function safeMatchMessage(result: PlaylistGuideMatchResult): string | null {
   if (result.matchStatus === 'blocked') {
     return matchReasonMessage(result.reasonCode)

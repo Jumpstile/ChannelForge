@@ -1,7 +1,23 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import App from '../App'
+import type { SetupMatcher, SetupPicker, SetupSelectionKind, SetupSelectionResult } from '../app/setupSelection'
+
+function selectedResult(kind: SetupSelectionKind): SetupSelectionResult {
+  return {
+    kind,
+    outcome: 'selected',
+    selectionStatus: 'selected',
+    validationStatus: 'ready-to-inspect',
+    reasonCode: null,
+    ...(kind === 'playlist'
+      ? { playlistContent: { contentStatus: 'checked', entryCount: 2, reasonCode: null } }
+      : kind === 'guide'
+        ? { guideContent: { contentStatus: 'checked', channelCount: 2, programmeCount: 4, reasonCode: null } }
+        : {}),
+  }
+}
 
 describe('navigation shell', () => {
   it('starts at Workbench and opens the synthetic state gallery without backend work', async () => {
@@ -46,6 +62,38 @@ describe('navigation shell', () => {
 
     for (const label of ['Playlist', 'Guide', 'Lineup', 'Saved lineup', 'Automatic updates', 'Learn']) {
       expect(screen.getByRole('button', { name: new RegExp(`${label} Next`) })).toBeDisabled()
+    }
+  })
+  it('enables read-only lineup review only after a safe aggregate result', async () => {
+    const user = userEvent.setup()
+    const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
+    const matcher = vi.fn<SetupMatcher>().mockResolvedValue({
+      matchStatus: 'needs-attention',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 1,
+      unmatchedPlaylistCount: 1,
+      ambiguousCount: 0,
+      guideOnlyCount: 0,
+      requiresReview: false,
+      reasonCode: 'unmatched-identity',
+    })
+    render(<App picker={picker} matcher={matcher} pickerAvailable />)
+
+    expect(screen.getByRole('button', { name: /Lineup Next/ })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Guided Setup' }))
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open lineup review' })).toBeEnabled())
+
+    expect(screen.getByRole('button', { name: /Lineup(?! Next)/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Saved lineup Next/ })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Open lineup review' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Review playlist and guide coverage' })).toBeInTheDocument()
+    for (const action of ['Accept', 'Apply', 'Resolve', 'Save', 'Export', 'Publish']) {
+      expect(screen.queryByRole('button', { name: new RegExp(`^${action}$`) })).not.toBeInTheDocument()
     }
   })
 })

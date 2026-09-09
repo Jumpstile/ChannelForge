@@ -31,6 +31,17 @@ There isn't a separate log file today. `output/reports/build-summary.json` (mach
 
 If you're working on the repository itself (not just running a build), schema and lint failures come from the gate scripts described in [DEVELOPER_GUIDE.md](../developer/DEVELOPER_GUIDE.md#ci-quality-gates) — that's engineering-facing detail this page won't repeat.
 
+## GUI lineup review
+
+The lineup review screen is a read-only summary of one local M3U playlist and one local XMLTV guide after bounded structural checks and native exact identity matching.
+
+- **Checked** means every playlist entry has one exact guide match.
+- **Needs attention** means one or more playlist entries have no guide match, and/or the guide contains guide-only channels. Guide-only coverage is informational and does not remove anything.
+- **Review needed** means duplicate or non-unique identity relationships prevent safe automatic selection. ChannelForge does not choose an ambiguous relationship automatically.
+- **Blocked** means the files are missing, not ready, unavailable, stale, or unsafe to inspect. Return to Guided Setup and check both files again.
+
+The review reports aggregate counts only. It does not display channel IDs, programme titles, stream URLs, filenames, paths, credentials, or parser errors. It does not build, save, export, publish, or modify a lineup.
+
 ## FAQ
 
 **Why does the build fail instead of just skipping a bad source?**
