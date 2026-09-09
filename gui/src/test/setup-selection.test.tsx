@@ -3,12 +3,14 @@ import {
   applySetupSelectionResult,
   createInitialGuideContentState,
   createInitialPlaylistContentState,
+  createInitialPlaylistGuideMatchState,
   guideContentStateFromResult,
   playlistContentStateFromResult,
+  playlistGuideMatchStateFromResult,
+  setPlaylistGuideMatchChecking,
   setSetupSelectionChecking,
   setupSelectionStates,
 } from '../app/setupSelection'
-
 describe('display-safe setup selection contract', () => {
   it('starts each setup item with truthful unselected and unchecked states', () => {
     expect(Object.keys(setupSelectionStates)).toEqual(['workspace', 'playlist', 'guide'])
@@ -168,5 +170,46 @@ describe('display-safe setup selection contract', () => {
     expect(displayState).not.toMatch(/\\\\/)
     expect(displayState).not.toMatch(/https?:\/\//i)
     expect(displayState).not.toMatch(/(?:token|password|secret|credential)/i)
+  })
+  it('maps aggregate matching states without exposing source values', () => {
+    expect(createInitialPlaylistGuideMatchState()).toMatchObject({
+      status: 'not-checked',
+      label: 'Not checked',
+      matchedCount: null,
+      requiresReview: false,
+    })
+    expect(setPlaylistGuideMatchChecking()).toMatchObject({
+      status: 'checking',
+      label: 'Checking',
+      matchedCount: null,
+    })
+
+    const review = playlistGuideMatchStateFromResult({
+      matchStatus: 'review-needed',
+      playlistEntryCount: 4,
+      guideChannelCount: 4,
+      matchedCount: 1,
+      unmatchedPlaylistCount: 1,
+      ambiguousCount: 2,
+      guideOnlyCount: 1,
+      requiresReview: true,
+      reasonCode: 'ambiguous-identity',
+    })
+
+    expect(review).toEqual({
+      status: 'review-needed',
+      label: 'Review needed',
+      detail: 'Review needed. 2 playlist channel entries need review.',
+      playlistEntryCount: 4,
+      guideChannelCount: 4,
+      matchedCount: 1,
+      unmatchedPlaylistCount: 1,
+      ambiguousCount: 2,
+      guideOnlyCount: 1,
+      requiresReview: true,
+    })
+    expect(JSON.stringify(review)).not.toMatch(
+      /(?:channel-id|hidden|title|https?:\/\/|[A-Za-z]:[\\/]|token|password|secret|credential)/i,
+    )
   })
 })

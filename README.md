@@ -108,17 +108,18 @@ Working today:
 
 ### GUI status
 
-| Area                                   | Status                      |
-| -------------------------------------- | --------------------------- |
-| Workbench shell and navigation         | Works now                   |
-| Guided Setup layout                    | Preview only                |
-| Native file-picker bridge              | Works now                   |
-| Display-safe selection state           | Works now                   |
-| Pre-parse selection checks             | Works now                   |
-| Playlist structural content validation | Works now — structural only |
-| Guide structural content validation    | Works now — structural only |
-| Lineup review and saved lineup         | Planned / not built yet     |
-| Automatic updates                      | Planned / not built yet     |
+| Area                                   | Status                                           |
+| -------------------------------------- | ------------------------------------------------ |
+| Workbench shell and navigation         | Works now                                        |
+| Guided Setup layout                    | Preview only                                     |
+| Native file-picker bridge              | Works now                                        |
+| Display-safe selection state           | Works now                                        |
+| Pre-parse selection checks             | Works now                                        |
+| Playlist structural content validation | Works now — structural only                      |
+| Guide structural content validation    | Works now — structural only                      |
+| Playlist/guide exact matching          | Implemented — local checks passed; PR/CI pending |
+| Lineup review and saved lineup         | Planned / not built yet                          |
+| Automatic updates                      | Planned / not built yet                          |
 
 ---
 
