@@ -10,7 +10,7 @@ It doesn't blindly trust playlist names or provider metadata. It validates input
 
 **Honestly: only if you're comfortable with PowerShell and an early, unfinished tool.**
 
-ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge that performs pre-parse availability checks and bounded structural checks for selected M3U playlists and local XMLTV guides. Playlist checks report only safe status, reason codes, and complete-entry counts; guide checks report only safe status, reason codes, channel counts, and programme counts. The GUI never opens or displays stream URLs, programme titles, or guide channel IDs. Guide checks support plain `.xml`/`.xmltv`, `.gz`, and single-guide `.zip` files with bounded local decompression only; guide matching, lineup creation, persistence, and automatic updates remain outside this GUI slice. If that doesn't sound like your kind of weekend, it's not ready for you yet. If it does, [Build Your First Lineup](Build-Your-First-Lineup.md) will get you to a working result in about ten minutes.
+ChannelForge is **Early Alpha**. There is no complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge that performs pre-parse availability checks, bounded structural checks, and a local exact comparison between one selected M3U playlist and one selected XMLTV guide. The GUI reports only safe status, reason codes, and aggregate match counts. It never opens or displays stream URLs, programme titles, or guide channel IDs. Guide checks support plain `.xml`/`.xmltv`, `.gz`, and single-guide `.zip` files with bounded local decompression only; lineup creation, persistence, export, and automatic updates remain outside this GUI slice.
 
 ## What does it do today?
 
@@ -23,7 +23,7 @@ ChannelForge is **Early Alpha**. There is no installer or complete GUI workflow 
 
 ## What doesn't it do yet?
 
-- **No complete graphical interface workflow.** Guided Setup can select local inputs and structurally check M3U playlists and local XMLTV guides in plain, gzip, or single-guide ZIP form, but it does not match guide content to playlists, create lineups, persist selections, export, or refresh targets.
+- **No complete graphical interface workflow.** Guided Setup can select local inputs, structurally check M3U playlists and local XMLTV guides, and report exact aggregate playlist/guide matching. It does not create lineups, persist selections, mutate accepted state, export, or refresh targets. Ambiguous relationships are reported for review and are never accepted automatically.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.

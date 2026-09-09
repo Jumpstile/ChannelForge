@@ -4,10 +4,74 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{self, BufRead, BufReader, Read},
-    path::Path,
+    path::{Path, PathBuf},
+    sync::Mutex,
 };
-use tauri::Window;
+use tauri::{State, Window};
 use zip::ZipArchive;
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MatchStatus {
+    NotChecked,
+    Checking,
+    Checked,
+    NeedsAttention,
+    ReviewNeeded,
+    Blocked,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MatchReasonCode {
+    MissingPlaylist,
+    MissingGuide,
+    PlaylistNotReady,
+    GuideNotReady,
+    PlaylistContentInvalid,
+    GuideContentInvalid,
+    PlaylistUnavailable,
+    GuideUnavailable,
+    UnsupportedFormat,
+    TooLarge,
+    StaleSelection,
+    UnmatchedIdentity,
+    AmbiguousIdentity,
+    CheckUnavailable,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistGuideMatchSummary {
+    pub match_status: MatchStatus,
+    pub playlist_entry_count: Option<u64>,
+    pub guide_channel_count: Option<u64>,
+    pub matched_count: Option<u64>,
+    pub unmatched_playlist_count: Option<u64>,
+    pub ambiguous_count: Option<u64>,
+    pub guide_only_count: Option<u64>,
+    pub requires_review: bool,
+    pub reason_code: Option<MatchReasonCode>,
+}
+
+#[derive(Default)]
+pub struct SetupSession {
+    playlist_path: Option<PathBuf>,
+    guide_path: Option<PathBuf>,
+    generation: u64,
+}
+
+#[derive(Clone)]
+struct SetupSessionSnapshot {
+    playlist_path: Option<PathBuf>,
+    guide_path: Option<PathBuf>,
+    generation: u64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct FileFingerprint {
+    length: u64,
+    modified: Option<std::time::SystemTime>,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -108,7 +172,6 @@ pub struct GuideContentSummary {
     pub programme_count: Option<u64>,
     pub reason_code: Option<GuideContentReasonCode>,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistContentSummary {
@@ -164,9 +227,10 @@ enum PreParseCheck {
     NeedsAttention(PreParseReason),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct PickerSelection {
     kind: PickerSelectionKind,
+    path: PathBuf,
     pre_parse_check: PreParseCheck,
     playlist_content: Option<PlaylistContentSummary>,
     guide_content: Option<GuideContentSummary>,
@@ -196,11 +260,15 @@ impl PickerAdapter for NativePicker<'_> {
                 .set_parent(self.window)
                 .set_title("Choose workspace")
                 .pick_folder()
-                .map(|path| PickerSelection {
-                    kind: PickerSelectionKind::Workspace,
-                    pre_parse_check: check_directory(&path),
-                    playlist_content: None,
-                    guide_content: None,
+                .map(|path| {
+                    let pre_parse_check = check_directory(&path);
+                    PickerSelection {
+                        kind: PickerSelectionKind::Workspace,
+                        path,
+                        pre_parse_check,
+                        playlist_content: None,
+                        guide_content: None,
+                    }
                 }),
             SetupSelectionKind::Playlist => rfd::FileDialog::new()
                 .set_parent(self.window)
@@ -216,6 +284,7 @@ impl PickerAdapter for NativePicker<'_> {
                     };
                     PickerSelection {
                         kind: PickerSelectionKind::File,
+                        path,
                         pre_parse_check,
                         playlist_content: content,
                         guide_content: None,
@@ -235,6 +304,7 @@ impl PickerAdapter for NativePicker<'_> {
                     };
                     PickerSelection {
                         kind: PickerSelectionKind::File,
+                        path,
                         pre_parse_check,
                         playlist_content: None,
                         guide_content: content,
@@ -312,14 +382,22 @@ fn inspect_playlist_content(path: &Path) -> PlaylistContentSummary {
     }
 }
 
-fn inspect_playlist_reader<R: BufRead>(mut reader: R) -> Result<u64, PlaylistContentReasonCode> {
+fn inspect_playlist_reader<R: BufRead>(reader: R) -> Result<u64, PlaylistContentReasonCode> {
+    inspect_playlist_reader_with_identities(reader, false).map(|(entry_count, _)| entry_count)
+}
+
+fn inspect_playlist_reader_with_identities<R: BufRead>(
+    mut reader: R,
+    capture_identities: bool,
+) -> Result<(u64, Vec<Option<String>>), PlaylistContentReasonCode> {
     let mut line = Vec::new();
     let mut total_bytes = 0_u64;
     let mut first_physical_line = true;
     let mut saw_non_empty_line = false;
     let mut saw_header = false;
-    let mut pending_entry = false;
+    let mut pending_tvg_id: Option<Option<String>> = None;
     let mut entry_count = 0_u64;
+    let mut identities = Vec::new();
 
     loop {
         line.clear();
@@ -371,10 +449,14 @@ fn inspect_playlist_reader<R: BufRead>(mut reader: R) -> Result<u64, PlaylistCon
             .get(..8)
             .map_or(false, |prefix| prefix.eq_ignore_ascii_case(b"#EXTINF:"));
         if is_extinf {
-            if pending_entry {
+            if pending_tvg_id.is_some() {
                 return Err(PlaylistContentReasonCode::IncompleteEntry);
             }
-            pending_entry = true;
+            pending_tvg_id = Some(if capture_identities {
+                extract_m3u_tvg_id(trimmed)
+            } else {
+                None
+            });
             continue;
         }
 
@@ -382,12 +464,13 @@ fn inspect_playlist_reader<R: BufRead>(mut reader: R) -> Result<u64, PlaylistCon
             continue;
         }
 
-        if !pending_entry {
+        let Some(tvg_id) = pending_tvg_id.take() else {
             return Err(PlaylistContentReasonCode::OrphanStreamLine);
-        }
-
-        pending_entry = false;
+        };
         entry_count = entry_count.saturating_add(1);
+        if capture_identities {
+            identities.push(tvg_id);
+        }
     }
 
     if !saw_non_empty_line {
@@ -396,14 +479,34 @@ fn inspect_playlist_reader<R: BufRead>(mut reader: R) -> Result<u64, PlaylistCon
     if !saw_header {
         return Err(PlaylistContentReasonCode::MissingHeader);
     }
-    if pending_entry {
+    if pending_tvg_id.is_some() {
         return Err(PlaylistContentReasonCode::IncompleteEntry);
     }
     if entry_count == 0 {
         return Err(PlaylistContentReasonCode::EmptyPlaylist);
     }
 
-    Ok(entry_count)
+    Ok((entry_count, identities))
+}
+
+fn extract_m3u_tvg_id(text: &str) -> Option<String> {
+    const MARKER: &str = "tvg-id=\"";
+
+    for (index, _) in text.char_indices() {
+        let marker_end = index.saturating_add(MARKER.len());
+        let Some(marker) = text.get(index..marker_end) else {
+            continue;
+        };
+        if !marker.eq_ignore_ascii_case(MARKER) {
+            continue;
+        }
+
+        let value_start = marker_end;
+        let value_end = text.get(value_start..)?.find('"')?;
+        return Some(text[value_start..value_start + value_end].to_owned());
+    }
+
+    None
 }
 
 fn content_io_reason(error: io::Error) -> PlaylistContentReasonCode {
@@ -599,8 +702,21 @@ impl<R: Read> Read for BoundedReader<R> {
         Ok(bytes_read)
     }
 }
-
 fn inspect_guide_reader<R: BufRead>(reader: R) -> Result<(u64, u64), GuideContentReasonCode> {
+    inspect_guide_reader_with_identities(reader, false)
+        .map(|scan| (scan.channel_count, scan.programme_count))
+}
+
+struct GuideIdentityScan {
+    channel_count: u64,
+    programme_count: u64,
+    channel_ids: Vec<String>,
+}
+
+fn inspect_guide_reader_with_identities<R: BufRead>(
+    reader: R,
+    capture_identities: bool,
+) -> Result<GuideIdentityScan, GuideContentReasonCode> {
     let mut reader = Reader::from_reader(reader);
     reader.config_mut().check_end_names = true;
     let mut buffer = Vec::new();
@@ -609,6 +725,7 @@ fn inspect_guide_reader<R: BufRead>(reader: R) -> Result<(u64, u64), GuideConten
     let mut root_closed = false;
     let mut channel_count = 0_u64;
     let mut programme_count = 0_u64;
+    let mut channel_ids = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buffer) {
@@ -622,12 +739,15 @@ fn inspect_guide_reader<R: BufRead>(reader: R) -> Result<(u64, u64), GuideConten
                 } else if root_closed || depth == 0 {
                     return Err(GuideContentReasonCode::MalformedXml);
                 } else {
-                    inspect_guide_element(
+                    if let Some(channel_id) = inspect_guide_identity_element(
                         &element,
                         depth,
                         &mut channel_count,
                         &mut programme_count,
-                    )?;
+                        capture_identities,
+                    )? {
+                        channel_ids.push(channel_id);
+                    }
                     depth += 1;
                 }
             }
@@ -640,13 +760,14 @@ fn inspect_guide_reader<R: BufRead>(reader: R) -> Result<(u64, u64), GuideConten
                     root_closed = true;
                 } else if root_closed || depth == 0 {
                     return Err(GuideContentReasonCode::MalformedXml);
-                } else {
-                    inspect_guide_element(
-                        &element,
-                        depth,
-                        &mut channel_count,
-                        &mut programme_count,
-                    )?;
+                } else if let Some(channel_id) = inspect_guide_identity_element(
+                    &element,
+                    depth,
+                    &mut channel_count,
+                    &mut programme_count,
+                    capture_identities,
+                )? {
+                    channel_ids.push(channel_id);
                 }
             }
             Ok(Event::End(_)) => {
@@ -691,17 +812,22 @@ fn inspect_guide_reader<R: BufRead>(reader: R) -> Result<(u64, u64), GuideConten
         return Err(GuideContentReasonCode::EmptyGuide);
     }
 
-    Ok((channel_count, programme_count))
+    Ok(GuideIdentityScan {
+        channel_count,
+        programme_count,
+        channel_ids,
+    })
 }
 
-fn inspect_guide_element(
+fn inspect_guide_identity_element(
     element: &quick_xml::events::BytesStart<'_>,
     depth: usize,
     channel_count: &mut u64,
     programme_count: &mut u64,
-) -> Result<(), GuideContentReasonCode> {
+    capture_identity: bool,
+) -> Result<Option<String>, GuideContentReasonCode> {
     if depth != 1 {
-        return Ok(());
+        return Ok(None);
     }
 
     match element.local_name().as_ref() {
@@ -709,7 +835,16 @@ fn inspect_guide_element(
             if !guide_has_non_empty_attribute(element, "id")? {
                 return Err(GuideContentReasonCode::IncompleteChannel);
             }
+            let channel_id = if capture_identity {
+                Some(
+                    guide_attribute_value(element, "id")?
+                        .ok_or(GuideContentReasonCode::IncompleteChannel)?,
+                )
+            } else {
+                None
+            };
             *channel_count = channel_count.saturating_add(1);
+            Ok(channel_id)
         }
         "programme" => {
             if !guide_has_non_empty_attribute(element, "channel")?
@@ -719,11 +854,26 @@ fn inspect_guide_element(
                 return Err(GuideContentReasonCode::IncompleteProgramme);
             }
             *programme_count = programme_count.saturating_add(1);
+            Ok(None)
         }
-        _ => {}
+        _ => Ok(None),
     }
+}
 
-    Ok(())
+fn guide_attribute_value(
+    element: &quick_xml::events::BytesStart<'_>,
+    name: &str,
+) -> Result<Option<String>, GuideContentReasonCode> {
+    for attribute in element.attributes().with_checks(true) {
+        let attribute = attribute.map_err(|_| GuideContentReasonCode::MalformedXml)?;
+        if attribute.key.as_ref() == name {
+            return attribute
+                .normalized_value(quick_xml::XmlVersion::default())
+                .map(|value| Some(value.into_owned()))
+                .map_err(|_| GuideContentReasonCode::MalformedXml);
+        }
+    }
+    Ok(None)
 }
 
 fn guide_xml_error(error: quick_xml::Error) -> GuideContentReasonCode {
@@ -761,6 +911,265 @@ fn guide_has_non_empty_attribute(
         }
     }
     Ok(found)
+}
+fn inspect_playlist_identity_content(
+    path: &Path,
+) -> Result<(u64, Vec<Option<String>>), PlaylistContentReasonCode> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        if error.kind() == io::ErrorKind::PermissionDenied {
+            PlaylistContentReasonCode::Unreadable
+        } else {
+            PlaylistContentReasonCode::CheckUnavailable
+        }
+    })?;
+    if metadata.len() > MAX_PLAYLIST_BYTES {
+        return Err(PlaylistContentReasonCode::TooLarge);
+    }
+    let file = fs::File::open(path).map_err(content_io_reason)?;
+    inspect_playlist_reader_with_identities(BufReader::new(file), true)
+}
+
+fn inspect_guide_identity_content(
+    path: &Path,
+) -> Result<GuideIdentityScan, GuideContentReasonCode> {
+    let format = guide_content_format(path);
+    if format == GuideContentFormat::Unsupported {
+        return Err(GuideContentReasonCode::UnsupportedFormat);
+    }
+    let max_input_bytes = if format == GuideContentFormat::Plain {
+        MAX_GUIDE_BYTES
+    } else {
+        MAX_GUIDE_COMPRESSED_BYTES
+    };
+    let metadata = fs::metadata(path).map_err(|error| guide_io_reason(&error))?;
+    if metadata.len() > max_input_bytes {
+        return Err(GuideContentReasonCode::TooLarge);
+    }
+    let file = fs::File::open(path).map_err(|error| guide_io_reason(&error))?;
+
+    match format {
+        GuideContentFormat::Plain => {
+            inspect_guide_reader_with_identities(BufReader::new(BoundedReader::new(file)), true)
+        }
+        GuideContentFormat::Gzip => {
+            let decoder = MultiGzDecoder::new(file);
+            inspect_guide_reader_with_identities(BufReader::new(BoundedReader::new(decoder)), true)
+        }
+        GuideContentFormat::Zip => inspect_zip_guide_identities(file),
+        GuideContentFormat::Unsupported => Err(GuideContentReasonCode::UnsupportedFormat),
+    }
+}
+
+fn inspect_zip_guide_identities(
+    file: fs::File,
+) -> Result<GuideIdentityScan, GuideContentReasonCode> {
+    let mut archive =
+        ZipArchive::new(file).map_err(|_| GuideContentReasonCode::UnsupportedFormat)?;
+    if archive.len() == 0 {
+        return Err(GuideContentReasonCode::EmptyGuide);
+    }
+
+    let mut guide_index = None;
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|_| GuideContentReasonCode::UnsupportedFormat)?;
+        if entry.is_dir() || entry.encrypted() {
+            if entry.encrypted() {
+                return Err(GuideContentReasonCode::UnsupportedFormat);
+            }
+            continue;
+        }
+        let extension = Path::new(entry.name())
+            .extension()
+            .and_then(|extension| extension.to_str());
+        if extension.is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("gz")
+                || extension.eq_ignore_ascii_case("gzip")
+                || extension.eq_ignore_ascii_case("zip")
+        }) || !extension.is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("xml") || extension.eq_ignore_ascii_case("xmltv")
+        }) {
+            return Err(GuideContentReasonCode::UnsupportedFormat);
+        }
+        if guide_index.replace(index).is_some() {
+            return Err(GuideContentReasonCode::UnsupportedFormat);
+        }
+        if entry.size() > MAX_GUIDE_BYTES {
+            return Err(GuideContentReasonCode::TooLarge);
+        }
+    }
+
+    let Some(guide_index) = guide_index else {
+        return Err(GuideContentReasonCode::EmptyGuide);
+    };
+    let entry = archive
+        .by_index(guide_index)
+        .map_err(|_| GuideContentReasonCode::UnsupportedFormat)?;
+    if entry.encrypted() {
+        return Err(GuideContentReasonCode::UnsupportedFormat);
+    }
+    inspect_guide_reader_with_identities(BufReader::new(BoundedReader::new(entry)), true)
+}
+
+fn file_fingerprint(path: &Path) -> io::Result<FileFingerprint> {
+    let metadata = fs::metadata(path)?;
+    Ok(FileFingerprint {
+        length: metadata.len(),
+        modified: metadata.modified().ok(),
+    })
+}
+
+fn blocked_match(reason_code: MatchReasonCode) -> PlaylistGuideMatchSummary {
+    PlaylistGuideMatchSummary {
+        match_status: MatchStatus::Blocked,
+        playlist_entry_count: None,
+        guide_channel_count: None,
+        matched_count: None,
+        unmatched_playlist_count: None,
+        ambiguous_count: None,
+        guide_only_count: None,
+        requires_review: false,
+        reason_code: Some(reason_code),
+    }
+}
+
+fn map_playlist_match_error(reason_code: PlaylistContentReasonCode) -> MatchReasonCode {
+    match reason_code {
+        PlaylistContentReasonCode::TooLarge => MatchReasonCode::TooLarge,
+        PlaylistContentReasonCode::Unreadable => MatchReasonCode::PlaylistUnavailable,
+        PlaylistContentReasonCode::CheckUnavailable => MatchReasonCode::CheckUnavailable,
+        _ => MatchReasonCode::PlaylistContentInvalid,
+    }
+}
+
+fn map_guide_match_error(reason_code: GuideContentReasonCode) -> MatchReasonCode {
+    match reason_code {
+        GuideContentReasonCode::TooLarge => MatchReasonCode::TooLarge,
+        GuideContentReasonCode::UnsupportedFormat => MatchReasonCode::UnsupportedFormat,
+        GuideContentReasonCode::Unreadable => MatchReasonCode::GuideUnavailable,
+        GuideContentReasonCode::CheckUnavailable => MatchReasonCode::CheckUnavailable,
+        _ => MatchReasonCode::GuideContentInvalid,
+    }
+}
+
+fn evaluate_playlist_guide_match(
+    playlist_path: &Path,
+    guide_path: &Path,
+) -> PlaylistGuideMatchSummary {
+    if !playlist_path.extension().is_some_and(|extension| {
+        extension.eq_ignore_ascii_case("m3u") || extension.eq_ignore_ascii_case("m3u8")
+    }) {
+        return blocked_match(MatchReasonCode::UnsupportedFormat);
+    }
+
+    let playlist_before = match file_fingerprint(playlist_path) {
+        Ok(fingerprint) => fingerprint,
+        Err(error) => {
+            return blocked_match(if error.kind() == io::ErrorKind::PermissionDenied {
+                MatchReasonCode::PlaylistUnavailable
+            } else {
+                MatchReasonCode::CheckUnavailable
+            })
+        }
+    };
+    let guide_before = match file_fingerprint(guide_path) {
+        Ok(fingerprint) => fingerprint,
+        Err(error) => {
+            return blocked_match(if error.kind() == io::ErrorKind::PermissionDenied {
+                MatchReasonCode::GuideUnavailable
+            } else {
+                MatchReasonCode::CheckUnavailable
+            })
+        }
+    };
+    let (playlist_entry_count, playlist_ids) =
+        match inspect_playlist_identity_content(playlist_path) {
+            Ok(scan) => scan,
+            Err(reason_code) => return blocked_match(map_playlist_match_error(reason_code)),
+        };
+    let guide_scan = match inspect_guide_identity_content(guide_path) {
+        Ok(scan) => scan,
+        Err(reason_code) => return blocked_match(map_guide_match_error(reason_code)),
+    };
+
+    let playlist_after = match file_fingerprint(playlist_path) {
+        Ok(fingerprint) => fingerprint,
+        Err(_) => return blocked_match(MatchReasonCode::StaleSelection),
+    };
+    let guide_after = match file_fingerprint(guide_path) {
+        Ok(fingerprint) => fingerprint,
+        Err(_) => return blocked_match(MatchReasonCode::StaleSelection),
+    };
+    if playlist_before != playlist_after || guide_before != guide_after {
+        return blocked_match(MatchReasonCode::StaleSelection);
+    }
+
+    let mut playlist_counts = std::collections::HashMap::<String, u64>::new();
+    for identity in playlist_ids.iter().flatten() {
+        if !identity.trim().is_empty() {
+            *playlist_counts.entry(identity.clone()).or_default() += 1;
+        }
+    }
+    let mut guide_counts = std::collections::HashMap::<String, u64>::new();
+    for identity in &guide_scan.channel_ids {
+        *guide_counts.entry(identity.clone()).or_default() += 1;
+    }
+
+    let mut matched_count = 0_u64;
+    let mut unmatched_playlist_count = 0_u64;
+    let mut ambiguous_count = 0_u64;
+    for identity in &playlist_ids {
+        let Some(identity) = identity else {
+            unmatched_playlist_count = unmatched_playlist_count.saturating_add(1);
+            continue;
+        };
+        if identity.trim().is_empty() {
+            unmatched_playlist_count = unmatched_playlist_count.saturating_add(1);
+            continue;
+        }
+        let playlist_count = playlist_counts.get(identity).copied().unwrap_or(0);
+        let guide_count = guide_counts.get(identity).copied().unwrap_or(0);
+        if playlist_count > 1 || guide_count > 1 {
+            ambiguous_count = ambiguous_count.saturating_add(1);
+        } else if guide_count == 0 {
+            unmatched_playlist_count = unmatched_playlist_count.saturating_add(1);
+        } else {
+            matched_count = matched_count.saturating_add(1);
+        }
+    }
+
+    let guide_only_count = guide_counts
+        .iter()
+        .filter(|(identity, _)| !playlist_counts.contains_key(*identity))
+        .count() as u64;
+    let (match_status, requires_review, reason_code) = if ambiguous_count > 0 {
+        (
+            MatchStatus::ReviewNeeded,
+            true,
+            Some(MatchReasonCode::AmbiguousIdentity),
+        )
+    } else if unmatched_playlist_count > 0 || guide_only_count > 0 {
+        (
+            MatchStatus::NeedsAttention,
+            false,
+            Some(MatchReasonCode::UnmatchedIdentity),
+        )
+    } else {
+        (MatchStatus::Checked, false, None)
+    };
+
+    PlaylistGuideMatchSummary {
+        match_status,
+        playlist_entry_count: Some(playlist_entry_count),
+        guide_channel_count: Some(guide_scan.channel_count),
+        matched_count: Some(matched_count),
+        unmatched_playlist_count: Some(unmatched_playlist_count),
+        ambiguous_count: Some(ambiguous_count),
+        guide_only_count: Some(guide_only_count),
+        requires_review,
+        reason_code,
+    }
 }
 
 fn guide_content_failure(reason_code: GuideContentReasonCode) -> GuideContentSummary {
@@ -850,11 +1259,11 @@ fn error_result(
     }
 }
 
-fn choose_setup_item_with_adapter(
+fn picker_result(
     kind: SetupSelectionKind,
-    adapter: &dyn PickerAdapter,
+    picked: Result<Option<PickerSelection>, PickerError>,
 ) -> SetupSelectionResult {
-    match adapter.pick(kind) {
+    match picked {
         Ok(Some(selection)) if selection.kind.matches(kind) => selected_result(
             kind,
             selection.pre_parse_check,
@@ -885,6 +1294,76 @@ fn choose_setup_item_with_adapter(
     }
 }
 
+#[cfg(test)]
+fn choose_setup_item_with_adapter(
+    kind: SetupSelectionKind,
+    adapter: &dyn PickerAdapter,
+) -> SetupSelectionResult {
+    picker_result(kind, adapter.pick(kind))
+}
+
+fn remember_selection(session: &mut SetupSession, kind: SetupSelectionKind, path: PathBuf) {
+    session.generation = session.generation.saturating_add(1);
+    match kind {
+        SetupSelectionKind::Workspace => {
+            session.playlist_path = None;
+            session.guide_path = None;
+        }
+        SetupSelectionKind::Playlist => {
+            session.playlist_path = Some(path);
+            session.guide_path = None;
+        }
+        SetupSelectionKind::Guide => {
+            session.guide_path = Some(path);
+        }
+    }
+}
+
+fn check_selected_playlist_guide(session: &Mutex<SetupSession>) -> PlaylistGuideMatchSummary {
+    let snapshot = {
+        let session = session
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        SetupSessionSnapshot {
+            playlist_path: session.playlist_path.clone(),
+            guide_path: session.guide_path.clone(),
+            generation: session.generation,
+        }
+    };
+    let Some(playlist_path) = snapshot.playlist_path else {
+        return blocked_match(MatchReasonCode::MissingPlaylist);
+    };
+    let Some(guide_path) = snapshot.guide_path else {
+        return blocked_match(MatchReasonCode::MissingGuide);
+    };
+
+    let result = evaluate_playlist_guide_match(&playlist_path, &guide_path);
+    let session = session
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if session.generation != snapshot.generation {
+        return blocked_match(MatchReasonCode::StaleSelection);
+    }
+    result
+}
+
+fn choose_setup_item_with_session(
+    kind: SetupSelectionKind,
+    adapter: &dyn PickerAdapter,
+    session: &Mutex<SetupSession>,
+) -> SetupSelectionResult {
+    let picked = adapter.pick(kind);
+    if let Ok(Some(selection)) = &picked {
+        if selection.kind.matches(kind) {
+            let mut session = session
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            remember_selection(&mut session, kind, selection.path.clone());
+        }
+    }
+    picker_result(kind, picked)
+}
+
 mod command {
     use super::*;
 
@@ -892,17 +1371,33 @@ mod command {
     pub async fn choose_setup_item(
         kind: SetupSelectionKind,
         window: Window,
-    ) -> SetupSelectionResult {
-        choose_setup_item_with_adapter(kind, &NativePicker { window: &window })
+        session: State<'_, Mutex<SetupSession>>,
+    ) -> Result<SetupSelectionResult, String> {
+        Ok(choose_setup_item_with_session(
+            kind,
+            &NativePicker { window: &window },
+            session.inner(),
+        ))
+    }
+
+    #[tauri::command]
+    pub async fn check_playlist_guide_match(
+        session: State<'_, Mutex<SetupSession>>,
+    ) -> Result<PlaylistGuideMatchSummary, String> {
+        Ok(check_selected_playlist_guide(session.inner()))
     }
 }
 
-pub use command::choose_setup_item;
+pub use command::{check_playlist_guide_match, choose_setup_item};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![command::choose_setup_item])
+        .manage(Mutex::new(SetupSession::default()))
+        .invoke_handler(tauri::generate_handler![
+            command::choose_setup_item,
+            command::check_playlist_guide_match
+        ])
         .run(tauri::generate_context!())
         .expect("error while running ChannelForge");
 }
@@ -917,13 +1412,14 @@ mod tests {
 
     impl PickerAdapter for FakePicker {
         fn pick(&self, _kind: SetupSelectionKind) -> Result<Option<PickerSelection>, PickerError> {
-            self.result
+            self.result.clone()
         }
     }
 
     fn ready_selection(kind: PickerSelectionKind) -> PickerSelection {
         PickerSelection {
             kind,
+            path: PathBuf::from("fixture"),
             pre_parse_check: PreParseCheck::ReadyToInspect,
             playlist_content: None,
             guide_content: None,
@@ -1305,6 +1801,7 @@ mod tests {
                 &FakePicker {
                     result: Ok(Some(PickerSelection {
                         kind: PickerSelectionKind::File,
+                        path: PathBuf::from("fixture"),
                         pre_parse_check: PreParseCheck::NeedsAttention(reason),
                         playlist_content: None,
                         guide_content: None,
@@ -1444,5 +1941,186 @@ mod tests {
                 error_result(SetupSelectionKind::Guide, outcome, reason_code)
             );
         }
+    }
+    fn playlist_test_path() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "channelforge-playlist-{}-{}.m3u",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be after epoch")
+                .as_nanos(),
+        ))
+    }
+
+    fn write_playlist_file(content: &str) -> PathBuf {
+        let path = playlist_test_path();
+        fs::write(&path, content).expect("playlist fixture should be written");
+        path
+    }
+
+    fn match_guide_xml(channels: &[&str]) -> String {
+        let channel_xml = channels
+            .iter()
+            .map(|channel| format!(r#"<channel id="{channel}" />"#))
+            .collect::<String>();
+        let programme_xml = channels
+            .first()
+            .map(|channel| {
+                format!(r#"<programme channel="{channel}" start="start" stop="stop" />"#)
+            })
+            .unwrap_or_default();
+        format!("<tv>{channel_xml}{programme_xml}</tv>")
+    }
+
+    #[test]
+    fn classifies_exact_unmatched_and_guide_only_relationships() {
+        let playlist = write_playlist_file(
+            "#EXTM3U\n\
+             #EXTINF:-1 tvg-id=\"matched\",Hidden Name\n\
+             https://secret.invalid/matched\n\
+             #EXTINF:-1,No Identity\n\
+             https://secret.invalid/missing\n\
+             #EXTINF:-1 tvg-id=\"unknown\",Unknown Name\n\
+             https://secret.invalid/unknown\n",
+        );
+        let guide = write_guide_file(
+            "xml",
+            match_guide_xml(&["matched", "guide-only"]).as_bytes(),
+        );
+
+        let summary = evaluate_playlist_guide_match(&playlist, &guide);
+
+        assert_eq!(summary.match_status, MatchStatus::NeedsAttention);
+        assert_eq!(summary.playlist_entry_count, Some(3));
+        assert_eq!(summary.guide_channel_count, Some(2));
+        assert_eq!(summary.matched_count, Some(1));
+        assert_eq!(summary.unmatched_playlist_count, Some(2));
+        assert_eq!(summary.ambiguous_count, Some(0));
+        assert_eq!(summary.guide_only_count, Some(1));
+        assert!(!summary.requires_review);
+        fs::remove_file(playlist).expect("playlist fixture should be removed");
+        fs::remove_file(guide).expect("guide fixture should be removed");
+    }
+
+    #[test]
+    fn ambiguity_takes_precedence_for_duplicate_playlist_and_guide_identities() {
+        let playlist = write_playlist_file(
+            "#EXTM3U\n\
+             #EXTINF:-1 tvg-id=\"same\",First\n\
+             opaque-one\n\
+             #EXTINF:-1 tvg-id=\"same\",Second\n\
+             opaque-two\n",
+        );
+        let guide = write_guide_file(
+            "xml",
+            br#"<tv>
+                <channel id="same" />
+                <channel id="same" />
+                <programme channel="same" start="start" stop="stop" />
+            </tv>"#,
+        );
+
+        let summary = evaluate_playlist_guide_match(&playlist, &guide);
+
+        assert_eq!(summary.match_status, MatchStatus::ReviewNeeded);
+        assert_eq!(summary.matched_count, Some(0));
+        assert_eq!(summary.unmatched_playlist_count, Some(0));
+        assert_eq!(summary.ambiguous_count, Some(2));
+        assert_eq!(summary.guide_only_count, Some(0));
+        assert!(summary.requires_review);
+        assert_eq!(
+            summary.reason_code,
+            Some(MatchReasonCode::AmbiguousIdentity)
+        );
+        fs::remove_file(playlist).expect("playlist fixture should be removed");
+        fs::remove_file(guide).expect("guide fixture should be removed");
+    }
+
+    #[test]
+    fn match_summary_is_deterministic_and_contains_only_safe_fields() {
+        let playlist = write_playlist_file(
+            "#EXTM3U\n#EXTINF:-1 tvg-id=\"same\",Hidden Name\nhttps://secret.invalid/stream\n",
+        );
+        let guide = write_guide_file("xml", match_guide_xml(&["same"]).as_bytes());
+
+        let first = evaluate_playlist_guide_match(&playlist, &guide);
+        let second = evaluate_playlist_guide_match(&playlist, &guide);
+        assert_eq!(first, second);
+
+        let serialized = serde_json::to_string(&first).expect("summary should serialize");
+        for forbidden in [
+            "same",
+            "Hidden Name",
+            "https://secret.invalid",
+            "stream",
+            "path",
+            "filename",
+            "token",
+            "password",
+            "credential",
+        ] {
+            assert!(!serialized.contains(forbidden));
+        }
+        fs::remove_file(playlist).expect("playlist fixture should be removed");
+        fs::remove_file(guide).expect("guide fixture should be removed");
+    }
+
+    #[test]
+    fn blocks_missing_or_invalid_inputs_and_invalidates_reselected_paths() {
+        let missing = check_selected_playlist_guide(&Mutex::new(SetupSession::default()));
+        assert_eq!(missing.match_status, MatchStatus::Blocked);
+        assert_eq!(missing.reason_code, Some(MatchReasonCode::MissingPlaylist));
+
+        let malformed_playlist = write_playlist_file("#EXTINF:-1,not-a-playlist\nopaque\n");
+        let valid_guide = write_guide_file("xml", match_guide_xml(&["same"]).as_bytes());
+        let malformed = evaluate_playlist_guide_match(&malformed_playlist, &valid_guide);
+        assert_eq!(malformed.match_status, MatchStatus::Blocked);
+        assert_eq!(
+            malformed.reason_code,
+            Some(MatchReasonCode::PlaylistContentInvalid)
+        );
+        fs::remove_file(malformed_playlist).expect("playlist fixture should be removed");
+        fs::remove_file(valid_guide).expect("guide fixture should be removed");
+
+        let playlist = write_playlist_file("#EXTM3U\n#EXTINF:-1 tvg-id=\"same\",Name\nopaque\n");
+        let unsupported_guide = write_guide_file("txt", match_guide_xml(&["same"]).as_bytes());
+        let unsupported = evaluate_playlist_guide_match(&playlist, &unsupported_guide);
+        assert_eq!(unsupported.match_status, MatchStatus::Blocked);
+        assert_eq!(
+            unsupported.reason_code,
+            Some(MatchReasonCode::UnsupportedFormat)
+        );
+        fs::remove_file(playlist).expect("playlist fixture should be removed");
+        fs::remove_file(unsupported_guide).expect("guide fixture should be removed");
+
+        let session = Mutex::new(SetupSession::default());
+        let mut session_guard = session.lock().expect("session should lock");
+        remember_selection(
+            &mut session_guard,
+            SetupSelectionKind::Playlist,
+            PathBuf::from("one.m3u"),
+        );
+        drop(session_guard);
+        let first_generation = session.lock().expect("session should lock").generation;
+        let mut session_guard = session.lock().expect("session should lock");
+        remember_selection(
+            &mut session_guard,
+            SetupSelectionKind::Guide,
+            PathBuf::from("one.xml"),
+        );
+        drop(session_guard);
+        let second_generation = session.lock().expect("session should lock").generation;
+        assert!(second_generation > first_generation);
+        let mut session_guard = session.lock().expect("session should lock");
+        remember_selection(
+            &mut session_guard,
+            SetupSelectionKind::Playlist,
+            PathBuf::from("two.m3u"),
+        );
+        drop(session_guard);
+        let session = session.lock().expect("session should lock");
+        assert_eq!(session.guide_path, None);
+        assert_eq!(session.playlist_path, Some(PathBuf::from("two.m3u")));
     }
 }

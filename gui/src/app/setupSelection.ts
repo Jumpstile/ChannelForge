@@ -59,6 +59,35 @@ export type SetupSelectionResult = {
   guideContent?: GuideContentResult | null
 }
 
+export type MatchStatus = 'not-checked' | 'checking' | 'checked' | 'needs-attention' | 'review-needed' | 'blocked'
+export type MatchReasonCode =
+  | 'missing-playlist'
+  | 'missing-guide'
+  | 'playlist-not-ready'
+  | 'guide-not-ready'
+  | 'playlist-content-invalid'
+  | 'guide-content-invalid'
+  | 'playlist-unavailable'
+  | 'guide-unavailable'
+  | 'unsupported-format'
+  | 'too-large'
+  | 'stale-selection'
+  | 'unmatched-identity'
+  | 'ambiguous-identity'
+  | 'check-unavailable'
+
+export type PlaylistGuideMatchResult = {
+  matchStatus: MatchStatus
+  playlistEntryCount: number | null
+  guideChannelCount: number | null
+  matchedCount: number | null
+  unmatchedPlaylistCount: number | null
+  ambiguousCount: number | null
+  guideOnlyCount: number | null
+  requiresReview: boolean
+  reasonCode: MatchReasonCode | null
+}
+
 export type SetupSelectionState = {
   kind: SetupSelectionKind
   status: SetupSelectionStatus
@@ -85,7 +114,21 @@ export type GuideContentState = {
   programmeCount: number | null
 }
 
+export type PlaylistGuideMatchState = {
+  status: MatchStatus
+  label: string
+  detail: string
+  playlistEntryCount: number | null
+  guideChannelCount: number | null
+  matchedCount: number | null
+  unmatchedPlaylistCount: number | null
+  ambiguousCount: number | null
+  guideOnlyCount: number | null
+  requiresReview: boolean
+}
+
 export type SetupPicker = (kind: SetupSelectionKind) => Promise<SetupSelectionResult>
+export type SetupMatcher = () => Promise<PlaylistGuideMatchResult>
 
 const kindLabels: Record<SetupSelectionKind, string> = {
   workspace: 'Workspace',
@@ -112,6 +155,115 @@ const guideContentLabels: Record<GuideContentStatus, string> = {
   checking: 'Checking',
   checked: 'Checked',
   'needs-attention': 'Needs attention',
+}
+const matchLabels: Record<MatchStatus, string> = {
+  'not-checked': 'Not checked',
+  checking: 'Checking',
+  checked: 'Checked',
+  'needs-attention': 'Needs attention',
+  'review-needed': 'Review needed',
+  blocked: 'Blocked',
+}
+
+export function createInitialPlaylistGuideMatchState(): PlaylistGuideMatchState {
+  return {
+    status: 'not-checked',
+    label: matchLabels['not-checked'],
+    detail: 'Playlist and guide matching has not been checked.',
+    playlistEntryCount: null,
+    guideChannelCount: null,
+    matchedCount: null,
+    unmatchedPlaylistCount: null,
+    ambiguousCount: null,
+    guideOnlyCount: null,
+    requiresReview: false,
+  }
+}
+
+export function setPlaylistGuideMatchChecking(): PlaylistGuideMatchState {
+  return {
+    ...createInitialPlaylistGuideMatchState(),
+    status: 'checking',
+    label: matchLabels.checking,
+    detail: 'Checking playlist and guide matching...',
+  }
+}
+
+function matchReasonMessage(reasonCode: MatchReasonCode | null): string {
+  if (
+    reasonCode === 'missing-playlist' ||
+    reasonCode === 'missing-guide' ||
+    reasonCode === 'playlist-not-ready' ||
+    reasonCode === 'guide-not-ready'
+  ) {
+    return 'Choose and check both files before checking their match.'
+  }
+  if (reasonCode === 'stale-selection') {
+    return 'The selected files changed. Check the playlist and guide again.'
+  }
+  if (reasonCode === 'unsupported-format') {
+    return 'The guide format cannot be checked. Choose a supported XMLTV guide.'
+  }
+  if (reasonCode === 'too-large') {
+    return 'The selected file is too large to check safely.'
+  }
+  if (reasonCode === 'playlist-content-invalid' || reasonCode === 'guide-content-invalid') {
+    return 'The playlist or guide content needs attention before matching.'
+  }
+  if (reasonCode === 'playlist-unavailable' || reasonCode === 'guide-unavailable') {
+    return 'The selected playlist or guide cannot be opened.'
+  }
+  return 'The match could not be checked. Try again.'
+}
+
+export function playlistGuideMatchStateFromResult(result: PlaylistGuideMatchResult): PlaylistGuideMatchState {
+  const status = result.matchStatus
+  const counts = {
+    playlistEntryCount: result.playlistEntryCount,
+    guideChannelCount: result.guideChannelCount,
+    matchedCount: result.matchedCount,
+    unmatchedPlaylistCount: result.unmatchedPlaylistCount,
+    ambiguousCount: result.ambiguousCount,
+    guideOnlyCount: result.guideOnlyCount,
+    requiresReview: result.requiresReview,
+  }
+  if (status === 'checked') {
+    return {
+      ...counts,
+      status,
+      label: matchLabels[status],
+      detail: `Match checked. ${result.matchedCount ?? 0} playlist channel entries matched.`,
+    }
+  }
+  if (status === 'needs-attention') {
+    return {
+      ...counts,
+      status,
+      label: matchLabels[status],
+      detail: `Match checked. ${result.unmatchedPlaylistCount ?? 0} playlist channel entries have no guide match.`,
+    }
+  }
+  if (status === 'review-needed') {
+    return {
+      ...counts,
+      status,
+      label: matchLabels[status],
+      detail: `Review needed. ${result.ambiguousCount ?? 0} playlist channel entries need review.`,
+    }
+  }
+  return {
+    ...counts,
+    status,
+    label: matchLabels[status],
+    detail: matchReasonMessage(result.reasonCode),
+  }
+}
+
+export function safeMatchMessage(result: PlaylistGuideMatchResult): string | null {
+  if (result.matchStatus === 'blocked') {
+    return matchReasonMessage(result.reasonCode)
+  }
+  return null
 }
 
 export function createInitialPlaylistContentState(): PlaylistContentState {
@@ -305,7 +457,10 @@ export function selectionStateFromResult(result: SetupSelectionResult): SetupSel
   }
 }
 
-export function setSetupSelectionChecking(states: SetupSelectionStates, kind: SetupSelectionKind): SetupSelectionStates {
+export function setSetupSelectionChecking(
+  states: SetupSelectionStates,
+  kind: SetupSelectionKind,
+): SetupSelectionStates {
   return {
     ...states,
     [kind]: {
@@ -317,7 +472,10 @@ export function setSetupSelectionChecking(states: SetupSelectionStates, kind: Se
   }
 }
 
-export function applySetupSelectionResult(states: SetupSelectionStates, result: SetupSelectionResult): SetupSelectionStates {
+export function applySetupSelectionResult(
+  states: SetupSelectionStates,
+  result: SetupSelectionResult,
+): SetupSelectionStates {
   if (result.outcome !== 'selected' || result.selectionStatus !== 'selected') {
     return states
   }
