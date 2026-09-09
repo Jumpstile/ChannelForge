@@ -118,7 +118,8 @@ Working today:
 | Playlist structural content validation | Works now — structural only                      |
 | Guide structural content validation    | Works now — structural only                      |
 | Playlist/guide exact matching          | Implemented — local checks passed; PR/CI pending |
-| Lineup review and saved lineup         | Planned / not built yet                          |
+| Lineup review                          | Implemented — local checks passed; PR/CI pending |
+| Saved lineup                           | Planned / not built yet                          |
 | Automatic updates                      | Planned / not built yet                          |
 
 ---
