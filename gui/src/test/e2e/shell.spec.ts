@@ -93,3 +93,63 @@ test('renders all synthetic state gallery cards', async ({ page }) => {
   }
   await expect(page.getByText('Synthetic data only')).toBeVisible()
 })
+
+test('opens read-only lineup review after a safe aggregate result', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'isTauri', { configurable: true, value: true })
+    const selected = (kind) => ({
+      kind,
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      ...(kind === 'playlist'
+        ? { playlistContent: { contentStatus: 'checked', entryCount: 2, reasonCode: null } }
+        : kind === 'guide'
+          ? { guideContent: { contentStatus: 'checked', channelCount: 2, programmeCount: 4, reasonCode: null } }
+          : {}),
+    })
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {
+        invoke: async (command, args) => {
+          if (command === 'choose_setup_item') return selected(args.kind)
+          if (command === 'check_playlist_guide_match') {
+            return {
+              matchStatus: 'needs-attention',
+              playlistEntryCount: 2,
+              guideChannelCount: 2,
+              matchedCount: 1,
+              unmatchedPlaylistCount: 1,
+              ambiguousCount: 0,
+              guideOnlyCount: 0,
+              requiresReview: false,
+              reasonCode: 'unmatched-identity',
+            }
+          }
+          throw new Error(`Unexpected command: ${command}`)
+        },
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
+  await page.getByRole('button', { name: 'Choose workspace' }).click()
+  await page.getByRole('button', { name: 'Add playlist' }).click()
+  await page.getByRole('button', { name: 'Add guide' }).click()
+  await page.getByRole('button', { name: 'Check playlist and guide' }).click()
+  await expect(page.getByRole('button', { name: 'Open lineup review' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Open lineup review' }).click()
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Review playlist and guide coverage' })).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: /Coverage needs/ }).getByText('1 playlist entries have no guide match.', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: /Saved lineup/ })).toBeDisabled()
+  for (const action of ['Accept', 'Apply', 'Resolve', 'Save', 'Export', 'Publish']) {
+    await expect(page.getByRole('button', { name: action, exact: true })).toHaveCount(0)
+  }
+  await expect(page.locator('body')).not.toContainText('https://secret.invalid')
+  await expect(page.locator('body')).not.toContainText('playlist-id-secret')
+  await expect(page.locator('body')).not.toContainText('programme-title-secret')
+})

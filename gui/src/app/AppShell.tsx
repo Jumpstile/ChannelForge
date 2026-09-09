@@ -10,13 +10,14 @@ import { TopBar } from '../components/TopBar'
 type AppShellProps = {
   activePage: NavigationId
   onNavigate: (page: NavigationId) => void
+  navigationAvailability?: Partial<Record<NavigationId, boolean>>
   children: ReactNode
 }
 
-export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
+export function AppShell({ activePage, onNavigate, navigationAvailability, children }: AppShellProps) {
   return (
     <div className="app-frame">
-      <SideNav activePage={activePage} onNavigate={onNavigate} />
+      <SideNav activePage={activePage} navigationAvailability={navigationAvailability} onNavigate={onNavigate} />
       <div className="app-content">
         <TopBar>
           <WorkspaceIdentity identity={demoWorkspaceIdentity} />
