@@ -127,6 +127,57 @@ export type PlaylistGuideMatchState = {
   requiresReview: boolean
 }
 
+export type SavedLineupPlanStatus = 'not-ready' | 'ready' | 'blocked' | 'stale'
+export type AcceptedLineupStatus = 'none' | 'present' | 'unavailable'
+export type CandidateFreshness = 'current' | 'stale' | 'unknown'
+export type SavedLineupReasonCode = 'not-eligible' | 'stale-candidate' | 'stale-parent' | 'native-unavailable' | 'acceptance-failed'
+
+export type SavedLineupPlan = {
+  planStatus: SavedLineupPlanStatus
+  playlistEntryCount: number | null
+  guideChannelCount: number | null
+  matchedCount: number | null
+  unmatchedPlaylistCount: number | null
+  ambiguousCount: number | null
+  guideOnlyCount: number | null
+  requiresReview: boolean
+  acceptedLineupStatus: AcceptedLineupStatus
+  candidateFreshness: CandidateFreshness
+  acceptedEntryCount: number | null
+}
+
+export type SavedLineupResult = {
+  saveStatus: 'saved' | 'blocked' | 'stale'
+  acceptedLineupStatus: AcceptedLineupStatus
+  acceptedEntryCount: number | null
+  reasonCode: SavedLineupReasonCode | null
+}
+
+export type SavedLineupPlanner = () => Promise<SavedLineupPlan>
+export type SavedLineupAcceptor = () => Promise<SavedLineupResult>
+export function acceptedLineupStatusAfterMatchStateChange(
+  currentStatus: AcceptedLineupStatus,
+  nextStatus: MatchStatus,
+): AcceptedLineupStatus {
+  return nextStatus === 'not-checked' ? 'unavailable' : currentStatus
+}
+
+export function createUnavailableSavedLineupPlan(): SavedLineupPlan {
+  return {
+    planStatus: 'blocked',
+    playlistEntryCount: null,
+    guideChannelCount: null,
+    matchedCount: null,
+    unmatchedPlaylistCount: null,
+    ambiguousCount: null,
+    guideOnlyCount: null,
+    requiresReview: false,
+    acceptedLineupStatus: 'unavailable',
+    candidateFreshness: 'unknown',
+    acceptedEntryCount: null,
+  }
+}
+
 export type SetupPicker = (kind: SetupSelectionKind) => Promise<SetupSelectionResult>
 export type SetupMatcher = () => Promise<PlaylistGuideMatchResult>
 

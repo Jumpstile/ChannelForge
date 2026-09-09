@@ -1,8 +1,17 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import App from '../App'
-import type { SetupMatcher, SetupPicker, SetupSelectionKind, SetupSelectionResult } from '../app/setupSelection'
+import { acceptedLineupStatusAfterMatchStateChange } from '../app/setupSelection'
+import type {
+  SavedLineupAcceptor,
+  SavedLineupPlanner,
+  SavedLineupResult,
+  SetupMatcher,
+  SetupPicker,
+  SetupSelectionKind,
+  SetupSelectionResult,
+} from '../app/setupSelection'
 
 function selectedResult(kind: SetupSelectionKind): SetupSelectionResult {
   return {
@@ -20,6 +29,12 @@ function selectedResult(kind: SetupSelectionKind): SetupSelectionResult {
 }
 
 describe('navigation shell', () => {
+  it('retains accepted evidence during native match rechecks', () => {
+    expect(acceptedLineupStatusAfterMatchStateChange('present', 'checking')).toBe('present')
+    expect(acceptedLineupStatusAfterMatchStateChange('present', 'checked')).toBe('present')
+    expect(acceptedLineupStatusAfterMatchStateChange('present', 'not-checked')).toBe('unavailable')
+  })
+
   it('starts at Workbench and opens the synthetic state gallery without backend work', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -95,5 +110,62 @@ describe('navigation shell', () => {
     for (const action of ['Accept', 'Apply', 'Resolve', 'Save', 'Export', 'Publish']) {
       expect(screen.queryByRole('button', { name: new RegExp(`^${action}$`) })).not.toBeInTheDocument()
     }
+  })
+
+  it('enables Saved lineup only after native save success', async () => {
+    const user = userEvent.setup()
+    const picker = vi.fn<SetupPicker>(async (kind) => selectedResult(kind))
+    const matcher = vi.fn<SetupMatcher>().mockResolvedValue({
+      matchStatus: 'checked',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 2,
+      unmatchedPlaylistCount: 0,
+      ambiguousCount: 0,
+      guideOnlyCount: 0,
+      requiresReview: false,
+      reasonCode: null,
+    })
+    const planner = vi.fn<SavedLineupPlanner>().mockResolvedValue({
+      planStatus: 'ready',
+      playlistEntryCount: 2,
+      guideChannelCount: 2,
+      matchedCount: 2,
+      unmatchedPlaylistCount: 0,
+      ambiguousCount: 0,
+      guideOnlyCount: 0,
+      requiresReview: false,
+      acceptedLineupStatus: 'none',
+      candidateFreshness: 'current',
+      acceptedEntryCount: null,
+    })
+    const saved: SavedLineupResult = {
+      saveStatus: 'saved',
+      acceptedLineupStatus: 'present',
+      acceptedEntryCount: 2,
+      reasonCode: null,
+    }
+    const acceptor = vi.fn<SavedLineupAcceptor>().mockResolvedValue(saved)
+    render(<App acceptor={acceptor} matcher={matcher} picker={picker} pickerAvailable planner={planner} />)
+
+    expect(screen.getByRole('button', { name: /Saved lineup Next/ })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Guided Setup' }))
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.click(screen.getByRole('button', { name: 'Check playlist and guide' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open lineup review' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Open lineup review' }))
+    await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
+    await user.click(screen.getByRole('button', { name: 'Save lineup' }))
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('checkbox', { name: /understand/i }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save lineup' }))
+    await waitFor(() => expect(acceptor).toHaveBeenCalledOnce())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Saved lineup(?! Next)/ })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Workbench' }))
+    expect(screen.getByRole('button', { name: /Saved lineup(?! Next)/ })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: /Saved lineup(?! Next)/ }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Your saved lineup' })).toBeInTheDocument()
   })
 })
