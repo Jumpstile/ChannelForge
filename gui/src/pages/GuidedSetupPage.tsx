@@ -19,6 +19,8 @@ import {
   setPlaylistGuideMatchChecking,
   setSetupSelectionChecking,
   setupSelectionStates,
+  isPlaylistGuideReviewAvailable,
+  type PlaylistGuideMatchState,
   type SetupMatcher,
   type SetupPicker,
   type SetupSelectionKind,
@@ -76,13 +78,30 @@ type GuidedSetupPageProps = {
   picker?: SetupPicker
   matcher?: SetupMatcher
   pickerAvailable?: boolean
+  matchState?: PlaylistGuideMatchState
+  onMatchStateChange?: (state: PlaylistGuideMatchState) => void
+  onOpenReview?: () => void
 }
 
-export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlaylistGuideMatch, pickerAvailable = nativePickerAvailable }: GuidedSetupPageProps = {}) {
+export function GuidedSetupPage({
+  picker = chooseSetupItem,
+  matcher = checkPlaylistGuideMatch,
+  pickerAvailable = nativePickerAvailable,
+  matchState: externalMatchState,
+  onMatchStateChange,
+  onOpenReview,
+}: GuidedSetupPageProps = {}) {
   const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
   const [playlistContent, setPlaylistContent] = useState(createInitialPlaylistContentState)
   const [guideContent, setGuideContent] = useState(createInitialGuideContentState)
-  const [matchState, setMatchState] = useState(createInitialPlaylistGuideMatchState)
+  const [localMatchState, setLocalMatchState] = useState(createInitialPlaylistGuideMatchState)
+  const matchState = externalMatchState ?? localMatchState
+  const updateMatchState = (nextState: PlaylistGuideMatchState) => {
+    if (externalMatchState === undefined) {
+      setLocalMatchState(nextState)
+    }
+    onMatchStateChange?.(nextState)
+  }
   const [pendingKind, setPendingKind] = useState<SetupSelectionKind | null>(null)
   const [matching, setMatching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
@@ -94,7 +113,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlayl
     const previousStates = selectionStates
     const previousPlaylistContent = playlistContent
     const previousGuideContent = guideContent
-    setMatchState(createInitialPlaylistGuideMatchState())
+    updateMatchState(createInitialPlaylistGuideMatchState())
     setSelectionStates((states) => setSetupSelectionChecking(states, kind))
     if (kind === 'playlist') {
       setPlaylistContent(setPlaylistContentChecking())
@@ -146,12 +165,12 @@ export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlayl
   const handleMatch = async () => {
     const operationVersion = selectionVersion.current
     setMatching(true)
-    setMatchState(setPlaylistGuideMatchChecking())
+    updateMatchState(setPlaylistGuideMatchChecking())
     setPickerError(null)
     try {
       const result = await matcher()
       if (operationVersion !== selectionVersion.current) return
-      setMatchState(playlistGuideMatchStateFromResult(result))
+      updateMatchState(playlistGuideMatchStateFromResult(result))
       setPickerError(safeMatchMessage(result))
     } catch {
       if (operationVersion !== selectionVersion.current) return
@@ -166,7 +185,7 @@ export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlayl
         requiresReview: false,
         reasonCode: 'check-unavailable' as const,
       }
-      setMatchState(playlistGuideMatchStateFromResult(result))
+      updateMatchState(playlistGuideMatchStateFromResult(result))
       setPickerError(safeMatchMessage(result))
     } finally {
       if (operationVersion === selectionVersion.current) {
@@ -312,6 +331,11 @@ export function GuidedSetupPage({ picker = chooseSetupItem, matcher = checkPlayl
         <p className="setup-match-note">This is a comparison only. Nothing changes automatically. Channel IDs, programme titles, and stream URLs stay hidden.</p>
         <div className="setup-step-footer">
           <span className="setup-step-status">{canMatch ? 'Ready to check' : 'Check both files first'}</span>
+          {onOpenReview && isPlaylistGuideReviewAvailable(matchState) ? (
+            <button className="button button-secondary" type="button" onClick={onOpenReview}>
+              Open lineup review
+            </button>
+          ) : null}
           <button aria-busy={matching} className="button button-primary" disabled={!canMatch} type="button" onClick={() => void handleMatch()}>
             {matching ? 'Checking match…' : 'Check playlist and guide'}
           </button>

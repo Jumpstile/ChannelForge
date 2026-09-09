@@ -5,9 +5,10 @@ import { navigationGroups } from '../app/navigation'
 type SideNavProps = {
   activePage: NavigationId
   onNavigate: (page: NavigationId) => void
+  navigationAvailability?: Partial<Record<NavigationId, boolean>>
 }
 
-export function SideNav({ activePage, onNavigate }: SideNavProps) {
+export function SideNav({ activePage, onNavigate, navigationAvailability }: SideNavProps) {
   return (
     <aside className="side-nav" aria-label="ChannelForge workflow">
       <div className="side-nav-intro">
@@ -21,18 +22,18 @@ export function SideNav({ activePage, onNavigate }: SideNavProps) {
             <div className="nav-items">
               {group.items.map((item) => {
                 const isActive = activePage === item.id
+                const isAvailable = navigationAvailability?.[item.id] ?? item.available
                 return (
                   <button
                     className={`nav-item${isActive ? ' is-active' : ''}`}
-                    disabled={!item.available}
+                    disabled={!isAvailable}
                     key={item.id}
                     onClick={() => onNavigate(item.id)}
-                    title={item.available ? item.description : `${item.description} · Next slice`}
-                    type="button"
+                    title={isAvailable ? item.description : `${item.description} · Next slice`}
                   >
                     <Circle className="nav-item-dot" size={8} fill="currentColor" aria-hidden="true" />
                     <span className="nav-item-label">{item.label}</span>
-                    {!item.available && <span className="nav-item-planned">Next</span>}
+                    {!isAvailable && <span className="nav-item-planned">Next</span>}
                     {isActive && <ArrowRight className="nav-item-arrow" size={15} aria-hidden="true" />}
                   </button>
                 )

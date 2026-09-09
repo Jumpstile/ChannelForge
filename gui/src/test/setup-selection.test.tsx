@@ -7,6 +7,7 @@ import {
   guideContentStateFromResult,
   playlistContentStateFromResult,
   playlistGuideMatchStateFromResult,
+  safeMatchMessage,
   setPlaylistGuideMatchChecking,
   setSetupSelectionChecking,
   setupSelectionStates,
@@ -211,5 +212,36 @@ describe('display-safe setup selection contract', () => {
     expect(JSON.stringify(review)).not.toMatch(
       /(?:channel-id|hidden|title|https?:\/\/|[A-Za-z]:[\\/]|token|password|secret|credential)/i,
     )
+  })
+
+  it.each([
+    ['missing-playlist', 'Choose and check both files before checking their match.'],
+    ['missing-guide', 'Choose and check both files before checking their match.'],
+    ['playlist-not-ready', 'Choose and check both files before checking their match.'],
+    ['guide-not-ready', 'Choose and check both files before checking their match.'],
+    ['playlist-content-invalid', 'The playlist or guide content needs attention before matching.'],
+    ['guide-content-invalid', 'The playlist or guide content needs attention before matching.'],
+    ['playlist-unavailable', 'The selected playlist or guide cannot be opened.'],
+    ['guide-unavailable', 'The selected playlist or guide cannot be opened.'],
+    ['unsupported-format', 'The guide format cannot be checked. Choose a supported XMLTV guide.'],
+    ['too-large', 'The selected file is too large to check safely.'],
+    ['stale-selection', 'The selected files changed. Check the playlist and guide again.'],
+    ['unmatched-identity', 'The match could not be checked. Try again.'],
+    ['ambiguous-identity', 'The match could not be checked. Try again.'],
+    ['check-unavailable', 'The match could not be checked. Try again.'],
+  ] as const)('maps the %s reason to fixed copy', (reasonCode, expected) => {
+    expect(
+      safeMatchMessage({
+        matchStatus: 'blocked',
+        playlistEntryCount: null,
+        guideChannelCount: null,
+        matchedCount: null,
+        unmatchedPlaylistCount: null,
+        ambiguousCount: null,
+        guideOnlyCount: null,
+        requiresReview: false,
+        reasonCode,
+      }),
+    ).toBe(expected)
   })
 })
