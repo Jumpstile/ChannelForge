@@ -153,3 +153,84 @@ test('opens read-only lineup review after a safe aggregate result', async ({ pag
   await expect(page.locator('body')).not.toContainText('playlist-id-secret')
   await expect(page.locator('body')).not.toContainText('programme-title-secret')
 })
+
+test('saves a checked lineup only after accessible confirmation', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'isTauri', { configurable: true, value: true })
+    const selected = (kind) => ({
+      kind,
+      outcome: 'selected',
+      selectionStatus: 'selected',
+      validationStatus: 'ready-to-inspect',
+      reasonCode: null,
+      ...(kind === 'playlist'
+        ? { playlistContent: { contentStatus: 'checked', entryCount: 2, reasonCode: null } }
+        : kind === 'guide'
+          ? { guideContent: { contentStatus: 'checked', channelCount: 2, programmeCount: 4, reasonCode: null } }
+          : {}),
+    })
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {
+        invoke: async (command, args) => {
+          if (command === 'choose_setup_item') return selected(args.kind)
+          if (command === 'check_playlist_guide_match') {
+            return {
+              matchStatus: 'checked',
+              playlistEntryCount: 2,
+              guideChannelCount: 2,
+              matchedCount: 2,
+              unmatchedPlaylistCount: 0,
+              ambiguousCount: 0,
+              guideOnlyCount: 0,
+              requiresReview: false,
+              reasonCode: null,
+            }
+          }
+          if (command === 'prepare_saved_lineup_plan') {
+            return {
+              planStatus: 'ready',
+              playlistEntryCount: 2,
+              guideChannelCount: 2,
+              matchedCount: 2,
+              unmatchedPlaylistCount: 0,
+              ambiguousCount: 0,
+              guideOnlyCount: 0,
+              requiresReview: false,
+              acceptedLineupStatus: 'none',
+              candidateFreshness: 'current',
+              acceptedEntryCount: null,
+            }
+          }
+          if (command === 'accept_saved_lineup') {
+            return {
+              saveStatus: 'saved',
+              acceptedLineupStatus: 'present',
+              acceptedEntryCount: 2,
+              reasonCode: null,
+            }
+          }
+          throw new Error(`Unexpected command: ${command}`)
+        },
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
+  await page.getByRole('button', { name: 'Choose workspace' }).click()
+  await page.getByRole('button', { name: 'Add playlist' }).click()
+  await page.getByRole('button', { name: 'Add guide' }).click()
+  await page.getByRole('button', { name: 'Check playlist and guide' }).click()
+  await page.getByRole('button', { name: 'Open lineup review' }).click()
+  await page.getByRole('button', { name: 'Prepare save preview' }).click()
+  await page.getByRole('button', { name: 'Save lineup' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Save lineup' })).toBeDisabled()
+  await dialog.getByRole('checkbox', { name: /understand/i }).check()
+  await dialog.getByRole('button', { name: 'Save lineup' }).click()
+  await expect(page.getByText('Saved lineup is available from the Saved lineup navigation item.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Saved lineup(?! Next)/ })).toBeEnabled()
+  await expect(page.locator('body')).not.toContainText('https://')
+  await expect(page.locator('body')).not.toContainText('C:\\')
+})

@@ -1,6 +1,10 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type {
   PlaylistGuideMatchResult,
+  SavedLineupAcceptor,
+  SavedLineupPlan,
+  SavedLineupPlanner,
+  SavedLineupResult,
   SetupMatcher,
   SetupPicker,
   SetupSelectionKind,
@@ -14,3 +18,9 @@ export const chooseSetupItem: SetupPicker = (kind: SetupSelectionKind): Promise<
 
 export const checkPlaylistGuideMatch: SetupMatcher = (): Promise<PlaylistGuideMatchResult> =>
   invoke<PlaylistGuideMatchResult>('check_playlist_guide_match')
+
+export const prepareSavedLineupPlan: SavedLineupPlanner = (): Promise<SavedLineupPlan> =>
+  invoke<SavedLineupPlan>('prepare_saved_lineup_plan')
+
+export const acceptSavedLineup: SavedLineupAcceptor = (): Promise<SavedLineupResult> =>
+  invoke<SavedLineupResult>('accept_saved_lineup')

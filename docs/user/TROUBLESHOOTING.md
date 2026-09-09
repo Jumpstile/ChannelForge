@@ -40,7 +40,17 @@ The lineup review screen is a read-only summary of one local M3U playlist and on
 - **Review needed** means duplicate or non-unique identity relationships prevent safe automatic selection. ChannelForge does not choose an ambiguous relationship automatically.
 - **Blocked** means the files are missing, not ready, unavailable, stale, or unsafe to inspect. Return to Guided Setup and check both files again.
 
-The review reports aggregate counts only. It does not display channel IDs, programme titles, stream URLs, filenames, paths, credentials, or parser errors. It does not build, save, export, publish, or modify a lineup.
+The review reports aggregate counts only. It does not display channel IDs, programme titles, stream URLs, filenames, paths, credentials, or parser errors. Review and plan preparation are read-only; only an acknowledged Save action can request native acceptance.
+
+### GUI saved lineup
+
+The GUI can prepare a saved-lineup plan only after native matching reports **Checked**. Needs-attention (including guide-only coverage), review-needed, blocked, checking, not-checked, stale, and unavailable states are intentionally save-blocking. The review page remains read-only until **Prepare save** returns a ready plan.
+
+If **Save lineup** is disabled, first resolve the match state and run **Prepare save** again. The confirmation checkbox is required; it is deliberately not remembered between dialogs. Cancel, Escape, closing the dialog, or leaving the checkbox clear performs no native acceptance call and does not change accepted state.
+
+If the native plan or acceptance is unavailable, confirm that the selected workspace contains the expected ChannelForge inputs and that `pwsh` is installed. Native output is not shown in the GUI. If acceptance reports a stale result, re-run the match and prepare a new plan; the old candidate is discarded and cannot be retried as accepted state.
+
+After a successful native acceptance, **Your saved lineup** is available as a redacted, read-only view. It is not an export, scheduler, target-publishing, release, or tester-distribution feature.
 
 ## FAQ
 

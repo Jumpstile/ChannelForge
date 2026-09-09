@@ -1,3 +1,5 @@
+node_modules/
+
 # generated output
 output/
 backups/

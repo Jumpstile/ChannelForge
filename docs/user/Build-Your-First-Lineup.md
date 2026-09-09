@@ -12,16 +12,18 @@ Your playlist and guide are private input. Keep them local; never commit or past
 
 ## One safe flow
 
-The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, pauses only for material guide ambiguity, shows a concise proposal, and publishes only after explicit `-Accept`:
+The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.
 
 ```text
 IPTV playlist (M3U) + optional TV guide (XMLTV)
              │
              ▼
-     scripts/Build-My-Lineup.ps1
-             ├─ proposal (accepted lineup unchanged)
-             └─ -Accept → accepted lineup
+     candidate + read-only plan
+             ├─ GUI: explicit acknowledgement → native acceptance boundary
+             └─ CLI: -Accept → native acceptance boundary
 ```
+
+The native acceptance boundary revalidates the candidate, accepted parent, input fingerprints, and preconditions before staging and publishing. React does not promote files, update an accepted pointer, or maintain a second accepted-state model.
 
 Run it from the repository root:
 
@@ -37,7 +39,7 @@ pwsh -File scripts/Build-My-Lineup.ps1 `
   -XMLTVPath C:\private\guide.xml
 ```
 
-Review the proposal in `output/reports/guided-setup-plan.md`. Nothing is accepted yet. If it is correct, rerun with `-Accept`. When the guide contains a material ambiguous identity, the flow asks whether to keep the channels but publish no guide, or cancel; it never guesses which guide entry belongs to a channel.
+Review the proposal in `output/reports/guided-setup-plan.md`. Nothing is accepted yet. If it is correct, rerun with `-Accept`. For the CLI, a material ambiguous identity prompts whether to keep the channels but publish no guide or cancel; it never guesses which guide entry belongs to a channel. The GUI uses the native cancel-on-ambiguity boundary.
 If an accepted lineup already has a guide, the safe result for a later ambiguous guide is cancellation; the existing accepted guide remains unchanged.
 
 ```powershell
@@ -64,6 +66,14 @@ pwsh -File scripts/Build-My-Lineup.ps1 `
 
 The flow reuses the existing M3U/XMLTV importers and safe publication boundary. It does not modify provider accounts, provider state, or downstream players.
 If the accepted lineup publishes but the stable consumer view cannot be refreshed, the accepted lineup remains authoritative; rerun the command to refresh the consumer files.
+
+## GUI saved lineup
+
+The GUI's Lineup Review page shows aggregate coverage first. Select **Prepare save** to request a native, read-only candidate plan. Only a **Checked** result with a ready plan enables **Save lineup**. Needs-attention (including guide-only coverage), review-needed, blocked, checking, not-checked, stale, or unavailable results cannot be saved.
+
+**Save lineup** opens an accessible confirmation dialog. The save button remains disabled until you acknowledge that the aggregate review is correct. Cancel, Escape, closing the dialog, or leaving the acknowledgement unchecked performs no native acceptance call and does not mutate accepted state. On confirmation, the native bridge revalidates and owns staging, the journal, accepted pointer, recovery, and accepted-state authority.
+
+After native success, the GUI exposes **Your saved lineup** as a read-only accepted-state view. It does not export, schedule, release, publish to a target, or distribute tester artifacts. The GUI never displays channel identities, programme titles, stream URLs, paths, hashes, generation IDs, provider credentials, or raw native output.
 
 ## Preview source refresh readiness
 
