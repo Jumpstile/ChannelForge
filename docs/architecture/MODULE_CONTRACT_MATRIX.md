@@ -46,17 +46,8 @@ This artifact satisfies the matrix portion of #74 by documenting, for all twelve
 
 It also provides the explicit dependency-direction artifact required by ADR 0007 and confirms that application entry points remain orchestration-only.
 
-## What remains before #72 can close
+## Governance gate status
 
-The matrix alone does not close #72. The parent governance gate still requires:
+The #72 parent governance gate and its #73–#78/#61 contract and security dependencies are closed according to the repository governance reconciliation. The matrix remains a boundary artifact; it does not itself authorize unrelated feature work, physical module splits, updater behavior, or `pr-23-auto-update` merges.
 
-- #73 completion.
-- #74 completion and approval of this matrix.
-- #75 completion of canonical abstraction ownership and lifecycle definitions.
-- #76 completion of state-category authority definitions.
-- #77 completion of determinism contract and verification artifacts.
-- #61 and #78 completion of security evidence gates.
-- Confirmation that module, state, determinism, and security contracts are explicit.
-- Confirmation that feature implementation remains blocked until the parent gate is complete.
-
-This document authorizes no feature implementation, physical module split, updater behavior, or `pr-23-auto-update` merge.
+Feature work still requires a scoped authorization and must preserve the dependency direction, state-category authority, determinism, security, and review boundaries described here. The Stage B native event-pattern slice is explicitly read-only and remains within the evidence/confidence boundary.

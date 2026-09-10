@@ -32,6 +32,10 @@ An enabled provider source without `local_playlist` may be acquired through the 
 
 Remote M3U cache metadata is an ignored, disposable, cache-private operational record. It may contain raw ETag and Last-Modified validators required for conditional requests; those values must never appear outside that cache-private metadata. In particular, they must not appear in build reports or evidence, Programme/Channel objects, generated M3U/XMLTV artifacts, logs or diagnostics, cache directory/file names, user-visible source identity, or Git-tracked data/configuration. The metadata itself excludes provider URLs, query strings, stream URLs, response bodies, credentials, selected addresses, and absolute paths. Build evidence contains only the opaque cache key and bounded operational fields such as outcome, status, normalized content type, encoding list, byte counts, parsed channel count, and validator-presence booleans. This slice performs no authentication, credential handling, proxying, redirect following, or stale/offline publication.
 
+## Native Guide Inference Reports
+
+`Invoke-ChannelForgeGuidePatternInference` treats provider display text and Stage A evidence as untrusted input. Its candidate, preview, review items, and provenance retain only sanitized event text, logical source identifiers, and fingerprints of sanitized examples. URL/stream URL, credential/token, private-path, parser-error, candidate-hash, and generation-ID fields are excluded from the output. Use ignored local files for real guides and playlists; never paste their raw contents into a fixture, report, or issue.
+
 ## Starting from the Example Templates
 
 Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.

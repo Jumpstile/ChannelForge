@@ -27,9 +27,29 @@ An **event guide** describes changing programming such as a UFC or other fight, 
 
 An **AED-derived** guide is XMLTV or M3U metadata exported by an external tool such as IPTVBoss. ChannelForge can consume a documented export as a migration or bootstrap input, but the export is evidence, not automatic truth. ChannelForge compares it with other permitted evidence, preserves freshness and provenance, and sends ambiguity to review.
 
-Normal users should not write regular expressions. Event-pattern learning is intended to infer bounded, explainable patterns from examples. Expert controls may exist for documented formats, but low-confidence or contradictory timing is never silently accepted.
+Normal users should not write regular expressions. The native Stage B preview infers bounded, explainable semantic fields from representative examples. Expert regex/date/time controls are not part of this first native slice; low-confidence or contradictory timing is never silently accepted.
 
 Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
+
+### Native event-pattern preview
+
+Give ChannelForge a few representative event-channel names. It returns a read-only candidate rule and an extraction preview; it does not publish a guide or change a lineup:
+
+```powershell
+$result = Invoke-ChannelForgeGuidePatternInference `
+  -Examples @(
+    'UFC 01: Pereira vs Hill // UK Sat 13 Apr 10:00pm // ET Sat 13 Apr 5:00pm',
+    'UFC 02: Fight Night // UK Sat 20 Apr 10:00pm // ET Sat 20 Apr 5:00pm'
+  ) `
+  -TimezoneMap ([ordered]@{ UK = '+00:00'; ET = '-05:00' }) `
+  -ReferenceInstantUtc '2024-04-15T00:00:00Z'
+
+$result.ExtractionPreview
+```
+
+The preview explains the channel identifier and ordinal, title, date, local time, source timezone labels, canonical `StartUtc`, participants, and event family when those facts are present. `Confirmed` and `SafeCandidate` mean the candidate is useful for review; they do not make it accepted. `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` remain visible and cannot replace accepted output.
+
+Yearless dates use the supplied reference instant rather than the machine clock. Abbreviations such as `ET` require an explicit mapping; duplicate timezone representations are compared before confidence can rise. A Stage A evidence input also preserves source relationship, freshness, confidence, and safe provenance fingerprints. Mirrors are not counted as independent agreement.
 
 ## What doesn't it do yet?
 
@@ -37,6 +57,7 @@ Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **u
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.
+- **Native event inference is a preview boundary, not a complete event-guide workflow.** Schedule adapters, persistent learned knowledge, AED-definition JSON import, expert overrides, automatic relearning/adoption, and guide publication are not included yet.
 
 See [Current Limitations](CURRENT_LIMITATIONS.md) for the full, task-oriented breakdown of implemented vs. planned, or the [repository README](../../README.md#current-status) and [ROADMAP](../../ROADMAP.md) for the exact engineering-level state — this page only summarizes for a first-time reader.
 
