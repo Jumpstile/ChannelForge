@@ -318,6 +318,21 @@ Describe 'Invoke-ChannelForgeGuidePatternInference' {
             -TimezoneMap (ConvertTo-StageBTimezoneMap -InputObject $fixture.timezoneMap) `
             -ReferenceInstantUtc ([datetimeoffset]$fixture.referenceInstantUtc) `
             -EventType Fight
+        $privateCase = @($fixture.cases | Where-Object { $_.caseId -eq 'private-path' })[0]
+        $privateFileFragment = ([string]$privateCase.parts[3] -split '\s+')[0]
+        $unsafeDefaultTimezone = @($privateCase.parts[0..2] + $privateFileFragment) -join ([string]$privateCase.joiner)
+        $defaultTimezoneResult = Invoke-ChannelForgeGuidePatternInference `
+            -Examples @(
+                'UFC 01: Fight // Sat 13 Apr 5:00pm',
+                'UFC 02: Fight // Sat 20 Apr 5:00pm'
+            ) `
+            -DefaultTimezone $unsafeDefaultTimezone `
+            -MinimumExamples 2 `
+            -ReferenceInstantUtc ([datetimeoffset]$fixture.referenceInstantUtc) `
+            -EventType Fight
+        $defaultTimezoneJson = $defaultTimezoneResult | ConvertTo-Json -Depth 20
+        $defaultTimezoneJson | Should -Not -Match ([regex]::Escape([string]$privateCase.parts[0]))
+        $defaultTimezoneJson | Should -Not -Match ([regex]::Escape($privateFileFragment))
         $json = $result | ConvertTo-Json -Depth 20
 
         foreach ($case in @($fixture.cases)) {
