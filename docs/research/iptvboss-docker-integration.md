@@ -25,7 +25,7 @@ A supported integration should prefer normal filesystem artifacts that IPTVBoss 
 
 Do not screen-scrape the IPTVBoss GUI and do not depend on undocumented application databases, private storage schemas, or internal AED files merely because they happen to be visible in a container volume.
 
-If IPTVBoss exposes a documented AED import/export format, ChannelForge may later translate that format into the structured event-pattern model tracked by Issue #121. Until such a documented format is confirmed, AED-derived XMLTV should remain the safe interoperability boundary.
+ChannelForge now has a read-only native event-pattern candidate model for supplied examples and Stage A evidence. A documented IPTVBoss AED import/export format may later be translated into that structured model; until a real documented export fixture is available, do not infer its schema or depend on private storage. AED-derived XMLTV remains a safe interoperability boundary.
 
 ## Recommended deployment relationship
 

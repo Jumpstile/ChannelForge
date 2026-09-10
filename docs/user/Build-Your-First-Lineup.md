@@ -18,6 +18,24 @@ ChannelForge may read an AED-derived XMLTV or M3U export as a migration/bootstra
 
 You do not need to write regular expressions in the beginner workflow. When event text is ambiguous, the safe result is **Needs review**, not a guessed programme. A **confirmed** result has coherent evidence; a **safe candidate** is useful but still provisional; **unresolved**, **contradictory**, **stale source**, and **source unavailable** results remain visible and cannot silently replace accepted output.
 
+For a read-only native pattern preview, use `Invoke-ChannelForgeGuidePatternInference` with several representative names. Supply explicit mappings for ambiguous abbreviations such as `ET`, and supply `-ReferenceInstantUtc` when examples omit a year:
+
+```powershell
+Import-Module ./src/ChannelForge/ChannelForge.psd1
+
+$pattern = Invoke-ChannelForgeGuidePatternInference `
+  -Examples @(
+    'UFC 01: Fight Night // UK Sat 13 Apr 10:00pm // ET Sat 13 Apr 5:00pm',
+    'UFC 02: Fight Night // UK Sat 20 Apr 10:00pm // ET Sat 20 Apr 5:00pm'
+  ) `
+  -TimezoneMap ([ordered]@{ UK = '+00:00'; ET = '-05:00' }) `
+  -ReferenceInstantUtc '2024-04-15T00:00:00Z'
+
+$pattern.ExtractionPreview
+```
+
+The result shows the inferred channel, title, date/time, timezone, canonical UTC start, participants, event family, confidence, provenance, and review reasons. It is always `CandidateOnly`, `ReadOnly`, and `CanPublish = false`; this preview does not alter provider state, downstream state, accepted state, or guide output. A Stage A evidence array can be supplied with `-Evidence` when structured source provenance is already available. AED-derived exports remain evidence, not a second accepted authority.
+
 ## One safe flow
 
 The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.

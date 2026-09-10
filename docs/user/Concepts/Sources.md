@@ -27,6 +27,12 @@ Every evidence record carries a confidence state and source relationship. **Conf
 
 These states are evidence about a guide, not permission to overwrite an accepted lineup. Stale or unavailable evidence preserves accepted state and last-known-good output.
 
+## Native pattern inference over sources
+
+`Invoke-ChannelForgeGuidePatternInference` can analyze plain representative display names or an array of Stage A evidence records. Plain examples receive the caller's source scope; evidence inputs retain their source ID, source family, evidence type, channel reference, freshness, confidence, and relationship. The result is a structured candidate with semantic field candidates and a per-example preview, not an accepted mapping.
+
+Independent sources may provide agreement or contradiction for the same channel reference. A mirror source is retained for provenance but is not counted as independent confirmation. Missing, stale, unavailable, ambiguous, or contradictory evidence produces review/degraded state and never removes a channel or replaces accepted knowledge. Passing an existing candidate rule enables deterministic drift comparison; a changed naming grammar is reported with adoption left `NotApplied`.
+
 ## Where to go next
 
 - Setting up your real sources? → [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)

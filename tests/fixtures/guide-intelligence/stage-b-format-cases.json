@@ -1,0 +1,74 @@
+{
+  "fixtureId": "stage-b-format-cases",
+  "minimumExamples": 4,
+  "referenceInstantUtc": "2024-04-15T00:00:00Z",
+  "timezoneMap": { "UTC": "+00:00" },
+  "cases": [
+    {
+      "caseId": "mixed-date-and-time-formats",
+      "eventType": "TemporaryEvent",
+      "examples": [
+        "Events 1: Gala: opener // UTC Apr 13 5:05pm",
+        "Events 2: Gala: main event // UTC 13 April 17:05",
+        "Events 3: Gala: encore // UTC 4/14 7:05",
+        "Events 4: Gala: replay // UTC 04.15 05:05 pm",
+        "Events 5: Gala: late replay // UTC 04.16 7:05 pm"
+      ],
+      "expected": {
+        "state": "Confirmed",
+        "dateFormats": ["M/dd", "MM.dd", "dd MMMM", "MMM dd"],
+        "timeFormats": ["H:mm", "HH:mm", "h:mm a", "hh:mm a", "h:mma"],
+        "title": "Gala: main event",
+        "secondStartUtc": "2024-04-13T17:05:00Z"
+      }
+    },
+    {
+      "caseId": "varying-prefix-and-ordinal-width",
+      "eventType": "League",
+      "examples": [
+        "League Event 1: Team Alpha vs Team Beta // UTC Sat 13 Apr 5pm",
+        "League Event 0023: Team Gamma vs Team Delta // UTC Sun 14 Apr 17:00",
+        "League Event 104: Team Epsilon vs Team Zeta // UTC Mon 15 Apr 5:00 pm",
+        "League Event 0004: Team Eta vs Team Theta // UTC Tue 16 Apr 05:00"
+      ],
+      "expected": {
+        "state": "Confirmed",
+        "identifier": "League Event",
+        "ordinalText": "0023",
+        "ordinal": 23,
+        "homeParticipant": "Team Gamma",
+        "awayParticipant": "Team Delta",
+        "ordinalWidth": 0
+      }
+    },
+    {
+      "caseId": "day-first-punctuation",
+      "minimumExamples": 2,
+      "dateOrder": "DayFirst",
+      "eventType": "TemporaryEvent",
+      "examples": [
+        "Events 1: Day-first opener // UTC 13.04 17:05",
+        "Events 2: Day-first encore // UTC 14.04 05:05"
+      ],
+      "expected": {
+        "state": "Confirmed",
+        "firstDate": "2024-04-13",
+        "dateFormat": "dd.MM"
+      }
+    },
+    {
+      "caseId": "explicit-year-formats",
+      "minimumExamples": 2,
+      "eventType": "TemporaryEvent",
+      "examples": [
+        "Events 1: Dated opener // UTC Apr 13, 24 5pm",
+        "Events 2: Dated encore // UTC 04/14/2024 17:00"
+      ],
+      "expected": {
+        "state": "Confirmed",
+        "dateFormats": ["MMM dd, yy", "MM/dd/yyyy"],
+        "firstDate": "2024-04-13"
+      }
+    }
+  ]
+}
