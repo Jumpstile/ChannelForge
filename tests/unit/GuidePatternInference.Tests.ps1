@@ -348,6 +348,20 @@ Describe 'Invoke-ChannelForgeGuidePatternInference' {
         $invalidBaselineJson | Should -Not -Match ([regex]::Escape($privateFileFragment))
         $invalidBaselineResult.BaselineRuleId | Should -Be ''
         @($invalidBaselineResult.ReasonCodes) | Should -Contain 'InvalidBaselineRule'
+        $timezoneMapResult = Invoke-ChannelForgeGuidePatternInference `
+            -Examples @(
+                'UFC 01: Fight // PST Sat 13 Apr 5:00pm',
+                'UFC 02: Fight // PST Sat 20 Apr 5:00pm'
+            ) `
+            -MinimumExamples 2 `
+            -TimezoneMap ([ordered]@{ PST = $unsafeDefaultTimezone }) `
+            -ReferenceInstantUtc ([datetimeoffset]$fixture.referenceInstantUtc) `
+            -EventType Fight
+        $timezoneMapJson = $timezoneMapResult | ConvertTo-Json -Depth 20
+        $timezoneMapJson | Should -Not -Match ([regex]::Escape([string]$privateCase.parts[0]))
+        $timezoneMapJson | Should -Not -Match ([regex]::Escape($privateFileFragment))
+        $timezoneMapResult.Candidates[0].TimezoneInterpretation.Mappings.PST | Should -Be ''
+        @($timezoneMapResult.ReasonCodes) | Should -Contain 'TimezoneUnresolved'
         $json = $result | ConvertTo-Json -Depth 20
 
         foreach ($case in @($fixture.cases)) {
