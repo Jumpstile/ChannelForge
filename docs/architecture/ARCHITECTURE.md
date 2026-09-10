@@ -94,6 +94,7 @@ Import-ChannelForgeConfiguredXmltvSource
 Merge-ChannelForgeXmltvProgrammes -> guarded staging -> safe promotion
         |
         v
+Export-ChannelForgeXmltv  --->  output/merged.xml
 ```
 
 ```text

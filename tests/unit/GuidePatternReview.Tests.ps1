@@ -57,10 +57,10 @@ Describe 'Get-ChannelForgeGuidePatternReview' {
 
         $report.ContractVersion | Should -Be 'guide-intelligence/pattern-review/v1'
         $report.Summary.State | Should -Be 'Confirmed'
-        $report.Pattern.Description | Should -Match 'Channel names follow'
         @($report.Fields | Where-Object { $_.FieldName -eq 'EventTitle' }).Found | Should -BeTrue
+        $report.Event.RepresentativeExampleOrdinal | Should -Be '1'
         $report.Event.EventTitle | Should -Be 'Fight Night'
-        @('2024-04-13', '2024-04-20', '2024-04-27') | Should -Contain $report.Event.EventDate
+        $report.Event.EventDate | Should -Be '2024-04-27'
         $report.Event.EventTime | Should -Be '5:00pm'
         @($report.Event.EventTimezone) | Should -Contain 'UTC'
         $report.Event.Sport | Should -Be 'MMA'
@@ -73,6 +73,7 @@ Describe 'Get-ChannelForgeGuidePatternReview' {
         ($json | ConvertFrom-Json).Safety.CanPublish | Should -BeFalse
         $markdown | Should -Match '# ChannelForge event-pattern review'
         $markdown | Should -Match 'CandidateOnly'
+        $markdown | Should -Match 'Channel number'
         $markdown | Should -Not -Match '(?i)regex'
     }
 
