@@ -1,0 +1,10 @@
+{
+  "sourceId": "guide-unavailable",
+  "sourceFamily": "xmltv-secondary",
+  "freshnessState": "Unavailable",
+  "lastKnownGood": true,
+  "channelReference": "event.unavailable.20260922",
+  "title": "Unavailable Event Guide",
+  "eventType": "Sports",
+  "reasonCodes": ["SourceUnavailable"]
+}

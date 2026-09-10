@@ -1,0 +1,10 @@
+{
+  "sourceId": "guide-old",
+  "sourceFamily": "xmltv-secondary",
+  "freshnessState": "Stale",
+  "lastKnownGood": true,
+  "channelReference": "event.stale.20260920",
+  "title": "Stale Event Guide",
+  "eventType": "Sports",
+  "reasonCodes": ["SourceStale"]
+}

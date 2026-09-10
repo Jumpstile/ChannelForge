@@ -19,6 +19,14 @@ A source is included in `output/merged.m3u` when it is `enabled: true` and has e
 
 Your provider's M3U sources (above) are a different list from EPG sources (`data/epg/epg_sources.json` or a local equivalent), which describe guide-data inputs rather than channel playlists. Enabled local XMLTV path entries and supported remote HTTPS XMLTV entries use the XMLTV pipeline; M3U and XMLTV remain separate source types. See [XMLTV](XMLTV.md) for the current boundary.
 
+## Guide evidence and source relationships
+
+ChannelForge keeps guide evidence read-only until the normal candidate → review → explicit acceptance → immutable generation path runs. Evidence can come from provider display text, provider M3U metadata, XMLTV, a documented AED-derived XMLTV/M3U export, a future schedule source, or existing accepted ChannelForge knowledge.
+
+Every evidence record carries a confidence state and source relationship. **Confirmed** means the available evidence is coherent; **safe candidate** means it is useful but provisional; **needs review** means a person must decide; **unresolved** means required identity or timing evidence is missing; **contradiction** means sources disagree; **stale source** means freshness has expired; and **source unavailable** means the source could not provide usable evidence. A mirror is not independent confirmation.
+
+These states are evidence about a guide, not permission to overwrite an accepted lineup. Stale or unavailable evidence preserves accepted state and last-known-good output.
+
 ## Where to go next
 
 - Setting up your real sources? → [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)
