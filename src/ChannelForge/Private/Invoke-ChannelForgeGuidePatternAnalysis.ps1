@@ -137,7 +137,7 @@ function Resolve-ChannelForgeGuidePatternTimezone {
         }
     }
 
-    $mappingText = ([string]$mapping).Trim()
+    $mappingText = (ConvertTo-ChannelForgeGuidePatternSafeText -Value $mapping).Trim()
     if ($mappingText -match '^[+-][0-9]{2}:[0-9]{2}$') {
         $sign = if ($mappingText.StartsWith('-')) { -1 } else { 1 }
         $hours = [int]$mappingText.Substring(1, 2)
