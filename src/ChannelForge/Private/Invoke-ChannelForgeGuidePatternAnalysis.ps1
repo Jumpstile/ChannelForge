@@ -1152,9 +1152,19 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     $driftStatus = if ($outliers.Count -gt 0) { 'Detected' } else { 'NotEvaluated' }
     $existingRuleId = ''
     $existingRuleVersion = 0
+    $invalidExistingRule = $false
     if ($null -ne $ExistingRule) {
-        $existingRuleId = if ($null -ne $ExistingRule.PSObject.Properties['RuleId']) { [string]$ExistingRule.RuleId } else { '' }
-        if ($null -ne $ExistingRule.PSObject.Properties['RuleVersion']) { $existingRuleVersion = [int]$ExistingRule.RuleVersion }
+        $candidateExistingRuleId = if ($null -ne $ExistingRule.PSObject.Properties['RuleId']) { [string]$ExistingRule.RuleId } else { '' }
+        if ([string]::IsNullOrEmpty($candidateExistingRuleId)) {
+            $invalidExistingRule = $false
+        }
+        elseif ($candidateExistingRuleId -match '^pattern-[0-9a-f]{64}$') {
+            $existingRuleId = $candidateExistingRuleId
+            if ($null -ne $ExistingRule.PSObject.Properties['RuleVersion']) { $existingRuleVersion = [int]$ExistingRule.RuleVersion }
+        }
+        else {
+            $invalidExistingRule = $true
+        }
     }
 
     $timezoneInterpretation = [ordered]@{
@@ -1178,6 +1188,10 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     if ($null -ne $ExistingRule -and -not [string]::IsNullOrEmpty($existingRuleId) -and $existingRuleId -ne $ruleId) {
         $driftStatus = 'Detected'
         if (-not $allReasons.Contains('PatternDrift')) { [void]$allReasons.Add('PatternDrift') }
+    }
+    if ($invalidExistingRule) {
+        $driftStatus = 'Detected'
+        if (-not $allReasons.Contains('InvalidBaselineRule')) { [void]$allReasons.Add('InvalidBaselineRule') }
     }
     if ($driftStatus -eq 'Detected' -and $state -in @('Confirmed', 'SafeCandidate')) { $state = 'NeedsReview' }
     $driftComparison = [ordered]@{
@@ -1232,6 +1246,7 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         if ($reason -in @('EvidenceAgrees', 'AcceptedKnowledge', 'MetadataOnly')) { continue }
         switch ($reason) {
             'EvidenceContradicts' { $message = 'Timezone or schedule evidence resolves to different instants.' }
+            'InvalidBaselineRule' { $message = 'The supplied baseline rule identifier is not a safe ChannelForge pattern identifier.' }
             'PatternDrift' { $message = 'The observed naming structure differs from the supplied rule or sample majority.' }
             'InconsistentExamples' { $message = 'Not every example fits one stable event-channel structure.' }
             'MissingTime' { $message = 'A critical event time is missing from one or more examples.' }
