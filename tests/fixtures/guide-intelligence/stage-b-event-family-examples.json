@@ -1,0 +1,65 @@
+{
+  "fixtureId": "stage-b-event-family-examples",
+  "cases": [
+    {
+      "caseId": "ppv",
+      "eventType": "PPV",
+      "minimumExamples": 2,
+      "timezoneMap": { "UTC": "+00:00" },
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "examples": [
+        "PPV 01: UFC 300 main card // UTC Sat 13 Apr 9:00pm",
+        "PPV 02: UFC 300 main event // UTC Sat 13 Apr 10:00pm"
+      ],
+      "expected": { "eventType": "PPV", "league": "UFC", "sport": "MMA" }
+    },
+    {
+      "caseId": "temporary-event",
+      "eventType": "TemporaryEvent",
+      "minimumExamples": 2,
+      "timezoneMap": { "UTC": "+00:00" },
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "examples": [
+        "Temporary Event 01: City marathon special // UTC Sun 14 Apr 1:00pm",
+        "Temporary Event 02: City marathon encore // UTC Sun 14 Apr 3:00pm"
+      ],
+      "expected": { "eventType": "TemporaryEvent" }
+    },
+    {
+      "caseId": "league-sport",
+      "eventType": "League",
+      "minimumExamples": 2,
+      "timezoneMap": { "ET": "-05:00" },
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "examples": [
+        "MLB 11: Yankees vs Red Sox // ET Sat 13 Apr 1:00pm",
+        "MLB 12: Mets vs Brewers // ET Sun 14 Apr 1:00pm"
+      ],
+      "expected": { "eventType": "League", "league": "MLB", "sport": "Baseball" }
+    },
+    {
+      "caseId": "single-team",
+      "eventType": "SingleTeam",
+      "minimumExamples": 2,
+      "timezoneMap": { "UTC": "+00:00" },
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "examples": [
+        "Yankees Home: Yankees // UTC Sat 13 Apr 1:00pm",
+        "Yankees Home: Yankees // UTC Sun 14 Apr 1:00pm"
+      ],
+      "expected": { "eventType": "SingleTeam", "homeParticipant": "Yankees" }
+    },
+    {
+      "caseId": "espn-plus",
+      "eventType": "StreamingEvent",
+      "minimumExamples": 2,
+      "timezoneMap": { "ET": "-05:00" },
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "examples": [
+        "ESPN+ 03: UFC Fight Night // ET Sat 20 Apr 7:00pm",
+        "ESPN+ 04: UFC Fight Night Replay // ET Sun 21 Apr 7:00pm"
+      ],
+      "expected": { "eventType": "StreamingEvent", "league": "UFC", "sport": "MMA" }
+    }
+  ]
+}

@@ -43,6 +43,14 @@ Stage A guide intelligence adds read-only domain contracts for volatile event-gu
 
 `New-ChannelForgeGuideEvidence` is the constructor for this Stage A evidence surface. It accepts logical source identifiers and structured event fields, normalizes ISO-8601 instants to UTC, rejects invalid identifiers, downgrades low-confidence confirmations, and excludes URLs, stream URLs, credentials, tokens, private paths, parser errors, candidate hashes, and generation IDs from the record.
 
+Stage B native event-pattern inference adds `GuidePatternExample`, `GuidePatternFieldCandidate`, `GuideEventPatternRule`, and `GuidePatternInferenceResult` contracts. `Invoke-ChannelForgeGuidePatternInference` accepts representative provider-name examples or Stage A `GuideEvidenceRecord` objects and returns a deterministic, read-only candidate. The candidate stores semantic grammar segments, field candidates, per-example extraction preview, confidence, reason codes, and safe provenance fingerprints; it does not expose an opaque regex rule.
+
+Timezone interpretation is explicit: callers provide safe abbreviation mappings or a default timezone, and yearless dates use an injected reference instant. Duplicate timezone clauses and Stage A timestamps are normalized to canonical UTC and marked as agreement or contradiction. Cross-source assessment counts only independent source relationships; mirrors remain provenance and never create independent confirmation. A supplied existing rule is compared by deterministic rule identity, and drift remains `NeedsReview` with adoption `NotApplied`.
+
+Inference is a read-only analysis boundary. It does not write provider state, downstream configuration, guide output, accepted state, or a generation. Every result is `CandidateOnly`, has `CanPublish = false`, and retains the existing explicit acceptance/promotion boundary for any later consumer.
+
+The first slice is ephemeral: rule audit fields (`CreatedUtc`, `ValidatedUtc`, and `LastSuccessfulValidationUtc`) remain empty because no learned-rule store is introduced. Deterministic rule identity and extraction output do not depend on wall-clock time.
+
 ### Infrastructure layer (planned)
 
 File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dispatcharr, the file system, and HTTP. M3U/XMLTV local parsing and writing are joined by the approved bounded HTTPS/443 acquisition path for configured remote provider M3U and XMLTV sources; the IPTVBoss/Dispatcharr/Plex output writers described in the [Roadmap](../../ROADMAP.md) remain future work — see "Known limitations" below.
@@ -86,6 +94,19 @@ Merge-ChannelForgeXmltvProgrammes -> guarded staging -> safe promotion
 Export-ChannelForgeXmltv  --->  output/merged.xml
 ```
 
+```text
+event-channel examples or Stage A guide evidence
+        |
+        v
+Invoke-ChannelForgeGuidePatternInference
+        |
+        v
+structured rule + field candidates + extraction preview
+        |
+        +--> review/confidence/provenance only
+        +--> no guide publication, provider mutation, or accepted-state mutation
+```
+
 This is the build pipeline `scripts/Build-Lineup.ps1` runs via `Merge-ChannelForgeLineup` for local or remote M3U and the configured XMLTV import/merge/export commands for guide output. The branches remain separate: XMLTV is source-scoped and is not bound to M3U `Channel.TvgId` values. `BuildContext` exists as a domain object but this pipeline does not populate it yet; downstream output writers and Plex guide binding remain future work.
 
 ### Known limitations (issue #7 Phase 1)
@@ -94,6 +115,7 @@ This is the build pipeline `scripts/Build-Lineup.ps1` runs via `Merge-ChannelFor
 - **Remote fetch caching is disposable, not authoritative.** Provider M3U uses a separate 24-hour cache namespace and XMLTV uses its fixed policy; invalid or stale entries require successful validation or a full refetch and never substitute stale data.
 - **Plex EPG/guide binding remains deferred.** The build can produce `output/merged.xml`, but downstream channel-to-guide binding and automatic Plex refresh are separate work.
 - **Category-to-numbering-block matching is intentionally simple.** A channel is numbered only if its M3U `group-title` exactly matches (case-insensitive) a `numbering_blocks.json` category. Smarter category inference is Confidence Engine territory (Roadmap Milestone 2), not this pipeline.
+- **Native event-pattern inference is read-only and bounded.** Stage B analyzes supplied examples or Stage A evidence only. Schedule-source adapters, documented IPTVBoss AED JSON import, persistent learned-rule storage, expert regex override, unattended event refresh, automatic relearning/adoption, and guide publication remain future work.
 
 ## Scheduled refresh run boundary
 

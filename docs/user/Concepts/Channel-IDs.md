@@ -17,7 +17,8 @@ For example, a single playlist entry isn't just a string — it might represent:
 ## What's implemented today vs. planned
 
 - **Implemented today:** exact-match alias resolution (`data/rules/aliases.json`) maps known alternate provider names to one canonical name during a build. A channel with no matching alias entry passes through under its normalized name unchanged.
-- **Planned:** the broader "Confidence Engine" — evidence-based identity scoring, drift detection, and a review queue for ambiguous matches — is future work (see Milestone 2 in [ROADMAP.md](../../../ROADMAP.md)). Today's alias resolution is deterministic and exact-match only; it does not yet score confidence or flag drift.
+- **Implemented today for event-guide evidence:** Stage A/B contracts preserve source evidence and provide read-only confidence, provenance, and native event-pattern drift analysis. This does not rewrite stable channel identity or replace accepted mappings.
+- **Planned:** the broader channel-identity Confidence Engine — evidence-based identity scoring, canonical mapping decisions, and review of ambiguous station matches — remains future work (see Milestone 2 in [ROADMAP.md](../../../ROADMAP.md)). Today's alias resolution is deterministic and exact-match only.
 
 ## Where to go next
 

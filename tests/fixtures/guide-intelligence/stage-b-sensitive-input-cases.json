@@ -1,0 +1,28 @@
+{
+  "fixtureId": "stage-b-sensitive-input-cases",
+  "minimumExamples": 3,
+  "referenceInstantUtc": "2024-04-15T00:00:00Z",
+  "timezoneMap": { "UTC": "+00:00" },
+  "cases": [
+    {
+      "caseId": "url-and-token",
+      "parts": ["https", "://", "provider.invalid/guide?token=fixture-token-value"],
+      "forbiddenOutputFragments": ["provider.invalid", "fixture-token-value"]
+    },
+    {
+      "caseId": "credential-value",
+      "parts": ["UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm", " credential=fixture-credential-value"],
+      "forbiddenOutputFragments": ["fixture-credential-value"]
+    },
+    {
+      "caseId": "private-path",
+      "joiner": "\\",
+      "parts": ["C:", "private", "provider", "guide.json UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm"],
+      "forbiddenOutputFragments": ["C:", "guide.json"]
+    }
+  ],
+  "expected": {
+    "safeOutputOnly": true,
+    "redactedFieldsInclude": ["Url", "Token", "Credential", "PrivatePath", "SafeText"]
+  }
+}
