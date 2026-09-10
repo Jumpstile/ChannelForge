@@ -16,7 +16,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
 - A ChannelForge Guided Setup / Beginner Workflow (`scripts/Build-My-Lineup.ps1`) that stages a candidate, reports exact/ambiguous guide identity, supports no-guide builds, requires explicit acceptance, and promotes through the immutable accepted-generation boundary.
 - A GUI saved-lineup flow that prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
-- A Stage A read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, and accepted knowledge. It reports confidence, provenance, freshness, contradictions, and unavailable sources without publishing or mutating accepted state.
+- A Stage A/B read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, and native event-pattern candidates. It reports structured extraction, confidence, provenance, freshness, contradictions, drift, and unavailable sources without publishing or mutating accepted state.
 
 The GUI saved-lineup flow does not provide export, scheduling, target publishing, release packaging, or tester distribution. It also cannot save needs-attention, review-needed, blocked, checking, not-checked, stale, or unavailable states.
 
@@ -29,7 +29,7 @@ The GUI saved-lineup flow does not provide export, scheduling, target publishing
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.
-- **A complete event-guide workflow is not implemented yet.** Stage A provides read-only evidence contracts and safety rules; native event-pattern inference, schedule-source adapters, unattended event refresh, and a beginner guide-readiness surface remain future work.
+- **The complete event-guide workflow is not implemented yet.** Stage B provides read-only native inference over supplied examples or Stage A evidence. Schedule-source adapters, persistent learned knowledge, documented AED-definition JSON import, expert regex/date/time overrides, unattended event refresh, automatic relearning/adoption, beginner GUI integration, and guide publication remain future work.
 
 ### GUI status
 

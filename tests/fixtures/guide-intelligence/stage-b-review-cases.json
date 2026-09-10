@@ -1,0 +1,85 @@
+{
+  "fixtureId": "stage-b-review-cases",
+  "cases": [
+    {
+      "caseId": "insufficient-examples",
+      "minimumExamples": 3,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "examples": ["UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm"],
+      "expected": { "state": "Unresolved", "reason": "InsufficientExamples" }
+    },
+    {
+      "caseId": "malformed-time",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "ET": "-05:00" },
+      "examples": [
+        "UFC 01: Fight Night // ET Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // ET Sat 20 Apr 99:99pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "InvalidTime" }
+    },
+    {
+      "caseId": "grammar-outlier",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "examples": [
+        "UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm",
+        "UFC EVENT 03 - Fight Night // UTC Sat 27 Apr 5:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "PatternDrift" }
+    },
+    {
+      "caseId": "missing-input",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "examples": [
+        "UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm",
+        ""
+      ],
+      "expected": { "state": "NeedsReview", "reason": "EvidenceMissing" }
+    },
+    {
+      "caseId": "missing-time",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "examples": [
+        "UFC 01: Fight Night // UTC Sat 13 Apr",
+        "UFC 02: Fight Night // UTC Sat 20 Apr"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "MissingTime" }
+    },
+    {
+      "caseId": "missing-date",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "examples": [
+        "UFC 01: Fight Night // UTC 5:00pm",
+        "UFC 02: Fight Night // UTC 6:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "MissingDate" }
+    },
+    {
+      "caseId": "unmapped-timezone",
+      "minimumExamples": 2,
+      "eventType": "Fight",
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": {},
+      "examples": [
+        "UFC 01: Fight Night // XYZ Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // XYZ Sat 20 Apr 5:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "TimezoneUnresolved" }
+    }
+  ]
+}

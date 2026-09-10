@@ -1,0 +1,22 @@
+{
+  "fixtureId": "stage-b-drift-cases",
+  "minimumExamples": 3,
+  "referenceInstantUtc": "2024-04-15T00:00:00Z",
+  "timezoneMap": { "UTC": "+00:00" },
+  "baselineExamples": [
+    "UFC 00: Fight Night // UTC Sat 13 Apr 5:00pm",
+    "UFC 01: Fight Night // UTC Sat 20 Apr 5:00pm",
+    "UFC 02: Fight Night // UTC Sat 27 Apr 5:00pm"
+  ],
+  "driftedExamples": [
+    "UFC EVENT 00 - Fight Night // UTC Sat 13 Apr 5:00pm",
+    "UFC EVENT 01 - Fight Night // UTC Sat 20 Apr 5:00pm",
+    "UFC EVENT 02 - Fight Night // UTC Sat 27 Apr 5:00pm"
+  ],
+  "expected": {
+    "driftStatus": "Detected",
+    "reason": "PatternDrift",
+    "adoption": "NotApplied",
+    "publicationState": "CandidateOnly"
+  }
+}

@@ -28,6 +28,8 @@ Supported evidence types include provider display text, provider M3U metadata, X
 
 The readiness projection never publishes a guide. It reports `CandidateOnly` and requires explicit acceptance through the existing immutable generation boundary. It does not display stream URLs, credentials, private paths, parser errors, candidate hashes, or generation IDs.
 
+Native event-pattern inference is the complementary read-only path for volatile channel names. It accepts representative provider names or Stage A evidence and returns structured channel/title/date/time/timezone/participant/league/sport candidates with confidence and safe provenance. It does not write `merged.xml`, publish a guide, mutate provider or downstream state, or replace accepted state. A documented AED-derived XMLTV/M3U export can be supplied as evidence while native inference is evaluated.
+
 ## Where to go next
 
 - Full current-limitations breakdown → [Current Limitations](../CURRENT_LIMITATIONS.md)

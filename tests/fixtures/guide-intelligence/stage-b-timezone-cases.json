@@ -1,0 +1,94 @@
+{
+  "fixtureId": "stage-b-timezone-cases",
+  "cases": [
+    {
+      "caseId": "duplicate-agreement",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UK": "+00:00", "ET": "-05:00" },
+      "examples": [
+        "UFC 01: Fight Night // UK Sat 13 Apr 10:00pm // ET Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // UK Sat 20 Apr 10:00pm // ET Sat 20 Apr 5:00pm"
+      ],
+      "expected": { "state": "Confirmed", "crossCheck": "Agrees" }
+    },
+    {
+      "caseId": "duplicate-contradiction",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UK": "+00:00", "ET": "-05:00" },
+      "examples": [
+        "UFC 01: Fight Night // UK Sat 13 Apr 10:00pm // ET Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // UK Sat 20 Apr 10:00pm // ET Sat 20 Apr 6:00pm"
+      ],
+      "expected": { "state": "Contradiction", "reason": "EvidenceContradicts" }
+    },
+    {
+      "caseId": "dst-aware-mapping",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": { "UK": "Europe/London", "ET": "America/New_York" },
+      "examples": [
+        "UFC 01: Fight Night // UK Sun 7 Apr 1:00am // ET Sat 6 Apr 8:00pm",
+        "UFC 02: Fight Night // UK Sun 14 Apr 1:00am // ET Sat 13 Apr 8:00pm"
+      ],
+      "expected": { "crossCheck": "Agrees" }
+    },
+    {
+      "caseId": "dst-ambiguous-local-time",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-10-28T00:00:00Z",
+      "timezoneMap": { "UK": "Europe/London" },
+      "examples": [
+        "Events 01: Autumn Live // UK Sun 27 Oct 1:30am",
+        "Events 02: Autumn Replay // UK Sun 3 Nov 1:30am"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "AmbiguousTime" }
+    },
+    {
+      "caseId": "year-rollover",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2025-01-02T00:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "eventType": "TemporaryEvent",
+      "examples": [
+        "Events 01: New Year Live // UTC Tue 31 Dec 11:30pm",
+        "Events 02: New Year Replay // UTC Wed 1 Jan 1:00am"
+      ],
+      "expected": { "firstDate": "2024-12-31", "firstStartUtc": "2024-12-31T23:30:00Z" }
+    },
+    {
+      "caseId": "year-rollover-ambiguous",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-07-02T12:00:00Z",
+      "timezoneMap": { "UTC": "+00:00" },
+      "eventType": "TemporaryEvent",
+      "examples": [
+        "Events 01: New Year Live // UTC Jan 1 12:00pm",
+        "Events 02: New Year Replay // UTC Jan 2 12:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "AmbiguousTime" }
+    },
+    {
+      "caseId": "yearless-without-reference",
+      "minimumExamples": 2,
+      "timezoneMap": { "UTC": "+00:00" },
+      "examples": [
+        "Events 01: Summer Live // UTC Sat 13 Apr 5:00pm",
+        "Events 02: Summer Replay // UTC Sun 14 Apr 5:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "ReferenceInstantRequired" }
+    },
+    {
+      "caseId": "ambiguous-label",
+      "minimumExamples": 2,
+      "referenceInstantUtc": "2024-04-15T00:00:00Z",
+      "timezoneMap": {},
+      "examples": [
+        "UFC 01: Fight Night // ZZ Sat 13 Apr 5:00pm",
+        "UFC 02: Fight Night // ZZ Sat 20 Apr 5:00pm"
+      ],
+      "expected": { "state": "NeedsReview", "reason": "TimezoneUnresolved" }
+    }
+  ]
+}

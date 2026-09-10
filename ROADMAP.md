@@ -38,6 +38,10 @@ Expected outcomes:
 - Explainable decision reports.
 - Review queue for ambiguous matches.
 
+### Current slice status
+
+Stage A and Stage B now provide the read-only evidence and native event-pattern candidate contracts. Stage B accepts representative examples or Stage A evidence, extracts structured channel/event fields, normalizes and cross-checks timezone representations, reports deterministic confidence/provenance/review state, and detects naming drift without adopting or publishing a rule. Schedule adapters, persistent learned knowledge, expert overrides, automatic relearning, and guide publication remain future work.
+
 ## Milestone 3 - GUI Foundation
 
 Goal: establish the first GUI-first workflow for preview, review, approval, and recovery.
