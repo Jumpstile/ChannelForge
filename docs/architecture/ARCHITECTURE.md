@@ -39,6 +39,10 @@ Public functions that turn raw input into domain objects, or transform domain ob
 
 Private helpers in `src/ChannelForge/Private` support the application layer without being part of the public surface, e.g. [`Normalize-ChannelForgeName`](../../src/ChannelForge/Private/Normalize-ChannelForgeName.ps1), which strips quality tags and backup/alternate markers from playlist names.
 
+Stage A guide intelligence adds read-only domain contracts for volatile event-guide evidence. `GuideEvidenceRecord` carries sanitized provider display text, M3U metadata, XMLTV, AED-derived, schedule, and accepted-knowledge evidence with source relationship, freshness, confidence state, and event metadata. `GuideReadinessRecord` and `Get-ChannelForgeGuideReadiness` project those records without changing accepted state or publishing output; every result remains `CandidateOnly` and requires the existing explicit acceptance boundary.
+
+`New-ChannelForgeGuideEvidence` is the constructor for this Stage A evidence surface. It accepts logical source identifiers and structured event fields, normalizes ISO-8601 instants to UTC, rejects invalid identifiers, downgrades low-confidence confirmations, and excludes URLs, stream URLs, credentials, tokens, private paths, parser errors, candidate hashes, and generation IDs from the record.
+
 ### Infrastructure layer (planned)
 
 File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dispatcharr, the file system, and HTTP. M3U/XMLTV local parsing and writing are joined by the approved bounded HTTPS/443 acquisition path for configured remote provider M3U and XMLTV sources; the IPTVBoss/Dispatcharr/Plex output writers described in the [Roadmap](../../ROADMAP.md) remain future work — see "Known limitations" below.

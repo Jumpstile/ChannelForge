@@ -21,6 +21,16 @@ ChannelForge is **Early Alpha**. There is no complete GUI workflow yet. The repo
 - Imports configured local XMLTV `.xml`, `.gz`, and single-entry `.zip` files or supported remote XMLTV streams and writes deterministic `output/merged.xml` after validation.
 - Produces a human-readable build report and a machine-readable summary (with a checksum) for every build, so you can verify nothing silently changed.
 
+## Event guides and AED
+
+An **event guide** describes changing programming such as a UFC or other fight, PPV, temporary sports event, league schedule, single-team event, or a permitted ESPN+-style event group. It is more than a channel name: the guide must connect the event, time, timezone, status, and source evidence to a stable channel identity.
+
+An **AED-derived** guide is XMLTV or M3U metadata exported by an external tool such as IPTVBoss. ChannelForge can consume a documented export as a migration or bootstrap input, but the export is evidence, not automatic truth. ChannelForge compares it with other permitted evidence, preserves freshness and provenance, and sends ambiguity to review.
+
+Normal users should not write regular expressions. Event-pattern learning is intended to infer bounded, explainable patterns from examples. Expert controls may exist for documented formats, but low-confidence or contradictory timing is never silently accepted.
+
+Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
+
 ## What doesn't it do yet?
 
 - **No complete graphical interface workflow.** Guided Setup can select local inputs, structurally check M3U playlists and local XMLTV guides, and report exact aggregate playlist/guide matching. It does not create lineups, persist selections, mutate accepted state, export, or refresh targets. Ambiguous relationships are reported for review and are never accepted automatically.
