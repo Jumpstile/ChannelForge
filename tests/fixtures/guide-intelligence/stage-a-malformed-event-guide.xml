@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge Stage A fixture">
+  <channel id="event.malformed.01">
+    <display-name>Malformed Event Guide</display-name>
+  </channel>
+  <programme start="20260915230000 +0000" stop="20260916020000 +0000" channel="event.malformed.01">
+    <title>Truncated Event

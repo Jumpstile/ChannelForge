@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge Stage A fixture">
+  <channel id="">
+    <display-name>Missing Guide Identity Event</display-name>
+  </channel>
+  <programme start="20260916230000 +0000" stop="20260917020000 +0000" channel="">
+    <title>Missing Guide Identity Event</title>
+    <category>Sports</category>
+  </programme>
+</tv>

@@ -20,6 +20,14 @@ A successful local or remote XMLTV build reports `XMLTVStatus: GENERATED`, `XMLT
 - XMLTV bindings remain source-scoped. ChannelForge now reports exact, ordinal M3U `Channel.TvgId` to XMLTV channel-id matches separately from the canonical `merged.m3u` and `merged.xml` outputs. Missing IDs, missing XMLTV identities, duplicate/ambiguous IDs, and XMLTV-only channels remain explicit report records; no fuzzy station matching is performed.
 - Downstream target-specific Plex guide assignment and automatic refresh remain separate work.
 
+## Event guides are evidence-backed
+
+XMLTV can describe an event programme, but XMLTV plumbing alone does not prove that a volatile sports or PPV event is correct. ChannelForge's guide-intelligence contract keeps the channel, event title, time, timezone, status, source freshness, confidence, and provenance together as read-only evidence.
+
+Supported evidence types include provider display text, provider M3U metadata, XMLTV, documented AED-derived XMLTV/M3U exports, future schedule sources, and accepted ChannelForge knowledge. An AED-derived export is a bootstrap or migration input, not a second accepted authority. Conflicting times, missing identities, stale guides, and unavailable sources remain review or degraded conditions.
+
+The readiness projection never publishes a guide. It reports `CandidateOnly` and requires explicit acceptance through the existing immutable generation boundary. It does not display stream URLs, credentials, private paths, parser errors, candidate hashes, or generation IDs.
+
 ## Where to go next
 
 - Full current-limitations breakdown → [Current Limitations](../CURRENT_LIMITATIONS.md)

@@ -10,6 +10,14 @@
 
 Your playlist and guide are private input. Keep them local; never commit or paste their contents into an issue.
 
+## Event guide readiness
+
+For sports and event channels, an XMLTV file alone is not enough. A reliable event guide also needs evidence for the channel identity, event title, start time, timezone, status, and source freshness. This includes PPV and fight channels, temporary event channels, league or sport groups, single-team patterns, and similar streaming-event groups when a permitted source provides them.
+
+ChannelForge may read an AED-derived XMLTV or M3U export as a migration/bootstrap input. AED means external event-derived guide metadata; it is not a second accepted lineup authority. The export remains source evidence and is compared with permitted guide or schedule evidence.
+
+You do not need to write regular expressions in the beginner workflow. When event text is ambiguous, the safe result is **Needs review**, not a guessed programme. A **confirmed** result has coherent evidence; a **safe candidate** is useful but still provisional; **unresolved**, **contradictory**, **stale source**, and **source unavailable** results remain visible and cannot silently replace accepted output.
+
 ## One safe flow
 
 The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.

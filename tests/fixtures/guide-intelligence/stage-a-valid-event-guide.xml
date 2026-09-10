@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge Stage A fixture">
+  <channel id="event.ufc.20260912">
+    <display-name>UFC Fight Night</display-name>
+  </channel>
+  <channel id="ppv.event.20260913">
+    <display-name>PPV Main Event</display-name>
+  </channel>
+  <channel id="sports.temp.01">
+    <display-name>Temporary Event Channel</display-name>
+  </channel>
+  <programme start="20260912230000 +0000" stop="20260913020000 +0000" channel="event.ufc.20260912">
+    <title>UFC Fight Night</title>
+    <category>Sports</category>
+  </programme>
+  <programme start="20260913230000 +0000" stop="20260914020000 +0000" channel="ppv.event.20260913">
+    <title>PPV Main Event</title>
+    <category>PPV</category>
+  </programme>
+  <programme start="20260914230000 +0000" stop="20260915020000 +0000" channel="sports.temp.01">
+    <title>Temporary Event Channel</title>
+    <category>Sports</category>
+  </programme>
+</tv>
