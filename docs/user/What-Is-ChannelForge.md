@@ -27,7 +27,7 @@ An **event guide** describes changing programming such as a UFC or other fight, 
 
 An **AED-derived** guide is XMLTV or M3U metadata exported by an external tool such as IPTVBoss. ChannelForge can consume a documented export as a migration or bootstrap input, but the export is evidence, not automatic truth. ChannelForge compares it with other permitted evidence, preserves freshness and provenance, and sends ambiguity to review.
 
-Normal users should not write regular expressions. The native Stage B preview infers bounded, explainable semantic fields from representative examples. Expert regex/date/time controls are not part of this first native slice; low-confidence or contradictory timing is never silently accepted.
+Normal users should not write regular expressions. The native Stage B preview and Stage C beginner review surface infer and explain bounded semantic fields from representative examples. Expert regex/date/time controls are not part of this slice; low-confidence or contradictory timing is never silently accepted.
 
 Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
 
@@ -51,13 +51,24 @@ The preview explains the channel identifier and ordinal, title, date, local time
 
 Yearless dates use the supplied reference instant rather than the machine clock. Abbreviations such as `ET` require an explicit mapping; duplicate timezone representations are compared before confidence can rise. A Stage A evidence input also preserves source relationship, freshness, confidence, and safe provenance fingerprints. Mirrors are not counted as independent agreement.
 
+### Beginner review surface
+
+Turn the inference result into a plain-language review without writing a file:
+
+```powershell
+Get-ChannelForgeGuidePatternReview -InferenceResult $result -OutputFormat Markdown
+Get-ChannelForgeGuidePatternReview -InferenceResult $result -OutputFormat Json
+```
+
+The review shows detected fields, a representative event preview, confidence, provenance, drift, review reasons, and a safe next action. It always remains `CandidateOnly`, with `CanPublish = false` and `AcceptedStateMutation = None`. Raw examples, provider URLs, stream URLs, credentials, private paths, parser errors, hashes, and generation IDs are omitted.
+
 ## What doesn't it do yet?
 
 - **No complete graphical interface workflow.** Guided Setup can select local inputs, structurally check M3U playlists and local XMLTV guides, and report exact aggregate playlist/guide matching. It does not create lineups, persist selections, mutate accepted state, export, or refresh targets. Ambiguous relationships are reported for review and are never accepted automatically.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.
-- **Native event inference is a preview boundary, not a complete event-guide workflow.** Schedule adapters, persistent learned knowledge, AED-definition JSON import, expert overrides, automatic relearning/adoption, and guide publication are not included yet.
+- **Native event inference is a read-only review boundary, not a complete event-guide workflow.** Stage C provides beginner-readable object, JSON, and Markdown reports. Schedule adapters, persistent learned knowledge, AED-definition JSON import, expert overrides, automatic relearning/adoption, and guide publication are not included yet.
 
 See [Current Limitations](CURRENT_LIMITATIONS.md) for the full, task-oriented breakdown of implemented vs. planned, or the [repository README](../../README.md#current-status) and [ROADMAP](../../ROADMAP.md) for the exact engineering-level state — this page only summarizes for a first-time reader.
 
