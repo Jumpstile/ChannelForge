@@ -36,6 +36,22 @@ $pattern.ExtractionPreview
 
 The result shows the inferred channel, title, date/time, timezone, canonical UTC start, participants, event family, confidence, provenance, and review reasons. It is always `CandidateOnly`, `ReadOnly`, and `CanPublish = false`; this preview does not alter provider state, downstream state, accepted state, or guide output. A Stage A evidence array can be supplied with `-Evidence` when structured source provenance is already available. AED-derived exports remain evidence, not a second accepted authority.
 
+### Review the inferred event pattern
+
+After creating a Stage B inference result, create a beginner-facing review without writing a file or changing a lineup:
+
+```powershell
+$review = Get-ChannelForgeGuidePatternReview -InferenceResult $pattern
+$review
+
+Get-ChannelForgeGuidePatternReview -InferenceResult $pattern -OutputFormat Json
+Get-ChannelForgeGuidePatternReview -InferenceResult $pattern -OutputFormat Markdown
+```
+
+The review explains the detected channel fields, representative event title/date/time/timezone, league, sport, participants, confidence, provenance, drift, and the reason a person may need to look closer. A **Confirmed** pattern is still only a candidate. **NeedsReview**, **Contradiction**, **StaleSource**, and **SourceUnavailable** states are blocked from promotion and never guess which evidence is correct.
+
+Every review reports `CandidateOnly`, `CanPublish = false`, `PromotionRequired = ExplicitAcceptance`, and `AcceptedStateMutation = None`. JSON and Markdown/text output omit raw examples, provider URLs, stream URLs, credentials, private paths, parser errors, hashes, and generation IDs.
+
 ## One safe flow
 
 The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.
