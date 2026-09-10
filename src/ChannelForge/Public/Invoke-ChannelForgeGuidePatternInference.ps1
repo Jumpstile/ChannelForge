@@ -54,6 +54,7 @@ function Invoke-ChannelForgeGuidePatternInference {
     )
 
     $patternExamples = [System.Collections.Generic.List[GuidePatternExample]]::new()
+    $safeDefaultTimezone = ConvertTo-ChannelForgeGuidePatternSafeText -Value $DefaultTimezone
     if ($PSCmdlet.ParameterSetName -eq 'Examples') {
         for ($index = 0; $index -lt $Examples.Count; $index++) {
             $example = New-ChannelForgeGuidePatternExample `
@@ -123,7 +124,7 @@ function Invoke-ChannelForgeGuidePatternInference {
     return Invoke-ChannelForgeGuidePatternAnalysis `
         -Examples @($patternExamples.ToArray()) `
         -TimezoneMap $TimezoneMap `
-        -DefaultTimezone $DefaultTimezone `
+        -DefaultTimezone $safeDefaultTimezone `
         -ReferenceInstantUtc $ReferenceInstantUtc `
         -DateOrder $DateOrder `
         -MinimumExamples $MinimumExamples `
