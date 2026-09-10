@@ -72,6 +72,7 @@ function Get-ChannelForgeGuidePatternReviewFriendlyFieldName {
 
     switch ($FieldName) {
         'RepresentativeExampleOrdinal' { return 'Representative example' }
+        'ChannelOrdinal' { return 'Channel number' }
         'CanonicalStartUtc' { return 'Canonical UTC start' }
         'EventTitle' { return 'Event title' }
         'EventDate' { return 'Event date' }
