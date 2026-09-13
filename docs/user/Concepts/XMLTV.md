@@ -33,7 +33,6 @@ For a beginner-facing explanation of those inference results, run `Get-ChannelFo
 
 The beginner workflow exposes this as a report-only preview with `scripts/Build-My-Lineup.ps1 -EventPatternPreview`. Supply representative IPTV event-channel names and, when needed, an explicit event type, timezone mapping, or reference instant. The workflow writes `guided-event-pattern-preview.json`, `.md`, and `.txt` under `output/reports/`; it does not write `output/merged.xml`, alter the M3U/XMLTV source pipeline, publish a guide, or change provider, downstream, or accepted state. A confirmed pattern is still candidate evidence and requires a future explicit acceptance workflow before it could drive guide generation.
 
-
 ## Where to go next
 
 - Full current-limitations breakdown → [Current Limitations](../CURRENT_LIMITATIONS.md)
