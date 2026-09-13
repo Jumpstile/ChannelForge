@@ -348,4 +348,120 @@ https://example.invalid/live/alpha
         $second.Status | Should -Be 'ALREADY_ACCEPTED'
         @(Get-ChildItem -LiteralPath (Join-Path $root 'state\generations') -Directory).Count | Should -Be 1
     }
+    It 'keeps event-pattern preview disabled by default' {
+        $root = New-GuidedSetupRoot -Name 'event-preview-disabled'
+
+        & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture
+
+        $summary = Read-GuidedSetupSummary -Root $root
+        $summary.Status | Should -Be 'PROPOSAL_READY'
+        $summary.EventPatternPreview.Enabled | Should -BeFalse
+        $summary.EventPatternPreview.InferenceRan | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'output\reports\guided-event-pattern-preview.json') | Should -BeFalse
+    }
+    It 'keeps insufficient event examples blocked and report-only' {
+        $root = New-GuidedSetupRoot -Name 'event-preview-insufficient'
+
+        & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternExamples @(
+            'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm'
+            'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm'
+        )
+
+        $summary = Read-GuidedSetupSummary -Root $root
+        $summary.EventPatternPreview.Status | Should -Be 'BLOCKED'
+        $summary.EventPatternPreview.ReviewState | Should -Be 'NeedsReview'
+        $summary.EventPatternPreview.InferenceRan | Should -BeFalse
+        $summary.EventPatternPreview.Safety.CanPublish | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'runs event-pattern inference and review as a report-only beginner step' {
+        $root = New-GuidedSetupRoot -Name 'event-preview-enabled'
+        $examples = @(
+            'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm'
+            'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm'
+            'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm'
+        )
+
+        & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternExamples $examples -EventPatternType Fight -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+        $summary = Read-GuidedSetupSummary -Root $root
+        $summary.Status | Should -Be 'PROPOSAL_READY'
+        $summary.EventPatternPreview.Enabled | Should -BeTrue
+        $summary.EventPatternPreview.InferenceRan | Should -BeTrue
+        $summary.EventPatternPreview.Safety.PublicationState | Should -Be 'CandidateOnly'
+        $summary.EventPatternPreview.Safety.CanPublish | Should -BeFalse
+        $summary.EventPatternPreview.Safety.AcceptedStateMutation | Should -Be 'None'
+        $summary.EventPatternPreview.Output.MarkdownPath | Should -Be 'output/reports/guided-event-pattern-preview.md'
+        foreach ($name in @(
+                'guided-event-pattern-preview.json'
+                'guided-event-pattern-preview.md'
+                'guided-event-pattern-preview.txt'
+            )) {
+            Test-Path -LiteralPath (Join-Path $root "output\reports\$name") -PathType Leaf | Should -BeTrue
+        }
+        $json = Get-Content -LiteralPath (Join-Path $root 'output\reports\guided-event-pattern-preview.json') -Raw | ConvertFrom-Json
+        $json.ReviewState | Should -Be 'Confirmed'
+        $json.Safety.CanPublish | Should -BeFalse
+        (Get-Content -LiteralPath (Join-Path $root 'output\reports\guided-event-pattern-preview.md') -Raw) | Should -Match 'What ChannelForge found'
+        (Get-Content -LiteralPath (Join-Path $root 'output\reports\guided-event-pattern-preview.txt') -Raw) | Should -Match 'Inference ran: true'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+    It 'accepts Stage A evidence as an event-pattern preview input' {
+        $root = New-GuidedSetupRoot -Name 'event-preview-evidence'
+        $evidence = @(
+            (New-ChannelForgeGuideEvidence -EvidenceType ProviderDisplayText -SourceId provider-a -DisplayName 'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm' -EventType Fight -ConfidenceState Confirmed -ConfidenceScore 90 -FreshnessState Current)
+            (New-ChannelForgeGuideEvidence -EvidenceType XMLTV -SourceId epg-a -DisplayName 'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm' -EventType Fight -ConfidenceState Confirmed -ConfidenceScore 90 -FreshnessState Current)
+            (New-ChannelForgeGuideEvidence -EvidenceType ScheduleSource -SourceId schedule-a -DisplayName 'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm' -EventType Fight -ConfidenceState Confirmed -ConfidenceScore 90 -FreshnessState Current)
+        )
+
+        & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternEvidence $evidence -EventPatternType Fight -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+
+        $summary = Read-GuidedSetupSummary -Root $root
+        $summary.EventPatternPreview.InferenceRan | Should -BeTrue
+        $summary.EventPatternPreview.ReviewState | Should -Be 'NeedsReview'
+        $summary.EventPatternPreview.Safety.AcceptedStateMutation | Should -Be 'None'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+
+    It 'refuses acceptance when event-pattern preview is enabled' {
+        $root = New-GuidedSetupRoot -Name 'event-preview-accept-blocked'
+        $examples = @(
+            'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm'
+            'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm'
+            'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm'
+        )
+
+        { & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternExamples $examples -Accept } |
+            Should -Throw '*report-only*'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'keeps event preview output deterministic and redacted for equivalent inputs' {
+        $examples = @(
+            'UFC 01: https://example.invalid/REDACTED // UTC Sat 13 Apr 5:00pm'
+            'UFC 02: C:\private\provider\guide.json // UTC Sat 20 Apr 5:00pm'
+            'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm'
+        )
+        $firstRoot = New-GuidedSetupRoot -Name 'event-preview-deterministic-a'
+        $secondRoot = New-GuidedSetupRoot -Name 'event-preview-deterministic-b'
+        & $script:WorkflowPath -Root $firstRoot -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternExamples $examples -EventPatternType Fight -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+        & $script:WorkflowPath -Root $secondRoot -M3UPath $script:PlaylistFixture -EventPatternPreview -EventPatternExamples @($examples | Sort-Object -Descending) -EventPatternType Fight -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+
+        foreach ($name in @(
+                'guided-event-pattern-preview.json'
+                'guided-event-pattern-preview.md'
+                'guided-event-pattern-preview.txt'
+            )) {
+            $first = [IO.File]::ReadAllBytes((Join-Path $firstRoot "output\reports\$name"))
+            $second = [IO.File]::ReadAllBytes((Join-Path $secondRoot "output\reports\$name"))
+            [Convert]::ToBase64String($first) | Should -Be ([Convert]::ToBase64String($second))
+            $text = [System.Text.UTF8Encoding]::new($false, $true).GetString($first)
+            $text | Should -Not -Match 'fixture-token|C:\\private|https?://'
+        }
+        $firstSummary = Read-GuidedSetupSummary -Root $firstRoot
+        $firstSummary.EventPatternPreview.Safety.FilesystemMutation | Should -BeFalse
+        $firstSummary.EventPatternPreview.Safety.ProviderMutation | Should -BeFalse
+        $firstSummary.EventPatternPreview.Safety.DownstreamMutation | Should -BeFalse
+    }
 }

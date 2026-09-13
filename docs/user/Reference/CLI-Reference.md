@@ -27,15 +27,42 @@ pwsh -File scripts/Build-My-Lineup.ps1
 
 A material ambiguous guide identity pauses for a choice: keep the channels but publish no guide, or cancel. The no-guide path is valid and never invents EPG data.
 
-| Parameter          | Required | Notes                                                                                        |
-| ------------------ | -------- | -------------------------------------------------------------------------------------------- |
-| `-Root`            | No       | Repository root.                                                                             |
-| `-M3UPath`         | No       | Playlist path. Omit it to be prompted.                                                       |
-| `-XMLTVPath`       | No       | Optional guide path. Omit it, or answer blank at the prompt, for no guide.                   |
-| `-Accept`          | No       | Publishes the reviewed lineup. Without it, only the proposal and result reports are written. |
-| `-AmbiguousAction` | No       | `KeepWithoutGuide` or `Cancel`; omission prompts when ambiguity exists.                      |
+| Parameter                     | Required | Notes                                                                                                                                                           |
+| ----------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-Root`                       | No       | Repository root.                                                                                                                                                |
+| `-M3UPath`                    | No       | Playlist path. Omit it to be prompted.                                                                                                                          |
+| `-XMLTVPath`                  | No       | Optional guide path. Omit it, or answer blank at the prompt, for no guide.                                                                                    |
+| `-Accept`                     | No       | Publishes the reviewed lineup. Without it, only the proposal and result reports are written.                                                                   |
+| `-AmbiguousAction`            | No       | `KeepWithoutGuide` or `Cancel`; omission prompts when ambiguity exists.                                                                                        |
+| `-EventPatternPreview`        | No       | Runs the report-only beginner event-pattern preview. It cannot be combined with `-Accept`.                                                                    |
+| `-EventPatternExamples`       | No       | Representative event-channel names. Omit to enter pipe-separated examples interactively.                                                                      |
+| `-EventPatternType`           | No       | `Fight`, `PPV`, `TemporaryEvent`, `League`, `SingleTeam`, `StreamingEvent`, `Sports`, `Other`, or `Unknown`.                                                   |
+| `-EventPatternGroup`          | No       | Optional event group label.                                                                                                                                     |
+| `-EventPatternTimezoneMap`    | No       | Optional abbreviation-to-offset mapping, for example `[ordered]@{ ET = '-05:00'; UTC = '+00:00' }`.                                                           |
+| `-EventPatternDefaultTimezone`| No       | Optional numeric offset used when an example has no timezone.                                                                                                   |
+| `-EventPatternReferenceInstantUtc` | No   | UTC reference used to resolve yearless dates.                                                                                                                    |
+| `-EventPatternDateOrder`      | No       | `MonthFirst` (default) or `DayFirst`.                                                                                                                          |
+| `-EventPatternMinimumExamples`| No       | Minimum examples required before inference; default `3`, range `2..50`.                                                                                        |
+| `-EventPatternEvidence`     | No       | Optional Stage A `GuideEvidenceRecord` objects from provider display text, M3U metadata, XMLTV, AED-derived exports, schedule evidence, or accepted knowledge. |
+| `-EventPatternInputField`    | No       | Evidence/name field to inspect: `DisplayName`, `TvgName`, or `OriginalName`; default `DisplayName`. |
+| `-EventPatternExistingRule`  | No       | Optional existing native rule/candidate used for deterministic drift comparison; adoption remains `NotApplied`. |
 
-**Output:** proposal and result reports under `output/reports/`; after explicit acceptance, use `output/guided-setup/accepted/lineup.m3u` and, when selected, `output/guided-setup/accepted/guide.xml`.
+**Normal output:** proposal and result reports under `output/reports/`; after explicit acceptance, use `output/guided-setup/accepted/lineup.m3u` and, when selected, `output/guided-setup/accepted/guide.xml`.
+
+**Event-pattern preview output:** `output/reports/guided-event-pattern-preview.json`, `.md`, and `.txt`. The reports are deterministic and redacted. They show the inferred semantic pattern, confidence, provenance, freshness/drift, review state, and safe next action. `CandidateOnly` is always true, `CanPublish` is always false, and `AcceptedStateMutation` is always `None`; no guide, provider, downstream, or accepted state changes. `Confirmed` and `SafeCandidate` remain provisional; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked.
+
+**Example — preview event-channel naming intelligence without accepting it:**
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1 `
+  -M3UPath C:\private\playlist.m3u `
+  -EventPatternPreview `
+  -EventPatternExamples 'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm' 'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm' 'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm' `
+  -EventPatternType Fight `
+  -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+```
+
+The preview never accepts an inferred rule and never publishes XMLTV. Use the existing `-Accept` flow separately only after a person has reviewed the ordinary lineup proposal; `-EventPatternPreview -Accept` fails closed.
 
 **Example — using an explicit provider file instead of auto-discovery:**
 

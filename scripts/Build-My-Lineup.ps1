@@ -6,6 +6,31 @@ param(
     [ValidateSet('KeepWithoutGuide', 'Cancel')]
     [string]$AmbiguousAction,
     [switch]$Accept,
+    [Alias('EventPreview')]
+    [switch]$EventPatternPreview,
+    [Alias('EventExamples')]
+    [AllowEmptyCollection()]
+    [string[]]$EventPatternExamples = @(),
+    [AllowNull()]
+    [object[]]$EventPatternEvidence = @(),
+    [ValidateSet('Fight', 'PPV', 'TemporaryEvent', 'League', 'SingleTeam', 'StreamingEvent', 'Sports', 'Other', 'Unknown')]
+    [string]$EventPatternType = 'Unknown',
+    [ValidateSet('DisplayName', 'TvgName', 'OriginalName')]
+    [string]$EventPatternInputField = 'DisplayName',
+    [AllowEmptyString()]
+    [string]$EventPatternGroup = '',
+    [AllowNull()]
+    [System.Collections.IDictionary]$EventPatternTimezoneMap = [ordered]@{ UTC = '+00:00' },
+    [AllowEmptyString()]
+    [string]$EventPatternDefaultTimezone = '',
+    [AllowNull()]
+    [Nullable[datetimeoffset]]$EventPatternReferenceInstantUtc,
+    [ValidateSet('MonthFirst', 'DayFirst')]
+    [string]$EventPatternDateOrder = 'MonthFirst',
+    [ValidateRange(2, 50)]
+    [int]$EventPatternMinimumExamples = 3,
+    [AllowNull()]
+    [object]$EventPatternExistingRule = $null,
     [string]$OutputRoot,
     [string]$FaultHook = '',
     [string]$ExpectedCandidateManifestHash,
@@ -71,6 +96,13 @@ function Write-WorkflowReport {
         "Exact guide matches: $($Report.ExactGuideMatchCount)"
         "Needs your choice: $($Report.AmbiguityCount)"
         "Guide-only records: $($Report.GuideOnlyCount)"
+        if ($Report.EventPatternPreview.Enabled) {
+            "Event-pattern preview: $($Report.EventPatternPreview.Status)"
+            "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
+            "Event-pattern review state: $($Report.EventPatternPreview.ReviewState)"
+            "Event-pattern report: $($Report.EventPatternPreview.Output.MarkdownPath)"
+            'Event-pattern preview never publishes a guide or changes accepted state.'
+        }
         if ($null -ne $Report.ConsumerM3UPath) { "M3U lineup: $($Report.ConsumerM3UPath)" }
         if ($null -ne $Report.ConsumerXMLTVPath) { "XMLTV guide: $($Report.ConsumerXMLTVPath)" }
         ''
@@ -128,6 +160,202 @@ function Write-WorkflowConsumerOutputs {
     }
     finally {
         if (Test-Path -LiteralPath $stagingDirectory -PathType Container) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+function New-WorkflowEventPatternPreviewReport {
+    param(
+        [Parameter(Mandatory)][bool]$Enabled,
+        [Parameter(Mandatory)][bool]$InferenceRan,
+        [AllowNull()][object]$Review,
+        [AllowEmptyString()][string]$State = 'NotRun',
+        [AllowEmptyString()][string]$Reason = ''
+    )
+
+    if (-not $Enabled) {
+        return [ordered]@{
+            Version = 'guided-setup/event-pattern-preview/v1'
+            Enabled = $false
+            InferenceRan = $false
+            Status = 'DISABLED'
+            State = 'NotRun'
+            ReviewState = 'NotRun'
+            RepresentativePattern = $null
+            Confidence = $null
+            Review = $null
+            Drift = $null
+            Usability = [ordered]@{
+                ForReview = $false
+                ForAutomaticUse = $false
+                Blocked = $true
+                Reason = 'Event-pattern preview was not requested.'
+            }
+            Safety = [ordered]@{
+                PublicationState = 'CandidateOnly'
+                CanPublish = $false
+                PromotionRequired = 'ExplicitAcceptance'
+                AcceptedStateMutation = 'None'
+                ProviderMutation = $false
+                DownstreamMutation = $false
+                FilesystemMutation = $false
+                RedactionApplied = $true
+            }
+            Output = $null
+        }
+    }
+
+    if ($null -eq $Review) {
+        $reasonCode = if ([string]::IsNullOrWhiteSpace($State) -or $State -eq 'NeedsReview') { 'InsufficientExamples' } else { $State }
+        return [ordered]@{
+            Version = 'guided-setup/event-pattern-preview/v1'
+            Enabled = $true
+            InferenceRan = $InferenceRan
+            Status = 'BLOCKED'
+            State = $State
+            ReviewState = $State
+            RepresentativePattern = $null
+            Confidence = [ordered]@{ State = 'NeedsReview'; Score = 0 }
+            Review = [ordered]@{
+                Required = $true
+                Reasons = @([ordered]@{ Code = $reasonCode; Message = $Reason })
+                PlainLanguage = $Reason
+            }
+            Drift = [ordered]@{ Status = 'NotEvaluated'; ReviewOnly = $true; Adoption = 'NotApplied' }
+            Usability = [ordered]@{
+                ForReview = $false
+                ForAutomaticUse = $false
+                Blocked = $true
+                Reason = $Reason
+            }
+            Safety = [ordered]@{
+                PublicationState = 'CandidateOnly'
+                CanPublish = $false
+                PromotionRequired = 'ExplicitAcceptance'
+                AcceptedStateMutation = 'None'
+                ProviderMutation = $false
+                DownstreamMutation = $false
+                FilesystemMutation = $false
+                RedactionApplied = $true
+            }
+            Output = [ordered]@{
+                JsonPath = 'output/reports/guided-event-pattern-preview.json'
+                MarkdownPath = 'output/reports/guided-event-pattern-preview.md'
+                TextPath = 'output/reports/guided-event-pattern-preview.txt'
+            }
+        }
+    }
+
+    $reviewState = [string]$Review.Summary.State
+    $reviewable = $reviewState -in @('Confirmed', 'SafeCandidate')
+    $blocked = $reviewState -in @('NeedsReview', 'Unresolved', 'Contradiction', 'StaleSource', 'SourceUnavailable')
+    $reasonText = if ($blocked) { [string]$Review.Review.PlainLanguage } else { 'The event pattern is useful for review but cannot be adopted automatically.' }
+    return [ordered]@{
+        Version = 'guided-setup/event-pattern-preview/v1'
+        Enabled = $true
+        InferenceRan = $InferenceRan
+        Status = if ($blocked) { 'BLOCKED' } else { 'PREVIEW_READY' }
+        State = $reviewState
+        ReviewState = $reviewState
+        RepresentativePattern = [string]$Review.Pattern.Description
+        Confidence = $Review.Confidence
+        Review = $Review.Review
+        Drift = $Review.Drift
+        Event = $Review.Event
+        Fields = @($Review.Fields)
+        Provenance = $Review.Provenance
+        Usability = [ordered]@{
+            ForReview = $reviewable
+            ForAutomaticUse = $false
+            Blocked = $blocked
+            Reason = $reasonText
+        }
+        Safety = [ordered]@{
+            PublicationState = 'CandidateOnly'
+            CanPublish = $false
+            PromotionRequired = 'ExplicitAcceptance'
+            AcceptedStateMutation = 'None'
+            ProviderMutation = $false
+            DownstreamMutation = $false
+            FilesystemMutation = $false
+            RedactionApplied = $true
+        }
+        Output = [ordered]@{
+            JsonPath = 'output/reports/guided-event-pattern-preview.json'
+            MarkdownPath = 'output/reports/guided-event-pattern-preview.md'
+            TextPath = 'output/reports/guided-event-pattern-preview.txt'
+        }
+    }
+}
+
+function Write-WorkflowEventPatternPreviewReports {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][object]$Report,
+        [AllowNull()][object]$InferenceResult,
+        [AllowNull()][object]$Review
+    )
+
+    $directory = Join-Path $Root 'output\reports'
+    Assert-ChannelForgeWritePath -Path $directory -AllowedRoot (Join-Path $Root 'output')
+    New-Item -ItemType Directory -Force -Path $directory | Out-Null
+    $jsonPath = Join-Path $directory 'guided-event-pattern-preview.json'
+    $markdownPath = Join-Path $directory 'guided-event-pattern-preview.md'
+    $textPath = Join-Path $directory 'guided-event-pattern-preview.txt'
+    foreach ($path in @($jsonPath, $markdownPath, $textPath)) {
+        Assert-ChannelForgeWritePath -Path $path -AllowedRoot (Join-Path $Root 'output')
+    }
+
+    $encoding = [System.Text.UTF8Encoding]::new($false, $true)
+    $json = $Report | ConvertTo-Json -Depth 20 -Compress
+    $markdown = if ($null -eq $Review) {
+        @(
+            '# ChannelForge event-pattern preview'
+            ''
+            '**Status:** BLOCKED'
+            ''
+            'ChannelForge did not run event-pattern inference because more representative event-channel examples are needed.'
+            ''
+            '**Safety:** This preview is CandidateOnly, cannot publish, and did not change accepted state, provider state, downstream state, or guide output.'
+        ) -join "`n"
+    }
+    else {
+        Get-ChannelForgeGuidePatternReview -InferenceResult $InferenceResult -OutputFormat Markdown
+    }
+    $confidenceText = if ($null -eq $Report.Confidence) {
+        'Not evaluated.'
+    }
+    else {
+        "$($Report.Confidence.State) ($($Report.Confidence.Score)/100)"
+    }
+    $patternText = if ([string]::IsNullOrWhiteSpace([string]$Report.RepresentativePattern)) {
+        'Not detected.'
+    }
+    else {
+        [string]$Report.RepresentativePattern
+    }
+    $driftText = if ($null -eq $Report.Drift) { 'Not evaluated.' } else { [string]$Report.Drift.Status }
+    $text = @(
+        'ChannelForge event-pattern preview'
+        ''
+        "Inference ran: $($Report.InferenceRan.ToString().ToLowerInvariant())"
+        "Review state: $($Report.ReviewState)"
+        "Representative pattern: $patternText"
+        "Confidence: $confidenceText"
+        "Usable for review: $($Report.Usability.ForReview.ToString().ToLowerInvariant())"
+        'Usable for automatic adoption: false'
+        "Why: $($Report.Usability.Reason)"
+        "Drift: $driftText"
+        ''
+        'Safety boundary: CandidateOnly; CanPublish=false; PromotionRequired=ExplicitAcceptance; AcceptedStateMutation=None.'
+        'No guide was published. Accepted state, provider state, and downstream state did not change.'
+        'Sensitive source values and raw examples were redacted from this report.'
+    ) -join "`n"
+    [IO.File]::WriteAllText($jsonPath, $json, $encoding)
+    [IO.File]::WriteAllText($markdownPath, $markdown + "`n", $encoding)
+    [IO.File]::WriteAllText($textPath, $text + "`n", $encoding)
+    return [pscustomobject][ordered]@{
+        JsonPath = [IO.Path]::GetRelativePath($Root, $jsonPath).Replace('\', '/')
+        MarkdownPath = [IO.Path]::GetRelativePath($Root, $markdownPath).Replace('\', '/')
+        TextPath = [IO.Path]::GetRelativePath($Root, $textPath).Replace('\', '/')
     }
 }
 
@@ -387,12 +615,21 @@ $report = [ordered]@{
     AmbiguityCount = 0
     GuideOnlyCount = 0
     GuideStatus = 'NOT_SELECTED'
+    EventPatternPreview = New-WorkflowEventPatternPreviewReport -Enabled:$false -InferenceRan:$false -Review $null
     ConsumerM3UPath = $null
     ConsumerXMLTVPath = $null
     WhatHappened = $null
     Preserved = 'No accepted output was changed.'
     Changed = 'No accepted output was changed.'
     Next = 'Correct the input and run Build-My-Lineup.ps1 again.'
+}
+if ($EventPatternPreview) {
+    $report.EventPatternPreview = New-WorkflowEventPatternPreviewReport `
+        -Enabled:$true `
+        -InferenceRan:$false `
+        -Review $null `
+        -State 'NeedsReview' `
+        -Reason 'Event-pattern preview is report-only and cannot be combined with -Accept.'
 }
 $machineCandidateManifestHash = $null
 $machineBuildIdentity = $null
@@ -402,6 +639,8 @@ $prior = $null
 $stagedInputs = @()
 $acceptedPublicationCompleted = $false
 $acceptedGenerationChanged = $false
+$eventInference = $null
+$eventReview = $null
 $consumerViewRefreshCompleted = $false
 try {
     Write-Host 'ChannelForge Guided Setup' -ForegroundColor Cyan
@@ -412,6 +651,9 @@ try {
     $report.GuideStatus = if ($null -eq $guide) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_SELECTED' }
 
     $rootFull = [System.IO.Path]::GetFullPath($Root)
+    if ($EventPatternPreview -and $Accept) {
+        throw 'Event-pattern preview is report-only; do not combine it with -Accept. No guide or accepted state can be changed by this step.'
+    }
     $outputFull = if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
         [System.IO.Path]::GetFullPath((Join-Path $rootFull 'output\\guided-setup'))
     }
@@ -462,9 +704,72 @@ try {
     $report.AmbiguityCount = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
     $report.GuideOnlyCount = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
     if ($null -eq $guide) {
+
         $report.ExactGuideMatchCount = 0
         $report.AmbiguityCount = 0
         $report.GuideOnlyCount = 0
+    }
+    if ($EventPatternPreview) {
+        Write-Host '4. Previewing event-channel naming intelligence (report only).' -ForegroundColor Cyan
+        $evidence = @($EventPatternEvidence)
+        $examples = @($EventPatternExamples | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { ([string]$_).Trim() })
+        if ($evidence.Count -eq 0 -and $examples.Count -eq 0 -and
+            -not $PSBoundParameters.ContainsKey('EventPatternExamples') -and
+            -not $PSBoundParameters.ContainsKey('EventPatternEvidence')) {
+            $pasted = Read-Host 'Paste representative event-channel names separated by "|" (or press Enter to review later)'
+            if (-not [string]::IsNullOrWhiteSpace($pasted)) {
+                $examples = @($pasted -split '\s*\|\s*' | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { ([string]$_).Trim() })
+            }
+        }
+
+        $inputCount = if ($evidence.Count -gt 0) { $evidence.Count } else { $examples.Count }
+        if ($inputCount -lt $EventPatternMinimumExamples) {
+            $eventReport = New-WorkflowEventPatternPreviewReport `
+                -Enabled:$true `
+                -InferenceRan:$false `
+                -Review $null `
+                -State 'NeedsReview' `
+                -Reason "Provide at least $EventPatternMinimumExamples representative event-channel examples or evidence records so ChannelForge can compare one pattern safely."
+        }
+        else {
+            try {
+                $inferenceArguments = @{
+                    EventType = $EventPatternType
+                    InputField = $EventPatternInputField
+                    TimezoneMap = $EventPatternTimezoneMap
+                    DefaultTimezone = $EventPatternDefaultTimezone
+                    ReferenceInstantUtc = $EventPatternReferenceInstantUtc
+                    DateOrder = $EventPatternDateOrder
+                    MinimumExamples = $EventPatternMinimumExamples
+                    ExistingRule = $EventPatternExistingRule
+                }
+                if ($evidence.Count -gt 0) {
+                    $inferenceArguments.Evidence = $evidence
+                }
+                else {
+                    $inferenceArguments.Examples = $examples
+                    $inferenceArguments.Group = $EventPatternGroup
+                }
+                $eventInference = Invoke-ChannelForgeGuidePatternInference @inferenceArguments
+                $eventReview = Get-ChannelForgeGuidePatternReview -InferenceResult $eventInference
+                $eventReport = New-WorkflowEventPatternPreviewReport `
+                    -Enabled:$true `
+                    -InferenceRan:$true `
+                    -Review $eventReview
+            }
+            catch {
+                $eventReport = New-WorkflowEventPatternPreviewReport `
+                    -Enabled:$true `
+                    -InferenceRan:$true `
+                    -Review $null `
+                    -State 'SourceUnavailable' `
+                    -Reason 'ChannelForge could not safely analyze the supplied event-channel examples. No event pattern was trusted.'
+            }
+        }
+        $eventFiles = Write-WorkflowEventPatternPreviewReports -Root $rootFull -Report $eventReport -InferenceResult $eventInference -Review $eventReview
+        $report.EventPatternPreview = $eventReport
+        Write-Host "Event-pattern preview: $($eventFiles.MarkdownPath)" -ForegroundColor Yellow
+        Write-Host 'No event rule was accepted and no guide was published by this preview.' -ForegroundColor Yellow
     }
 
     if ($PlanOnly -or $Accept) {
