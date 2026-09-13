@@ -36,6 +36,9 @@ Remote M3U cache metadata is an ignored, disposable, cache-private operational r
 
 `Invoke-ChannelForgeGuidePatternInference` and `Get-ChannelForgeGuidePatternReview` treat provider display text and Stage A evidence as untrusted input. Their candidate, preview, review items, provenance, JSON, and Markdown retain only sanitized event text, logical source identifiers, and fingerprints of sanitized examples where a safe provenance label is needed. URL/stream URL, credential/token, private-path, parser-error, candidate-hash, generation-ID, raw examples, and implementation metadata are excluded from rendered values. The fixed `RedactedFields` declaration names omitted categories only; it does not carry source values. The review command is read-only; use ignored local files for real guides and playlists, and never paste their raw contents into a fixture, report, or issue.
 
+The beginner workflow's `-EventPatternPreview` uses the same boundary. It may read provider-supplied display names from operator input, but its JSON, Markdown, and text outputs under `output/reports/guided-event-pattern-preview.*` are deterministic and redacted: raw examples, provider and stream URLs, query strings, credentials, tokens, account IDs, private paths, parser errors, hashes, and generation IDs must not appear. Treat the generated reports as review artifacts rather than a place to store source evidence. The preview is report-only, cannot be combined with `-Accept`, and does not publish XMLTV or mutate provider, downstream, or accepted state.
+
+
 ## Starting from the Example Templates
 
 Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.

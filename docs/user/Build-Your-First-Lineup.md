@@ -52,6 +52,34 @@ The review explains the detected channel fields, representative event title/date
 
 Every review reports `CandidateOnly`, `CanPublish = false`, `PromotionRequired = ExplicitAcceptance`, and `AcceptedStateMutation = None`. JSON and Markdown/text output omit raw examples, provider URLs, stream URLs, credentials, private paths, parser errors, hashes, and generation IDs.
 
+### Beginner event-pattern preview
+
+The beginner workflow can preview volatile IPTV event-channel naming without accepting a rule or publishing a guide. Use several representative names from the provider display text for temporary event, PPV, fight, league, single-team, streaming-event, or sports channels. The workflow passes those examples to native semantic inference; it does not ask you to write a regular expression.
+
+```powershell
+pwsh -File scripts/Build-My-Lineup.ps1 `
+  -M3UPath C:\private\playlist.m3u `
+  -EventPatternPreview `
+  -EventPatternExamples `
+    'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm' `
+    'UFC 02: Fight Night // UTC Sat 20 Apr 5:00pm' `
+    'UFC 03: Fight Night // UTC Sat 27 Apr 5:00pm' `
+  -EventPatternType Fight `
+  -EventPatternReferenceInstantUtc '2024-04-15T00:00:00Z'
+```
+
+The prompt also accepts examples separated by `|` when `-EventPatternExamples` is omitted. Supply `-EventPatternReferenceInstantUtc` when examples omit a year. Supply an explicit `-EventPatternTimezoneMap` or `-EventPatternDefaultTimezone` when the examples use abbreviations that need interpretation.
+
+The preview writes deterministic, redacted reports to:
+
+- `output/reports/guided-event-pattern-preview.json`
+- `output/reports/guided-event-pattern-preview.md`
+- `output/reports/guided-event-pattern-preview.txt`
+
+For an advanced in-process caller with Stage A records, pass `-EventPatternEvidence` instead of `-EventPatternExamples`; records can represent provider display text, M3U metadata, XMLTV, documented AED-derived exports, schedule evidence, or accepted knowledge. The same redaction and candidate-only boundary applies.
+
+The reports show what was inferred, confidence, provenance, freshness/drift, the review state, and the next safe action. `Confirmed` and `SafeCandidate` remain candidates for review; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked. The preview always reports `CandidateOnly`, `CanPublish = false`, `PromotionRequired = ExplicitAcceptance`, and `AcceptedStateMutation = None`. It cannot be combined with `-Accept`; it never publishes a guide, changes provider or downstream state, or changes accepted state. Raw examples, URLs, stream URLs, tokens, credentials, and private paths are not written to these reports.
+
 ## One safe flow
 
 The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.

@@ -52,6 +52,11 @@ Stage C adds the beginner review projection: [`GuidePatternReviewReport`](../../
 
 Stage C is therefore a coaching/readability boundary, not an adoption boundary. Confirmed output still requires the existing explicit acceptance/promotion contract, while contradiction, stale, unavailable, unresolved, and drift states remain visible and blocked from automatic adoption.
 
+Stage D wires this contract into the beginner workflow at [`scripts/Build-My-Lineup.ps1`](../../scripts/Build-My-Lineup.ps1). `-EventPatternPreview` accepts representative event-channel display names or Stage A evidence, invokes the Stage B inference and Stage C review boundaries, and writes deterministic redacted JSON, Markdown, and text reports under `output/reports/`. Interactive examples are pipe-separated when the parameter is omitted; callers can provide event type/group, timezone mappings or a default offset, reference instant, date order, minimum example count, and an existing rule/candidate for deterministic drift comparison without writing a regex.
+
+The workflow rejects `-EventPatternPreview -Accept` before candidate staging. The preview report is always `CandidateOnly`, `CanPublish = false`, requires `ExplicitAcceptance`, and records `AcceptedStateMutation = None`; it has no guide-publication, provider, downstream, or accepted-state mutation path. Confirmed and safe-candidate reviews are informational only, while missing, contradictory, stale, unavailable, or unresolved evidence remains blocked.
+
+
 The first slice is ephemeral: rule audit fields (`CreatedUtc`, `ValidatedUtc`, and `LastSuccessfulValidationUtc`) remain empty because no learned-rule store is introduced. Deterministic rule identity and extraction output do not depend on wall-clock time.
 
 ### Infrastructure layer (planned)
