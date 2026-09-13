@@ -178,6 +178,17 @@ Foreign or mismatched tasks are never replaced or removed. Disabling the policy 
 
 This is a manual one-shot command plus an opt-in Windows registration, not a scheduler implementation inside ChannelForge.
 
+## Reviewing an event pattern
+
+After running `Invoke-ChannelForgeGuidePatternInference`, use the Stage C review surface for beginner-readable output:
+
+```powershell
+Get-ChannelForgeGuidePatternReview -InferenceResult $result -OutputFormat Markdown
+Get-ChannelForgeGuidePatternReview -InferenceResult $result -OutputFormat Json
+```
+
+This command is read-only. It returns `CandidateOnly`, keeps publication disabled, preserves accepted state, and omits sensitive source values from JSON and Markdown.
+
 ## Verifying your environment
 
 ```powershell
