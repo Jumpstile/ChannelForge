@@ -40,6 +40,12 @@ Get-ChannelForgeGuidePatternReview -InferenceResult $pattern -OutputFormat Markd
 
 The report is review evidence, not an accepted mapping. It identifies the detected channel fields, representative event values, confidence, source relationships, freshness, and drift. JSON is available with `-OutputFormat Json`; both formats omit raw examples and sensitive provider data. Contradictions, stale sources, and unavailable sources remain blocked rather than being resolved by guesswork.
 
+### Beginner event-pattern preview
+
+The Guided Setup / Beginner Workflow can analyze representative provider display names for volatile event-channel groups without turning those names into an accepted source rule. Run `scripts/Build-My-Lineup.ps1 -EventPatternPreview` with at least three examples, and include `-EventPatternType` for categories such as fights, PPV, temporary events, leagues, single-team channels, streaming events, or sports. The workflow calls native semantic inference and the beginner review projection; it does not require regular expressions.
+
+The preview writes deterministic, redacted JSON, Markdown, and text reports under `output/reports/`. The report preserves review state, confidence, provenance, freshness/drift, and safe next action. `Confirmed` and `SafeCandidate` are still provisional; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked. The preview is candidate-only, cannot be combined with `-Accept`, never publishes XMLTV or another guide, and never changes provider, downstream, or accepted state.
+
 ## Where to go next
 
 - Setting up your real sources? → [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)
