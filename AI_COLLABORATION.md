@@ -102,6 +102,19 @@ Before commit:
 - Confirm no secrets are staged.
 - Record follow-up risks as issues.
 
+### Intent-fit review gate
+
+Before a behavior-changing slice is handed to a tester, merged, packaged,
+released, deployed, or called ready, independently compare the written intent
+with the source behavior. Passing tests is necessary but not sufficient. Record
+the entry points, inspected files, relevant evidence, safety boundary, and
+`PASS`, `PASS_WITH_GAPS`, `HOLD`, or `NOT_REVIEWED` disposition. If behavior
+does not fit intent, hold the slice and remediate it; do not ask a tester to
+discover the mismatch.
+
+Use [Product Intent-Fit Audit](docs/engineering/INTENT_FIT_AUDIT.md) for the
+required matrix and handoff evidence.
+
 ## Security Boundaries
 
 AI collaborators must not request, expose, infer, or print private provider tokens, usernames, passwords, subscription URLs, or local-only configuration values. Use redaction and placeholders.
