@@ -16,11 +16,13 @@ If onboarding has not been completed, stop and start there.
 4. Create a focused branch.
 5. Make the smallest change that solves the issue.
 6. Update tests and documentation.
-7. Run relevant checks.
-8. Commit only intentional files.
-9. Push the review branch only when the cross-machine handoff is authorized,
-   then let CI verify the change.
-10. Obtain review and merge through the authorized repository process; a green
+7. Compare the written intent with the source behavior and record the
+   [intent-fit audit](docs/engineering/INTENT_FIT_AUDIT.md) disposition.
+8. Run relevant checks.
+9. Commit only intentional files.
+10. Push the review branch only when the cross-machine handoff is authorized,
+    then let CI verify the change.
+11. Obtain review and merge through the authorized repository process; a green
     CI run is evidence, not release approval.
 
 This is the normal workflow for an authorized contributor. It does not itself authorize an AI collaborator to create a branch, commit, push, merge, or release; those action boundaries are defined in [AI_COLLABORATION.md](AI_COLLABORATION.md).

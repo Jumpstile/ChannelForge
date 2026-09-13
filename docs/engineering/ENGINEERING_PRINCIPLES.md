@@ -58,4 +58,18 @@ Day-to-day changes follow the lifecycle in the [Flight Manual](../../engineering
 
 ## Evidence over assumptions
 
-Every important engineering claim must be grounded in repository evidence — source, tests, logs, documentation, or reproducible behavior (see [ADR 0005](../adr/0005-evidence-over-assumptions.md)). If evidence is missing, say so; do not invent it.
+Every important engineering claim must be grounded in repository evidence —
+source, tests, logs, documentation, or reproducible behavior (see [ADR
+0005](../adr/0005-evidence-over-assumptions.md)). If evidence is missing, say
+so; do not invent it.
+
+## Intent-fit review
+
+Tests prove executed behavior for the cases they cover. They do not prove that
+the implementation matches the product intent. Before a behavior-changing slice
+is handed to a tester, merged, packaged, released, deployed, or called ready,
+inspect the source and relevant evidence against the written intent. Record the
+entry points, safety boundary, evidence, and disposition in the
+[Product Intent-Fit Audit](INTENT_FIT_AUDIT.md) format. Hold mismatches and
+record material `PASS_WITH_GAPS` remediation instead of passing the uncertainty
+to a tester.
