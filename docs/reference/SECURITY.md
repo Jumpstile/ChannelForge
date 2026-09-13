@@ -38,7 +38,6 @@ Remote M3U cache metadata is an ignored, disposable, cache-private operational r
 
 The beginner workflow's `-EventPatternPreview` uses the same boundary. It may read provider-supplied display names from operator input, but its JSON, Markdown, and text outputs under `output/reports/guided-event-pattern-preview.*` are deterministic and redacted: raw examples, provider and stream URLs, query strings, credentials, tokens, account IDs, private paths, parser errors, hashes, and generation IDs must not appear. Treat the generated reports as review artifacts rather than a place to store source evidence. The preview is report-only, cannot be combined with `-Accept`, and does not publish XMLTV or mutate provider, downstream, or accepted state.
 
-
 ## Starting from the Example Templates
 
 Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.

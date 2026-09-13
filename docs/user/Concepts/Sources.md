@@ -46,7 +46,6 @@ The Guided Setup / Beginner Workflow can analyze representative provider display
 
 The preview writes deterministic, redacted JSON, Markdown, and text reports under `output/reports/`. The report preserves review state, confidence, provenance, freshness/drift, and safe next action. `Confirmed` and `SafeCandidate` are still provisional; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked. The preview is candidate-only, cannot be combined with `-Accept`, never publishes XMLTV or another guide, and never changes provider, downstream, or accepted state.
 
-
 ## Where to go next
 
 - Setting up your real sources? → [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)

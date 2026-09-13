@@ -56,7 +56,6 @@ Stage D wires this contract into the beginner workflow at [`scripts/Build-My-Lin
 
 The workflow rejects `-EventPatternPreview -Accept` before candidate staging. The preview report is always `CandidateOnly`, `CanPublish = false`, requires `ExplicitAcceptance`, and records `AcceptedStateMutation = None`; it has no guide-publication, provider, downstream, or accepted-state mutation path. Confirmed and safe-candidate reviews are informational only, while missing, contradictory, stale, unavailable, or unresolved evidence remains blocked.
 
-
 The first slice is ephemeral: rule audit fields (`CreatedUtc`, `ValidatedUtc`, and `LastSuccessfulValidationUtc`) remain empty because no learned-rule store is introduced. Deterministic rule identity and extraction output do not depend on wall-clock time.
 
 ### Infrastructure layer (planned)
