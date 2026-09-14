@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/guide-pattern-acceptance-plan.schema.json",
+  "title": "ChannelForge event-pattern acceptance plan",
+  "description": "Deterministic, redacted, candidate-only Stage E future-acceptance plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Version",
+    "PlanType",
+    "Summary",
+    "StableIdentity",
+    "Pattern",
+    "MatchedExamples",
+    "Confidence",
+    "Review",
+    "Provenance",
+    "Freshness",
+    "Drift",
+    "VolatileFacts",
+    "ProposedFutureRule",
+    "Eligibility",
+    "Safety",
+    "RequiredLater",
+    "ReadOnly",
+    "RedactedFields"
+  ],
+  "properties": {
+    "Version": { "const": "guide-intelligence/pattern-acceptance-plan/v1" },
+    "PlanType": { "const": "FutureEventPatternAcceptance" },
+    "Summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["State", "Status", "BeginnerSummary", "BlockedReason"],
+      "properties": {
+        "State": { "type": "string" },
+        "Status": { "enum": ["ELIGIBLE_FOR_FUTURE_ACCEPTANCE", "BLOCKED"] },
+        "BeginnerSummary": { "type": "string" },
+        "BlockedReason": { "type": "string" }
+      }
+    },
+    "StableIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Pattern", "Event", "ProposedFutureRule"],
+      "properties": {
+        "Pattern": { "type": "object" },
+        "Event": { "type": "object" },
+        "ProposedFutureRule": { "$ref": "#/$defs/proposedFutureRule" }
+      }
+    },
+    "Pattern": { "type": "object" },
+    "MatchedExamples": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Total", "Matched", "Representative"],
+      "properties": {
+        "Total": { "type": "integer", "minimum": 0 },
+        "Matched": { "type": "integer", "minimum": 0 },
+        "Representative": { "type": "object" }
+      }
+    },
+    "Confidence": { "type": "object" },
+    "Review": { "type": "object" },
+    "Provenance": { "type": "object" },
+    "Freshness": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "SourceId",
+          "SourceFamily",
+          "Relationship",
+          "FreshnessState"
+        ],
+        "properties": {
+          "SourceId": { "type": "string" },
+          "SourceFamily": { "type": "string" },
+          "Relationship": { "type": "string" },
+          "FreshnessState": { "type": "string" }
+        }
+      }
+    },
+    "Drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "ReviewOnly", "Adoption", "Explanation"],
+      "properties": {
+        "Status": { "enum": ["Detected", "NotEvaluated"] },
+        "ReviewOnly": { "const": true },
+        "Adoption": { "const": "NotApplied" },
+        "Explanation": { "type": "string" }
+      }
+    },
+    "VolatileFacts": { "$ref": "#/$defs/volatileFacts" },
+    "ProposedFutureRule": { "$ref": "#/$defs/proposedFutureRule" },
+    "Eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EligibleForFutureAcceptance",
+        "Blocked",
+        "CanAcceptNow",
+        "VolatileFactsEligible",
+        "VolatileFactsCanBePresentedCurrent",
+        "Reason"
+      ],
+      "properties": {
+        "EligibleForFutureAcceptance": { "type": "boolean" },
+        "Blocked": { "type": "boolean" },
+        "CanAcceptNow": { "const": false },
+        "VolatileFactsEligible": { "type": "boolean" },
+        "VolatileFactsCanBePresentedCurrent": { "type": "boolean" },
+        "Reason": { "type": "string" }
+      }
+    },
+    "Safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PlanOnly",
+        "CandidateOnly",
+        "PublicationState",
+        "CanPublish",
+        "CanAcceptNow",
+        "AcceptedStateMutation",
+        "ProviderMutation",
+        "DownstreamMutation",
+        "GuidePublication",
+        "FilesystemMutation",
+        "Adoption",
+        "RedactionApplied",
+        "SafetyBoundary"
+      ],
+      "properties": {
+        "PlanOnly": { "const": true },
+        "CandidateOnly": { "const": true },
+        "PublicationState": { "const": "CandidateOnly" },
+        "CanPublish": { "const": false },
+        "CanAcceptNow": { "const": false },
+        "AcceptedStateMutation": { "const": "None" },
+        "ProviderMutation": { "const": false },
+        "DownstreamMutation": { "const": false },
+        "GuidePublication": { "const": false },
+        "FilesystemMutation": { "const": false },
+        "Adoption": { "const": "NotApplied" },
+        "RedactionApplied": { "const": true },
+        "SafetyBoundary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "RequiredLater": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "ReadOnly": { "const": true },
+    "RedactedFields": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "proposedFutureRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Status",
+        "RuleId",
+        "RuleVersion",
+        "BaselineRuleId",
+        "IdentityReason",
+        "Adoption"
+      ],
+      "properties": {
+        "Status": {
+          "enum": ["ProposedOnly", "NotAvailableFromReview", "NotProposed"]
+        },
+        "RuleId": { "type": "string", "pattern": "^(|pattern-[0-9a-f]{64})$" },
+        "RuleVersion": { "type": ["integer", "null"], "minimum": 1 },
+        "BaselineRuleId": {
+          "type": "string",
+          "pattern": "^(|pattern-[0-9a-f]{64})$"
+        },
+        "IdentityReason": { "type": "string" },
+        "Adoption": { "const": "NotApplied" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["Status"],
+            "properties": { "Status": { "const": "ProposedOnly" } }
+          },
+          "then": {
+            "properties": {
+              "RuleId": { "pattern": "^pattern-[0-9a-f]{64}$" },
+              "RuleVersion": { "const": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["Status"],
+            "properties": {
+              "Status": { "enum": ["NotAvailableFromReview", "NotProposed"] }
+            }
+          },
+          "then": {
+            "properties": {
+              "RuleId": { "const": "" },
+              "RuleVersion": { "const": null }
+            }
+          }
+        }
+      ]
+    },
+    "volatileFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "FactId",
+        "FactType",
+        "SubjectType",
+        "SubjectId",
+        "SourceId",
+        "SourceType",
+        "SourceRelationship",
+        "FetchedAtUtc",
+        "DataTimestampUtc",
+        "EvaluationInstantUtc",
+        "EventStartUtc",
+        "EventTimezone",
+        "ValidFromUtc",
+        "ValidToUtc",
+        "Season",
+        "SeasonPhase",
+        "EventSeasonPhase",
+        "Week",
+        "Round",
+        "Competition",
+        "League",
+        "Sport",
+        "FreshnessState",
+        "FreshnessTtlMinutes",
+        "ConfidenceState",
+        "Status",
+        "ContradictionGroup",
+        "Decision",
+        "ReasonCodes"
+      ],
+      "properties": {
+        "FactId": { "type": "string" },
+        "FactType": { "type": "string" },
+        "SubjectType": { "type": "string" },
+        "SubjectId": { "type": "string" },
+        "SourceId": { "type": "string" },
+        "SourceType": { "type": "string" },
+        "SourceRelationship": {
+          "enum": ["Authoritative", "Independent", "Mirror", "Unknown"]
+        },
+        "FetchedAtUtc": { "type": "string" },
+        "DataTimestampUtc": { "type": "string" },
+        "EvaluationInstantUtc": { "type": "string" },
+        "EventStartUtc": { "type": "string" },
+        "EventTimezone": { "type": "string" },
+        "ValidFromUtc": { "type": "string" },
+        "ValidToUtc": { "type": "string" },
+        "Season": { "type": "string" },
+        "SeasonPhase": { "type": "string" },
+        "EventSeasonPhase": { "type": "string" },
+        "Week": { "type": "string" },
+        "Round": { "type": "string" },
+        "Competition": { "type": "string" },
+        "League": { "type": "string" },
+        "Sport": { "type": "string" },
+        "FreshnessState": {
+          "enum": ["Current", "Stale", "Unavailable", "Unknown"]
+        },
+        "FreshnessTtlMinutes": { "type": "integer", "minimum": 0 },
+        "ConfidenceState": { "type": "string" },
+        "Status": {
+          "enum": [
+            "Current",
+            "Stale",
+            "Unavailable",
+            "Contradictory",
+            "Unknown"
+          ]
+        },
+        "ContradictionGroup": { "type": "string" },
+        "Decision": {
+          "enum": ["EligibleCurrent", "Omitted", "ReviewRequired"]
+        },
+        "ReasonCodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "volatileFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Status",
+        "Explanation",
+        "Total",
+        "EligibleCount",
+        "OmittedCount",
+        "Facts",
+        "Omitted"
+      ],
+      "properties": {
+        "Status": {
+          "enum": [
+            "NotProvided",
+            "Eligible",
+            "Contradictory",
+            "SourceUnavailable",
+            "StaleOrReviewNeeded",
+            "ReviewNeeded"
+          ]
+        },
+        "Explanation": { "type": "string" },
+        "Total": { "type": "integer", "minimum": 0 },
+        "EligibleCount": { "type": "integer", "minimum": 0 },
+        "OmittedCount": { "type": "integer", "minimum": 0 },
+        "Facts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/volatileFact" }
+        },
+        "Omitted": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/volatileFact" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["Status"],
+            "properties": { "Status": { "const": "Eligible" } }
+          },
+          "then": {
+            "properties": {
+              "Facts": {
+                "items": {
+                  "properties": { "Decision": { "const": "EligibleCurrent" } }
+                }
+              },
+              "Omitted": { "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["Status"],
+            "properties": {
+              "Status": {
+                "enum": [
+                  "NotProvided",
+                  "Contradictory",
+                  "SourceUnavailable",
+                  "StaleOrReviewNeeded",
+                  "ReviewNeeded"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "Facts": {
+                "items": {
+                  "properties": {
+                    "Decision": { "enum": ["Omitted", "ReviewRequired"] }
+                  }
+                }
+              },
+              "Omitted": {
+                "items": {
+                  "properties": {
+                    "Decision": { "enum": ["Omitted", "ReviewRequired"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
