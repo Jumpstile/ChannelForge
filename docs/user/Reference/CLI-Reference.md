@@ -216,6 +216,43 @@ Get-ChannelForgeGuidePatternReview -InferenceResult $result -OutputFormat Json
 
 This command is read-only. It returns `CandidateOnly`, keeps publication disabled, preserves accepted state, and omits sensitive source values from JSON and Markdown.
 
+## `Get-ChannelForgeGuidePatternAcceptancePlan`
+
+Create a deterministic, beginner-readable explanation of what accepting an
+event pattern would require later:
+
+```powershell
+Get-ChannelForgeGuidePatternAcceptancePlan `
+  -InputObject $review `
+  -OutputFormat Json
+Get-ChannelForgeGuidePatternAcceptancePlan `
+  -InputObject $review `
+  -OutputFormat Markdown
+```
+
+The command accepts a Stage B inference result or Stage C/D review object and
+returns an object, compact JSON, or Markdown/text plan. Confirmed and
+SafeCandidate states are eligible for future acceptance only. Review,
+contradiction, stale, unavailable, insufficient-example, and drift states are
+blocked or review-only with an explicit reason. The plan always reports
+`PlanOnly`, `CandidateOnly`, `CanPublish = false`, `CanAcceptNow = false`,
+`AcceptedStateMutation = None`, `ProviderMutation = false`,
+`DownstreamMutation = false`, `GuidePublication = false`, and
+`Adoption = NotApplied`. It does not write a file or accept a rule.
+For Stage C/D-only input, `ProposedFutureRule.Status` is
+`NotAvailableFromReview` because those formats intentionally omit candidate
+hashes. Pass the Stage B inference result directly when a safe opaque proposed
+rule identity is required.
+
+The plan keeps stable pattern identity separate from volatile enrichment.
+Statistics, game summaries, standings, and roster/player facts are marked
+eligible only when freshness TTL, fetched/data timestamps, season or competition
+context, subject identity, provenance, confidence, and contradiction checks pass.
+Otherwise the volatile fact is omitted or marked for review. `Markdown` uses
+headings/emphasis/lists; `Text` is a plain-text rendering without Markdown
+markers.
+Stage E evaluates optional safe volatile metadata supplied by evidence; it does not synthesize sports statistics, roster facts, standings, or schedule descriptions.
+
 ## Verifying your environment
 
 ```powershell

@@ -15,6 +15,8 @@ class GuidePatternInferenceResult {
     [string]$ConfidenceState
     [string]$DriftStatus
     [string]$BaselineRuleId
+    [string]$ReferenceInstantUtc
+    [object[]]$VolatileFacts
     [object]$DriftComparison
     [object]$CrossSourceAssessment
     [bool]$ReadOnly
@@ -43,6 +45,8 @@ class GuidePatternInferenceResult {
         $this.ConfidenceState = 'Unresolved'
         $this.DriftStatus = 'NotEvaluated'
         $this.BaselineRuleId = ''
+        $this.ReferenceInstantUtc = ''
+        $this.VolatileFacts = @()
         $this.DriftComparison = [ordered]@{}
         $this.CrossSourceAssessment = [ordered]@{}
         $this.ReadOnly = $true

@@ -22,6 +22,7 @@ class GuideEvidenceRecord {
     [string]$FreshnessState
     [string[]]$ReasonCodes
     [string[]]$RedactedFields
+    [object[]]$VolatileFacts
     [bool]$ReadOnly
 
     GuideEvidenceRecord() {
@@ -56,7 +57,9 @@ class GuideEvidenceRecord {
             'ParserError'
             'CandidateHash'
             'GenerationId'
+            'VolatileValue'
         )
+        $this.VolatileFacts = @()
         $this.ReadOnly = $true
     }
 }
