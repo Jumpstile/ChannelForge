@@ -38,6 +38,22 @@ Remote M3U cache metadata is an ignored, disposable, cache-private operational r
 
 The beginner workflow's `-EventPatternPreview` uses the same boundary. It may read provider-supplied display names from operator input, but its JSON, Markdown, and text outputs under `output/reports/guided-event-pattern-preview.*` are deterministic and redacted: raw examples, provider and stream URLs, query strings, credentials, tokens, account IDs, private paths, parser errors, hashes, and generation IDs must not appear. Treat the generated reports as review artifacts rather than a place to store source evidence. The preview is report-only, cannot be combined with `-Accept`, and does not publish XMLTV or mutate provider, downstream, or accepted state.
 
+Stage E acceptance plans use the same redaction boundary. Their JSON,
+Markdown, and plain-text output contains only safe pattern descriptions,
+matched-example counts, sanitized representative values, logical provenance,
+freshness, drift, and blocked reasons. Volatile enrichment is represented by
+safe fact type/subject/source metadata, timestamps, TTL, context, decision, and
+reason codes; raw volatile values are never retained or rendered. Raw examples,
+provider or stream URLs, credentials, tokens, account IDs, private paths,
+parser errors, candidate hashes, and generation IDs must not appear.
+When Stage B input is supplied directly, the proposed future rule identity is
+an opaque deterministic `pattern-` identifier; Stage C/D-only input reports that
+identity as unavailable rather than exposing candidate hashes. Markdown and
+plain text are distinct renderers. The plan is review evidence only:
+`PlanOnly`, `CandidateOnly`, `CanPublish = false`, `CanAcceptNow = false`,
+`Adoption = NotApplied`, and all provider, downstream, guide-publication,
+filesystem, and accepted-state mutation flags remain disabled.
+
 ## Starting from the Example Templates
 
 Tracked configuration files (`data/providers/mybunny.json`, `data/epg/epg_sources.json`, `data/providers/m3u_sources.csv`, `data/epg/epg_sources.csv`) already use `https://example.invalid/...` placeholders and double as Pester fixtures. Do not put real provider data in them.

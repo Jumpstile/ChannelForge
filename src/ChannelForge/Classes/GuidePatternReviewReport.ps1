@@ -9,6 +9,7 @@ class GuidePatternReviewReport {
     [object]$Review
     [object]$Drift
     [object]$Provenance
+    [object]$VolatileFacts
     [object]$Safety
     [object]$NextAction
     [int]$ExampleCount
@@ -27,6 +28,7 @@ class GuidePatternReviewReport {
         $this.Review = [ordered]@{}
         $this.Drift = [ordered]@{}
         $this.Provenance = [ordered]@{}
+        $this.VolatileFacts = [ordered]@{}
         $this.Safety = [ordered]@{}
         $this.NextAction = [ordered]@{}
         $this.ExampleCount = 0
@@ -44,6 +46,7 @@ class GuidePatternReviewReport {
             'SafeText'
             'RawExamples'
             'RuleId'
+            'VolatileValue'
         )
     }
 }

@@ -391,6 +391,14 @@ function ConvertTo-ChannelForgeGuidePatternReviewReport {
         AwayParticipant = ConvertTo-ChannelForgePatternReviewSafeText -Value (Get-ChannelForgeGuidePatternReviewProperty -InputObject $preview -Name 'AwayParticipant')
         EventStatus = ConvertTo-ChannelForgePatternReviewSafeText -Value (Get-ChannelForgeGuidePatternReviewProperty -InputObject $preview -Name 'EventStatus')
     }
+    $volatileFacts = Resolve-ChannelForgeGuideVolatileFacts `
+        -Facts @((Get-ChannelForgeGuidePatternReviewProperty -InputObject $InferenceResult -Name 'VolatileFacts')) `
+        -EventStartUtc ([string]$eventData.CanonicalStartUtc) `
+        -EventTimezone ([string]($eventData.EventTimezone -join ',')) `
+        -League ([string]$eventData.League) `
+        -Sport ([string]$eventData.Sport) `
+        -EvaluationInstantUtc ([string](Get-ChannelForgeGuidePatternReviewProperty -InputObject $InferenceResult -Name 'ReferenceInstantUtc'))
+
 
     $sourceRows = [System.Collections.Generic.List[object]]::new()
     $sourceKeys = @{}
@@ -465,6 +473,7 @@ function ConvertTo-ChannelForgeGuidePatternReviewReport {
     }
     $report.Fields = @($fieldRows.ToArray())
     $report.Event = $eventData
+    $report.VolatileFacts = $volatileFacts
     $report.Confidence = [ordered]@{
         State = $confidenceState
         Score = $confidenceScore

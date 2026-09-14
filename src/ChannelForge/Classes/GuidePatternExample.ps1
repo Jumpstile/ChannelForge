@@ -23,6 +23,7 @@ class GuidePatternExample {
     [string[]]$EvidenceReasonCodes
     [string]$SafeFingerprint
     [string]$SafeText
+    [object[]]$VolatileFacts
     [bool]$ReadOnly
 
     GuidePatternExample() {
@@ -50,6 +51,7 @@ class GuidePatternExample {
         $this.EvidenceReasonCodes = @()
         $this.SafeFingerprint = ''
         $this.SafeText = ''
+        $this.VolatileFacts = @()
         $this.ReadOnly = $true
     }
 }
