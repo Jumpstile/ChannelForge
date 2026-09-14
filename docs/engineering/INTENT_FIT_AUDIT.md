@@ -112,6 +112,12 @@ regular-season context, stale prior-day MLB summaries, stale roster/player
 facts, missing provenance, and contradictory facts are omitted or marked for
 review. The focused tests cover each case and prove exact sensitive values are
 absent while policy field names in `RedactedFields` remain expected metadata.
+The generated report envelopes are now covered by dedicated schemas and
+`tests/unit/GeneratedReportSchemas.Tests.ps1`: Guided Setup summary, Stage C
+review JSON, Stage D preview JSON, and Stage E acceptance-plan JSON. Tests
+validate required safety fields, deterministic output, exact sensitive-value
+absence, Stage C/D hash redaction, Stage E identity states, and degraded
+volatile statuses without requiring fact generation.
 The source preserves `CandidateOnly`, sets `CanPublish = false` and
 `CanAcceptNow = false`, reports exact eligibility or blocked reasons, applies
 redaction, and has no acceptance, adoption, guide, provider, downstream,
@@ -120,9 +126,10 @@ opaque deterministic proposed rule identity; Stage C/D-only input explicitly
 reports that identity as unavailable because those review formats intentionally
 omit candidate hashes.
 
-Disposition: `PASS_WITH_GAPS`. The behavior fits the read-only acceptance-plan
-intent and the #147 volatile guardrail; the generated plan JSON has no dedicated
-schema yet, which remains covered by follow-up [Issue #144](https://github.com/Jumpstile/ChannelForge/issues/144).
+Disposition: `PASS`. The behavior fits the read-only acceptance-plan intent,
+the #147 volatile guardrail, and the #144 generated-report schema contract.
+The generated-plan JSON schema gap is resolved; the remaining audit gaps are
+tracked separately below.
 
 ## Safety conclusions
 
@@ -133,7 +140,7 @@ publication is explicit and routes through the immutable generation boundary.
 Candidate and review reports are redacted and path-confined in the reviewed
 production entry points.
 
-The audit identified four material `PASS_WITH_GAPS` themes:
+The audit identified three material `PASS_WITH_GAPS` themes:
 
 1. [Issue #142](https://github.com/Jumpstile/ChannelForge/issues/142): Add
    explicit allowed-root checks at source-refresh wrapper boundaries for report
@@ -141,10 +148,7 @@ The audit identified four material `PASS_WITH_GAPS` themes:
 2. [Issue #143](https://github.com/Jumpstile/ChannelForge/issues/143): Make the
    low-level M3U exporter path boundary explicit or enforce the allowed root at
    the API boundary; the production caller currently owns the guard.
-3. [Issue #144](https://github.com/Jumpstile/ChannelForge/issues/144): Add
-   schemas and validation for Guided Setup, Stage C, and Stage D generated JSON
-   reports, including their safety fields.
-4. [Issue #145](https://github.com/Jumpstile/ChannelForge/issues/145): Add GUI
+3. [Issue #145](https://github.com/Jumpstile/ChannelForge/issues/145): Add GUI
    TypeScript/Vitest/Tauri validation to the repository CI gate.
 
 These are follow-up remediation items. They do not authorize Stage E or any
