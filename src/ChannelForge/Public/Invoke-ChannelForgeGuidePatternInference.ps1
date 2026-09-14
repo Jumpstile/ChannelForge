@@ -116,7 +116,8 @@ function Invoke-ChannelForgeGuidePatternInference {
                 -ChannelReference ([string]$record.ChannelReference) `
                 -EvidenceTitle ([string]$record.Title) `
                 -EvidenceHomeParticipant ([string]$record.HomeParticipant) `
-                -EvidenceAwayParticipant ([string]$record.AwayParticipant)
+                -EvidenceAwayParticipant ([string]$record.AwayParticipant) `
+                -VolatileFacts @($record.VolatileFacts)
             [void]$patternExamples.Add($example)
         }
     }

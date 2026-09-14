@@ -61,7 +61,10 @@ function New-ChannelForgeGuidePatternExample {
         [string]$EvidenceHomeParticipant = '',
         [string]$EvidenceAwayParticipant = '',
         [AllowNull()]
-        [string[]]$EvidenceReasonCodes = @()
+        [string[]]$EvidenceReasonCodes = @(),
+
+        [AllowNull()]
+        [object[]]$VolatileFacts = @()
     )
 
     if ([string]::IsNullOrWhiteSpace($Text)) {
@@ -93,6 +96,7 @@ function New-ChannelForgeGuidePatternExample {
     $example.EvidenceHomeParticipant = ConvertTo-ChannelForgeGuidePatternSafeText -Value $EvidenceHomeParticipant
     $example.EvidenceAwayParticipant = ConvertTo-ChannelForgeGuidePatternSafeText -Value $EvidenceAwayParticipant
     $example.EvidenceReasonCodes = @($EvidenceReasonCodes | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { ConvertTo-ChannelForgeGuidePatternSafeText -Value $_ } | Sort-Object -Unique)
+    $example.VolatileFacts = @($VolatileFacts | Where-Object { $null -ne $_ } | ForEach-Object { ConvertTo-ChannelForgeGuideVolatileFactRecord -InputObject $_ })
     $example.SafeText = $safeText
     $example.SafeFingerprint = Get-ChannelForgeGuidePatternHash -Text $safeText
     return $example
@@ -1315,6 +1319,7 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         }
     })
 
+    $volatileFacts = @($Examples | ForEach-Object { @($_.VolatileFacts) } | Where-Object { $null -ne $_ })
     $result = [GuidePatternInferenceResult]::new()
     $result.InferenceStatus = 'NativePatternCandidate'
     $result.OverallState = $state
@@ -1331,6 +1336,8 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     $result.ConfidenceState = $state
     $result.DriftStatus = $driftStatus
     $result.BaselineRuleId = $existingRuleId
+    $result.ReferenceInstantUtc = if ($null -ne $ReferenceInstantUtc) { $ReferenceInstantUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) } else { '' }
+    $result.VolatileFacts = @($volatileFacts)
     $result.CrossSourceAssessment = $crossSourceAssessment
     $result.AcceptedStatePreserved = @($samples | Where-Object { $_.Example.EvidenceType -eq 'AcceptedKnowledge' }).Count -gt 0
     $result.ReasonCodes = @($allReasons | Sort-Object -Unique)

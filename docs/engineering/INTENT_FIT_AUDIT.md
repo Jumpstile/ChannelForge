@@ -94,6 +94,36 @@ generation boundary. This supports the conclusion that no second accepted-lineup
 authority was found. The GUI path remains `PASS_WITH_GAPS` because the current
 CI workflow does not execute its Vitest, TypeScript, or Rust/Tauri checks.
 
+### Stage E acceptance-plan slice
+
+The Stage E command, focused tests, and the Stage B/C/D integration path were
+inspected against Issue #121 intent and the #147 volatile-metadata guardrail.
+The source produces deterministic object, JSON, distinct Markdown, and plain
+text plans from Stage B or Stage C/D results. It preserves stable
+title/time/pattern identity separately from volatile enrichment. The Stage E
+volatile evaluator does not synthesize statistics, rosters, standings, or
+schedule descriptions; the current Stage A/B path supplies no such facts
+unless an evidence producer provides optional safe metadata. Absent that
+metadata, the plan reports `NotProvided`. Volatile facts
+are presented as current only when source identity/type, fetched and
+source-data timestamps, freshness TTL, season context, subject identity,
+confidence, and contradiction checks pass; stale NFL preseason statistics in a
+regular-season context, stale prior-day MLB summaries, stale roster/player
+facts, missing provenance, and contradictory facts are omitted or marked for
+review. The focused tests cover each case and prove exact sensitive values are
+absent while policy field names in `RedactedFields` remain expected metadata.
+The source preserves `CandidateOnly`, sets `CanPublish = false` and
+`CanAcceptNow = false`, reports exact eligibility or blocked reasons, applies
+redaction, and has no acceptance, adoption, guide, provider, downstream,
+filesystem, or accepted-state mutation path. Direct Stage B input includes the
+opaque deterministic proposed rule identity; Stage C/D-only input explicitly
+reports that identity as unavailable because those review formats intentionally
+omit candidate hashes.
+
+Disposition: `PASS_WITH_GAPS`. The behavior fits the read-only acceptance-plan
+intent and the #147 volatile guardrail; the generated plan JSON has no dedicated
+schema yet, which remains covered by follow-up [Issue #144](https://github.com/Jumpstile/ChannelForge/issues/144).
+
 ## Safety conclusions
 
 The reviewed paths did not show unintended provider mutation, downstream

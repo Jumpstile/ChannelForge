@@ -271,5 +271,9 @@ function New-ChannelForgeGuideEvidence {
     $record.ConfidenceScore = $ConfidenceScore
     $record.FreshnessState = $metadataFreshness
     $record.ReasonCodes = @($reasons | Sort-Object)
+    $volatileFacts = Get-MetadataValue -InputObject $Metadata -Names @('VolatileFacts', 'VolatileMetadata')
+    if ($null -ne $volatileFacts) {
+        $record.VolatileFacts = @($volatileFacts | ForEach-Object { ConvertTo-ChannelForgeGuideVolatileFactRecord -InputObject $_ })
+    }
     return $record
 }

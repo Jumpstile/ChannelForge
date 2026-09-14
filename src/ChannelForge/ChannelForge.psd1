@@ -100,6 +100,7 @@ FunctionsToExport = @(
     'New-ChannelForgeGuideEvidence'
     'Invoke-ChannelForgeGuidePatternInference'
     'Get-ChannelForgeGuidePatternReview'
+    'Get-ChannelForgeGuidePatternAcceptancePlan'
     'Get-ChannelForgeSourceRefreshPlan'
     'Get-ChannelForgeGuideReadiness'
     'Read-ChannelForgeEpgSource'
