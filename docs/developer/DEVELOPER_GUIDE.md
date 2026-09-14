@@ -264,35 +264,74 @@ tests.
 
 Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and review workflow. This guide covers where code lives and how to verify it; CONTRIBUTING.md covers the process around a change.
 
-## GUI foundation
+## UI architecture and GUI foundation
 
-The isolated `gui/` application is the desktop-shell slice for issue #35. It is a Tauri 2 and React/TypeScript shell with design tokens, guided Workbench and Guided Setup layouts, semantic status components, privacy-safe workspace identity display, display-safe workspace/playlist/guide selection states, a Rust-owned native picker/matching/acceptance bridge, and a deterministic synthetic state gallery. Guided Setup invokes the native bridge sequentially for workspace, playlist, and guide; the bridge performs pre-parse existence, expected-kind, and read-access checks, bounded read-only structural scans, one-playlist/one-guide exact identity matching, and saved-lineup plan/acceptance commands. Matching compares only playlist `tvg-id` to XMLTV channel identity and returns aggregate match, unmatched, ambiguous, and guide-only counts.
+ChannelForge's primary UI is a browser-based local web UI served by the ChannelForge engine. The browser consumes the engine's documented HTTP/API boundary; it does not host a second state authority or receive direct access to provider files, accepted generations, private paths, or local processes.
 
-Lineup review is a presentation-only surface over aggregate match state until a native saved-lineup plan is prepared. It preserves native status precedence: blocked, review-needed, needs-attention, then checked. Only checked status can produce a ready plan; needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states remain save-blocking. The explicit acknowledgement dialog is GUI-owned presentation state only. The Rust bridge delegates the existing PowerShell workflow, passes candidate and accepted-parent expectations, captures machine output without forwarding it, and treats only the native `PUBLISHED`/`ALREADY_ACCEPTED` result as saved. Rust/PowerShell remain the authority for staging, journal, pointer, recovery, and accepted state. React does not promote files or maintain a second accepted-state model.
+The primary deployment modes are:
 
-### GUI status tally
+- **Docker container:** one engine/UI/API deployment with persistent mounts for configuration, disposable source cache, immutable generations, accepted pointers, reports/logs, and generated M3U/XMLTV outputs.
+- **Windows server/service install:** the installed engine serves the same UI/API locally with persistent storage for the same state and outputs.
 
-| Area                                   | Status                                         |
-| -------------------------------------- | ---------------------------------------------- |
-| Workbench shell and navigation         | Works now                                      |
-| Guided Setup layout                    | Preview only                                   |
-| Native file-picker bridge              | Works now                                      |
-| Display-safe selection state           | Works now                                      |
-| Pre-parse selection checks             | Works now                                      |
-| Playlist structural content validation | Works now — structural only                    |
-| Guide structural content validation    | Works now — structural only                    |
-| Playlist/guide exact matching          | Implemented — local checks passed              |
-| Lineup review                          | Implemented — local checks passed              |
-| Saved lineup                           | Implemented — native acceptance + local checks |
-| Automatic updates                      | Planned / not built yet                        |
+Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must use the same engine commands, accepted-generation contract, and safety boundaries. Docker and Windows service implementation are future work; this document records the architecture and does not claim either deployment mode exists today.
 
-Use Node.js 22 LTS with npm 10, Rust/Cargo, the Tauri CLI, and WebView2:
+### Reusable existing GUI work
+
+The existing `gui/` application remains preserved as reusable React/TypeScript UI work with an optional Tauri wrapper. Adapt its following work to the web UI rather than discarding it:
+
+- layout direction, navigation, status hierarchy, and accessible component patterns;
+- design tokens and theme language;
+- Guided Setup / Beginner Workflow screen structure;
+- workspace, playlist, and guide selection UX;
+- structural validation, exact-match, ambiguity, and review surfaces;
+- saved-lineup candidate, explicit acknowledgement, and read-only accepted-state concepts;
+- beginner-facing copy, labels, reason codes, and terminology.
+
+The web UI must preserve the engine as the authority for candidate generation, review, acceptance, reports, and output publication. Existing Tauri acceptance behavior is a reference for the safety boundary, not permission to create a browser-side promotion model.
+
+### Native assumptions to re-evaluate
+
+Before adapting the UI, review each:
+
+- Tauri-specific shell command;
+- native file-picker assumption;
+- direct filesystem access assumption;
+- local process invocation assumption;
+- state-changing behavior that currently occurs outside the engine HTTP/API boundary.
+
+The web UI must replace native-only access with documented engine/API operations. Browser state may present selections and review results, but state-changing behavior must route through the engine and immutable acceptance boundary. Provider mutation, downstream mutation, guide publication, accepted-state mutation, credentials, provider/stream URLs, private paths, hashes, parser details, and generation IDs remain outside unsafe user-facing surfaces.
+
+### GUI status and checks
+
+The current GUI is an optional Tauri-backed prototype/reference surface, not the primary product shell:
+
+| Area                                      | Status                                         |
+| ----------------------------------------- | ---------------------------------------------- |
+| Browser web UI served by engine           | Architecture recorded; implementation pending  |
+| Docker deployment                         | Architecture recorded; implementation pending  |
+| Windows server/service install            | Architecture recorded; implementation pending  |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                          |
+| Guided Setup layout                       | Preview only (prototype)                       |
+| Native file-picker bridge                 | Works now (prototype)                          |
+| Display-safe selection state              | Works now (prototype)                          |
+| Pre-parse selection checks                | Works now (prototype)                          |
+| Playlist structural validation            | Works now — structural only (prototype)        |
+| Guide structural validation               | Works now — structural only (prototype)        |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)  |
+| Lineup review                             | Implemented — local checks passed (prototype)  |
+| Saved lineup                              | Implemented — native acceptance + local checks |
+| Automatic updates                         | Planned / not built yet                        |
+
+Issue #145 should frame GUI CI as web UI TypeScript and Vitest validation first, with Tauri/Rust checks retained only for the optional wrapper and its compatibility boundary. CI validation is not a package, release, deployment, or tester-build approval.
+
+Use Node.js 22 LTS with npm 10 for the existing GUI checks. Run Tauri/Rust checks only when the optional wrapper is in scope:
 
 ```powershell
 Set-Location gui
 npm ci
 npm run typecheck
 npm test
+# Optional wrapper checks:
 npm run test:e2e
 npm run test:visual
 npm run build
@@ -300,4 +339,4 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build -- --no-bundle
 ```
 
-The GUI owns presentation plus approved native picker, matching, and saved-lineup acceptance boundaries. Do not add a React promotion model, second accepted-state source of truth, provider credential, export, scheduler, release, target-publishing, or tester-distribution operation. Preserve the existing PowerShell behavior and redaction boundaries; any later operational integration requires separate review.
+The GUI owns presentation and, for the existing wrapper, compatibility adapters only. Do not add a React promotion model, second accepted-state source of truth, provider credential, export, scheduler, release, target-publishing, or tester-distribution operation. Preserve existing PowerShell behavior and redaction boundaries; later operational integration requires separate review.
