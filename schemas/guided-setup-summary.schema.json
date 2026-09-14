@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/guided-setup-summary.schema.json",
+  "title": "ChannelForge Guided Setup summary",
+  "description": "Generated Guided Setup candidate, review, or accepted-result summary with report-only event-preview safety contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Version",
+    "Status",
+    "ChannelCount",
+    "ExactGuideMatchCount",
+    "AmbiguityCount",
+    "GuideOnlyCount",
+    "GuideStatus",
+    "EventPatternPreview",
+    "ConsumerM3UPath",
+    "ConsumerXMLTVPath",
+    "WhatHappened",
+    "Preserved",
+    "Changed",
+    "Next"
+  ],
+  "properties": {
+    "Version": { "const": "guided-setup/v1" },
+    "Status": {
+      "enum": [
+        "FAILED",
+        "STALE",
+        "PROPOSAL_READY",
+        "ALREADY_ACCEPTED",
+        "PUBLISHED",
+        "PUBLISHED_VIEW_REFRESH_FAILED",
+        "PUBLISHED_REPORT_WRITE_FAILED"
+      ]
+    },
+    "ChannelCount": { "type": "integer", "minimum": 0 },
+    "ExactGuideMatchCount": { "type": "integer", "minimum": 0 },
+    "AmbiguityCount": { "type": "integer", "minimum": 0 },
+    "GuideOnlyCount": { "type": "integer", "minimum": 0 },
+    "GuideStatus": {
+      "enum": [
+        "NOT_SELECTED",
+        "NO_GUIDE_SELECTED",
+        "XMLTV_SELECTED",
+        "GUIDE_SKIPPED_AMBIGUITY"
+      ]
+    },
+    "EventPatternPreview": { "$ref": "#/$defs/eventPatternPreview" },
+    "ConsumerM3UPath": { "type": ["string", "null"] },
+    "ConsumerXMLTVPath": { "type": ["string", "null"] },
+    "WhatHappened": { "type": ["string", "null"] },
+    "Preserved": { "type": "string" },
+    "Changed": { "type": "string" },
+    "Next": { "type": "string" }
+  },
+  "$defs": {
+    "eventPatternPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Version",
+        "Enabled",
+        "InferenceRan",
+        "Status",
+        "State",
+        "ReviewState",
+        "RepresentativePattern",
+        "Confidence",
+        "Review",
+        "Drift",
+        "Usability",
+        "Safety",
+        "Output"
+      ],
+      "properties": {
+        "Version": { "const": "guided-setup/event-pattern-preview/v1" },
+        "Enabled": { "type": "boolean" },
+        "InferenceRan": { "type": "boolean" },
+        "Status": { "enum": ["DISABLED", "BLOCKED", "PREVIEW_READY"] },
+        "State": {
+          "enum": [
+            "NotRun",
+            "Confirmed",
+            "SafeCandidate",
+            "NeedsReview",
+            "Unresolved",
+            "Contradiction",
+            "StaleSource",
+            "SourceUnavailable"
+          ]
+        },
+        "ReviewState": {
+          "enum": [
+            "NotRun",
+            "Confirmed",
+            "SafeCandidate",
+            "NeedsReview",
+            "Unresolved",
+            "Contradiction",
+            "StaleSource",
+            "SourceUnavailable"
+          ]
+        },
+        "RepresentativePattern": { "type": ["string", "null"] },
+        "Confidence": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/confidence" }]
+        },
+        "Review": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/review" }]
+        },
+        "Drift": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/drift" }] },
+        "Event": { "type": "object" },
+        "Fields": { "type": "array", "items": { "type": "object" } },
+        "Provenance": { "type": "object" },
+        "Usability": { "$ref": "#/$defs/usability" },
+        "Safety": { "$ref": "#/$defs/safety" },
+        "Output": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["JsonPath", "MarkdownPath", "TextPath"],
+              "properties": {
+                "JsonPath": {
+                  "const": "output/reports/guided-event-pattern-preview.json"
+                },
+                "MarkdownPath": {
+                  "const": "output/reports/guided-event-pattern-preview.md"
+                },
+                "TextPath": {
+                  "const": "output/reports/guided-event-pattern-preview.txt"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["State", "Score"],
+      "properties": {
+        "State": { "type": "string" },
+        "Score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "Explanation": { "type": "string" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Required", "Reasons", "PlainLanguage"],
+      "properties": {
+        "Required": { "type": "boolean" },
+        "Reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Code", "Message"],
+            "properties": {
+              "Code": { "type": "string" },
+              "Message": { "type": "string" }
+            }
+          }
+        },
+        "PlainLanguage": { "type": "string" }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "ReviewOnly", "Adoption"],
+      "properties": {
+        "Status": { "enum": ["Detected", "NotEvaluated"] },
+        "ReviewOnly": { "const": true },
+        "Adoption": { "const": "NotApplied" },
+        "Explanation": { "type": "string" }
+      }
+    },
+    "usability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ForReview", "ForAutomaticUse", "Blocked", "Reason"],
+      "properties": {
+        "ForReview": { "type": "boolean" },
+        "ForAutomaticUse": { "const": false },
+        "Blocked": { "type": "boolean" },
+        "Reason": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PublicationState",
+        "CanPublish",
+        "PromotionRequired",
+        "AcceptedStateMutation",
+        "ProviderMutation",
+        "DownstreamMutation",
+        "FilesystemMutation",
+        "RedactionApplied"
+      ],
+      "properties": {
+        "PublicationState": { "const": "CandidateOnly" },
+        "CanPublish": { "const": false },
+        "PromotionRequired": { "const": "ExplicitAcceptance" },
+        "AcceptedStateMutation": { "const": "None" },
+        "ProviderMutation": { "const": false },
+        "DownstreamMutation": { "const": false },
+        "FilesystemMutation": { "const": false },
+        "GuidePublication": { "const": false },
+        "RedactionApplied": { "const": true }
+      }
+    }
+  }
+}

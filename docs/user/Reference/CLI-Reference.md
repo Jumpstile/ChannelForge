@@ -253,6 +253,11 @@ headings/emphasis/lists; `Text` is a plain-text rendering without Markdown
 markers.
 Stage E evaluates optional safe volatile metadata supplied by evidence; it does not synthesize sports statistics, roster facts, standings, or schedule descriptions.
 
+The JSON contract is validated by the dedicated report-schema tests. See
+[`schemas/guide-pattern-review.schema.json`](../../../schemas/guide-pattern-review.schema.json),
+[`schemas/guided-event-pattern-preview.schema.json`](../../../schemas/guided-event-pattern-preview.schema.json),
+and [`schemas/guide-pattern-acceptance-plan.schema.json`](../../../schemas/guide-pattern-acceptance-plan.schema.json).
+
 ## Verifying your environment
 
 ```powershell
