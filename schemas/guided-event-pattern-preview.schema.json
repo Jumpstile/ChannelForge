@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/guided-event-pattern-preview.schema.json",
+  "title": "ChannelForge Guided Setup event-pattern preview",
+  "description": "Deterministic, redacted, report-only Stage D event-pattern preview output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Version",
+    "Enabled",
+    "InferenceRan",
+    "Status",
+    "State",
+    "ReviewState",
+    "RepresentativePattern",
+    "Confidence",
+    "Review",
+    "Drift",
+    "Usability",
+    "Safety",
+    "Output"
+  ],
+  "properties": {
+    "Version": { "const": "guided-setup/event-pattern-preview/v1" },
+    "Enabled": { "type": "boolean" },
+    "InferenceRan": { "type": "boolean" },
+    "Status": { "enum": ["DISABLED", "BLOCKED", "PREVIEW_READY"] },
+    "State": {
+      "enum": [
+        "NotRun",
+        "Confirmed",
+        "SafeCandidate",
+        "NeedsReview",
+        "Unresolved",
+        "Contradiction",
+        "StaleSource",
+        "SourceUnavailable"
+      ]
+    },
+    "ReviewState": {
+      "enum": [
+        "NotRun",
+        "Confirmed",
+        "SafeCandidate",
+        "NeedsReview",
+        "Unresolved",
+        "Contradiction",
+        "StaleSource",
+        "SourceUnavailable"
+      ]
+    },
+    "RepresentativePattern": { "type": ["string", "null"] },
+    "Confidence": {
+      "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/confidence" }]
+    },
+    "Review": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/review" }] },
+    "Drift": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/drift" }] },
+    "Event": { "type": "object" },
+    "Fields": { "type": "array", "items": { "type": "object" } },
+    "Provenance": { "type": "object" },
+    "Usability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ForReview", "ForAutomaticUse", "Blocked", "Reason"],
+      "properties": {
+        "ForReview": { "type": "boolean" },
+        "ForAutomaticUse": { "const": false },
+        "Blocked": { "type": "boolean" },
+        "Reason": { "type": "string" }
+      }
+    },
+    "Safety": { "$ref": "#/$defs/safety" },
+    "Output": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["JsonPath", "MarkdownPath", "TextPath"],
+          "properties": {
+            "JsonPath": {
+              "const": "output/reports/guided-event-pattern-preview.json"
+            },
+            "MarkdownPath": {
+              "const": "output/reports/guided-event-pattern-preview.md"
+            },
+            "TextPath": {
+              "const": "output/reports/guided-event-pattern-preview.txt"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["State", "Score"],
+      "properties": {
+        "State": { "type": "string" },
+        "Score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "Explanation": { "type": "string" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Required", "Reasons", "PlainLanguage"],
+      "properties": {
+        "Required": { "type": "boolean" },
+        "Reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Code", "Message"],
+            "properties": {
+              "Code": { "type": "string" },
+              "Message": { "type": "string" }
+            }
+          }
+        },
+        "PlainLanguage": { "type": "string" }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "ReviewOnly", "Adoption"],
+      "properties": {
+        "Status": { "enum": ["Detected", "NotEvaluated"] },
+        "ReviewOnly": { "const": true },
+        "Adoption": { "const": "NotApplied" },
+        "Explanation": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PublicationState",
+        "CanPublish",
+        "PromotionRequired",
+        "AcceptedStateMutation",
+        "ProviderMutation",
+        "DownstreamMutation",
+        "FilesystemMutation",
+        "RedactionApplied"
+      ],
+      "properties": {
+        "PublicationState": { "const": "CandidateOnly" },
+        "CanPublish": { "const": false },
+        "PromotionRequired": { "const": "ExplicitAcceptance" },
+        "AcceptedStateMutation": { "const": "None" },
+        "ProviderMutation": { "const": false },
+        "DownstreamMutation": { "const": false },
+        "FilesystemMutation": { "const": false },
+        "GuidePublication": { "const": false },
+        "RedactionApplied": { "const": true }
+      }
+    }
+  }
+}

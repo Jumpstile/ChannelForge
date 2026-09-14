@@ -239,6 +239,27 @@ What the schemas deliberately do **not** do:
 
 Schemas catch shape mistakes early (a contributor typo, a missing field) before a file ever reaches a parser; they are a second, earlier check, not a replacement for runtime trust-boundary validation.
 
+## Generated report schemas
+
+Issue #144 adds dedicated JSON Schema contracts for generated report outputs.
+These are report contracts rather than source-of-truth configuration schemas,
+so they are validated by `tests/unit/GeneratedReportSchemas.Tests.ps1` instead
+of `scripts/Validate-ConfigSchemas.ps1`:
+
+| Generated output                                                        | Schema                                              |
+| ----------------------------------------------------------------------- | --------------------------------------------------- |
+| `output/reports/guided-setup-summary.json`                              | `schemas/guided-setup-summary.schema.json`          |
+| Stage C `Get-ChannelForgeGuidePatternReview -OutputFormat Json`         | `schemas/guide-pattern-review.schema.json`          |
+| `output/reports/guided-event-pattern-preview.json`                      | `schemas/guided-event-pattern-preview.schema.json`  |
+| Stage E `Get-ChannelForgeGuidePatternAcceptancePlan -OutputFormat Json` | `schemas/guide-pattern-acceptance-plan.schema.json` |
+
+The schemas lock deterministic version identifiers, report envelopes, redaction
+metadata, and candidate/report-only safety invariants. Stage E permits direct
+Stage B opaque pattern identity, permits Stage C/D `NotAvailableFromReview`
+identity, and validates volatile statuses without requiring volatile fact
+generation. Schema validation does not replace runtime redaction or mutation
+tests.
+
 ## Development workflow
 
 Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and review workflow. This guide covers where code lives and how to verify it; CONTRIBUTING.md covers the process around a change.

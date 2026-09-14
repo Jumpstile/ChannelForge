@@ -213,7 +213,7 @@ function Resolve-ChannelForgeGuideVolatileFacts {
             Status = $record.Status
             ContradictionGroup = $record.ContradictionGroup
             Decision = $decision
-            ReasonCodes = @($reasons | Sort-Object -Unique)
+            ReasonCodes = [string[]]@($reasons | Sort-Object -Unique)
         }
         [void]$assessed.Add($safeAssessment)
     }
