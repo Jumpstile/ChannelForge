@@ -80,6 +80,40 @@ For an advanced in-process caller with Stage A records, pass `-EventPatternEvide
 
 The reports show what was inferred, confidence, provenance, freshness/drift, the review state, and the next safe action. `Confirmed` and `SafeCandidate` remain candidates for review; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked. The preview always reports `CandidateOnly`, `CanPublish = false`, `PromotionRequired = ExplicitAcceptance`, and `AcceptedStateMutation = None`. It cannot be combined with `-Accept`; it never publishes a guide, changes provider or downstream state, or changes accepted state. Raw examples, URLs, stream URLs, tokens, credentials, and private paths are not written to these reports.
 
+### Future acceptance plan
+
+Stage E can turn the Stage C/D review into a read-only explanation of what
+explicit acceptance would require later:
+
+```powershell
+Get-ChannelForgeGuidePatternAcceptancePlan `
+  -InputObject $pattern `
+  -OutputFormat Markdown
+```
+
+The plan produces no accepted rule and no guide. `Confirmed` and `SafeCandidate`
+are eligible for future acceptance only; `NeedsReview`, `Contradiction`,
+`StaleSource`, `SourceUnavailable`, and insufficient examples produce blocked
+plans. Drift produces a review-only plan with `Adoption = NotApplied`. Every plan
+reports `PlanOnly`, `CandidateOnly`, `CanPublish = false`, `CanAcceptNow = false`,
+and no provider, downstream, guide, filesystem, or accepted-state mutation.
+For a Stage C/D-only input, the plan marks the proposed rule identity
+`NotAvailableFromReview` because those review formats intentionally omit
+candidate hashes. Pass the Stage B inference directly when the safe opaque
+future-rule identity is needed.
+
+Stable title, event time, and pattern identity are kept separate from volatile
+enrichment such as statistics, game summaries, standings, or roster/player
+facts. Volatile details are presented as current only when their source identity
+and type, fetched/data timestamps, TTL, season or competition context, subject
+identity, confidence, and contradiction status prove freshness. Stale NFL
+preseason statistics in a regular-season context, stale prior-day MLB summaries,
+stale roster/player facts, missing provenance, and contradictory facts are
+omitted or marked for review; the stable pattern can remain visible.
+
+`-OutputFormat Markdown` produces headings, emphasis, and Markdown lists.
+`-OutputFormat Text` produces a plain-text report without Markdown markers.
+
 ## One safe flow
 
 The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.

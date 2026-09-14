@@ -46,6 +46,21 @@ The Guided Setup / Beginner Workflow can analyze representative provider display
 
 The preview writes deterministic, redacted JSON, Markdown, and text reports under `output/reports/`. The report preserves review state, confidence, provenance, freshness/drift, and safe next action. `Confirmed` and `SafeCandidate` are still provisional; `NeedsReview`, `Unresolved`, `Contradiction`, `StaleSource`, and `SourceUnavailable` are blocked. The preview is candidate-only, cannot be combined with `-Accept`, never publishes XMLTV or another guide, and never changes provider, downstream, or accepted state.
 
+### Future acceptance planning
+
+`Get-ChannelForgeGuidePatternAcceptancePlan` consumes the Stage B candidate or
+Stage C/D review and explains what explicit acceptance would require later.
+Confirmed and SafeCandidate results are future-eligible only; review,
+contradiction, stale, unavailable, insufficient-example, and drift results stay
+blocked or review-only with a reason. Stable title/time/pattern identity is
+separate from volatile enrichment. Statistics, game summaries, standings, and
+roster/player facts are eligible as current only when freshness TTL, timestamps,
+season/competition context, subject identity, provenance, confidence, and
+contradiction checks prove them; otherwise they are omitted or marked for
+review. The plan is deterministic and redacted, returns distinct Markdown and
+plain-text renderings, and remains `CandidateOnly` with no adoption or provider,
+downstream, guide, or accepted-state mutation.
+
 ## Where to go next
 
 - Setting up your real sources? → [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md)
