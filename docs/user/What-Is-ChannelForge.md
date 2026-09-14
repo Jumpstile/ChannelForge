@@ -10,7 +10,7 @@ It doesn't blindly trust playlist names or provider metadata. It validates input
 
 **Honestly: only if you're comfortable with PowerShell and an early, unfinished tool.**
 
-ChannelForge is **Early Alpha**. There is no complete GUI workflow yet. The repository includes a Tauri/React desktop shell with a safe native picker bridge that performs pre-parse availability checks, bounded structural checks, and a local exact comparison between one selected M3U playlist and one selected XMLTV guide. The GUI reports only safe status, reason codes, and aggregate match counts. It never opens or displays stream URLs, programme titles, or guide channel IDs. Guide checks support plain `.xml`/`.xmltv`, `.gz`, and single-guide `.zip` files with bounded local decompression only; lineup creation, persistence, export, and automatic updates remain outside this GUI slice.
+ChannelForge is **Early Alpha**. The primary UI direction is a browser-based local web UI served by the ChannelForge engine, intended for Docker or Windows server/service installation. That web UI and those deployment modes are not implemented yet. The repository also contains reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup work in an optional Tauri wrapper. The wrapper is a reference and future packaging option, not a requirement for normal product use.
 
 ## What does it do today?
 
@@ -64,7 +64,7 @@ The review shows detected fields, a representative event preview, confidence, pr
 
 ## What doesn't it do yet?
 
-- **No complete graphical interface workflow.** Guided Setup can select local inputs, structurally check M3U playlists and local XMLTV guides, and report exact aggregate playlist/guide matching. It does not create lineups, persist selections, mutate accepted state, export, or refresh targets. Ambiguous relationships are reported for review and are never accepted automatically.
+- **No primary web UI workflow yet.** The browser-based local UI, engine HTTP/API surface, Docker deployment, and Windows server/service installation are architecture targets recorded in [ADR-0016](../adr/0016-web-first-local-ui.md). Existing Tauri work remains an optional reusable reference; it does not define the primary product shell.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.
