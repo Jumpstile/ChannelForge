@@ -2,7 +2,7 @@ function Get-ChannelForgeWebStatus {
     [CmdletBinding()]
     param(
         [ValidateNotNullOrEmpty()]
-        [string]$RepositoryRoot = (Get-Location).Path
+        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
     )
 
     $module = Get-Module -Name ChannelForge | Select-Object -First 1

@@ -8,7 +8,7 @@ function Start-ChannelForgeWebServer {
         [string]$BindAddress = '127.0.0.1',
 
         [ValidateNotNullOrEmpty()]
-        [string]$RepositoryRoot = (Get-Location).Path
+        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
     )
 
     $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot

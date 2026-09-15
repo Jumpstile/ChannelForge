@@ -268,7 +268,7 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ChannelForge's primary UI is a browser-based local web UI served by the ChannelForge engine. The browser consumes the engine's documented HTTP/API boundary; it does not host a second state authority or receive direct access to provider files, accepted generations, private paths, or local processes.
 
-The first web-server foundation is a read-only loopback server. It provides a beginner-facing placeholder shell and safe health/status responses without reading provider data or changing any lineup state.
+The first web-server foundation is a read-only loopback server. It provides a beginner-facing placeholder shell and safe health/status responses. Status reads validated accepted-generation metadata only to derive lineup status; it does not read provider data or change any lineup state.
 
 The primary deployment modes are:
 

@@ -82,6 +82,23 @@ Describe 'ChannelForge web server foundation' {
         }
     }
 
+    It 'uses the module repository root when invoked outside the working directory' {
+        $moduleRoot = (Get-Module -Name ChannelForge | Select-Object -First 1).ModuleBase
+        $expectedRoot = Split-Path -Parent (Split-Path -Parent $moduleRoot)
+        $server = $null
+
+        Push-Location $TestDrive
+        try {
+            $server = New-ChannelForgeWebServer -Port 18766
+        }
+        finally {
+            Pop-Location
+            if ($null -ne $server) { $server.Listener.Close() }
+        }
+
+        $server.RepositoryRoot | Should -Be $expectedRoot
+    }
+
     It 'rejects non-loopback bindings' {
         { New-ChannelForgeWebServer -BindAddress '0.0.0.0' } | Should -Throw
     }
@@ -176,7 +193,7 @@ Describe 'ChannelForge web server foundation' {
         $methodResponse.Headers.Allow | Should -Be 'GET, HEAD'
         $notFoundResponse.StatusCode | Should -Be 404
     }
-
+    # Status may read validated accepted metadata; it must not write any state.
     It 'does not mutate provider, downstream, guide, or accepted state' {
         $root = Join-Path $TestDrive 'state-boundary'
         $providerPath = Join-Path $root 'data\providers\provider.local.json'

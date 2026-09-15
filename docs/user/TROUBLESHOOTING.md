@@ -31,6 +31,7 @@ begin**.
 | Server reports that the address is in use           | Another process owns port 8765            | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/` |
 | A request returns `405 Method Not Allowed`          | The foundation is read-only               | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                   |
 | A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation | The server stays read-only; inspect accepted-state recovery diagnostics before changing any state       |
+| A remote machine cannot connect                     | The listener is loopback-only             | This foundation does not expose a public or LAN listener                                                |
 
 The `/health` and `/api/status` endpoints return safe status JSON only. They do
 not expose provider URLs, credentials, private paths, hashes, generation IDs,

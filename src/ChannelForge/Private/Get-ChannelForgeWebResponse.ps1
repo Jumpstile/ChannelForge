@@ -1,3 +1,11 @@
+function Get-ChannelForgeWebRepositoryRoot {
+    $module = Get-Module -Name ChannelForge | Select-Object -First 1
+    if ($null -eq $module) { return (Get-Location).Path }
+
+    $moduleRoot = [IO.Path]::GetFullPath($module.ModuleBase)
+    return Split-Path -Parent (Split-Path -Parent $moduleRoot)
+}
+
 function New-ChannelForgeWebResponse {
     param(
         [Parameter(Mandatory)][int]$StatusCode,
@@ -31,7 +39,7 @@ function Get-ChannelForgeWebResponse {
         [Parameter(Mandatory)][string]$Method,
         [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
         [ValidateNotNullOrEmpty()]
-        [string]$RepositoryRoot = (Get-Location).Path
+        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
     )
 
     $commonHeaders = [ordered]@{
