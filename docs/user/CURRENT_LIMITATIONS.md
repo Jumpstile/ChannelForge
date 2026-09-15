@@ -15,10 +15,36 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - A safe, local-only provider configuration workflow that never requires editing a tracked file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
 - A ChannelForge Guided Setup / Beginner Workflow (`scripts/Build-My-Lineup.ps1`) that stages a candidate, reports exact/ambiguous guide identity, supports no-guide builds, requires explicit acceptance, and promotes through the immutable accepted-generation boundary.
-- A GUI saved-lineup flow that prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
+- Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
+- The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
+
+The primary UI architecture is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the intended primary deployment modes, with native/local development serving the same UI/API. The web server, HTTP API, Docker packaging, Windows service installation, and Light/Dark/System appearance mode are not implemented yet.
+
+The existing Tauri prototype still depends on local native picker and PowerShell bridge behavior. Those assumptions must be re-evaluated before web UI implementation; browser state-changing behavior must use engine HTTP/API commands and the immutable acceptance boundary.
 
 The GUI saved-lineup flow does not provide export, scheduling, target publishing, release packaging, or tester distribution. It also cannot save needs-attention, review-needed, blocked, checking, not-checked, stale, or unavailable states.
+
+### GUI status
+
+The following describes preserved prototype/reference work, not a primary deployment surface:
+
+| Area                                      | Status                                         |
+| ----------------------------------------- | ---------------------------------------------- |
+| Browser web UI served by engine           | Architecture recorded; implementation pending  |
+| Docker deployment                         | Architecture recorded; implementation pending  |
+| Windows server/service install            | Architecture recorded; implementation pending  |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                          |
+| Guided Setup layout                       | Preview only (prototype)                       |
+| Native file-picker bridge                 | Works now (prototype)                          |
+| Display-safe selection state              | Works now (prototype)                          |
+| Pre-parse selection checks                | Works now (prototype)                          |
+| Playlist structural validation            | Works now — structural only (prototype)        |
+| Guide structural validation               | Works now — structural only (prototype)        |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)  |
+| Lineup review                             | Implemented — local checks passed (prototype)  |
+| Saved lineup                              | Implemented — native acceptance + local checks |
+| Automatic updates                         | Planned / not built yet                        |
 
 ## Not implemented yet
 
@@ -30,22 +56,6 @@ The GUI saved-lineup flow does not provide export, scheduling, target publishing
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.
 - **The complete event-guide workflow is not implemented yet.** Stage D provides the beginner workflow's report-only event-pattern preview, and Stage E provides a read-only future-acceptance plan. Stable title/time/pattern identity is separated from volatile statistics, game summaries, standings, and roster/player facts; those details are omitted or marked for review unless freshness, season context, provenance, and contradiction checks prove them current. The current Stage A/B path does not synthesize those volatile facts; Stage E only evaluates optional safe metadata when a producer supplies it. Neither stage accepts or adopts rules, publishes guides, mutates provider/downstream/accepted state, or creates a learned-rule store. Schedule-source adapters, documented AED-definition JSON import, expert regex/date/time overrides, unattended event refresh, automatic relearning/adoption, beginner GUI integration, and guide publication remain future work.
-
-### GUI status
-
-| Area                                   | Status                                         |
-| -------------------------------------- | ---------------------------------------------- |
-| Workbench shell and navigation         | Works now                                      |
-| Guided Setup layout                    | Preview only                                   |
-| Native file-picker bridge              | Works now                                      |
-| Display-safe selection state           | Works now                                      |
-| Pre-parse selection checks             | Works now                                      |
-| Playlist structural content validation | Works now — structural only                    |
-| Guide structural content validation    | Works now — structural only                    |
-| Playlist/guide exact matching          | Implemented — local checks passed              |
-| Lineup review                          | Implemented — local checks passed              |
-| Saved lineup                           | Implemented — native acceptance + local checks |
-| Automatic updates                      | Planned / not built yet                        |
 
 ## Why these are deferred, not abandoned
 

@@ -106,21 +106,30 @@ Working today:
 
 - Documentation architecture
 
+### UI architecture
+
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). The web server, API, Docker, and Windows service implementation are not part of this documentation-only slice.
+
+Existing React/TypeScript/Tauri work is preserved as reusable layout, design-token, Guided Setup, validation/review, saved-lineup, accessibility, and beginner-copy reference work. Tauri is optional future packaging, not the primary product shell.
+
 ### GUI status
 
-| Area                                   | Status                                         |
-| -------------------------------------- | ---------------------------------------------- |
-| Workbench shell and navigation         | Works now                                      |
-| Guided Setup layout                    | Preview only                                   |
-| Native file-picker bridge              | Works now                                      |
-| Display-safe selection state           | Works now                                      |
-| Pre-parse selection checks             | Works now                                      |
-| Playlist structural content validation | Works now — structural only                    |
-| Guide structural content validation    | Works now — structural only                    |
-| Playlist/guide exact matching          | Implemented — local checks passed              |
-| Lineup review                          | Implemented — local checks passed              |
-| Saved lineup                           | Implemented — native acceptance + local checks |
-| Automatic updates                      | Planned / not built yet                        |
+| Area                                      | Status                                         |
+| ----------------------------------------- | ---------------------------------------------- |
+| Browser web UI served by engine           | Architecture recorded; implementation pending  |
+| Docker deployment                         | Architecture recorded; implementation pending  |
+| Windows server/service install            | Architecture recorded; implementation pending  |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                          |
+| Guided Setup layout                       | Preview only (prototype)                       |
+| Native file-picker bridge                 | Works now (prototype)                          |
+| Display-safe selection state              | Works now (prototype)                          |
+| Pre-parse selection checks                | Works now (prototype)                          |
+| Playlist structural validation            | Works now — structural only (prototype)        |
+| Guide structural validation               | Works now — structural only (prototype)        |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)  |
+| Lineup review                             | Implemented — local checks passed (prototype)  |
+| Saved lineup                              | Implemented — native acceptance + local checks |
+| Automatic updates                         | Planned / not built yet                        |
 
 ---
 
