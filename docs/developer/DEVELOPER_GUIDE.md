@@ -279,36 +279,47 @@ Native/local development may serve the same UI/API without Docker. Docker, Windo
 
 ### Local web server foundation
 
-Run the local placeholder server from the repository root:
+The local server can serve the existing React/Vite build without making the
+browser UI a second state authority. Build the UI and start the server from the
+repository root:
 
 ```powershell
+Push-Location .\gui
+npm ci
+npm run build
+Pop-Location
 pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
 ```
 
-The default listener is loopback-only at `http://127.0.0.1:8765/`. Open that
-address in a browser to see:
+The default listener is loopback-only at `http://127.0.0.1:8765/`. The server
+checks `gui/dist/index.html` first. If it exists, `/` serves the built UI and
+allowlisted JavaScript, CSS, image, font, and HTML assets. If it does not
+exist, `/` serves the safe placeholder shell:
 
 - **ChannelForge is running**
 - **No lineup has been accepted yet**
 - **Open Guided Setup to begin**
 
-Those are the initial no-accepted-state messages. When the immutable accepted
-generation exists, the status endpoints report `LineupStatus: accepted` and the
-shell changes its guidance to **An accepted lineup is available** and **Open
-Guided Setup to review**.
+The static root may be overridden with `-StaticRoot`, but it must remain within
+the repository's `gui/dist` subtree. Static files are read-only, path-traversal
+protected, served without directory listings, and unsupported asset types
+return `404`. There is no SPA fallback: an unknown static path returns `404`.
+`GET` and `HEAD` return the same status and content metadata.
 
-The read-only endpoints are:
+The read-only endpoints remain:
 
 | Method        | Path          | Purpose                                    |
 | ------------- | ------------- | ------------------------------------------ |
-| `GET`, `HEAD` | `/`           | Placeholder browser shell                  |
+| `GET`, `HEAD` | `/`           | Built UI or safe placeholder shell         |
 | `GET`, `HEAD` | `/health`     | Safe health/status JSON                    |
 | `GET`, `HEAD` | `/api/status` | Safe version, status, and next-action JSON |
 
-Only `GET` and `HEAD` are accepted. The response contains no provider URLs,
-credentials, private paths, hashes, generation IDs, or parser details. Stop the
-foreground server with `Ctrl+C`. The server has no Docker, Windows service,
-packaging, release, deployment, or tester-build behavior.
+Setup and review remain future until API-backed Guided Setup is implemented.
+Only the engine may own candidate generation, review, acceptance, reports, and
+output publication. The server exposes no provider URLs, credentials, private
+paths, hashes, generation IDs, accepted-generation contents, or parser details.
+Stop the foreground server with `Ctrl+C`. The server has no Docker, Windows
+service, packaging, release, deployment, or tester-build behavior.
 
 ### Reusable existing GUI work
 
