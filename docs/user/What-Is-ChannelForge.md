@@ -10,7 +10,7 @@ It doesn't blindly trust playlist names or provider metadata. It validates input
 
 **Honestly: only if you're comfortable with PowerShell and an early, unfinished tool.**
 
-ChannelForge is **Early Alpha**. The primary UI direction is a browser-based local web UI served by the ChannelForge engine, intended for Docker or Windows server/service installation. That web UI and those deployment modes are not implemented yet. The repository also contains reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup work in an optional Tauri wrapper. The wrapper is a reference and future packaging option, not a requirement for normal product use.
+ChannelForge is **Early Alpha**. The primary UI direction is a browser-based local web UI served by the ChannelForge engine, intended for Docker or Windows server/service installation. A minimal read-only loopback server and placeholder shell are available for local startup verification; the full browser UI and deployment modes are not implemented yet. The repository also contains reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup work in an optional Tauri wrapper. The wrapper is a reference and future packaging option, not a requirement for normal product use.
 
 ## What does it do today?
 
@@ -64,7 +64,7 @@ The review shows detected fields, a representative event preview, confidence, pr
 
 ## What doesn't it do yet?
 
-- **No primary web UI workflow yet.** The browser-based local UI, engine HTTP/API surface, Docker deployment, and Windows server/service installation are architecture targets recorded in [ADR-0016](../adr/0016-web-first-local-ui.md). Existing Tauri work remains an optional reusable reference; it does not define the primary product shell.
+- **No full primary web UI workflow yet.** A minimal loopback shell and read-only health/status API are available for local startup verification; the full browser UI, engine HTTP/API surface, Docker deployment, and Windows server/service installation remain future work. Existing Tauri work remains an optional reusable reference; it does not define the primary product shell.
 - **No broad remote integration.** Supported remote provider M3U/XMLTV acquisition is limited to bounded HTTPS on port 443; there is no authentication, credentials, redirect, proxy, retry, remote ZIP, stale/offline success, or live-network CI.
 - **No automatic target-specific guide assignment.** ChannelForge can generate validated deterministic M3U/XMLTV outputs and report exact identity bindings, but downstream guide configuration and automatic Plex refresh remain separate.
 - **No automatic Plex refresh.** You re-run the build and refresh Plex's channel list yourself.

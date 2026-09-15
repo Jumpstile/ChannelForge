@@ -13,6 +13,29 @@ This page answers: **something went wrong — how do I fix it myself, or report 
 
 This table mirrors [INSTALL.md](../reference/INSTALL.md)'s — check there too if your problem isn't here.
 
+## Local web server
+
+Start the read-only local web foundation from the repository root:
+
+```powershell
+pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
+```
+
+Then open `http://127.0.0.1:8765/`. The page should say **ChannelForge is
+running**, **No lineup has been accepted yet**, and **Open Guided Setup to
+begin**.
+
+| Symptom                                    | Likely cause                         | What to do                                                                                              |
+| ------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Browser reports connection refused         | The foreground server is not running | Start the command above and leave that window open                                                      |
+| Server reports that the address is in use  | Another process owns port 8765       | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/` |
+| A request returns `405 Method Not Allowed` | The foundation is read-only          | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                   |
+| A remote machine cannot connect            | The listener is loopback-only        | This foundation does not expose a public or LAN listener                                                |
+
+The `/health` and `/api/status` endpoints return safe status JSON only. They do
+not expose provider URLs, credentials, private paths, hashes, generation IDs,
+or parser details. Stop the foreground server with `Ctrl+C`.
+
 ## Build problems
 
 | Symptom                                                    | Likely cause                                                                                                         | What to do                                                                                                                                                       |
@@ -61,7 +84,7 @@ A malformed provider/EPG URL or an out-of-bounds path fails the whole build on p
 Yes — running `Build-Lineup.ps1` against the repository's tracked example data (no `*.local.json`, no real playlist) validates your source-of-truth configuration and produces a report with `Status: SOURCE_OF_TRUTH_VALIDATED`, just without a `merged.m3u` (no source has a `local_playlist` configured). This is a safe way to confirm your environment works before bringing in real data.
 
 **Is there a web UI yet?**
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine, intended for Docker or Windows server/service installation. That web UI and deployment support are not implemented yet. Existing Tauri/React work is an optional reusable reference and future packaging path; it currently includes a native picker bridge that checks pre-parse availability, expected kind, and read access. A selected M3U playlist and local XMLTV guide receive bounded structural checks and a single-guide exact identity comparison. The optional wrapper reports only safe status, reason, and aggregate matched, unmatched, ambiguous, and guide-only counts. It never opens or displays stream URLs, programme titles, or guide channel IDs, and it does not build lineups, save changes, export, or update providers. If matching reports needs attention or review needed, choose corrective inputs and rerun the check; do not treat the optional wrapper as the deployment contract.
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. A minimal read-only loopback shell and health/status API are available at `http://127.0.0.1:8765/` after running the local server command above; full UI, API, Docker, and Windows server/service support are not implemented yet. Existing Tauri/React work is an optional reusable reference and future packaging path; it currently includes a native picker bridge that checks pre-parse availability, expected kind, and read access. A selected M3U playlist and local XMLTV guide receive bounded structural checks and a single-guide exact identity comparison. The optional wrapper reports only safe status, reason, and aggregate matched, unmatched, ambiguous, and guide-only counts. It never opens or displays stream URLs, programme titles, or guide channel IDs, and it does not build lineups, save changes, export, or update providers. If matching reports needs attention or review needed, choose corrective inputs and rerun the check; do not treat the optional wrapper as the deployment contract.
 
 ## Reporting a bug safely
 
