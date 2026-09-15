@@ -32,20 +32,27 @@ pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
 ```
 
 Then open `http://127.0.0.1:8765/`. When `gui/dist/index.html` is absent, the
-page should say **ChannelForge is running**, **No lineup has been accepted yet**,
-and **Open Guided Setup to begin**. When the build exists, the built UI appears
-instead. Setup and review remain future until API-backed Guided Setup is
-implemented.
+safe placeholder appears. When the build exists, the landing dashboard fetches
+`GET /api/status` from the same origin and should say **ChannelForge is
+running**, show whether **No lineup has been accepted yet** or **An accepted
+lineup is available**, and give the matching Guided Setup next action. It also
+explains that the page is read-only and cannot change your lineup.
 
-| Symptom                                             | Likely cause                              | What to do                                                                                                     |
-| --------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Browser reports connection refused                  | The foreground server is not running      | Start the command above and leave that window open                                                             |
-| Server reports that the address is in use           | Another process owns port 8765            | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/`        |
-| Built UI does not appear                            | `gui/dist/index.html` is absent           | Run the build commands above, or use the safe placeholder intentionally                                        |
-| A static asset returns `404 Not Found`              | The path is unknown or its type is unsafe | Confirm the asset exists under `gui/dist` and uses a supported static extension; directory listing is disabled |
-| A request returns `405 Method Not Allowed`          | The foundation is read-only               | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                          |
-| A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation | The server stays read-only; inspect accepted-state recovery diagnostics before changing any state              |
-| A remote machine cannot connect                     | The listener is loopback-only             | This foundation does not expose a public or LAN listener                                                       |
+If the status request returns `503`, fails over the network, or contains an
+unknown shape, the dashboard shows **ChannelForge status is unavailable**.
+Refresh after confirming that the local server is still running; raw server
+errors are intentionally not shown.
+
+| Symptom                                             | Likely cause                                                | What to do                                                                                                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser reports connection refused                  | The foreground server is not running                        | Start the command above and leave that window open                                                                                                |
+| Server reports that the address is in use           | Another process owns port 8765                              | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/`                                           |
+| Built UI does not appear                            | `gui/dist/index.html` is absent                             | Run the build commands above, or use the safe placeholder intentionally                                                                           |
+| A static asset returns `404 Not Found`              | The path is unknown or its type is unsafe                   | Confirm the asset exists under `gui/dist` and uses a supported static extension; directory listing is disabled                                    |
+| A request returns `405 Method Not Allowed`          | The foundation is read-only                                 | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                                                             |
+| A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation                   | The dashboard shows a safe unavailable message; the server stays read-only; inspect accepted-state recovery diagnostics before changing any state |
+| Dashboard says status is unavailable                | Server stopped, network failure, or invalid status response | Confirm the loopback server is running, then refresh; raw response details are intentionally hidden                                               |
+| A remote machine cannot connect                     | The listener is loopback-only                               | This foundation does not expose a public or LAN listener                                                                                          |
 
 The `/health` and `/api/status` endpoints return safe status JSON only. They do
 not expose provider URLs, credentials, private paths, hashes, generation IDs,
@@ -92,14 +99,21 @@ After a successful native acceptance, **Your saved lineup** is available as a re
 
 ## FAQ
 
+**Is there a web UI yet?**
+Yes. The built React/Vite landing dashboard is served by the local loopback
+server and reads the safe `GET /api/status` contract. It shows whether
+ChannelForge is running, whether an accepted lineup is available, and the next
+Guided Setup direction without changing anything. A `503`, network failure, or
+invalid response produces a safe unavailable message. Full API-backed Guided
+Setup, Docker, and Windows server/service support are not implemented yet.
+Existing Tauri/React work remains an optional reusable reference and future
+packaging path.
+
 **Why does the build fail instead of just skipping a bad source?**
 A malformed provider/EPG URL or an out-of-bounds path fails the whole build on purpose. ChannelForge prefers a loud, early failure over silently producing a partial or wrong lineup — see [ADR 0005](../adr/0005-evidence-over-assumptions.md).
 
 **Can I run a build without a real provider playlist, just to see it work?**
 Yes — running `Build-Lineup.ps1` against the repository's tracked example data (no `*.local.json`, no real playlist) validates your source-of-truth configuration and produces a report with `Status: SOURCE_OF_TRUTH_VALIDATED`, just without a `merged.m3u` (no source has a `local_playlist` configured). This is a safe way to confirm your environment works before bringing in real data.
-
-**Is there a web UI yet?**
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine. A minimal read-only loopback shell and health/status API are available at `http://127.0.0.1:8765/` after running the local server command above; full UI, API, Docker, and Windows server/service support are not implemented yet. Existing Tauri/React work is an optional reusable reference and future packaging path; it currently includes a native picker bridge that checks pre-parse availability, expected kind, and read access. A selected M3U playlist and local XMLTV guide receive bounded structural checks and a single-guide exact identity comparison. The optional wrapper reports only safe status, reason, and aggregate matched, unmatched, ambiguous, and guide-only counts. It never opens or displays stream URLs, programme titles, or guide channel IDs, and it does not build lineups, save changes, export, or update providers. If matching reports needs attention or review needed, choose corrective inputs and rerun the check; do not treat the optional wrapper as the deployment contract.
 
 ## Reporting a bug safely
 

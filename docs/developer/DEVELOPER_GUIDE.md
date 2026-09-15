@@ -300,6 +300,18 @@ exist, `/` serves the safe placeholder shell:
 - **No lineup has been accepted yet**
 - **Open Guided Setup to begin**
 
+The built landing surface fetches `/api/status` from the same origin. It
+projects only the validated status contract into beginner-facing copy:
+
+- **ChannelForge is running**
+- **No lineup has been accepted yet** or **An accepted lineup is available**
+- **Open Guided Setup to begin** or **Open Guided Setup to review**
+- **Read-only status** — “This page can show status, but it cannot change your lineup yet.”
+
+An HTTP `503`, a network failure, or an invalid response shape renders
+**ChannelForge status is unavailable** with recovery guidance. The browser
+does not retain or display raw API payload fields.
+
 The static root may be overridden with `-StaticRoot`, but it must remain within
 the repository's `gui/dist` subtree. Static files are read-only, path-traversal
 protected, served without directory listings, and unsupported asset types
@@ -308,16 +320,18 @@ return `404`. There is no SPA fallback: an unknown static path returns `404`.
 
 The read-only endpoints remain:
 
-| Method        | Path          | Purpose                                    |
-| ------------- | ------------- | ------------------------------------------ |
-| `GET`, `HEAD` | `/`           | Built UI or safe placeholder shell         |
-| `GET`, `HEAD` | `/health`     | Safe health/status JSON                    |
-| `GET`, `HEAD` | `/api/status` | Safe version, status, and next-action JSON |
+| Method        | Path          | Purpose                                         |
+| ------------- | ------------- | ----------------------------------------------- |
+| `GET`, `HEAD` | `/`           | Built UI or safe placeholder shell              |
+| `GET`, `HEAD` | `/health`     | Safe health/status JSON                         |
+| `GET`, `HEAD` | `/api/status` | Safe status contract consumed by the browser UI |
 
-Setup and review remain future until API-backed Guided Setup is implemented.
-Only the engine may own candidate generation, review, acceptance, reports, and
-output publication. The server exposes no provider URLs, credentials, private
-paths, hashes, generation IDs, accepted-generation contents, or parser details.
+The dashboard is presentation-only. It makes one same-origin `GET` request and
+never sends `POST`, `PUT`, `PATCH`, or `DELETE`. Setup and review actions remain
+future until their engine/API contracts are implemented. Only the engine may
+own candidate generation, review, acceptance, reports, and output publication.
+The server and browser expose no provider URLs, credentials, private paths,
+hashes, generation IDs, accepted-generation contents, or parser details.
 Stop the foreground server with `Ctrl+C`. The server has no Docker, Windows
 service, packaging, release, deployment, or tester-build behavior.
 
@@ -339,7 +353,6 @@ The web UI must preserve the engine as the authority for candidate generation, r
 
 Before adapting the UI, review each:
 
-- Tauri-specific shell command;
 - native file-picker assumption;
 - direct filesystem access assumption;
 - local process invocation assumption;
@@ -351,22 +364,22 @@ The web UI must replace native-only access with documented engine/API operations
 
 The current GUI is an optional Tauri-backed prototype/reference surface, not the primary product shell:
 
-| Area                                      | Status                                                  |
-| ----------------------------------------- | ------------------------------------------------------- |
-| Browser web UI served by engine           | Read-only placeholder shell and status; full UI pending |
-| Docker deployment                         | Architecture recorded; implementation pending           |
-| Windows server/service install            | Architecture recorded; implementation pending           |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                   |
-| Guided Setup layout                       | Preview only (prototype)                                |
-| Native file-picker bridge                 | Works now (prototype)                                   |
-| Display-safe selection state              | Works now (prototype)                                   |
-| Pre-parse selection checks                | Works now (prototype)                                   |
-| Playlist structural validation            | Works now — structural only (prototype)                 |
-| Guide structural validation               | Works now — structural only (prototype)                 |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)           |
-| Lineup review                             | Implemented — local checks passed (prototype)           |
-| Saved lineup                              | Implemented — native acceptance + local checks          |
-| Automatic updates                         | Planned / not built yet                                 |
+| Area                                      | Status                                                                                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Browser web UI served by engine           | Built UI or safe placeholder with read-only `/api/status` dashboard available; Guided Setup actions pending |
+| Docker deployment                         | Architecture recorded; implementation pending                                                               |
+| Windows server/service install            | Architecture recorded; implementation pending                                                               |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
+| Guided Setup layout                       | Preview only (prototype)                                                                                    |
+| Native file-picker bridge                 | Works now (prototype)                                                                                       |
+| Display-safe selection state              | Works now (prototype)                                                                                       |
+| Pre-parse selection checks                | Works now (prototype)                                                                                       |
+| Playlist structural validation            | Works now — structural only (prototype)                                                                     |
+| Guide structural validation               | Works now — structural only (prototype)                                                                     |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                               |
+| Lineup review                             | Implemented — local checks passed (prototype)                                                               |
+| Saved lineup                              | Implemented — native acceptance + local checks                                                              |
+| Automatic updates                         | Planned / not built yet                                                                                     |
 
 Issue #145 keeps GUI CI inside the existing protected `quality-gates` job. The
 required web-first checks run before the optional-wrapper compatibility check:
