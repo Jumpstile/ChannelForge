@@ -203,6 +203,8 @@ classifications. It performs a validated read-only accepted-generation check,
 but does not expose accepted-generation contents, provider URLs, credentials,
 private paths, hashes, generation IDs, or parser details. No provider,
 downstream, guide-publication, or accepted-state mutation path was added.
+Malformed accepted-state metadata fails closed to a safe `503` response for
+the affected request; it does not terminate the read-only server loop.
 
 Local validation and the exact-base intent review support `PASS` for this
 foundation slice. The overall Issue #150 architecture remains
