@@ -17,7 +17,9 @@ function New-ChannelForgeWebResponse {
 function Get-ChannelForgeWebResponse {
     param(
         [Parameter(Mandatory)][string]$Method,
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Path
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [ValidateNotNullOrEmpty()]
+        [string]$RepositoryRoot = (Get-Location).Path
     )
 
     $commonHeaders = [ordered]@{
@@ -41,7 +43,10 @@ function Get-ChannelForgeWebResponse {
 
     switch ($requestPath.ToLowerInvariant()) {
         '/' {
-            $body = @'
+            $webStatus = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot
+            $guidance = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.Guidance)
+            $nextAction = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.NextAction)
+            $body = @"
 <!doctype html>
 <html lang="en">
 <head>
@@ -63,26 +68,26 @@ function Get-ChannelForgeWebResponse {
     <p class="eyebrow">ChannelForge</p>
     <h1>ChannelForge is running</h1>
     <div class="status">
-      <p>No lineup has been accepted yet</p>
-      <p>Open Guided Setup to begin</p>
+      <p>$guidance</p>
+      <p>$nextAction</p>
     </div>
   </main>
 </body>
 </html>
-'@
+"@
             $headers = [ordered]@{}
             foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'text/html; charset=utf-8' -Body $body -Headers $headers
         }
         '/index.html' {
-            return Get-ChannelForgeWebResponse -Method $methodName -Path '/'
+            return Get-ChannelForgeWebResponse -Method $methodName -Path '/' -RepositoryRoot $RepositoryRoot
         }
         '/health' {
-            $body = Get-ChannelForgeWebStatus | ConvertTo-Json -Depth 4 -Compress
+            $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Headers $commonHeaders
         }
         '/api/status' {
-            $body = Get-ChannelForgeWebStatus | ConvertTo-Json -Depth 4 -Compress
+            $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Headers $commonHeaders
         }
         default {
