@@ -66,6 +66,29 @@ File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dis
 
 Per ADR 0003, domain objects must not reference infrastructure-specific concepts. `Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific fields; provider- and playlist-specific values are stored as plain strings supplied by the infrastructure layer.
 
+### Web-first local UI and deployment boundary
+
+ChannelForge's primary UI architecture is a browser-based local web UI served by the ChannelForge engine. The browser talks to the engine's documented HTTP/API boundary; the engine remains responsible for configuration, source acquisition, candidate generation, review, immutable acceptance, reports, and generated outputs.
+
+The primary deployment modes are:
+
+- **Docker container** — the engine serves the web UI and API from one container, with operator-provided persistent mounts for configuration, disposable source cache, immutable generations, accepted pointers, reports/logs, and generated M3U/XMLTV outputs.
+- **Windows server/service install** — the installed engine serves the same web UI and API from a local server/service process with persistent storage for the same state, reports, and outputs.
+
+Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must share the same engine commands, accepted-generation contract, and safety boundaries. A native wrapper is optional future packaging only; it is not a second product UI or a second state authority.
+
+This slice records the architecture only. It does not implement the web server, HTTP API, Docker packaging, Windows service installation, or appearance modes.
+
+#### Reuse existing GUI work
+
+The existing `gui/` React/TypeScript/Tauri work is reusable UI work, not disposable architecture. Preserve or adapt its visual layout direction, design tokens, accessible component patterns, Guided Setup / Beginner Workflow structure, playlist and guide selection UX, validation and review surfaces, saved-lineup concepts, and beginner-facing copy and terminology when building the web UI.
+
+#### Re-evaluate native assumptions
+
+Before web UI implementation, re-evaluate every Tauri-specific shell command, native file-picker assumption, direct filesystem access assumption, local process invocation, and state-changing behavior that currently sits outside an engine HTTP/API boundary. The web UI must not reproduce native-only behavior by granting the browser direct filesystem or process authority. State-changing operations must route through documented engine commands and the immutable acceptance boundary.
+
+The current Tauri implementation remains preserved and is useful as a design and behavior reference. Its native bridge is not the deployment contract for the web UI.
+
 ### Write guardrails
 
 `scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` sit outside the module (they're standalone entry points, not part of the public API) but import it to call `Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` before any filesystem write, copy, or archive operation. This keeps the "what's allowed to write where" decision in one place rather than re-implemented per script. The same principle covers reads of operator-supplied configuration paths: `Assert-ChannelForgeReadPath` confines a resolved `local_playlist` value to `data/playlists/` before `Build-Lineup.ps1` ever opens it. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#write-guardrails) for the current write/read sites and what each guardrail checks.
@@ -150,5 +173,6 @@ Every tracked JSON file under `data/` has a structural contract in `schemas/`, v
 
 - [ADR 0001 — ChannelForge owns the source of truth](../adr/0001-source-of-truth.md)
 - [ADR 0003 — Use clean layered architecture](../adr/0003-clean-architecture.md)
+- [ADR 0016 — Web-first local UI and server-first deployment](../adr/0016-web-first-local-ui.md)
 - [Channel Identity Model](CHANNEL_IDENTITY_MODEL.md)
 - [Developer Guide](../developer/DEVELOPER_GUIDE.md)
