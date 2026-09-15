@@ -108,7 +108,7 @@ Working today:
 
 ### UI architecture
 
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). A minimal read-only loopback server and placeholder shell are now available through `scripts/Start-ChannelForgeWebServer.ps1`; the full browser UI, API, Docker, and Windows service implementation remain future work.
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). A minimal read-only loopback server and placeholder shell are now available through `scripts/Start-ChannelForgeWebServer.ps1`; its status check reads validated accepted-generation metadata only to derive lineup status and does not expose that metadata or mutate state. The full browser UI, API, Docker, and Windows service implementation remain future work.
 
 Existing React/TypeScript/Tauri work is preserved as reusable layout, design-token, Guided Setup, validation/review, saved-lineup, accessibility, and beginner-copy reference work. Tauri is optional future packaging, not the primary product shell.
 

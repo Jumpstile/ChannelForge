@@ -8,7 +8,7 @@ function New-ChannelForgeWebServer {
         [string]$BindAddress = '127.0.0.1',
 
         [ValidateNotNullOrEmpty()]
-        [string]$RepositoryRoot = (Get-Location).Path
+        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
     )
 
     $prefix = "http://$BindAddress`:$Port/"
