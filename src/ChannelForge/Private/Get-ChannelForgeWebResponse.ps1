@@ -14,6 +14,18 @@ function New-ChannelForgeWebResponse {
     }
 }
 
+function New-ChannelForgeWebStatusUnavailableResponse {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Headers,
+        [Parameter(Mandatory)][string]$ContentType
+    )
+
+    return New-ChannelForgeWebResponse -StatusCode 503 -ContentType $ContentType -Body (@{
+        Error   = 'status-unavailable'
+        Message = 'ChannelForge status is temporarily unavailable.'
+    } | ConvertTo-Json -Compress) -Headers $Headers
+}
+
 function Get-ChannelForgeWebResponse {
     param(
         [Parameter(Mandatory)][string]$Method,
@@ -43,7 +55,12 @@ function Get-ChannelForgeWebResponse {
 
     switch ($requestPath.ToLowerInvariant()) {
         '/' {
-            $webStatus = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot
+            try {
+                $webStatus = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot
+            }
+            catch {
+                return New-ChannelForgeWebStatusUnavailableResponse -Headers $commonHeaders -ContentType $contentType
+            }
             $guidance = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.Guidance)
             $nextAction = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.NextAction)
             $body = @"
@@ -83,11 +100,21 @@ function Get-ChannelForgeWebResponse {
             return Get-ChannelForgeWebResponse -Method $methodName -Path '/' -RepositoryRoot $RepositoryRoot
         }
         '/health' {
-            $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
+            try {
+                $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
+            }
+            catch {
+                return New-ChannelForgeWebStatusUnavailableResponse -Headers $commonHeaders -ContentType $contentType
+            }
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Headers $commonHeaders
         }
         '/api/status' {
-            $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
+            try {
+                $body = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot | ConvertTo-Json -Depth 4 -Compress
+            }
+            catch {
+                return New-ChannelForgeWebStatusUnavailableResponse -Headers $commonHeaders -ContentType $contentType
+            }
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Headers $commonHeaders
         }
         default {

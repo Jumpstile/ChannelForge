@@ -121,6 +121,21 @@ Describe 'ChannelForge web server foundation' {
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
 
+    It 'returns safe service-unavailable responses for corrupt accepted state' {
+        $root = Join-Path $TestDrive 'corrupt-status'
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'state') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Value '{}' -NoNewline
+
+        foreach ($path in @('/', '/health', '/api/status')) {
+            $response = Get-TestWebResponse -Method GET -Path $path -RepositoryRoot $root
+            $payload = $response.Body | ConvertFrom-Json
+
+            $response.StatusCode | Should -Be 503
+            $payload.Error | Should -Be 'status-unavailable'
+            $payload.Message | Should -Be 'ChannelForge status is temporarily unavailable.'
+        }
+    }
+
     It 'serves the health endpoint as read-only JSON' {
         $response = Get-TestWebResponse -Method GET -Path '/health?probe=1'
         $payload = $response.Body | ConvertFrom-Json
