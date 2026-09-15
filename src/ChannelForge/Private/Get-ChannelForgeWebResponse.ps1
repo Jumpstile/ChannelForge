@@ -11,13 +11,15 @@ function New-ChannelForgeWebResponse {
         [Parameter(Mandatory)][int]$StatusCode,
         [Parameter(Mandatory)][string]$ContentType,
         [Parameter(Mandatory)][string]$Body,
-        [System.Collections.IDictionary]$Headers = [ordered]@{}
+        [System.Collections.IDictionary]$Headers = [ordered]@{},
+        [byte[]]$Bytes = $null
     )
 
     return [pscustomobject][ordered]@{
         StatusCode  = $StatusCode
         ContentType = $ContentType
         Body        = $Body
+        Bytes       = $Bytes
         Headers     = $Headers
     }
 }
@@ -34,44 +36,110 @@ function New-ChannelForgeWebStatusUnavailableResponse {
     } | ConvertTo-Json -Compress) -Headers $Headers
 }
 
-function Get-ChannelForgeWebResponse {
+function Get-ChannelForgeWebStaticContentType {
+    param([Parameter(Mandatory)][string]$Extension)
+
+    switch ($Extension.ToLowerInvariant()) {
+        '.css' { return 'text/css; charset=utf-8' }
+        '.gif' { return 'image/gif' }
+        '.html' { return 'text/html; charset=utf-8' }
+        '.ico' { return 'image/x-icon' }
+        '.jpeg' { return 'image/jpeg' }
+        '.jpg' { return 'image/jpeg' }
+        '.js' { return 'text/javascript; charset=utf-8' }
+        '.mjs' { return 'text/javascript; charset=utf-8' }
+        '.png' { return 'image/png' }
+        '.svg' { return 'image/svg+xml' }
+        '.ttf' { return 'font/ttf' }
+        '.webp' { return 'image/webp' }
+        '.woff' { return 'font/woff' }
+        '.woff2' { return 'font/woff2' }
+        default { return $null }
+    }
+}
+
+function Get-ChannelForgeWebStaticFileResponse {
     param(
-        [Parameter(Mandatory)][string]$Method,
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
-        [ValidateNotNullOrEmpty()]
-        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$StaticRoot,
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Headers
     )
 
-    $commonHeaders = [ordered]@{
-        'Cache-Control'            = 'no-store'
-        'X-Content-Type-Options'  = 'nosniff'
-        'Content-Security-Policy' = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
-    }
-    $contentType = 'application/json; charset=utf-8'
-    $methodName = if ($null -eq $Method) { '' } else { $Method.ToUpperInvariant() }
-    $requestPath = if ([string]::IsNullOrWhiteSpace($Path)) { '/' } else { ($Path -split '\?', 2)[0] }
+    try {
+        if (-not (Test-Path -LiteralPath $StaticRoot -PathType Container)) { return $null }
 
-    if ($methodName -notin @('GET', 'HEAD')) {
-        $headers = [ordered]@{}
-        foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
-        $headers['Allow'] = 'GET, HEAD'
-        return New-ChannelForgeWebResponse -StatusCode 405 -ContentType $contentType -Body (@{
-            Error   = 'method-not-allowed'
-            Message = 'Only read-only GET and HEAD requests are supported.'
-        } | ConvertTo-Json -Compress) -Headers $headers
+        $rootItem = Get-Item -LiteralPath $StaticRoot -Force
+
+        $repositoryRootFullPath = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([char]92, [char]47)
+        $allowedStaticRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRootFullPath 'gui\dist')).TrimEnd([char]92, [char]47)
+        $staticRootFullPath = [IO.Path]::GetFullPath($StaticRoot).TrimEnd([char]92, [char]47)
+        $allowedPrefix = "$allowedStaticRoot$([IO.Path]::DirectorySeparatorChar)"
+        if (
+            $staticRootFullPath -ne $allowedStaticRoot -and
+            -not $staticRootFullPath.StartsWith($allowedPrefix, [StringComparison]::OrdinalIgnoreCase)
+        ) { return $null }
+        if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return $null }
+
+        $decodedPath = [Uri]::UnescapeDataString($Path)
+        if (
+            [string]::IsNullOrWhiteSpace($decodedPath) -or
+            $decodedPath[0] -ne '/' -or
+            $decodedPath.IndexOf([char]0) -ge 0 -or
+            $decodedPath.Contains('\') -or
+            $decodedPath.Contains(':')
+        ) { return $null }
+
+        $relativePath = $decodedPath.TrimStart('/')
+        if ([string]::IsNullOrWhiteSpace($relativePath)) { return $null }
+
+        $segments = $relativePath -split '/'
+        $invalidFileNameChars = [IO.Path]::GetInvalidFileNameChars()
+        foreach ($segment in $segments) {
+            if (
+                [string]::IsNullOrWhiteSpace($segment) -or
+                $segment -in @('.', '..') -or
+                $segment.IndexOfAny($invalidFileNameChars) -ge 0
+            ) { return $null }
+        }
+
+        $rootFullPath = $staticRootFullPath
+        $candidatePath = [IO.Path]::GetFullPath((Join-Path $rootFullPath ($relativePath -replace '/', '\')))
+        $rootPrefix = "$rootFullPath$([IO.Path]::DirectorySeparatorChar)"
+        if (-not $candidatePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+        if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf)) { return $null }
+
+        $fileItem = Get-Item -LiteralPath $candidatePath -Force
+        if (($fileItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return $null }
+
+        $contentType = Get-ChannelForgeWebStaticContentType -Extension $fileItem.Extension
+        if ($null -eq $contentType) { return $null }
+
+        $bytes = [IO.File]::ReadAllBytes($candidatePath)
+        return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body ([Text.Encoding]::UTF8.GetString($bytes)) -Bytes $bytes -Headers $Headers
+    }
+    catch {
+        return $null
+    }
+}
+
+function Get-ChannelForgeWebPlaceholderResponse {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Headers,
+        [Parameter(Mandatory)][string]$ContentType
+    )
+
+    try {
+        $webStatus = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot
+    }
+    catch {
+        return New-ChannelForgeWebStatusUnavailableResponse -Headers $Headers -ContentType $ContentType
     }
 
-    switch ($requestPath.ToLowerInvariant()) {
-        '/' {
-            try {
-                $webStatus = Get-ChannelForgeWebStatus -RepositoryRoot $RepositoryRoot
-            }
-            catch {
-                return New-ChannelForgeWebStatusUnavailableResponse -Headers $commonHeaders -ContentType $contentType
-            }
-            $guidance = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.Guidance)
-            $nextAction = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.NextAction)
-            $body = @"
+    $guidance = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.Guidance)
+    $nextAction = [System.Net.WebUtility]::HtmlEncode([string]$webStatus.NextAction)
+    $body = @"
 <!doctype html>
 <html lang="en">
 <head>
@@ -100,12 +168,52 @@ function Get-ChannelForgeWebResponse {
 </body>
 </html>
 "@
-            $headers = [ordered]@{}
-            foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
-            return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'text/html; charset=utf-8' -Body $body -Headers $headers
+    return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'text/html; charset=utf-8' -Body $body -Headers $Headers
+}
+
+function Get-ChannelForgeWebResponse {
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [ValidateNotNullOrEmpty()]
+        [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot),
+        [string]$StaticRoot = ''
+    )
+
+    $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
+
+    $commonHeaders = [ordered]@{
+        'Cache-Control'            = 'no-store'
+        'X-Content-Type-Options'  = 'nosniff'
+        'Content-Security-Policy' = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+    }
+    $staticHeaders = [ordered]@{}
+    foreach ($header in $commonHeaders.GetEnumerator()) { $staticHeaders[$header.Key] = $header.Value }
+    $staticHeaders['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+    $contentType = 'application/json; charset=utf-8'
+    $methodName = if ($null -eq $Method) { '' } else { $Method.ToUpperInvariant() }
+    $requestPath = if ([string]::IsNullOrWhiteSpace($Path)) { '/' } else { ($Path -split '\?', 2)[0] }
+
+    if ($methodName -notin @('GET', 'HEAD')) {
+        $headers = [ordered]@{}
+        foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
+        $headers['Allow'] = 'GET, HEAD'
+        return New-ChannelForgeWebResponse -StatusCode 405 -ContentType $contentType -Body (@{
+            Error   = 'method-not-allowed'
+            Message = 'Only read-only GET and HEAD requests are supported.'
+        } | ConvertTo-Json -Compress) -Headers $headers
+    }
+
+    switch ($requestPath.ToLowerInvariant()) {
+        '/' {
+            $staticResponse = Get-ChannelForgeWebStaticFileResponse -Path '/index.html' -StaticRoot $staticRoot -RepositoryRoot $RepositoryRoot -Headers $staticHeaders
+            if ($null -ne $staticResponse) { return $staticResponse }
+            return Get-ChannelForgeWebPlaceholderResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType
         }
         '/index.html' {
-            return Get-ChannelForgeWebResponse -Method $methodName -Path '/' -RepositoryRoot $RepositoryRoot
+            $staticResponse = Get-ChannelForgeWebStaticFileResponse -Path '/index.html' -StaticRoot $staticRoot -RepositoryRoot $RepositoryRoot -Headers $staticHeaders
+            if ($null -ne $staticResponse) { return $staticResponse }
+            return Get-ChannelForgeWebPlaceholderResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType
         }
         '/health' {
             try {
@@ -126,6 +234,8 @@ function Get-ChannelForgeWebResponse {
             return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Headers $commonHeaders
         }
         default {
+            $staticResponse = Get-ChannelForgeWebStaticFileResponse -Path $requestPath -StaticRoot $staticRoot -RepositoryRoot $RepositoryRoot -Headers $staticHeaders
+            if ($null -ne $staticResponse) { return $staticResponse }
             return New-ChannelForgeWebResponse -StatusCode 404 -ContentType $contentType -Body (@{
                 Error   = 'not-found'
                 Message = 'Not found.'
@@ -140,7 +250,7 @@ function Write-ChannelForgeWebResponse {
         [Parameter(Mandatory)]$Response
     )
 
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Response.Body)
+    $bytes = if ($null -ne $Response.Bytes) { [byte[]]$Response.Bytes } else { [System.Text.Encoding]::UTF8.GetBytes($Response.Body) }
     $httpResponse = $Context.Response
     $httpResponse.StatusCode = $Response.StatusCode
     $httpResponse.ContentType = $Response.ContentType

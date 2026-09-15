@@ -20,27 +20,37 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
 The primary UI architecture is a browser-based local web UI served by the
-ChannelForge engine. A minimal read-only loopback server and placeholder shell
-are now available for local startup verification at
-`http://127.0.0.1:8765/`; the full browser UI and HTTP/API product surface are
-not implemented yet.
+ChannelForge engine. The existing React/Vite application can be built and
+served locally, but this slice does not make it a complete API-backed product
+UI.
 
-Start it from the repository root with
-`pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1`. It exposes only the
-beginner shell, `/health`, and `/api/status` through `GET` and `HEAD` requests.
-It reads validated accepted-generation metadata only to report lineup status; it
-does not expose that metadata, read provider files, or mutate provider,
-downstream, guide-publication, or accepted state.
+Build and serve it from the repository root:
 
-When an accepted generation exists, the same read-only endpoints report
-`LineupStatus: accepted`; the shell then says **An accepted lineup is available**
-and **Open Guided Setup to review**.
+```powershell
+Push-Location .\gui
+npm ci
+npm run build
+Pop-Location
+pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
+```
+
+Open `http://127.0.0.1:8765/`. If `gui/dist/index.html` exists, the server
+serves that built UI and its allowlisted static assets. Otherwise it serves
+the safe placeholder shell. Static requests are read-only, loopback-only,
+confined to `gui/dist`, and do not provide directory listings or SPA fallback.
+`/health` and `/api/status` remain stable read-only JSON endpoints.
+
+The beginner path is explicit: open the local URL, see either the built UI or
+the safe placeholder, and treat setup/review as future until API-backed Guided
+Setup is implemented. Accepted-generation metadata remains read only and is
+used only to derive lineup status.
 
 Docker container and Windows server/service installation remain intended primary
-deployment modes but are not implemented yet. The existing Tauri prototype still
-depends on local native picker and PowerShell bridge behavior. Those assumptions
-must be re-evaluated before web UI implementation; browser state-changing behavior
-must use engine HTTP/API commands and the immutable acceptance boundary.
+deployment modes but are not implemented yet. The existing Tauri prototype
+still depends on local native picker and PowerShell bridge behavior. Those
+assumptions must be re-evaluated before web UI implementation; browser
+state-changing behavior must use engine HTTP/API commands and the immutable
+acceptance boundary.
 
 The GUI saved-lineup flow does not provide export, scheduling, target publishing, release packaging, or tester distribution. It also cannot save needs-attention, review-needed, blocked, checking, not-checked, stale, or unavailable states.
 
