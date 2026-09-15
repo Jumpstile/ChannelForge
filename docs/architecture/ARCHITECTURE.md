@@ -88,6 +88,11 @@ the server serves only its `index.html` and allowlisted static asset types.
 Without that build output, `/` falls back to the safe placeholder shell. Static
 requests are confined to the configured `gui/dist` subtree, do not list
 directories, and do not expose accepted-generation contents or provider files.
+The built landing surface consumes `GET /api/status` from the same origin and
+projects only its validated running, lineup, next-action, and read-only facts
+into beginner copy. The browser retains no raw status payload and has no
+state-changing API capability; unavailable, failed, or invalid status responses
+render a safe degraded message.
 
 The primary deployment modes are:
 
