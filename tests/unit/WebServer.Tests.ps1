@@ -2,19 +2,48 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:ModulePath = Join-Path $script:RepoRoot 'src\ChannelForge\ChannelForge.psd1'
     $script:ServerScriptPath = Join-Path $script:RepoRoot 'scripts\Start-ChannelForgeWebServer.ps1'
+    $script:StatusRoot = Join-Path $TestDrive 'status-root'
+    New-Item -ItemType Directory -Force -Path $script:StatusRoot | Out-Null
     Import-Module $script:ModulePath -Force
 
     function Get-TestWebResponse {
         param(
             [Parameter(Mandatory)][string]$Method,
-            [Parameter(Mandatory)][string]$Path
+            [Parameter(Mandatory)][string]$Path,
+            [string]$RepositoryRoot = $script:StatusRoot
         )
 
         $module = Get-Module -Name ChannelForge
         return & $module {
-            param($RequestMethod, $RequestPath)
-            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath
-        } $Method $Path
+            param($RequestMethod, $RequestPath, $RequestRoot)
+            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath -RepositoryRoot $RequestRoot
+        } $Method $Path $RepositoryRoot
+    }
+
+    function New-TestAcceptedState {
+        param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+        $generationId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        $fixture = & (Get-Module ChannelForge) {
+            param($GenerationId)
+            $a = 'a' * 64
+            $b = 'b' * 64
+            $c = 'c' * 64
+            $m3uDecision = New-ChannelForgeDecisionM3U -CandidateManifestHash $a -BuildIdentity $b -AcceptedParentGenerationManifestHash $null -IncludedCandidateEntryIds @($a) -ExcludedCandidateEntryIds @($b) -DecisionIds @($c)
+            $decision = New-ChannelForgeDecisionManifest -CandidateManifestHash $a -BuildIdentity $b -M3UDecision $m3uDecision -XMLTVDecision $null -XMLTVDecisionStatus NotGenerated
+            $m3u = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1,Status fixture`nhttps://example.invalid/$GenerationId`n")
+            $m3uHash = Get-ChannelForgeDomainHash -Domain 'active-m3u/v2' -Bytes $m3u
+            $output = [ordered]@{ Version = 'blocker-2-contract/v8-acceptance'; GenerationId = $GenerationId; ActiveM3UHash = $m3uHash; ActiveXMLTVStatus = 'NotGenerated'; ActiveXMLTVHash = $null; AcceptedStateHash = $b; OutputManifestHash = $null }
+            $output.OutputManifestHash = Get-ChannelForgeAcceptanceHash -Domain 'previous-output-manifest/v2' -Projection $output -HashProperty OutputManifestHash -Omit @('GenerationId', 'AcceptedStateHash')
+            $state = [ordered]@{ Version = 'blocker-2-contract/v8-acceptance'; GenerationId = $GenerationId; BuildIdentity = $b; CandidateManifestHash = $a; DecisionManifestHash = $decision.DecisionManifestHash; AcceptedOutputManifestHash = $output.OutputManifestHash; PreviousStateHash = $null; IncludedCandidateEntryIds = @($a); ExcludedCandidateEntryIds = @($b); AcceptedBindingIds = @($c); AcceptedXMLTVStatus = 'NotGenerated'; AcceptedAtUtc = '2026-08-29T00:00:00Z'; AcceptedStateHash = $null }
+            $state.AcceptedStateHash = Get-ChannelForgeAcceptanceHash -Domain 'accepted-state/v2' -Projection $state -HashProperty AcceptedStateHash -Omit @('GenerationId', 'AcceptedAtUtc')
+            $output.AcceptedStateHash = $state.AcceptedStateHash
+            $manifest = [ordered]@{ Version = 'blocker-2-contract/v8-acceptance'; GenerationId = $GenerationId; BuildIdentity = $b; CandidateManifestHash = $a; DecisionManifestHash = $decision.DecisionManifestHash; AcceptedStateHash = $state.AcceptedStateHash; AcceptedOutputManifestHash = $output.OutputManifestHash; ActiveM3UHash = $output.ActiveM3UHash; ActiveXMLTVHash = $output.ActiveXMLTVHash; PreviousOutputManifestHash = $null; GenerationManifestHash = $null }
+            $manifest.GenerationManifestHash = Get-ChannelForgeAcceptanceHash -Domain 'generation-manifest/v2' -Projection $manifest -HashProperty GenerationManifestHash -Omit @('GenerationId')
+            [pscustomobject]@{ GenerationManifest = [pscustomobject]$manifest; AcceptedState = [pscustomobject]$state; AcceptedOutputManifest = [pscustomobject]$output; DecisionManifest = $decision; M3UBytes = $m3u }
+        } $generationId
+
+        Publish-ChannelForgeAcceptedGeneration -RepositoryRoot $RepositoryRoot -GenerationManifest $fixture.GenerationManifest -AcceptedState $fixture.AcceptedState -AcceptedOutputManifest $fixture.AcceptedOutputManifest -DecisionManifest $fixture.DecisionManifest -M3UBytes $fixture.M3UBytes | Out-Null
     }
 
     function Get-TestTreeSnapshot {
@@ -57,13 +86,14 @@ Describe 'ChannelForge web server foundation' {
         { New-ChannelForgeWebServer -BindAddress '0.0.0.0' } | Should -Throw
     }
 
-    It 'returns safe beginner-facing status data' {
-        $status = Get-ChannelForgeWebStatus
+    It 'returns safe beginner-facing status data when no lineup is accepted' {
+        $status = Get-ChannelForgeWebStatus -RepositoryRoot $script:StatusRoot
 
         $status.Service | Should -Be 'ChannelForge'
         $status.Version | Should -Be '0.1.0'
         $status.Status | Should -Be 'ok'
         $status.Message | Should -Be 'ChannelForge is running'
+        $status.LineupStatus | Should -Be 'not-accepted'
         $status.Guidance | Should -Be 'No lineup has been accepted yet'
         $status.NextAction | Should -Be 'Open Guided Setup to begin'
         $status.ReadOnly | Should -BeTrue
@@ -71,6 +101,24 @@ Describe 'ChannelForge web server foundation' {
         $status.DownstreamMutation | Should -Be 'none'
         $status.GuidePublication | Should -Be 'none'
         $status.AcceptedStateMutation | Should -Be 'none'
+    }
+
+    It 'reflects accepted state without mutating the generation store' {
+        $root = Join-Path $TestDrive 'accepted-status'
+        New-TestAcceptedState -RepositoryRoot $root
+        $before = Get-TestTreeSnapshot -Root $root
+
+        $status = Get-ChannelForgeWebStatus -RepositoryRoot $root
+
+        $status.LineupStatus | Should -Be 'accepted'
+        $status.Guidance | Should -Be 'An accepted lineup is available'
+        $status.NextAction | Should -Be 'Open Guided Setup to review'
+        $status.ReadOnly | Should -BeTrue
+        $status.AcceptedStateMutation | Should -Be 'none'
+        $response = Get-TestWebResponse -Method GET -Path '/api/status' -RepositoryRoot $root
+        ($response.Body | ConvertFrom-Json).LineupStatus | Should -Be 'accepted'
+        $after = Get-TestTreeSnapshot -Root $root
+        $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
 
     It 'serves the health endpoint as read-only JSON' {

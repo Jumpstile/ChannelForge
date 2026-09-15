@@ -197,10 +197,11 @@ wrapper script. `tests/unit/WebServer.Tests.ps1` covers module import, listener
 construction, loopback-only binding, beginner status text, health/status
 responses, method/path rejection, mutation boundaries, and redaction.
 
-The status payload exposes only the module version, operational status,
-beginner next action, and fixed read-only mutation classifications. It does not
-read provider files, downstream configuration, guide outputs, accepted state,
-private paths, hashes, generation IDs, credentials, or URLs. No provider,
+The status payload exposes only the module version, operational status, derived
+lineup status, beginner next action, and fixed read-only mutation
+classifications. It performs a validated read-only accepted-generation check,
+but does not expose accepted-generation contents, provider URLs, credentials,
+private paths, hashes, generation IDs, or parser details. No provider,
 downstream, guide-publication, or accepted-state mutation path was added.
 
 Local validation and the exact-base intent review support `PASS` for this

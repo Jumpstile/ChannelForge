@@ -5,7 +5,10 @@ function New-ChannelForgeWebServer {
         [int]$Port = 8765,
 
         [ValidateSet('127.0.0.1', '[::1]')]
-        [string]$BindAddress = '127.0.0.1'
+        [string]$BindAddress = '127.0.0.1',
+
+        [ValidateNotNullOrEmpty()]
+        [string]$RepositoryRoot = (Get-Location).Path
     )
 
     $prefix = "http://$BindAddress`:$Port/"
@@ -13,10 +16,11 @@ function New-ChannelForgeWebServer {
     [void]$listener.Prefixes.Add($prefix)
 
     return [pscustomobject][ordered]@{
-        Prefix      = $prefix
-        BindAddress = $BindAddress
-        Port        = $Port
-        Listener    = $listener
-        Started     = $false
+        Prefix        = $prefix
+        BindAddress   = $BindAddress
+        Port          = $Port
+        RepositoryRoot = $RepositoryRoot
+        Listener      = $listener
+        Started       = $false
     }
 }

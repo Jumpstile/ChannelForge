@@ -83,8 +83,10 @@ candidate generation, review, immutable acceptance, reports, and generated
 outputs.
 
 The foundation slice provides a read-only loopback HTTP server with a beginner
-status shell and safe health/status JSON. It does not read provider files,
-accepted generations, downstream configuration, or guide outputs.
+status shell and safe health/status JSON. It performs a validated read-only
+check of the current accepted-generation snapshot to report whether a lineup is
+accepted, but does not expose that snapshot or read provider files, downstream
+configuration, or guide outputs.
 
 The primary deployment modes are:
 

@@ -28,8 +28,13 @@ not implemented yet.
 Start it from the repository root with
 `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1`. It exposes only the
 beginner shell, `/health`, and `/api/status` through `GET` and `HEAD` requests.
-It does not read provider files or mutate provider, downstream, guide-publication,
-or accepted state.
+It reads validated accepted-generation metadata only to report lineup status; it
+does not expose that metadata, read provider files, or mutate provider,
+downstream, guide-publication, or accepted state.
+
+When an accepted generation exists, the same read-only endpoints report
+`LineupStatus: accepted`; the shell then says **An accepted lineup is available**
+and **Open Guided Setup to review**.
 
 Docker container and Windows server/service installation remain intended primary
 deployment modes but are not implemented yet. The existing Tauri prototype still

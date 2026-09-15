@@ -292,6 +292,11 @@ address in a browser to see:
 - **No lineup has been accepted yet**
 - **Open Guided Setup to begin**
 
+Those are the initial no-accepted-state messages. When the immutable accepted
+generation exists, the status endpoints report `LineupStatus: accepted` and the
+shell changes its guidance to **An accepted lineup is available** and **Open
+Guided Setup to review**.
+
 The read-only endpoints are:
 
 | Method        | Path          | Purpose                                    |

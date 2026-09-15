@@ -5,10 +5,13 @@ function Start-ChannelForgeWebServer {
         [int]$Port = 8765,
 
         [ValidateSet('127.0.0.1', '[::1]')]
-        [string]$BindAddress = '127.0.0.1'
+        [string]$BindAddress = '127.0.0.1',
+
+        [ValidateNotNullOrEmpty()]
+        [string]$RepositoryRoot = (Get-Location).Path
     )
 
-    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress
+    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot
     try {
         $server.Listener.Start()
         $server.Started = $true
@@ -27,7 +30,7 @@ function Start-ChannelForgeWebServer {
 
             try {
                 $requestPath = $context.Request.Url.AbsolutePath
-                $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPath
+                $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPath -RepositoryRoot $server.RepositoryRoot
                 Write-ChannelForgeWebResponse -Context $context -Response $response
             }
             finally {
