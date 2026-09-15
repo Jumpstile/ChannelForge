@@ -32,6 +32,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Node.js 22 for repository and GUI checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+
+      - name: Set up stable Rust for optional Tauri checks
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Fetch pinned v9 canonical content commit
         shell: pwsh
@@ -125,3 +134,22 @@ jobs:
         run: |
           & $env:CHANNELFORGE_PWSH -NoLogo -NoProfile -Command 'Invoke-Pester ./tests/unit -CI'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install GUI dependencies
+        shell: pwsh
+        working-directory: gui
+        run: npm ci
+
+      - name: Run GUI TypeScript typecheck
+        shell: pwsh
+        working-directory: gui
+        run: npm run typecheck
+
+      - name: Run GUI unit tests
+        shell: pwsh
+        working-directory: gui
+        run: npm test
+
+      - name: Run optional Tauri wrapper Rust tests
+        shell: pwsh
+        working-directory: gui
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked

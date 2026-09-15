@@ -322,21 +322,30 @@ The current GUI is an optional Tauri-backed prototype/reference surface, not the
 | Saved lineup                              | Implemented — native acceptance + local checks |
 | Automatic updates                         | Planned / not built yet                        |
 
-Issue #145 should frame GUI CI as web UI TypeScript and Vitest validation first, with Tauri/Rust checks retained only for the optional wrapper and its compatibility boundary. CI validation is not a package, release, deployment, or tester-build approval.
+Issue #145 keeps GUI CI inside the existing protected `quality-gates` job. The
+required web-first checks run before the optional-wrapper compatibility check:
 
-Use Node.js 22 LTS with npm 10 for the existing GUI checks. Run Tauri/Rust checks only when the optional wrapper is in scope:
+| Check                             | Scope                                                           | Local command                                              |
+| --------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- |
+| GUI TypeScript typecheck          | React/Vite project and referenced configs                       | `npm run typecheck`                                        |
+| GUI unit tests                    | Vitest/jsdom tests, including review and acceptance regressions | `npm test`                                                 |
+| Optional Tauri wrapper Rust tests | Rust command and validation compatibility                       | `cargo test --manifest-path src-tauri/Cargo.toml --locked` |
+
+Use Node.js 22 LTS with npm 10 for the GUI checks:
 
 ```powershell
 Set-Location gui
 npm ci
 npm run typecheck
 npm test
-# Optional wrapper checks:
-npm run test:e2e
-npm run test:visual
-npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
-npm run tauri build -- --no-bundle
+# Optional wrapper compatibility check:
+cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
+
+The workflow preserves the existing `secret-scan` and `quality-gates` check
+names, so no protected-branch ruleset update is required. It deliberately does
+not run browser packaging, Tauri packaging, deployment, release, or tester-build
+commands. E2E and visual scripts remain local/manual checks and are not merge
+approval gates.
 
 The GUI owns presentation and, for the existing wrapper, compatibility adapters only. Do not add a React promotion model, second accepted-state source of truth, provider credential, export, scheduler, release, target-publishing, or tester-distribution operation. Preserve existing PowerShell behavior and redaction boundaries; later operational integration requires separate review.
