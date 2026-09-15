@@ -10,7 +10,7 @@ function New-ChannelForgeWebResponse {
     param(
         [Parameter(Mandatory)][int]$StatusCode,
         [Parameter(Mandatory)][string]$ContentType,
-        [Parameter(Mandatory)][string]$Body,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Body,
         [System.Collections.IDictionary]$Headers = [ordered]@{},
         [byte[]]$Bytes = $null
     )
@@ -116,7 +116,8 @@ function Get-ChannelForgeWebStaticFileResponse {
         if ($null -eq $contentType) { return $null }
 
         $bytes = [IO.File]::ReadAllBytes($candidatePath)
-        return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body ([Text.Encoding]::UTF8.GetString($bytes)) -Bytes $bytes -Headers $Headers
+        $body = if ($contentType.StartsWith('text/', [StringComparison]::OrdinalIgnoreCase)) { [Text.Encoding]::UTF8.GetString($bytes) } else { '' }
+        return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $contentType -Body $body -Bytes $bytes -Headers $Headers
     }
     catch {
         return $null

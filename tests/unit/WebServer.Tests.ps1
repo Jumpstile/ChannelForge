@@ -208,10 +208,12 @@ Describe 'ChannelForge web server foundation' {
         New-Item -ItemType Directory -Force -Path $assets | Out-Null
         [IO.File]::WriteAllText((Join-Path $assets 'app.js'), 'window.__CHANNELFORGE_TEST__ = true;')
         [IO.File]::WriteAllText((Join-Path $assets 'app.css'), 'body { color: green; }')
+        [IO.File]::WriteAllBytes((Join-Path $assets 'app.png'), [byte[]](0, 255, 128, 10))
 
         $js = Get-TestWebResponse -Method GET -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
         $jsHead = Get-TestWebResponse -Method HEAD -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
         $css = Get-TestWebResponse -Method GET -Path '/assets/app.css' -RepositoryRoot $root -StaticRoot $staticRoot
+        $png = Get-TestWebResponse -Method GET -Path '/assets/app.png' -RepositoryRoot $root -StaticRoot $staticRoot
         $post = Get-TestWebResponse -Method POST -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
 
         $js.StatusCode | Should -Be 200
@@ -225,6 +227,10 @@ Describe 'ChannelForge web server foundation' {
         $css.Body | Should -Match 'color: green'
         $post.StatusCode | Should -Be 405
         $post.Headers.Allow | Should -Be 'GET, HEAD'
+        $png.StatusCode | Should -Be 200
+        $png.ContentType | Should -Be 'image/png'
+        $png.Body | Should -Be ''
+        [Convert]::ToBase64String($png.Bytes) | Should -Be 'AP+A Cg=='.Replace(' ', '')
     }
 
     It 'rejects traversal, directory listing, unsupported assets, and unsafe roots' {
