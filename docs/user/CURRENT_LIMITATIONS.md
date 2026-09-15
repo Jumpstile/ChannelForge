@@ -19,9 +19,23 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
-The primary UI architecture is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the intended primary deployment modes, with native/local development serving the same UI/API. The web server, HTTP API, Docker packaging, Windows service installation, and Light/Dark/System appearance mode are not implemented yet.
+The primary UI architecture is a browser-based local web UI served by the
+ChannelForge engine. A minimal read-only loopback server and placeholder shell
+are now available for local startup verification at
+`http://127.0.0.1:8765/`; the full browser UI and HTTP/API product surface are
+not implemented yet.
 
-The existing Tauri prototype still depends on local native picker and PowerShell bridge behavior. Those assumptions must be re-evaluated before web UI implementation; browser state-changing behavior must use engine HTTP/API commands and the immutable acceptance boundary.
+Start it from the repository root with
+`pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1`. It exposes only the
+beginner shell, `/health`, and `/api/status` through `GET` and `HEAD` requests.
+It does not read provider files or mutate provider, downstream, guide-publication,
+or accepted state.
+
+Docker container and Windows server/service installation remain intended primary
+deployment modes but are not implemented yet. The existing Tauri prototype still
+depends on local native picker and PowerShell bridge behavior. Those assumptions
+must be re-evaluated before web UI implementation; browser state-changing behavior
+must use engine HTTP/API commands and the immutable acceptance boundary.
 
 The GUI saved-lineup flow does not provide export, scheduling, target publishing, release packaging, or tester distribution. It also cannot save needs-attention, review-needed, blocked, checking, not-checked, stale, or unavailable states.
 
@@ -29,22 +43,22 @@ The GUI saved-lineup flow does not provide export, scheduling, target publishing
 
 The following describes preserved prototype/reference work, not a primary deployment surface:
 
-| Area                                      | Status                                         |
-| ----------------------------------------- | ---------------------------------------------- |
-| Browser web UI served by engine           | Architecture recorded; implementation pending  |
-| Docker deployment                         | Architecture recorded; implementation pending  |
-| Windows server/service install            | Architecture recorded; implementation pending  |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                          |
-| Guided Setup layout                       | Preview only (prototype)                       |
-| Native file-picker bridge                 | Works now (prototype)                          |
-| Display-safe selection state              | Works now (prototype)                          |
-| Pre-parse selection checks                | Works now (prototype)                          |
-| Playlist structural validation            | Works now — structural only (prototype)        |
-| Guide structural validation               | Works now — structural only (prototype)        |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)  |
-| Lineup review                             | Implemented — local checks passed (prototype)  |
-| Saved lineup                              | Implemented — native acceptance + local checks |
-| Automatic updates                         | Planned / not built yet                        |
+| Area                                      | Status                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------- |
+| Browser web UI served by engine           | Foundation shell and read-only local status available; full UI pending |
+| Docker deployment                         | Architecture recorded; implementation pending                          |
+| Windows server/service install            | Architecture recorded; implementation pending                          |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                  |
+| Guided Setup layout                       | Preview only (prototype)                                               |
+| Native file-picker bridge                 | Works now (prototype)                                                  |
+| Display-safe selection state              | Works now (prototype)                                                  |
+| Pre-parse selection checks                | Works now (prototype)                                                  |
+| Playlist structural validation            | Works now — structural only (prototype)                                |
+| Guide structural validation               | Works now — structural only (prototype)                                |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                          |
+| Lineup review                             | Implemented — local checks passed (prototype)                          |
+| Saved lineup                              | Implemented — native acceptance + local checks                         |
+| Automatic updates                         | Planned / not built yet                                                |
 
 ## Not implemented yet
 

@@ -60,24 +60,50 @@ The first slice is ephemeral: rule audit fields (`CreatedUtc`, `ValidatedUtc`, a
 
 Stage E adds [`Get-ChannelForgeGuidePatternAcceptancePlan`](../../src/ChannelForge/Public/Get-ChannelForgeGuidePatternAcceptancePlan.ps1), a deterministic read-only projection over Stage B inference or Stage C/D review output. It explains detected patterns, matched examples, confidence, provenance, freshness, drift, proposed future rule identity when Stage B is supplied directly, eligibility, blocked reasons, and the safety boundary. Stable title/time/pattern identity is explicitly separate from volatile enrichment. Volatile facts are eligible for current presentation only when source identity/type, fetched and source-data timestamps, freshness TTL, season/competition context, subject identity, confidence, and non-contradictory provenance prove eligibility; otherwise they are omitted or marked for review. This is an evaluator boundary, not a volatile-fact producer: the current Stage A/B path does not synthesize statistics, rosters, standings, or schedule descriptions, and absent optional safe metadata produces `NotProvided`. Stage C/D-only input explicitly reports that the opaque identity is unavailable because those review formats omit candidate hashes. It returns an object, compact JSON, distinct beginner-readable Markdown, or plain text. It never accepts, adopts, publishes, writes files, mutates provider/downstream state, or changes accepted state; `PlanOnly`, `CandidateOnly`, `CanPublish = false`, `CanAcceptNow = false`, and `Adoption = NotApplied` are fixed invariants.
 
-### Infrastructure layer (planned)
+### Infrastructure layer
 
-File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dispatcharr, the file system, and HTTP. M3U/XMLTV local parsing and writing are joined by the approved bounded HTTPS/443 acquisition path for configured remote provider M3U and XMLTV sources; the IPTVBoss/Dispatcharr/Plex output writers described in the [Roadmap](../../ROADMAP.md) remain future work — see "Known limitations" below.
+File-format, transport, and output-target integrations: M3U, XMLTV, JSON, CSV,
+IPTVBoss, Dispatcharr, the file system, and HTTP. M3U/XMLTV local parsing and
+writing are joined by the approved bounded HTTPS/443 acquisition path for
+configured remote provider M3U and XMLTV sources; the IPTVBoss/Dispatcharr/Plex
+output writers described in the [Roadmap](../../ROADMAP.md) remain future work —
+see "Known limitations" below.
 
-Per ADR 0003, domain objects must not reference infrastructure-specific concepts. `Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific fields; provider- and playlist-specific values are stored as plain strings supplied by the infrastructure layer.
+Per ADR 0003, domain objects must not reference infrastructure-specific concepts.
+`Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific
+fields; provider- and playlist-specific values are stored as plain strings
+supplied by the infrastructure layer.
 
 ### Web-first local UI and deployment boundary
 
-ChannelForge's primary UI architecture is a browser-based local web UI served by the ChannelForge engine. The browser talks to the engine's documented HTTP/API boundary; the engine remains responsible for configuration, source acquisition, candidate generation, review, immutable acceptance, reports, and generated outputs.
+ChannelForge's primary UI architecture is a browser-based local web UI served by
+the ChannelForge engine. The browser talks to the engine's documented HTTP/API
+boundary; the engine remains responsible for configuration, source acquisition,
+candidate generation, review, immutable acceptance, reports, and generated
+outputs.
+
+The foundation slice provides a read-only loopback HTTP server with a beginner
+status shell and safe health/status JSON. It does not read provider files,
+accepted generations, downstream configuration, or guide outputs.
 
 The primary deployment modes are:
 
-- **Docker container** — the engine serves the web UI and API from one container, with operator-provided persistent mounts for configuration, disposable source cache, immutable generations, accepted pointers, reports/logs, and generated M3U/XMLTV outputs.
-- **Windows server/service install** — the installed engine serves the same web UI and API from a local server/service process with persistent storage for the same state, reports, and outputs.
+- **Docker container** — the engine serves the web UI and API from one container,
+  with operator-provided persistent mounts for configuration, disposable source
+  cache, immutable generations, accepted pointers, reports/logs, and generated
+  M3U/XMLTV outputs.
+- **Windows server/service install** — the installed engine serves the same web UI
+  and API from a local server/service process with persistent storage for the same
+  state, reports, and outputs.
 
-Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must share the same engine commands, accepted-generation contract, and safety boundaries. A native wrapper is optional future packaging only; it is not a second product UI or a second state authority.
+Native/local development may serve the same UI/API without Docker. Docker,
+Windows server/service, and native/local modes must share the same engine
+commands, accepted-generation contract, and safety boundaries. A native wrapper
+is optional future packaging only; it is not a second product UI or a second
+state authority.
 
-This slice records the architecture only. It does not implement the web server, HTTP API, Docker packaging, Windows service installation, or appearance modes.
+Docker, Windows service, full HTTP/API behavior, and appearance modes remain
+future work. The local server foundation does not change those deployment claims.
 
 #### Reuse existing GUI work
 
