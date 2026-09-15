@@ -103,12 +103,15 @@ FunctionsToExport = @(
     'Get-ChannelForgeGuidePatternAcceptancePlan'
     'Get-ChannelForgeSourceRefreshPlan'
     'Get-ChannelForgeGuideReadiness'
+    'Get-ChannelForgeWebStatus'
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
     'Resolve-ChannelForgeM3UXmltvBinding'
     'Resolve-ChannelForgeProviderConfigPath'
     'Set-ChannelForgeChannelNumber'
+    'New-ChannelForgeWebServer'
+    'Start-ChannelForgeWebServer'
 )
 
 # Cmdlets to export from this module. None: ChannelForge is a script module

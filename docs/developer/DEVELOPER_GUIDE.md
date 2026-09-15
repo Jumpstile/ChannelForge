@@ -268,12 +268,47 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ChannelForge's primary UI is a browser-based local web UI served by the ChannelForge engine. The browser consumes the engine's documented HTTP/API boundary; it does not host a second state authority or receive direct access to provider files, accepted generations, private paths, or local processes.
 
+The first web-server foundation is a read-only loopback server. It provides a beginner-facing placeholder shell and safe health/status responses. Status reads validated accepted-generation metadata only to derive lineup status; it does not read provider data or change any lineup state.
+
 The primary deployment modes are:
 
 - **Docker container:** one engine/UI/API deployment with persistent mounts for configuration, disposable source cache, immutable generations, accepted pointers, reports/logs, and generated M3U/XMLTV outputs.
 - **Windows server/service install:** the installed engine serves the same UI/API locally with persistent storage for the same state and outputs.
 
-Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must use the same engine commands, accepted-generation contract, and safety boundaries. Docker and Windows service implementation are future work; this document records the architecture and does not claim either deployment mode exists today.
+Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must use the same engine commands, accepted-generation contract, and safety boundaries. Docker and Windows service implementation remain future work; this document does not claim either deployment mode exists today.
+
+### Local web server foundation
+
+Run the local placeholder server from the repository root:
+
+```powershell
+pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
+```
+
+The default listener is loopback-only at `http://127.0.0.1:8765/`. Open that
+address in a browser to see:
+
+- **ChannelForge is running**
+- **No lineup has been accepted yet**
+- **Open Guided Setup to begin**
+
+Those are the initial no-accepted-state messages. When the immutable accepted
+generation exists, the status endpoints report `LineupStatus: accepted` and the
+shell changes its guidance to **An accepted lineup is available** and **Open
+Guided Setup to review**.
+
+The read-only endpoints are:
+
+| Method        | Path          | Purpose                                    |
+| ------------- | ------------- | ------------------------------------------ |
+| `GET`, `HEAD` | `/`           | Placeholder browser shell                  |
+| `GET`, `HEAD` | `/health`     | Safe health/status JSON                    |
+| `GET`, `HEAD` | `/api/status` | Safe version, status, and next-action JSON |
+
+Only `GET` and `HEAD` are accepted. The response contains no provider URLs,
+credentials, private paths, hashes, generation IDs, or parser details. Stop the
+foreground server with `Ctrl+C`. The server has no Docker, Windows service,
+packaging, release, deployment, or tester-build behavior.
 
 ### Reusable existing GUI work
 
@@ -305,22 +340,22 @@ The web UI must replace native-only access with documented engine/API operations
 
 The current GUI is an optional Tauri-backed prototype/reference surface, not the primary product shell:
 
-| Area                                      | Status                                         |
-| ----------------------------------------- | ---------------------------------------------- |
-| Browser web UI served by engine           | Architecture recorded; implementation pending  |
-| Docker deployment                         | Architecture recorded; implementation pending  |
-| Windows server/service install            | Architecture recorded; implementation pending  |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                          |
-| Guided Setup layout                       | Preview only (prototype)                       |
-| Native file-picker bridge                 | Works now (prototype)                          |
-| Display-safe selection state              | Works now (prototype)                          |
-| Pre-parse selection checks                | Works now (prototype)                          |
-| Playlist structural validation            | Works now — structural only (prototype)        |
-| Guide structural validation               | Works now — structural only (prototype)        |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)  |
-| Lineup review                             | Implemented — local checks passed (prototype)  |
-| Saved lineup                              | Implemented — native acceptance + local checks |
-| Automatic updates                         | Planned / not built yet                        |
+| Area                                      | Status                                                  |
+| ----------------------------------------- | ------------------------------------------------------- |
+| Browser web UI served by engine           | Read-only placeholder shell and status; full UI pending |
+| Docker deployment                         | Architecture recorded; implementation pending           |
+| Windows server/service install            | Architecture recorded; implementation pending           |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                   |
+| Guided Setup layout                       | Preview only (prototype)                                |
+| Native file-picker bridge                 | Works now (prototype)                                   |
+| Display-safe selection state              | Works now (prototype)                                   |
+| Pre-parse selection checks                | Works now (prototype)                                   |
+| Playlist structural validation            | Works now — structural only (prototype)                 |
+| Guide structural validation               | Works now — structural only (prototype)                 |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)           |
+| Lineup review                             | Implemented — local checks passed (prototype)           |
+| Saved lineup                              | Implemented — native acceptance + local checks          |
+| Automatic updates                         | Planned / not built yet                                 |
 
 Issue #145 keeps GUI CI inside the existing protected `quality-gates` job. The
 required web-first checks run before the optional-wrapper compatibility check:

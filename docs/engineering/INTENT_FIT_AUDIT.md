@@ -175,5 +175,38 @@ classification and include the gap in their intent-fit review.
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
 | UI architecture and deployment direction | Establish one primary browser-based local web UI served by the ChannelForge engine, with Docker and Windows server/service as primary deployment modes; retain Tauri only as optional packaging/reference work. | Future engine HTTP/API and web UI entry points; current `gui/` prototype as reference only | `docs/architecture/ARCHITECTURE.md`; `docs/adr/0016-web-first-local-ui.md`; `docs/developer/DEVELOPER_GUIDE.md`; `docs/user/CURRENT_LIMITATIONS.md`; `docs/user/What-Is-ChannelForge.md`; `README.md`; `gui/`; preserved GUI worktrees | Documentation explicitly assigns UI state changes to engine/API boundaries, preserves the accepted-generation authority, identifies reusable UI work, and lists native assumptions requiring re-evaluation. No runtime code or deployment implementation changed. | Web server/API, Docker, Windows service, appearance modes, and native-assumption migration remain future work. | PASS        |
 
-This documentation-only reset has no provider, downstream, guide-publication,
-accepted-state, package, release, deployment, or tester-build mutation path.
+The prior documentation-only reset had no provider, downstream,
+guide-publication, accepted-state, package, release, deployment, or tester-build
+mutation path.
+
+## Issue #150 web server foundation slice
+
+The foundation adds a local appliance entry point without attempting the full
+product UI or deployment modes. `scripts/Start-ChannelForgeWebServer.ps1` loads
+the module and starts `Start-ChannelForgeWebServer`, which binds only to
+`127.0.0.1` or `[::1]`. `GET` and `HEAD` serve the placeholder shell,
+`/health`, and `/api/status`; all other methods are rejected without a
+state-changing route.
+
+The implementation files are
+`src/ChannelForge/Public/Get-ChannelForgeWebStatus.ps1`,
+`src/ChannelForge/Public/New-ChannelForgeWebServer.ps1`,
+`src/ChannelForge/Public/Start-ChannelForgeWebServer.ps1`,
+`src/ChannelForge/Private/Get-ChannelForgeWebResponse.ps1`, and the repository
+wrapper script. `tests/unit/WebServer.Tests.ps1` covers module import, listener
+construction, loopback-only binding, beginner status text, health/status
+responses, method/path rejection, mutation boundaries, and redaction.
+
+The status payload exposes only the module version, operational status, derived
+lineup status, beginner next action, and fixed read-only mutation
+classifications. It performs a validated read-only accepted-generation check,
+but does not expose accepted-generation contents, provider URLs, credentials,
+private paths, hashes, generation IDs, or parser details. No provider,
+downstream, guide-publication, or accepted-state mutation path was added.
+Malformed accepted-state metadata fails closed to a safe `503` response for
+the affected request; it does not terminate the read-only server loop.
+
+Local validation and the exact-base intent review support `PASS` for this
+foundation slice. The overall Issue #150 architecture remains
+`PASS_WITH_GAPS` because the full browser UI/API, Docker deployment, and Windows
+server/service implementation remain future work.
