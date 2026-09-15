@@ -21,17 +21,31 @@ Start the read-only local web foundation from the repository root:
 pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
 ```
 
-Then open `http://127.0.0.1:8765/`. The page should say **ChannelForge is
-running**, **No lineup has been accepted yet**, and **Open Guided Setup to
-begin**.
+To serve the existing React/Vite build first:
 
-| Symptom                                             | Likely cause                              | What to do                                                                                              |
-| --------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Browser reports connection refused                  | The foreground server is not running      | Start the command above and leave that window open                                                      |
-| Server reports that the address is in use           | Another process owns port 8765            | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/` |
-| A request returns `405 Method Not Allowed`          | The foundation is read-only               | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                   |
-| A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation | The server stays read-only; inspect accepted-state recovery diagnostics before changing any state       |
-| A remote machine cannot connect                     | The listener is loopback-only             | This foundation does not expose a public or LAN listener                                                |
+```powershell
+Push-Location .\gui
+npm ci
+npm run build
+Pop-Location
+pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
+```
+
+Then open `http://127.0.0.1:8765/`. When `gui/dist/index.html` is absent, the
+page should say **ChannelForge is running**, **No lineup has been accepted yet**,
+and **Open Guided Setup to begin**. When the build exists, the built UI appears
+instead. Setup and review remain future until API-backed Guided Setup is
+implemented.
+
+| Symptom                                             | Likely cause                              | What to do                                                                                                     |
+| --------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Browser reports connection refused                  | The foreground server is not running      | Start the command above and leave that window open                                                             |
+| Server reports that the address is in use           | Another process owns port 8765            | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/`        |
+| Built UI does not appear                            | `gui/dist/index.html` is absent           | Run the build commands above, or use the safe placeholder intentionally                                        |
+| A static asset returns `404 Not Found`              | The path is unknown or its type is unsafe | Confirm the asset exists under `gui/dist` and uses a supported static extension; directory listing is disabled |
+| A request returns `405 Method Not Allowed`          | The foundation is read-only               | Use `GET` or `HEAD`; state-changing methods are intentionally blocked                                          |
+| A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation | The server stays read-only; inspect accepted-state recovery diagnostics before changing any state              |
+| A remote machine cannot connect                     | The listener is loopback-only             | This foundation does not expose a public or LAN listener                                                       |
 
 The `/health` and `/api/status` endpoints return safe status JSON only. They do
 not expose provider URLs, credentials, private paths, hashes, generation IDs,

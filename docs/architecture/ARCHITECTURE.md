@@ -83,10 +83,11 @@ candidate generation, review, immutable acceptance, reports, and generated
 outputs.
 
 The foundation slice provides a read-only loopback HTTP server with a beginner
-status shell and safe health/status JSON. It performs a validated read-only
-check of the current accepted-generation snapshot to report whether a lineup is
-accepted, but does not expose that snapshot or read provider files, downstream
-configuration, or guide outputs.
+status shell and safe health/status JSON. When `gui/dist` contains a Vite build,
+the server serves only its `index.html` and allowlisted static asset types.
+Without that build output, `/` falls back to the safe placeholder shell. Static
+requests are confined to the configured `gui/dist` subtree, do not list
+directories, and do not expose accepted-generation contents or provider files.
 
 The primary deployment modes are:
 

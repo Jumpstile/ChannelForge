@@ -184,9 +184,10 @@ mutation path.
 The foundation adds a local appliance entry point without attempting the full
 product UI or deployment modes. `scripts/Start-ChannelForgeWebServer.ps1` loads
 the module and starts `Start-ChannelForgeWebServer`, which binds only to
-`127.0.0.1` or `[::1]`. `GET` and `HEAD` serve the placeholder shell,
-`/health`, and `/api/status`; all other methods are rejected without a
-state-changing route.
+`127.0.0.1` or `[::1]`. `GET` and `HEAD` serve the existing `gui/dist` Vite
+build when present, otherwise the safe placeholder shell; `/health` and
+`/api/status` remain read-only JSON, and all other methods are rejected without
+a state-changing route.
 
 The implementation files are
 `src/ChannelForge/Public/Get-ChannelForgeWebStatus.ps1`,
@@ -194,19 +195,25 @@ The implementation files are
 `src/ChannelForge/Public/Start-ChannelForgeWebServer.ps1`,
 `src/ChannelForge/Private/Get-ChannelForgeWebResponse.ps1`, and the repository
 wrapper script. `tests/unit/WebServer.Tests.ps1` covers module import, listener
-construction, loopback-only binding, beginner status text, health/status
-responses, method/path rejection, mutation boundaries, and redaction.
+construction, loopback-only binding, static-root configuration, placeholder
+fallback, built index and JavaScript/CSS assets, safe MIME types, `HEAD`
+consistency, traversal rejection, unknown paths, mutation boundaries, and
+redaction.
 
-The status payload exposes only the module version, operational status, derived
-lineup status, beginner next action, and fixed read-only mutation
-classifications. It performs a validated read-only accepted-generation check,
-but does not expose accepted-generation contents, provider URLs, credentials,
-private paths, hashes, generation IDs, or parser details. No provider,
-downstream, guide-publication, or accepted-state mutation path was added.
-Malformed accepted-state metadata fails closed to a safe `503` response for
-the affected request; it does not terminate the read-only server loop.
+The static bridge is confined to the repository's `gui/dist` subtree, serves
+only allowlisted HTML, JavaScript, CSS, image, and font types, rejects
+directories and unknown types, and has no SPA fallback. It does not expose
+provider URLs, credentials, private paths, hashes, generation IDs,
+accepted-generation contents, or parser details. The status payload performs a
+validated read-only accepted-generation check and exposes only derived lineup
+status and fixed read-only classifications. No provider, downstream,
+guide-publication, or accepted-state mutation path was added.
+
+Malformed accepted-state metadata fails closed to a safe `503` response for the
+affected request; it does not terminate the read-only server loop.
 
 Local validation and the exact-base intent review support `PASS` for this
 foundation slice. The overall Issue #150 architecture remains
-`PASS_WITH_GAPS` because the full browser UI/API, Docker deployment, and Windows
-server/service implementation remain future work.
+`PASS_WITH_GAPS` because API-backed Guided Setup, the full browser UI/API,
+Docker deployment, and Windows server/service implementation remain future
+work.

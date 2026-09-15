@@ -10,14 +10,15 @@ BeforeAll {
         param(
             [Parameter(Mandatory)][string]$Method,
             [Parameter(Mandatory)][string]$Path,
-            [string]$RepositoryRoot = $script:StatusRoot
+            [string]$RepositoryRoot = $script:StatusRoot,
+            [string]$StaticRoot = ''
         )
 
         $module = Get-Module -Name ChannelForge
         return & $module {
-            param($RequestMethod, $RequestPath, $RequestRoot)
-            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath -RepositoryRoot $RequestRoot
-        } $Method $Path $RepositoryRoot
+            param($RequestMethod, $RequestPath, $RequestRoot, $RequestStaticRoot)
+            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath -RepositoryRoot $RequestRoot -StaticRoot $RequestStaticRoot
+        } $Method $Path $RepositoryRoot $StaticRoot
     }
 
     function New-TestAcceptedState {
@@ -73,6 +74,7 @@ Describe 'ChannelForge web server foundation' {
         $server = New-ChannelForgeWebServer -Port 18765
         try {
             $server.Prefix | Should -Be 'http://127.0.0.1:18765/'
+            $server.StaticRoot | Should -Be (Join-Path $script:RepoRoot 'gui\dist')
             $server.BindAddress | Should -Be '127.0.0.1'
             $server.Started | Should -BeFalse
             $server.Listener.IsListening | Should -BeFalse
@@ -185,6 +187,75 @@ Describe 'ChannelForge web server foundation' {
         $response.Body | Should -Not -Match '(?i)(https?://|ftp://|file://|ACCOUNT_ID|API_TOKEN|PASSWORD|TOKEN|SECRET|[A-Z]:[\\/]|\\\\)'
     }
 
+    It 'serves the built index when the static root exists' {
+        $root = Join-Path $TestDrive 'built-index'
+        $staticRoot = Join-Path $root 'gui\dist'
+        New-Item -ItemType Directory -Force -Path $staticRoot | Out-Null
+        [IO.File]::WriteAllText((Join-Path $staticRoot 'index.html'), '<!doctype html><title>Built UI</title>')
+
+        $response = Get-TestWebResponse -Method GET -Path '/' -RepositoryRoot $root -StaticRoot $staticRoot
+
+        $response.StatusCode | Should -Be 200
+        $response.ContentType | Should -Be 'text/html; charset=utf-8'
+        $response.Body | Should -Match 'Built UI'
+        $response.Body | Should -Not -Match 'No lineup has been accepted yet'
+    }
+
+    It 'serves known JavaScript and CSS assets with safe MIME types' {
+        $root = Join-Path $TestDrive 'built-assets'
+        $staticRoot = Join-Path $root 'gui\dist'
+        $assets = Join-Path $staticRoot 'assets'
+        New-Item -ItemType Directory -Force -Path $assets | Out-Null
+        [IO.File]::WriteAllText((Join-Path $assets 'app.js'), 'window.__CHANNELFORGE_TEST__ = true;')
+        [IO.File]::WriteAllText((Join-Path $assets 'app.css'), 'body { color: green; }')
+        [IO.File]::WriteAllBytes((Join-Path $assets 'app.png'), [byte[]](0, 255, 128, 10))
+
+        $js = Get-TestWebResponse -Method GET -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
+        $jsHead = Get-TestWebResponse -Method HEAD -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
+        $css = Get-TestWebResponse -Method GET -Path '/assets/app.css' -RepositoryRoot $root -StaticRoot $staticRoot
+        $png = Get-TestWebResponse -Method GET -Path '/assets/app.png' -RepositoryRoot $root -StaticRoot $staticRoot
+        $post = Get-TestWebResponse -Method POST -Path '/assets/app.js' -RepositoryRoot $root -StaticRoot $staticRoot
+
+        $js.StatusCode | Should -Be 200
+        $js.ContentType | Should -Be 'text/javascript; charset=utf-8'
+        $js.Body | Should -Match '__CHANNELFORGE_TEST__'
+        $jsHead.StatusCode | Should -Be $js.StatusCode
+        $jsHead.ContentType | Should -Be $js.ContentType
+        $jsHead.Body | Should -Be $js.Body
+        $css.StatusCode | Should -Be 200
+        $css.ContentType | Should -Be 'text/css; charset=utf-8'
+        $css.Body | Should -Match 'color: green'
+        $post.StatusCode | Should -Be 405
+        $post.Headers.Allow | Should -Be 'GET, HEAD'
+        $png.StatusCode | Should -Be 200
+        $png.ContentType | Should -Be 'image/png'
+        $png.Body | Should -Be ''
+        [Convert]::ToBase64String($png.Bytes) | Should -Be 'AP+A Cg=='.Replace(' ', '')
+    }
+
+    It 'rejects traversal, directory listing, unsupported assets, and unsafe roots' {
+        $root = Join-Path $TestDrive 'static-boundary'
+        $staticRoot = Join-Path $root 'gui\dist'
+        $outsideRoot = Join-Path $TestDrive 'outside-static'
+        New-Item -ItemType Directory -Force -Path $staticRoot, $outsideRoot | Out-Null
+        [IO.File]::WriteAllText((Join-Path $staticRoot 'index.html'), 'safe index')
+        [IO.File]::WriteAllText((Join-Path $outsideRoot 'index.html'), 'private outside file')
+        [IO.File]::WriteAllText((Join-Path $staticRoot 'notes.txt'), 'not a web asset')
+
+        foreach ($path in @('/%2e%2e/index.html', '/assets/%2e%2e/index.html', '/index.html%00.js', '/')) {
+            $response = Get-TestWebResponse -Method GET -Path $path -RepositoryRoot $root -StaticRoot $staticRoot
+            if ($path -eq '/') {
+                $response.Body | Should -Match 'safe index'
+            } else {
+                $response.StatusCode | Should -Be 404
+            }
+        }
+
+        (Get-TestWebResponse -Method GET -Path '/notes.txt' -RepositoryRoot $root -StaticRoot $staticRoot).StatusCode | Should -Be 404
+        (Get-TestWebResponse -Method GET -Path '/' -RepositoryRoot $root -StaticRoot $outsideRoot).Body | Should -Not -Match 'private outside file'
+        (Get-TestWebResponse -Method GET -Path '/gui/' -RepositoryRoot $root -StaticRoot $staticRoot).StatusCode | Should -Be 404
+    }
+
     It 'rejects state-changing methods and unknown paths' {
         $methodResponse = Get-TestWebResponse -Method POST -Path '/api/status'
         $notFoundResponse = Get-TestWebResponse -Method GET -Path '/api/unknown'
@@ -193,6 +264,7 @@ Describe 'ChannelForge web server foundation' {
         $methodResponse.Headers.Allow | Should -Be 'GET, HEAD'
         $notFoundResponse.StatusCode | Should -Be 404
     }
+
     # Status may read validated accepted metadata; it must not write any state.
     It 'does not mutate provider, downstream, guide, or accepted state' {
         $root = Join-Path $TestDrive 'state-boundary'
