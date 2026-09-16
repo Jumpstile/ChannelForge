@@ -1,12 +1,10 @@
 name: PowerShell CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
-# Cancel superseded PR runs while preserving every main-branch run.
+# Cancel superseded PR runs; post-merge checks use the separate Main Smoke workflow.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
