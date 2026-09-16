@@ -353,6 +353,7 @@ The web UI must preserve the engine as the authority for candidate generation, r
 
 Before adapting the UI, review each:
 
+- Tauri-specific shell command;
 - native file-picker assumption;
 - direct filesystem access assumption;
 - local process invocation assumption;
