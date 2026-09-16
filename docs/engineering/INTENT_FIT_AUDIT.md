@@ -214,6 +214,34 @@ affected request; it does not terminate the read-only server loop.
 
 Local validation and the exact-base intent review support `PASS` for this
 foundation slice. The overall Issue #150 architecture remains
-`PASS_WITH_GAPS` because API-backed Guided Setup, the full browser UI/API,
-Docker deployment, and Windows server/service implementation remain future
-work.
+`PASS_WITH_GAPS` because API-backed Guided Setup, the full browser UI/API
+beyond this dashboard, Docker deployment, and Windows server/service
+implementation remain future work.
+
+## Issue #150 read-only status dashboard slice
+
+| Area                     | Intended behavior                                                                                                                               | Entry points                                                                                            | Evidence                                                                                                                                          | Disposition |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Browser status dashboard | Fetch same-origin `GET /api/status` and show beginner-safe running, lineup, next-action, read-only, and degraded states without changing state. | `gui/src/app/webStatus.ts`; `gui/src/components/StatusDashboard.tsx`; `gui/src/pages/WorkbenchPage.tsx` | Safe contract projection; loading, not-accepted, accepted, `503`, fetch-failure, invalid-shape, redaction, and GET-only tests in `gui/src/test/`. | PASS        |
+
+The browser client accepts only the validated `Service`, `Status`, `Message`,
+`LineupStatus`, and `ReadOnly` contract facts needed to derive a local boolean
+summary. It discards the raw payload and never displays version, mutation
+classifications, accepted-generation metadata, or implementation errors.
+
+The dashboard makes one same-origin `GET` request to `/api/status`. It sends no
+request body and has no POST, PUT, PATCH, or DELETE path. The engine remains the
+only authority for provider, downstream, guide-publication, candidate,
+acceptance, and accepted-state mutation.
+
+The UI renders safe fixed copy for `200` not-accepted and accepted responses.
+`503`, network failures, rejected promises, malformed JSON, and unknown payload
+shapes all render the same beginner-safe unavailable state without a blank
+screen. No provider URLs, credentials, private paths, hashes, generation IDs,
+accepted-generation contents, or parser details are stored or rendered by the
+dashboard.
+
+Focused GUI tests and the required repository validation gates provide evidence
+for this slice. Full Guided Setup API behavior, mutation flows, Docker,
+Windows server/service deployment, packaging, release, and tester builds remain
+outside scope.
