@@ -94,6 +94,12 @@ into beginner copy. The browser retains no raw status payload and has no
 state-changing API capability; unavailable, failed, or invalid status responses
 render a safe degraded message.
 
+The browser UI provides a visible Light/Dark/System appearance control. System
+is the default, follows `prefers-color-scheme`, and persists the selected mode
+in browser-local storage only. Appearance state is presentation-only: it does
+not write repository or engine state and does not create a second accepted
+authority.
+
 The primary deployment modes are:
 
 - **Docker container** — the engine serves the web UI and API from one container,
@@ -110,8 +116,9 @@ commands, accepted-generation contract, and safety boundaries. A native wrapper
 is optional future packaging only; it is not a second product UI or a second
 state authority.
 
-Docker, Windows service, full HTTP/API behavior, and appearance modes remain
-future work. The local server foundation does not change those deployment claims.
+Docker, Windows service, and full HTTP/API behavior remain future work. The
+browser appearance control is implemented in the web UI foundation and does not
+change those deployment claims.
 
 #### Reuse existing GUI work
 

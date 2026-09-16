@@ -23,8 +23,12 @@ The primary UI architecture is a browser-based local web UI served by the
 ChannelForge engine. The existing React/Vite application can be built and
 served locally. The landing surface now consumes the same-origin
 `GET /api/status` endpoint and displays beginner-safe running, accepted-lineup,
-next-action, read-only, loading, and unavailable states. It remains a
-presentation-only surface; it does not change a lineup.
+next-action, read-only, loading, and unavailable states. It also provides a
+visible **Appearance** control with **Light**, **Dark**, and **System** modes.
+System is the default and follows the browser/device color-scheme preference.
+The selected mode persists in browser-local storage only. The UI remains a
+presentation-only surface; it does not change a lineup or write repository or
+engine state.
 
 Build and serve it from the repository root:
 
@@ -54,32 +58,32 @@ data, credentials, private paths, hashes, generation IDs, accepted-generation
 contents, or parser details.
 
 Docker container and Windows server/service installation remain intended primary
-deployment modes but are not implemented yet. The existing Tauri prototype
-still depends on local native picker and PowerShell bridge behavior. Those
-assumptions must be re-evaluated before web UI implementation; browser
-state-changing behavior must use engine HTTP/API commands and the immutable
-acceptance boundary.
+deployment modes but are not implemented yet. The browser appearance control
+is available without those deployment modes and remains presentation-only. The
+existing Tauri prototype still depends on local native picker and PowerShell
+bridge behavior. Browser state-changing behavior is not implemented and, when
+added, must use engine HTTP/API commands and the immutable acceptance boundary.
 
 ### GUI status
 
-The following describes preserved prototype/reference work, not a primary deployment surface:
+The table distinguishes the browser foundation from preserved prototype/reference work:
 
-| Area                                      | Status                                                                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Built UI or safe placeholder with read-only `/api/status` dashboard available; Guided Setup actions pending |
-| Docker deployment                         | Architecture recorded; implementation pending                                                               |
-| Windows server/service install            | Architecture recorded; implementation pending                                                               |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
-| Guided Setup layout                       | Preview only (prototype)                                                                                    |
-| Native file-picker bridge                 | Works now (prototype)                                                                                       |
-| Display-safe selection state              | Works now (prototype)                                                                                       |
-| Pre-parse selection checks                | Works now (prototype)                                                                                       |
-| Playlist structural validation            | Works now — structural only (prototype)                                                                     |
-| Guide structural validation               | Works now — structural only (prototype)                                                                     |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                               |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                               |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                              |
-| Automatic updates                         | Planned / not built yet                                                                                     |
+| Area                                      | Status                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Browser web UI served by engine           | Built UI with read-only `/api/status` dashboard and Light/Dark/System appearance control; Guided Setup actions pending |
+| Docker deployment                         | Architecture recorded; implementation pending                                                                          |
+| Windows server/service install            | Architecture recorded; implementation pending                                                                          |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                                  |
+| Guided Setup layout                       | Preview only (prototype)                                                                                               |
+| Native file-picker bridge                 | Works now (prototype)                                                                                                  |
+| Display-safe selection state              | Works now (prototype)                                                                                                  |
+| Pre-parse selection checks                | Works now (prototype)                                                                                                  |
+| Playlist structural validation            | Works now — structural only (prototype)                                                                                |
+| Guide structural validation               | Works now — structural only (prototype)                                                                                |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                                          |
+| Lineup review                             | Implemented — local checks passed (prototype)                                                                          |
+| Saved lineup                              | Implemented — native acceptance + local checks                                                                         |
+| Automatic updates                         | Planned / not built yet                                                                                                |
 
 ## Not implemented yet
 

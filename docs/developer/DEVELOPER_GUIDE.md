@@ -308,6 +308,14 @@ projects only the validated status contract into beginner-facing copy:
 - **Open Guided Setup to begin** or **Open Guided Setup to review**
 - **Read-only status** — “This page can show status, but it cannot change your lineup yet.”
 
+The shell also exposes an **Appearance** select with **Light**, **Dark**, and
+**System** options. It defaults to **System**, which follows the browser
+`prefers-color-scheme` preference. The selected mode persists in browser-local
+storage across reloads; it never writes repository files, engine state, or
+accepted state. The same design tokens cover the shell, dashboard, cards,
+buttons, loading, and unavailable states, with keyboard-visible focus and
+semantic controls.
+
 An HTTP `503`, a network failure, or an invalid response shape renders
 **ChannelForge status is unavailable** with recovery guidance. The browser
 does not retain or display raw API payload fields.
@@ -365,22 +373,22 @@ The web UI must replace native-only access with documented engine/API operations
 
 The current GUI is an optional Tauri-backed prototype/reference surface, not the primary product shell:
 
-| Area                                      | Status                                                                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Built UI or safe placeholder with read-only `/api/status` dashboard available; Guided Setup actions pending |
-| Docker deployment                         | Architecture recorded; implementation pending                                                               |
-| Windows server/service install            | Architecture recorded; implementation pending                                                               |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
-| Guided Setup layout                       | Preview only (prototype)                                                                                    |
-| Native file-picker bridge                 | Works now (prototype)                                                                                       |
-| Display-safe selection state              | Works now (prototype)                                                                                       |
-| Pre-parse selection checks                | Works now (prototype)                                                                                       |
-| Playlist structural validation            | Works now — structural only (prototype)                                                                     |
-| Guide structural validation               | Works now — structural only (prototype)                                                                     |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                               |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                               |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                              |
-| Automatic updates                         | Planned / not built yet                                                                                     |
+| Area                                      | Status                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Browser web UI served by engine           | Built UI with read-only `/api/status` dashboard and Light/Dark/System appearance control; Guided Setup actions pending |
+| Docker deployment                         | Architecture recorded; implementation pending                                                                          |
+| Windows server/service install            | Architecture recorded; implementation pending                                                                          |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                                  |
+| Guided Setup layout                       | Preview only (prototype)                                                                                               |
+| Native file-picker bridge                 | Works now (prototype)                                                                                                  |
+| Display-safe selection state              | Works now (prototype)                                                                                                  |
+| Pre-parse selection checks                | Works now (prototype)                                                                                                  |
+| Playlist structural validation            | Works now — structural only (prototype)                                                                                |
+| Guide structural validation               | Works now — structural only (prototype)                                                                                |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                                          |
+| Lineup review                             | Implemented — local checks passed (prototype)                                                                          |
+| Saved lineup                              | Implemented — native acceptance + local checks                                                                         |
+| Automatic updates                         | Planned / not built yet                                                                                                |
 
 Issue #145 keeps GUI CI inside the existing protected `quality-gates` job. The
 required web-first checks run before the optional-wrapper compatibility check:
