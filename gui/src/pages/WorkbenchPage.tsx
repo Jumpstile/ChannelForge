@@ -1,11 +1,14 @@
 import { ArrowRight, BookOpen, LockKeyhole, Sparkles } from 'lucide-react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
-import { StatusBanner } from '../components/StatusBanner'
+import { StatusDashboard } from '../components/StatusDashboard'
 import { StepRail } from '../components/StepRail'
+import { fetchWebStatus, type WebStatusFetcher } from '../app/webStatus'
+
 type WorkbenchPageProps = {
   onOpenGallery: () => void
   onOpenSetup: () => void
+  fetchStatus?: WebStatusFetcher
 }
 
 const workflowSteps = [
@@ -15,7 +18,7 @@ const workflowSteps = [
   { number: 4, label: 'Saved lineup', state: 'upcoming' as const },
 ]
 
-export function WorkbenchPage({ onOpenGallery, onOpenSetup }: WorkbenchPageProps) {
+export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchWebStatus }: WorkbenchPageProps) {
   return (
     <div className="page-stack">
       <PageHeader
@@ -30,9 +33,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup }: WorkbenchPageProps
         title="Your lineup workbench"
       />
 
-      <StatusBanner status="Not configured" title="Add your playlist and guide">
-        <p>This screen is only a preview. Open Guided Setup to see the next steps.</p>
-      </StatusBanner>
+      <StatusDashboard fetchStatus={fetchStatus} />
 
       <StepRail steps={workflowSteps} />
 
