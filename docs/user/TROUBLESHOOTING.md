@@ -43,6 +43,19 @@ unknown shape, the dashboard shows **ChannelForge status is unavailable**.
 Refresh after confirming that the local server is still running; raw server
 errors are intentionally not shown.
 
+### Appearance mode
+
+The **Appearance** control is visible in the top bar. Choose **Light** or
+**Dark** for a fixed mode, or **System** to follow the browser/device setting.
+System is the default, and the selected mode is stored in this browser only.
+It does not change provider configuration, accepted state, repository files, or
+engine state.
+
+| Symptom                                     | Likely cause                                    | What to do                                                                                              |
+| ------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| System mode does not change with the device | The browser has not emitted a preference change | Confirm the browser's dark/light preference, then reload; use Light or Dark when a fixed mode is needed |
+| Appearance resets after clearing site data  | Browser-local storage was removed               | Select the preferred mode again; no server or repository setting is available to restore it             |
+
 | Symptom                                             | Likely cause                                                | What to do                                                                                                                                        |
 | --------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Browser reports connection refused                  | The foreground server is not running                        | Start the command above and leave that window open                                                                                                |

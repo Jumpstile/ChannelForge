@@ -1,7 +1,9 @@
 :root {
+  color-scheme: light;
   --cf-color-canvas: #f6f7f9;
   --cf-color-surface: #ffffff;
   --cf-color-surface-subtle: #eef1f5;
+  --cf-color-surface-hover: #ffffffb3;
   --cf-color-ink: #17202a;
   --cf-color-ink-muted: #5b6675;
   --cf-color-ink-subtle: #526070;
@@ -22,6 +24,13 @@
   --cf-color-error-surface: #fee4e2;
   --cf-color-disabled: #667085;
   --cf-color-disabled-surface: #f2f4f7;
+  --cf-color-nav-surface: #f1f3f7;
+  --cf-color-active-border: #c9d0e7;
+  --cf-color-banner-surface: #fafaff;
+  --cf-color-on-brand: #ffffff;
+  --cf-color-on-ink: #ffffff;
+  --cf-color-step-current: #e8eafd;
+  --cf-color-button-hover-surface: #f7f8ff;
 
   --cf-font-family: "Segoe UI", system-ui, sans-serif;
   --cf-font-family-mono: "Cascadia Mono", ui-monospace, monospace;
@@ -63,4 +72,39 @@
   --cf-content-max-width: 75rem;
   --cf-control-height: 2.75rem;
   --cf-touch-target-min: 2.75rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --cf-color-canvas: #111827;
+  --cf-color-surface: #1f2937;
+  --cf-color-surface-subtle: #273449;
+  --cf-color-surface-hover: #334155;
+  --cf-color-ink: #f3f4f6;
+  --cf-color-ink-muted: #c0cad8;
+  --cf-color-ink-subtle: #aeb9c8;
+  --cf-color-border: #46556a;
+  --cf-color-border-strong: #6b7b91;
+  --cf-color-brand: #b4beff;
+  --cf-color-brand-hover: #c7ceff;
+  --cf-color-focus: #7dd3fc;
+  --cf-color-ready: #86efac;
+  --cf-color-ready-surface: #173c2a;
+  --cf-color-info: #93c5fd;
+  --cf-color-info-surface: #18324f;
+  --cf-color-warning: #fcd34d;
+  --cf-color-warning-surface: #4a3514;
+  --cf-color-review: #d8b4fe;
+  --cf-color-review-surface: #392257;
+  --cf-color-error: #fca5a5;
+  --cf-color-error-surface: #4a2424;
+  --cf-color-disabled: #aab4c3;
+  --cf-color-disabled-surface: #303a4a;
+  --cf-color-nav-surface: #182233;
+  --cf-color-active-border: #53638a;
+  --cf-color-banner-surface: #1a2335;
+  --cf-color-step-current: #303967;
+  --cf-color-button-hover-surface: #2b374b;
+  --cf-color-on-brand: #17202a;
+  --cf-color-on-ink: #111827;
 }

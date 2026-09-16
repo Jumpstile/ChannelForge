@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { AppShell } from './app/AppShell'
+import { useAppearanceMode } from './app/appearance'
 import { acceptSavedLineup, prepareSavedLineupPlan } from './app/setupPicker'
 import type { NavigationId } from './app/navigation'
+import type { WebStatusFetcher } from './app/webStatus'
 import {
   acceptedLineupStatusAfterMatchStateChange,
   createInitialPlaylistGuideMatchState,
@@ -27,9 +29,11 @@ type AppProps = {
   planner?: SavedLineupPlanner
   acceptor?: SavedLineupAcceptor
   pickerAvailable?: boolean
+  fetchStatus?: WebStatusFetcher
 }
 
-function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable }: AppProps = {}) {
+function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable, fetchStatus }: AppProps = {}) {
+  const { mode: appearanceMode, setMode: setAppearanceMode } = useAppearanceMode()
   const [activePage, setActivePage] = useState<NavigationId>('workbench')
   const [matchState, setMatchState] = useState<PlaylistGuideMatchState>(createInitialPlaylistGuideMatchState)
   const [savedPlan, setSavedPlan] = useState<SavedLineupPlan | null>(null)
@@ -66,7 +70,13 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   }
 
   return (
-    <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate}>
+    <AppShell
+      activePage={activePage}
+      appearanceMode={appearanceMode}
+      navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }}
+      onAppearanceModeChange={setAppearanceMode}
+      onNavigate={handleNavigate}
+    >
       {activePage === 'gallery' ? (
         <StateGalleryPage onBack={() => setActivePage('workbench')} />
       ) : activePage === 'setup' ? (
@@ -86,6 +96,7 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
         <SavedLineupPage acceptedEntryCount={saveResult?.acceptedEntryCount ?? savedPlan?.acceptedEntryCount ?? null} onBack={() => setActivePage('build')} />
       ) : (
         <WorkbenchPage
+          fetchStatus={fetchStatus}
           onOpenGallery={() => setActivePage('gallery')}
           onOpenSetup={() => setActivePage('setup')}
         />

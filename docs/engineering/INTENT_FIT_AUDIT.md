@@ -245,3 +245,17 @@ Focused GUI tests and the required repository validation gates provide evidence
 for this slice. Full Guided Setup API behavior, mutation flows, Docker,
 Windows server/service deployment, packaging, release, and tester builds remain
 outside scope.
+
+## Issue #149 web appearance mode
+
+| Area                 | Intended behavior                                                                                                                  | Entry points                                                                                        | Evidence                                                                                                     | Disposition |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------- |
+| Appearance selection | Expose beginner-readable Light, Dark, and System modes with System as the default and the exact device-setting explanation.        | `gui/src/app/appearance.ts`; `gui/src/components/AppearanceControl.tsx`; `gui/src/app/AppShell.tsx` | Vitest covers default, explicit modes, semantic labeling, and System preference changes.                     | PASS        |
+| Persistence          | Persist the selected mode across reload/remount in browser-local storage without repository or engine writes.                      | `gui/src/app/appearance.ts`; `gui/src/test/appearance-mode.test.tsx`                                | Remount test verifies the selected mode is restored from the browser-local key.                              | PASS        |
+| Safe presentation    | Apply the same theme tokens to shell, dashboard, cards, controls, loading, and unavailable states without exposing sensitive data. | `gui/src/styles/tokens.css`; `gui/src/styles/global.css`; existing status dashboard tests           | Dark/light token overrides, focus styling, fixed status copy, redaction coverage, and GET-only status tests. | PASS        |
+
+The appearance setting is presentation-only and does not create a second
+accepted-lineup authority. It adds no provider, downstream, guide-publication,
+credentials, private-path, generation, package, release, deployment, LAN, or
+tester-build behavior. The web UI continues to expose only the existing
+read-only same-origin status request.
