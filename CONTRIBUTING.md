@@ -47,6 +47,14 @@ For user-facing changes, issue and pull request completion summaries must state 
 - Do not add AI/tool attribution footers or a `Co-Authored-By:` trailer to commit
   messages unless explicitly requested (see [AI_COLLABORATION.md](AI_COLLABORATION.md)).
 
+## Licensing and sensitive contribution data
+
+Issues and pull requests are welcome for consideration. Submitting an issue or pull request does not grant the submitter additional rights to ChannelForge, its code, or its branding.
+
+Contributor licensing and inbound contribution terms require owner and legal review before broad outside contribution intake. Until those terms are finalized, maintainers should accept contributions only under an explicitly approved process.
+
+Never submit real provider URLs, M3U or XMLTV data, Xtream Codes/XC credentials, API keys, tokens, passwords, accepted-lineup state, private paths, logs, or screenshots containing secrets. Use synthetic, deterministic, reserved-domain fixtures and redacted evidence only.
+
 ## Review Rules
 
 Every change should be reviewed for:

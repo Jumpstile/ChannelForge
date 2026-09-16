@@ -8,7 +8,13 @@ Real provider URLs must never be committed. Provider subscription URLs often con
 
 Tracked provider and EPG files must use placeholder values only.
 
-Historical note: an earlier tracked provider token existed in repository history, including commit `91a3913`. That token was revoked/rotated on 2026-06-28. Current tracked provider and EPG files use placeholder/example values only; do not treat the historical value as active.
+Historical note: an earlier tracked provider token existed in repository history,
+including commit `91a3913`. That token was revoked/rotated on 2026-06-28.
+Current tracked provider and EPG files use placeholder/example values only; do
+not treat the historical value as active. GitHub Support cleanup removed the
+affected hosted PR tracking references, and current hosted branch and tag tips
+do not reach this historical commit. Local clones may still retain unreachable
+historical objects; those are not hosted exposure.
 
 ## Local Provider Files
 
@@ -102,6 +108,14 @@ Do not suppress a finding unless the value is proven to be a harmless placeholde
 
 ## Historical Token Exposure (Transparency Note)
 
-The original scaffold commit (`91a3913`) tracked a real provider subscription token in `data/providers/mybunny.json` and related files, instead of a placeholder. That token was rotated/revoked with the provider on 2026-06-28. Current tracked provider and EPG files contain only `https://example.invalid/...` placeholders.
+The original scaffold commit (`91a3913`) tracked a real provider subscription
+token in `data/providers/mybunny.json` and related files, instead of a
+placeholder. That token was rotated/revoked with the provider on 2026-06-28.
+Current tracked provider and EPG files contain only
+`https://example.invalid/...` placeholders.
 
-The old value still exists in Git history but is no longer a live credential. Per the Product Owner decision recorded in `LESSONS_LEARNED.md` (Issue #19), Git history has not been rewritten to remove it. Do not treat the historical value as an active credential, and do not attempt to use it.
+The old value remains only in locally retained historical objects and is not
+reachable from current hosted branch or tag tips. Per the Product Owner
+decision recorded in `LESSONS_LEARNED.md` (Issue #19), Git history has not been
+rewritten to remove it. Do not treat the historical value as an active
+credential, and do not attempt to use it.

@@ -106,6 +106,8 @@ Working today:
 
 - Documentation architecture
 
+---
+
 ### UI architecture
 
 The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). A minimal read-only loopback server and placeholder shell are available through `scripts/Start-ChannelForgeWebServer.ps1`; when `gui/dist` contains a Vite build, the server serves its `index.html` and allowlisted static assets instead. The built React/Vite landing surface now consumes `GET /api/status` and displays only beginner-safe running, lineup, next-action, read-only, and unavailable states. Full API-backed Guided Setup, Docker, and Windows service implementation remain future work.
@@ -130,6 +132,14 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | Lineup review                             | Implemented — local checks passed (prototype)                                                               |
 | Saved lineup                              | Implemented — native acceptance + local checks                                                              |
 | Automatic updates                         | Planned / not built yet                                                                                     |
+
+## License
+
+ChannelForge is source-available, not open source. Personal, non-commercial use of official releases is allowed under the ChannelForge Source-Available Personal/Non-Commercial License.
+
+Viewing the code does not grant permission to copy, redistribute, commercialize, host, repackage, or build derivative products or services without prior written permission. See [LICENSE](LICENSE) for the complete terms.
+
+Citing, inspecting, reporting issues, and submitting pull requests are permitted under the license. Commercial use, redistribution, modified-version distribution, bundling, hosting, and derivative products or services require prior written permission.
 
 ---
 

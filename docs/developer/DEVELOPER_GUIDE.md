@@ -73,6 +73,26 @@ GitHub Actions (`.github/workflows/powershell-ci.yml`) runs two jobs on every pu
 
 Run all five locally before pushing — they're the same commands CI runs, so a clean local run means a clean CI run for everything except the secret scan.
 
+### Public-readiness hold
+
+`PUBLIC_RELEASE_STATUS=BLOCKED_PUBLIC` is the current standing disposition.
+Keep the repository private. Do not use hosted CI for exploratory work while
+Actions usage or billing is constrained.
+
+GitHub Support ticket `#4764498` is solved. Known sensitive commits are not
+reachable from hosted branch or tag tips, and all 61 affected PR diff/code
+surfaces were removed while PR metadata and discussion history were preserved.
+Branch protection and ruleset evidence is verified for `main`; private
+vulnerability reporting remains unverified, and the final exact-head audit is
+required before any public transition.
+
+The `secret-scan` and `quality-gates` checks remain required. Any Actions usage
+reduction must preserve full-history secret scanning, exact-head validation,
+config schemas, Markdown checks, PSScriptAnalyzer, full Pester, GUI checks,
+and Rust/Tauri checks while they remain in `quality-gates`. See
+[ACTIONS_USAGE_REDUCTION_PLAN.md](ACTIONS_USAGE_REDUCTION_PLAN.md) for
+non-authorizing recommendations.
+
 ### What's schema-level vs. runtime/domain-level
 
 These checks validate **shape** ahead of time. They deliberately do not replace the **runtime/domain** checks that already exist in the module — both layers stay in place:
