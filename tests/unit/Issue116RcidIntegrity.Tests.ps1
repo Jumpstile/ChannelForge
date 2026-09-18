@@ -7,6 +7,10 @@ BeforeAll {
         'README.md',
         'VERSION-OWNERSHIP-MAP.md'
     )
+    $script:ExpectedCanonicalCommit = '121e25d73e70ec1d132cc56b87a90325d1efec29'
+    $script:ExpectedRevisionContentId = '1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192'
+    $script:FreezeRecordPath = Join-Path $script:RepoRoot 'docs\adr\blocker-2-contract-v9-proposal\FREEZE-RECORD.md'
+    $script:WorkflowPath = Join-Path $script:RepoRoot '.github\workflows\powershell-ci.yml'
 
     function Get-Sha256Hex {
         param([Parameter(Mandatory)][byte[]]$Bytes)
@@ -64,16 +68,43 @@ $manifest<!-- RCID-GIT-MANIFEST-END -->
 
 Describe 'Verify-ContractRevisionId.ps1' {
     It 'reproduces the corrected v9 authority from immutable Git bytes' {
-        $result = & $script:VerifierPath -RepositoryRoot $script:RepoRoot -Commit 'eef60709888a37689c551efc9df5b66715b7e7b7' -AttestationPath (Join-Path $script:RepoRoot 'docs\adr\blocker-2-contract-v9-proposal\FREEZE-RECORD.md') -ExpectedRevisionContentId '1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192'
-        $result.RevisionContentId | Should -Be '1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192'
+        $result = & $script:VerifierPath -RepositoryRoot $script:RepoRoot -Commit $script:ExpectedCanonicalCommit -AttestationPath $script:FreezeRecordPath -ExpectedRevisionContentId $script:ExpectedRevisionContentId
+        $result.RevisionContentId | Should -Be $script:ExpectedRevisionContentId
         @($result.Files).Count | Should -Be 4
+    }
+
+    It 'keeps the active v9 anchor aligned across governance, workflow, and immutable blobs' {
+        $freeze = [System.IO.File]::ReadAllText($script:FreezeRecordPath, [System.Text.UTF8Encoding]::new($false))
+        $workflow = [System.IO.File]::ReadAllText($script:WorkflowPath, [System.Text.UTF8Encoding]::new($false))
+        $freezeMatches = [regex]::Matches($freeze, '(?m)^- Canonical Git content commit: `([0-9a-f]{40})`\.?\r?$')
+        @($freezeMatches).Count | Should -Be 1
+        $freezeMatches[0].Groups[1].Value | Should -Be $script:ExpectedCanonicalCommit
+        $workflowMatch = [regex]::Match($workflow, '(?m)^\s*CHANNELFORGE_V9_CANONICAL_COMMIT:\s*"([0-9a-f]{40})"\s*$')
+        $workflowMatch.Success | Should -BeTrue
+        $workflowMatch.Groups[1].Value | Should -Be $script:ExpectedCanonicalCommit
+
+        $expectedBlobs = @(
+            '2e420ddf10c660df840e880040a0d0e56d49bb89',
+            '5f14e214932afe4ea0f0c031a6465d95bd129005',
+            'bd9d7c609febb32bd75742741ea7411a671fbb3f',
+            '820c4d4cefdfaa88ae6d5d59e04c4e1424acd57b'
+        )
+        for ($index = 0; $index -lt $script:NormativeNames.Count; $index++) {
+            $spec = "$($script:ExpectedCanonicalCommit):docs/adr/blocker-2-contract-v9-proposal/$($script:NormativeNames[$index])"
+            $blob = (& git -C $script:RepoRoot rev-parse --verify $spec 2>$null).Trim()
+            $LASTEXITCODE | Should -Be 0
+            $blob | Should -Be $expectedBlobs[$index]
+        }
+
+        & git -C $script:RepoRoot cat-file -e "$($script:ExpectedCanonicalCommit)^{commit}" 2>$null
+        $LASTEXITCODE | Should -Be 0
     }
 
     It 'fails closed when the attested canonical commit is unavailable' {
         $unavailableCommit = '0000000000000000000000000000000000000000'
         $attestationPath = Join-Path $script:RepoRoot 'docs\adr\blocker-2-contract-v9-proposal\FREEZE-RECORD.md'
         {
-            & $script:VerifierPath -RepositoryRoot $script:RepoRoot -Commit $unavailableCommit -AttestationPath $attestationPath -ExpectedRevisionContentId '1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192'
+            & $script:VerifierPath -RepositoryRoot $script:RepoRoot -Commit $unavailableCommit -AttestationPath $attestationPath -ExpectedRevisionContentId $script:ExpectedRevisionContentId
         } | Should -Throw 'FAIL_CLOSED: Git command failed:*'
     }
 

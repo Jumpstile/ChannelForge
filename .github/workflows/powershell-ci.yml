@@ -50,7 +50,7 @@ jobs:
       - name: Fetch pinned v9 canonical content commit
         shell: pwsh
         env:
-          CHANNELFORGE_V9_CANONICAL_COMMIT: "eef60709888a37689c551efc9df5b66715b7e7b7"
+          CHANNELFORGE_V9_CANONICAL_COMMIT: "121e25d73e70ec1d132cc56b87a90325d1efec29"
         run: |
           git fetch --no-tags --depth=1 origin $env:CHANNELFORGE_V9_CANONICAL_COMMIT
           if ($LASTEXITCODE -ne 0) {

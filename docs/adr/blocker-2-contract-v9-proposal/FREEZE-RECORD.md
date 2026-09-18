@@ -68,10 +68,15 @@ four normative files or their semantics.
 - Canonical byte source: exact payload bytes of the Git blobs addressed by the
   canonical content commit and path, read from the Git object database with
   `git cat-file blob`; working-tree bytes are never consumed.
-- Canonical Git content commit: `eef60709888a37689c551efc9df5b66715b7e7b7`.
+- Prior canonical Git content commit before post-sanitization cleanup: `eef60709888a37689c551efc9df5b66715b7e7b7`. It is retained as historical context only; it is not current authority or a required hosted reference.
+- Canonical Git content commit: `121e25d73e70ec1d132cc56b87a90325d1efec29`.
 - Equivalent preserved integration commits: #109 merge
   `97a0d1d64dc1a0a074acbdcba3b98a978c3e41a7`; current main
   `6f55478ab6498affa59429d37f35586b302ba98b`.
+- Post-sanitization reachability repair: the active anchor was rebound to the
+  reachable immutable commit above because it contains the exact same four Git
+  blob objects. Normative bytes, ContractRevisionId, and RevisionContentId are
+  unchanged.
 - CandidateContractVersion: `blocker-2-contract/v8`.
 - AcceptanceContractVersion: `blocker-2-contract/v8-acceptance`.
 - #102 binding: the Issue #102 implementation retains its existing code and
@@ -123,7 +128,7 @@ Independent reproduction:
 ```powershell
 pwsh -File scripts/Verify-ContractRevisionId.ps1 `
   -RepositoryRoot . `
-  -Commit eef60709888a37689c551efc9df5b66715b7e7b7 `
+  -Commit 121e25d73e70ec1d132cc56b87a90325d1efec29 `
   -AttestationPath docs/adr/blocker-2-contract-v9-proposal/FREEZE-RECORD.md `
   -ExpectedRevisionContentId 1396db7098973a1ef7469e851d308dc7aad47a8cd61a0d675e85717e7ae84192
 ```
