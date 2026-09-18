@@ -256,7 +256,11 @@ Describe 'ChannelForge pinned transport endpoint validation' {
     }
 
     It 'rejects URI user information' {
-        $result = Invoke-PinnedTransportEndpointChild -Endpoint 'https://example.invalid/REDACTED' -Addresses @()
+        # Construct explicit synthetic userinfo at runtime; no credential-shaped URL is tracked.
+        $syntheticUri = [System.UriBuilder]::new('https', 'example.invalid', 443)
+        $syntheticUri.UserName = 'fixture-user'
+        $syntheticUri.Password = 'fixture-password'
+        $result = Invoke-PinnedTransportEndpointChild -Endpoint $syntheticUri.Uri.AbsoluteUri -Addresses @()
 
         $result.Success | Should -BeFalse
         $result.Category | Should -Be 'InvalidEndpoint'
