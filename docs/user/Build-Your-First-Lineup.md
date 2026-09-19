@@ -135,8 +135,8 @@ This is the screen you will see after choosing **Open Guided Setup**:
 
 ![Browser Guided Setup before file selection, showing Add playlist, Add guide, and Analyze proposal](../assets/browser-guided-setup.png)
 
-*Fresh browser capture from September 19, 2026. The demo workspace label is
-sample UI content. You do not need to choose a workspace folder in this flow.*
+_Fresh browser capture from September 19, 2026. The demo workspace label is
+sample UI content. You do not need to choose a workspace folder in this flow._
 
 1. Select **Choose playlist** and pick one M3U or M3U8 playlist file.
 2. If you have an XMLTV guide, select **Choose guide (optional)** and pick it.
@@ -149,9 +149,9 @@ Here is a proposal from two sample channels with matching guide entries:
 
 ![Fresh browser proposal showing two channels, two exact guide matches, zero needs review, and zero guide-only records](../assets/browser-guided-setup-proposal.png)
 
-*The local server analyzed sample files for this capture. The message
+_The local server analyzed sample files for this capture. The message
 **Candidate proposal ready. Nothing was published.** means the preview is ready,
-not that your lineup has been saved. Your counts and warnings may differ.*
+not that your lineup has been saved. Your counts and warnings may differ._
 
 The loopback web UI supports the first browser/API slice without asking for a
 local path. Choose exactly one `.m3u`/`.m3u8` playlist and optionally one

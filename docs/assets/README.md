@@ -6,9 +6,9 @@ UI and real local server at `main` commit
 Every documentation image is a new capture. Existing test baselines remain
 unchanged.
 
-| Image | Screen |
-| --- | --- |
-| [Guided Setup](browser-guided-setup.png) | Initial browser screen before file selection |
+| Image                                                | Screen                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [Guided Setup](browser-guided-setup.png)             | Initial browser screen before file selection                                   |
 | [Proposal result](browser-guided-setup-proposal.png) | Real candidate proposal from two synthetic channels and matching guide entries |
 
 ## Capture environment

@@ -130,15 +130,15 @@ publish a lineup. You can continue without a guide.
 
 ![Browser Guided Setup with playlist and optional guide selectors and the Analyze proposal action](docs/assets/browser-guided-setup.png)
 
-*Fresh browser capture before selecting files, taken on September 19, 2026.
-The demo workspace label is sample UI content; no workspace folder is requested.*
+_Fresh browser capture before selecting files, taken on September 19, 2026.
+The demo workspace label is sample UI content; no workspace folder is requested._
 
 After analyzing sample files, the proposal shows channel and guide-match counts:
 
 ![Browser Guided Setup proposal with two sample channels, two exact guide matches, and nothing published](docs/assets/browser-guided-setup-proposal.png)
 
-*Fresh capture using sample files and the local server. Your counts depend on
-your files. Even a proposal with no warnings has not been saved or published.*
+_Fresh capture using sample files and the local server. Your counts depend on
+your files. Even a proposal with no warnings has not been saved or published._
 
 Follow [Build Your First Lineup](docs/user/Build-Your-First-Lineup.md#browser-guided-setup-proposal)
 for startup instructions and the proposal walkthrough. Browser acceptance and
