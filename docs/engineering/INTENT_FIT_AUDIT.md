@@ -249,20 +249,20 @@ outside scope.
 
 ## Issue #166 browser Guided Setup proposal slice
 
-| Area | Intended behavior | Entry points | Evidence | Disposition |
-| --- | --- | --- | --- | --- |
-| Browser proposal request | Accept exactly one bounded M3U upload and an optional XMLTV upload through a strict same-origin JSON contract, then reuse the candidate engine in-process. | `POST /api/guided-setup/proposal`; `New-ChannelForgeCandidateProposal`; `gui/src/app/guidedSetupProposal.ts` | `tests/unit/WebServer.Tests.ps1`; `gui/src/test/guided-setup-browser.test.tsx`; `gui/src/test/navigation.test.tsx` | PASS |
-| Candidate-only safety | Return an allowlisted aggregate proposal projection and never mutate accepted state, provider state, downstream state, or guide publication. | `Get-ChannelForgeGuidedSetupProposalResponse`; `GuidedSetupPage` browser branch | Mutation snapshot, safety-field, redaction, method-allowlist, malformed-input, and cleanup assertions in focused tests | PASS |
+| Area                     | Intended behavior                                                                                                                                          | Entry points                                                                                                 | Evidence                                                                                                               | Disposition |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Browser proposal request | Accept exactly one bounded M3U upload and an optional XMLTV upload through a strict same-origin JSON contract, then reuse the candidate engine in-process. | `POST /api/guided-setup/proposal`; `New-ChannelForgeCandidateProposal`; `gui/src/app/guidedSetupProposal.ts` | `tests/unit/WebServer.Tests.ps1`; `gui/src/test/guided-setup-browser.test.tsx`; `gui/src/test/navigation.test.tsx`     | PASS        |
+| Candidate-only safety    | Return an allowlisted aggregate proposal projection and never mutate accepted state, provider state, downstream state, or guide publication.               | `Get-ChannelForgeGuidedSetupProposalResponse`; `GuidedSetupPage` browser branch                              | Mutation snapshot, safety-field, redaction, method-allowlist, malformed-input, and cleanup assertions in focused tests | PASS        |
 
 The request is `application/json` with `schemaVersion: 1`, one
 `m3u.contentBase64` object, and optional `xmltv.contentBase64`. Duplicate or
 unknown properties, invalid base64, content-type mismatch, declared-length
-mismatch, and oversized encoded/decoded bodies fail closed. The 16 MiB encoded
-body, 4 MiB M3U, and 12 MiB XMLTV bounds are enforced at the HTTP and decoded
-file boundaries. The server stages fixed filenames under a GUID-named
-`output/.web-guided-setup` request directory, calls the public
-candidate-only module boundary, projects only counts/warnings/safe identity
-hashes, and removes the request directory in `finally`.
+mismatches, and oversized encoded/decoded bodies fail closed. The 24 MiB
+encoded body, 4 MiB M3U, and 12 MiB XMLTV bounds are enforced at the HTTP and
+decoded-file boundaries. The server stages fixed filenames under a GUID-named
+`output/.web-guided-setup` request directory, calls the public candidate-only
+module boundary, projects only counts/warnings/safe identity hashes, and removes
+the request directory in `finally`.
 
 No browser Accept/Publish control was added. The proposal response explicitly
 reports `PublicationState=CandidateOnly`, `CanPublish=false`, and `none` for

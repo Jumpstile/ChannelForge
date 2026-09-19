@@ -1,6 +1,6 @@
 function Get-ChannelForgeWebProposalLimits {
     return [pscustomobject][ordered]@{
-        MaxRequestBodyBytes = 16MB
+        MaxRequestBodyBytes = 24MB
         MaxM3UBytes = 4MB
         MaxXMLTVBytes = 12MB
         MaxJsonDepth = 8

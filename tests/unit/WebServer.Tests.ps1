@@ -378,7 +378,7 @@ Describe 'ChannelForge web server foundation' {
         (Get-TestWebResponse -Method POST -Path '/health' -RepositoryRoot $root -BodyBytes $body).StatusCode | Should -Be 405
         (Get-TestWebResponse -Method POST -Path '/api/status' -RepositoryRoot $root -BodyBytes $body).StatusCode | Should -Be 405
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength ($body.Length + 1)).StatusCode | Should -Be 400
-        $oversized = [byte[]]::new((16MB) + 1)
+        $oversized = [byte[]]::new((24MB) + 1)
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $oversized -ContentType 'application/json' -ContentLength $oversized.Length).StatusCode | Should -Be 413
     }
 

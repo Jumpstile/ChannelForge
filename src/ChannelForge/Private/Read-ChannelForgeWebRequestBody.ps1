@@ -3,7 +3,7 @@ function Read-ChannelForgeWebRequestBody {
     param(
         [Parameter(Mandatory)][System.IO.Stream]$Stream,
         [Parameter(Mandatory)][long]$ContentLength,
-        [int]$MaxBytes = 16MB
+        [int]$MaxBytes = 24MB
     )
 
     if ($ContentLength -gt $MaxBytes) { throw [System.InvalidOperationException]::new('The proposal request is too large.') }

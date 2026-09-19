@@ -65,22 +65,22 @@ the only future authority for state-changing behavior.
 
 The following describes preserved prototype/reference work, not a primary deployment surface:
 
-| Area                                      | Status                                                                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Area                                      | Status                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------ |
 | Browser web UI served by engine           | Built UI with read-only `/api/status` and candidate-only Guided Setup proposal |
 | Docker deployment                         | Architecture recorded; implementation pending                                  |
 | Windows server/service install            | Architecture recorded; implementation pending                                  |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                            |
-| Guided Setup layout                       | Browser proposal works; native picker/review remains prototype/reference work    |
-| Native file-picker bridge                 | Works now (prototype)                                                                                       |
-| Display-safe selection state              | Works now (prototype)                                                                                       |
-| Pre-parse selection checks                | Works now (prototype)                                                                                       |
-| Playlist structural validation            | Works now — structural only (prototype)                                                                     |
-| Guide structural validation               | Works now — structural only (prototype)                                                                     |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                               |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                               |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                              |
-| Automatic updates                         | Planned / not built yet                                                                                     |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                          |
+| Guided Setup layout                       | Browser proposal works; native picker/review remains prototype/reference work  |
+| Native file-picker bridge                 | Works now (prototype)                                                          |
+| Display-safe selection state              | Works now (prototype)                                                          |
+| Pre-parse selection checks                | Works now (prototype)                                                          |
+| Playlist structural validation            | Works now — structural only (prototype)                                        |
+| Guide structural validation               | Works now — structural only (prototype)                                        |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                  |
+| Lineup review                             | Implemented — local checks passed (prototype)                                  |
+| Saved lineup                              | Implemented — native acceptance + local checks                                 |
+| Automatic updates                         | Planned / not built yet                                                        |
 
 ## Not implemented yet
 

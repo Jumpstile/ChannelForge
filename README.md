@@ -124,22 +124,22 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 
 ### GUI status
 
-| Area                                      | Status                                                                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Area                                      | Status                                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Browser web UI served by engine           | Built UI with read-only `/api/status` dashboard and candidate-only browser Guided Setup proposal |
-| Docker deployment                         | Architecture recorded; implementation pending                                                               |
-| Windows server/service install            | Architecture recorded; implementation pending                                                               |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
-| Guided Setup layout                       | Browser proposal flow works; native picker/review remains prototype/reference work              |
-| Native file-picker bridge                 | Works now (prototype)                                                                                       |
-| Display-safe selection state              | Works now (prototype)                                                                                       |
-| Pre-parse selection checks                | Works now (prototype)                                                                                       |
-| Playlist structural validation            | Works now — structural only (prototype)                                                                     |
-| Guide structural validation               | Works now — structural only (prototype)                                                                     |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                               |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                               |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                              |
-| Automatic updates                         | Planned / not built yet                                                                                     |
+| Docker deployment                         | Architecture recorded; implementation pending                                                    |
+| Windows server/service install            | Architecture recorded; implementation pending                                                    |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                            |
+| Guided Setup layout                       | Browser proposal flow works; native picker/review remains prototype/reference work               |
+| Native file-picker bridge                 | Works now (prototype)                                                                            |
+| Display-safe selection state              | Works now (prototype)                                                                            |
+| Pre-parse selection checks                | Works now (prototype)                                                                            |
+| Playlist structural validation            | Works now — structural only (prototype)                                                          |
+| Guide structural validation               | Works now — structural only (prototype)                                                          |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                    |
+| Lineup review                             | Implemented — local checks passed (prototype)                                                    |
+| Saved lineup                              | Implemented — native acceptance + local checks                                                   |
+| Automatic updates                         | Planned / not built yet                                                                          |
 
 ## License
 

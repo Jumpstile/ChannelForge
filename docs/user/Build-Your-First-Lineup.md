@@ -145,10 +145,11 @@ same-origin JSON envelope:
 ```
 
 `xmltv` is omitted for a no-guide proposal. The server accepts only
-`POST /api/guided-setup/proposal`, enforces a 16 MiB encoded request bound, a
-4 MiB M3U bound, and a 12 MiB XMLTV bound, and never uses a browser filename or
-path. Its `guided-setup/proposal/v1` response contains aggregate channel and
-guide-match counts, fixed warnings, and a safe projection of the candidate
+`POST /api/guided-setup/proposal`, enforces a 24 MiB encoded request bound, a
+4 MiB M3U bound, and a 12 MiB XMLTV bound. The 24 MiB bound leaves room for
+base64 expansion when both maximum decoded files are submitted. The endpoint
+never uses a browser filename or path. Its `guided-setup/proposal/v1` response
+contains aggregate channel and guide-match counts, fixed warnings, and a safe
 identity. It excludes source URLs, private paths, credentials, parser details,
 and raw uploaded content.
 
