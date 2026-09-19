@@ -260,16 +260,19 @@ visibility was changed separately by the owner on 2026-09-18 to make hosted CI
 run on the public-repository billing model; that operational change is not a
 release authorization.
 
-The public-readiness disposition remains `BLOCKED_PUBLIC`. GitHub Support
-ticket `#4764498` is solved: known sensitive commits are not reachable from
-hosted branch or tag tips, and all 61 affected PR diff/code surfaces were
-removed while PR metadata and discussion history were preserved. Protection
-and ruleset evidence is verified for `main`. The full hosted-ref privacy scan
-passed with no classified findings; private vulnerability reporting remains
-unverified, and the final exact-head public-readiness audit remains required.
+The repository-publication disposition is `PASS`. GitHub Support ticket
+`#4764498` is solved: known sensitive commits are not reachable from hosted
+branch or tag tips, and all 61 affected PR diff/code surfaces were removed
+while PR metadata and discussion history were preserved. The full hosted-ref
+privacy scan passed with no classified findings. Repository visibility is
+public, GitHub private vulnerability reporting is enabled, and protection and
+ruleset evidence is verified for `main`. PR #163 merged and post-merge public
+`main` CI passed on `9879b302709e8d9c72a7c4dd552add5ce031a5f1`.
 
-Disposition: `PASS_WITH_GAPS`. The owner approved the source-available
-personal/non-commercial license and the security-policy decisions are recorded.
-Repository visibility is now public and branch protection remains enforced.
-The remaining gaps are private-reporting verification, completion of the
-public-readiness merge gate, and the final post-merge public-readiness audit.
+Disposition: `PASS` for repository publication. This does not change the
+product-stage assessment: ChannelForge remains Early Alpha and
+`PUBLIC_RELEASE_STATUS=NOT_RELEASE_READY`. Product release authorization now
+moves to the First Usable Alpha gate in
+`docs/release/FIRST_USABLE_ALPHA.md` and issue #164. Do not reopen the
+repository-publication audit unless new evidence shows a regression in the
+controls above.

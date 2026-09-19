@@ -73,25 +73,32 @@ GitHub Actions (`.github/workflows/powershell-ci.yml`) runs two jobs on every pu
 
 Run all five locally before pushing — they're the same commands CI runs, so a clean local run means a clean CI run for everything except the secret scan.
 
-### Public-readiness hold
+### Repository publication and release status
 
-`PUBLIC_RELEASE_STATUS=BLOCKED_PUBLIC` is the current standing disposition.
-Keep the repository private. Do not use hosted CI for exploratory work while
-Actions usage or billing is constrained.
+Repository publication is complete: `PUBLIC_REPOSITORY_READINESS=PASS`.
+ChannelForge remains Early Alpha with
+`PUBLIC_RELEASE_STATUS=NOT_RELEASE_READY`.
 
-GitHub Support ticket `#4764498` is solved. Known sensitive commits are not
-reachable from hosted branch or tag tips, and all 61 affected PR diff/code
-surfaces were removed while PR metadata and discussion history were preserved.
-Branch protection and ruleset evidence is verified for `main`; private
-vulnerability reporting remains unverified, and the final exact-head audit is
-required before any public transition.
+The repository is public. GitHub Support ticket `#4764498` is solved; known
+sensitive commits are not reachable from hosted branch or tag tips, and all 61
+affected PR diff/code surfaces were removed while PR metadata and discussion
+history were preserved. GitHub private vulnerability reporting is enabled.
+Branch protection and ruleset evidence is verified for `main`, and post-merge
+public `main` CI passed on
+`9879b302709e8d9c72a7c4dd552add5ce031a5f1`.
 
-The `secret-scan` and `quality-gates` checks remain required. Any Actions usage
-reduction must preserve full-history secret scanning, exact-head validation,
-config schemas, Markdown checks, PSScriptAnalyzer, full Pester, GUI checks,
-and Rust/Tauri checks while they remain in `quality-gates`. See
-[ACTIONS_USAGE_REDUCTION_PLAN.md](ACTIONS_USAGE_REDUCTION_PLAN.md) for
-non-authorizing recommendations.
+The `secret-scan` and `quality-gates` checks remain required. Hosted CI is no
+longer constrained by private-repository billing, but exact-head evidence is
+still required for merges and release candidates. Any Actions usage reduction
+must preserve full-history secret scanning, exact-head validation, config
+schemas, Markdown checks, PSScriptAnalyzer, full Pester, GUI checks, and
+Rust/Tauri checks while they remain in `quality-gates`.
+
+Product release readiness is tracked by
+[First Usable Alpha](../release/FIRST_USABLE_ALPHA.md) and issue #164. Do not
+create a release, tag, package, or tester build until that gate is complete.
+See [ACTIONS_USAGE_REDUCTION_PLAN.md](ACTIONS_USAGE_REDUCTION_PLAN.md) for
+non-authorizing optimization recommendations.
 
 ### What's schema-level vs. runtime/domain-level
 

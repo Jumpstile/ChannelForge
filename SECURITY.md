@@ -1,10 +1,10 @@
 # Security Policy
 
-**Publication status:** `BLOCKED_PENDING_PUBLIC_RELEASE_GATE`. Owner decisions are recorded: the supported version is the current `main` branch until the first tagged release, and GitHub private vulnerability reporting is the only private reporting route for now. Do not publish a public release until the remaining public-release gate is satisfied.
+**Repository publication status:** `PASS`. The repository is public and GitHub private vulnerability reporting is enabled. The supported version is the current `main` branch until the first tagged release. Product release status remains `NOT_RELEASE_READY`; do not publish a release until the First Usable Alpha gate is satisfied.
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting from the repository Security tab when it is enabled. This is the only approved private reporting route for now; no public email contact is listed. Do not disclose an unpatched vulnerability in a public issue, pull request, discussion, chat, attachment, or comment before coordinated review.
+Use GitHub private vulnerability reporting from the repository Security tab. It is enabled and is the only approved private reporting route for now; no public email contact is listed. Do not disclose an unpatched vulnerability in a public issue, pull request, discussion, chat, attachment, or comment before coordinated review.
 
 Do not post provider URLs, M3U or XMLTV contents, Xtream Codes/XC credentials, API keys, tokens, passwords, private keys, accepted-lineup contents, generation identifiers, private paths, private network details, or sensitive logs publicly.
 
@@ -56,13 +56,13 @@ that first tagged release.
 
 Response timing is not guaranteed. Security support is not guaranteed for every version or deployment. The project and Materials are provided as-is, without warranty or guarantee of support.
 
-**Publication gate:** Repository visibility changed to public on 2026-09-18
-after hosted-ref cleanup, all-tip secret scanning, branch-protection
-verification, and exact-head pull-request CI. This visibility change does not
-authorize a release. GitHub private vulnerability reporting must now be enabled
-and verified, and the current `main`-only support statement must remain
-accurate. GitHub Support cleanup is complete: known sensitive commits are not
-reachable from hosted branch or tag tips, and the affected PR diff/code
-surfaces were removed while PR discussion history was preserved. Public release
-remains blocked by private-reporting verification, completion of the
-public-readiness merge gate, and the final post-merge public-readiness audit.
+**Repository publication gate:** PASS. Repository visibility changed to public
+on 2026-09-18 after hosted-ref cleanup, all-tip secret scanning,
+branch-protection verification, and exact-head pull-request CI. GitHub private
+vulnerability reporting is enabled. GitHub Support cleanup is complete: known
+sensitive commits are not reachable from hosted branch or tag tips, and the
+affected PR diff/code surfaces were removed while PR discussion history was
+preserved. PR #163 merged and post-merge public `main` CI passed on
+`9879b302709e8d9c72a7c4dd552add5ce031a5f1`. Product release remains a
+separate gate and is `NOT_RELEASE_READY` until the First Usable Alpha
+requirements are complete.

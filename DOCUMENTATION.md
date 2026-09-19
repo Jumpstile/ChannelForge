@@ -34,24 +34,27 @@ Core engineering documentation:
 - [Architecture Decision Records](docs/adr/)
 - [User documentation](docs/user/README.md)
 
-## Release Blocker Status
+## Repository and Release Status
 
-Status: `BLOCKED_PUBLIC`.
+Repository publication status: `PASS`.
 
-Public release remains blocked. GitHub Support ticket `#4764498` is solved:
-known sensitive commits are not reachable from hosted branch or tag tips, and
-all 61 affected PR diff/code surfaces were removed while PR metadata and
-discussion history were preserved. Repository visibility changed to public on
-2026-09-18 to avoid further private-repository Actions cost; that visibility
-change does not authorize a release. The root `LICENSE` and GitHub-discoverable
-root `SECURITY.md` are present on this review branch. The source-available
-license is owner-approved pending the public-release gate, and the security
-policy records the current `main` branch as the only supported version until
-the first tagged release, with GitHub private vulnerability reporting as the
-only private reporting route for now. Protection/ruleset evidence is verified
-for `main`; private-reporting enablement remains unverified, PR #163 still
-requires its final merge gate, and a final post-merge public-readiness audit is
-still required.
+Product release status: `NOT_RELEASE_READY`.
+
+Product stage: **Early Alpha**.
+
+The repository-publication gate is complete. GitHub Support ticket `#4764498`
+is solved, known sensitive commits are not reachable from hosted branch or tag
+tips, all 61 affected PR diff/code surfaces were removed while PR metadata and
+discussion history were preserved, the repository is public, GitHub private
+vulnerability reporting is enabled, and `Main-Protection` remains enforced.
+PR #163 merged and post-merge public `main` CI passed on
+`9879b302709e8d9c72a7c4dd552add5ce031a5f1`.
+
+That closure does **not** authorize a product release. The next gate is the
+[First Usable Alpha release-readiness plan](docs/release/FIRST_USABLE_ALPHA.md),
+tracked by issue #164. The first downloadable release remains blocked until its
+install/start, beginner workflow, persistence, refresh, packaging, clean-machine
+smoke, and exact-head evidence requirements are complete.
 Issue #19 remains historically documented: the provider token was rotated on
 2026-06-28, and the Product Owner approved leaving Git history as-is under
 Option A. The decision and rationale remain documented in
