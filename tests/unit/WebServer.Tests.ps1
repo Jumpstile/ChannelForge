@@ -405,6 +405,110 @@ Describe 'ChannelForge web server foundation' {
         ($duplicate.Body | ConvertFrom-Json).Error | Should -Be 'already-accepted'
         [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state\accepted-lineup.json'))) | Should -Be $acceptedPointer
     }
+    It 'serializes truly concurrent acceptance requests into one coherent generation' {
+        $root = Join-Path $TestDrive 'acceptance-concurrent-race'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        $providerBytes = [Text.Encoding]::UTF8.GetBytes('{"provider":"race-fixture"}')
+        [IO.File]::WriteAllBytes((Join-Path $root 'provider.json'), $providerBytes)
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+        $port = 18769
+        $serverStdout = Join-Path $TestDrive 'acceptance-race-server.out'
+        $serverStderr = Join-Path $TestDrive 'acceptance-race-server.err'
+        $serverLauncher = Join-Path $TestDrive 'acceptance-race-server.ps1'
+        @(
+            "Import-Module '$script:ModulePath' -Force"
+            "Start-ChannelForgeWebServer -Port $port -RepositoryRoot '$root'"
+        ) | Set-Content -LiteralPath $serverLauncher
+        $server = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $serverLauncher) -WorkingDirectory $script:RepoRoot -RedirectStandardOutput $serverStdout -RedirectStandardError $serverStderr -PassThru
+        try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 100 -and -not $ready; $attempt++) {
+                if ($server.HasExited) { break }
+                $tcp = $null
+                try {
+                    $tcp = [Net.Sockets.TcpClient]::new()
+                    $tcp.Connect('127.0.0.1', $port)
+                    $ready = $true
+                }
+                catch {}
+                finally {
+                    if ($null -ne $tcp) { $tcp.Dispose() }
+                }
+                if (-not $ready) { Start-Sleep -Milliseconds 100 }
+            }
+            $ready | Should -BeTrue
+
+            $baseUri = "http://127.0.0.1:$port"
+            $proposalResponse = Invoke-WebRequest -Uri "$baseUri/api/guided-setup/proposal" -Method POST -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetString($proposalBody)) -SkipHttpErrorCheck
+            $proposalResponse.StatusCode | Should -Be 200
+            $proposalPayload = $proposalResponse.Content | ConvertFrom-Json
+            $proposalId = [string]$proposalPayload.Proposal.ProposalId
+            $proposalId | Should -Match '^[0-9a-f]{32}$'
+            $acceptBody = (@{ schemaVersion = 1; proposalId = $proposalId; acknowledged = $true } | ConvertTo-Json -Compress)
+            $acceptUri = "$baseUri/api/guided-setup/accept"
+            $acceptScript = {
+                param($Uri, $Body)
+                $response = Invoke-WebRequest -Uri $Uri -Method POST -ContentType 'application/json' -Body $Body -SkipHttpErrorCheck
+                [pscustomobject]@{ StatusCode = [int]$response.StatusCode; Body = [string]$response.Content }
+            }
+            $jobs = @(
+                Start-Job -ScriptBlock $acceptScript -ArgumentList $acceptUri, $acceptBody
+                Start-Job -ScriptBlock $acceptScript -ArgumentList $acceptUri, $acceptBody
+            )
+            try {
+                Wait-Job -Job $jobs -Timeout 60 | Should -Not -BeNullOrEmpty
+                $results = @(Receive-Job -Job $jobs)
+            }
+            finally {
+                Remove-Job -Job $jobs -Force -ErrorAction SilentlyContinue
+            }
+
+            $results.Count | Should -Be 2
+            @($results | Where-Object StatusCode -eq 200).Count | Should -Be 1
+            $conflicts = @($results | Where-Object StatusCode -ne 200)
+            $conflicts.Count | Should -Be 1
+            @(409, 422) | Should -Contain $conflicts[0].StatusCode
+            $conflictPayload = $conflicts[0].Body | ConvertFrom-Json
+            @('already-accepted', 'stale-proposal', 'acceptance-unavailable') | Should -Contain $conflictPayload.Error
+
+            $generationDirectories = @(Get-ChildItem -LiteralPath (Join-Path $root 'state\generations') -Directory)
+            $generationDirectories.Count | Should -Be 1
+            $pointer = Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json
+            $generationDirectory = $generationDirectories[0].FullName
+            $generation = Get-Content -LiteralPath (Join-Path $generationDirectory 'generation.manifest.json') -Raw | ConvertFrom-Json
+            $state = Get-Content -LiteralPath (Join-Path $generationDirectory 'accepted-state.json') -Raw | ConvertFrom-Json
+            $output = Get-Content -LiteralPath (Join-Path $generationDirectory 'accepted-output.manifest.json') -Raw | ConvertFrom-Json
+            $pointer.GenerationId | Should -Be $generation.GenerationId
+            $pointer.GenerationManifestHash | Should -Be $generation.GenerationManifestHash
+            $pointer.AcceptedStateHash | Should -Be $state.AcceptedStateHash
+            $pointer.AcceptedOutputManifestHash | Should -Be $output.OutputManifestHash
+            $generation.AcceptedStateHash | Should -Be $state.AcceptedStateHash
+            $generation.AcceptedOutputManifestHash | Should -Be $output.OutputManifestHash
+            $journal = Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.journal.json') -Raw | ConvertFrom-Json
+            $journal.JournalStage | Should -Be 'Committed'
+            $recovery = Recover-ChannelForgeAcceptedState -RepositoryRoot $root
+            $recovery.Outcome | Should -Be 'NEW'
+            $recovery.JournalStage | Should -Be 'Committed'
+
+            $proposalDirectory = Join-Path $root "output\.web-guided-setup\proposals\$proposalId"
+            $session = Get-Content -LiteralPath (Join-Path $proposalDirectory 'session.json') -Raw | ConvertFrom-Json
+            $candidateDirectory = Join-Path $proposalDirectory ($session.CandidateDirectoryRelative -replace '/', '\')
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $candidateDirectory 'merged.m3u'))) | Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $generationDirectory 'merged.m3u'))))
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $candidateDirectory 'merged.xml'))) | Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $generationDirectory 'merged.xml'))))
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'provider.json'))) | Should -Be ([Convert]::ToBase64String($providerBytes))
+            Test-Path -LiteralPath (Join-Path $root 'output\merged.m3u') | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $root 'output\merged.xml') | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $root 'config\scheduled-refresh.json') | Should -BeFalse
+        }
+        finally {
+            if ($null -ne $server -and -not $server.HasExited) {
+                $server.Kill()
+                $server.WaitForExit()
+            }
+        }
+    }
+
 
     It 'fails closed when a reviewed parent becomes stale' {
         $root = Join-Path $TestDrive 'acceptance-stale-parent'
