@@ -129,6 +129,51 @@ IPTV playlist (M3U) + optional TV guide (XMLTV)
 
 The native acceptance boundary revalidates the candidate, accepted parent, input fingerprints, and preconditions before staging and publishing. React does not promote files, update an accepted pointer, or maintain a second accepted-state model.
 
+### Browser Guided Setup proposal
+
+The loopback web UI supports the first browser/API slice without asking for a
+local path. Choose exactly one `.m3u`/`.m3u8` playlist and optionally one
+`.xml`/`.xmltv` guide, then select **Analyze proposal**. The browser sends this
+same-origin JSON envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "m3u": { "contentBase64": "..." },
+  "xmltv": { "contentBase64": "..." }
+}
+```
+
+`xmltv` is omitted for a no-guide proposal. The server accepts only
+`POST /api/guided-setup/proposal`, enforces a 24 MiB encoded request bound, a
+4 MiB M3U bound, and a 12 MiB XMLTV bound. The 24 MiB bound leaves room for
+base64 expansion when both maximum decoded files are submitted. The endpoint
+never uses a browser filename or path. Its `guided-setup/proposal/v1` response
+contains aggregate channel and guide-match counts, fixed warnings, and a safe
+identity. It excludes source URLs, private paths, credentials, parser details,
+and raw uploaded content.
+
+This browser flow is **candidate-only**. The response reports
+`PublicationState=CandidateOnly`, `CanPublish=false`, and no accepted-state,
+provider, downstream, or guide-publication mutation. The server stages bytes
+under a per-request server-owned temporary directory, invokes the shared
+candidate engine in-process, and removes the request directory on success or
+failure. It does not create a browser acceptance or publish button.
+
+The browser flow is available after building the UI:
+
+```powershell
+Push-Location .\gui
+npm ci
+npm run build
+Pop-Location
+pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
+```
+
+Open `http://127.0.0.1:8765/`, choose **Open Guided Setup**, and review the
+aggregate proposal. To accept or publish a lineup, use the existing explicit
+CLI/native acceptance boundary; browser acceptance is not part of this slice.
+
 Run it from the repository root:
 
 ```powershell

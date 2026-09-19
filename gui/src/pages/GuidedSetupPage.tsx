@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-react'
+import { submitGuidedSetupProposal, type GuidedSetupProposal, type GuidedSetupProposalSubmitter } from '../app/guidedSetupProposal'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
@@ -73,7 +74,6 @@ const setupProgress = [
   { label: 'Saved lineup', status: 'Implemented — explicit confirmation required' },
   { label: 'Automatic updates', status: 'Planned / not built yet' },
 ]
-
 type GuidedSetupPageProps = {
   picker?: SetupPicker
   matcher?: SetupMatcher
@@ -81,7 +81,100 @@ type GuidedSetupPageProps = {
   matchState?: PlaylistGuideMatchState
   onMatchStateChange?: (state: PlaylistGuideMatchState) => void
   onOpenReview?: () => void
+  proposalSubmitter?: GuidedSetupProposalSubmitter
 }
+function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: GuidedSetupProposalSubmitter }) {
+  const [playlist, setPlaylist] = useState<File | null>(null)
+  const [guide, setGuide] = useState<File | null>(null)
+  const [proposal, setProposal] = useState<GuidedSetupProposal | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const chooseFile = (file: File | undefined, kind: 'playlist' | 'guide') => {
+    setError(null)
+    setProposal(null)
+    if (kind === 'playlist') setPlaylist(file ?? null)
+    else setGuide(file ?? null)
+  }
+
+  const submit = async () => {
+    if (!playlist) {
+      setError('Choose a playlist before analyzing the proposal.')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    setProposal(null)
+    try {
+      setProposal(await proposalSubmitter(playlist, guide))
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : 'The proposal could not be analyzed.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="page-stack">
+      <PageHeader description="Choose a playlist and an optional guide. ChannelForge will analyze a candidate without publishing it." eyebrow="Guided setup" title="Set up your workspace" />
+      <StatusBanner status="Ready" title="Browser proposal">
+        <p>Choose files from this browser. No local path is sent, and the proposal remains candidate-only.</p>
+      </StatusBanner>
+      {error ? <p className="setup-picker-error" role="alert">{error}</p> : null}
+      <section className="setup-step-grid" aria-label="Guided setup steps">
+        <article className="setup-step-card">
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FolderOpen size={22} /></div><div><p className="setup-step-number">Step 1</p><h2>Choose workspace</h2></div></div>
+          <p className="setup-step-description">Browser proposals use a server-owned temporary workspace.</p>
+          <div className="setup-step-selection" role="status" aria-label="Choose workspace selection status">
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>Not selected</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Validation</span><strong>Not checked</strong></div>
+            <span>No workspace path is requested by the browser flow.</span>
+          </div>
+        </article>
+        <article className="setup-step-card">
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><ListVideo size={22} /></div><div><p className="setup-step-number">Step 2</p><h2>Add playlist</h2></div></div>
+          <p className="setup-step-description">Select exactly one M3U or M3U8 playlist.</p>
+          <div className="setup-step-selection" role="status" aria-label="Add playlist selection status">
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>{playlist ? playlist.name : 'Not selected'}</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Validation</span><strong>{playlist ? 'Ready to inspect' : 'Not checked'}</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Content</span><strong>{playlist ? 'Ready to inspect' : 'Not checked'}</strong></div>
+          </div>
+          <label className="button button-secondary" htmlFor="guided-setup-playlist">Choose playlist</label>
+          <input id="guided-setup-playlist" accept=".m3u,.m3u8" onChange={(event) => chooseFile(event.target.files?.[0], 'playlist')} type="file" />
+        </article>
+        <article className="setup-step-card">
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FileText size={22} /></div><div><p className="setup-step-number">Step 3</p><h2>Add guide</h2></div></div>
+          <p className="setup-step-description">Optionally select one XMLTV guide, or continue without a guide.</p>
+          <div className="setup-step-selection" role="status" aria-label="Add guide selection status">
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>{guide ? guide.name : 'Not selected'}</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Validation</span><strong>{guide ? 'Ready to inspect' : 'Not checked'}</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Content</span><strong>{guide ? 'Ready to inspect' : 'Not checked'}</strong></div>
+          </div>
+          <label className="button button-secondary" htmlFor="guided-setup-guide">Choose guide (optional)</label>
+          <input id="guided-setup-guide" accept=".xml,.xmltv" onChange={(event) => chooseFile(event.target.files?.[0], 'guide')} type="file" />
+        </article>
+      </section>
+      <section className="setup-match-card" aria-labelledby="browser-proposal-title">
+        <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">Candidate only</p><h2 id="browser-proposal-title">Analyze proposal</h2></div></div>
+        <p className="setup-match-note">The server reads the selected bytes, reuses the candidate engine, and removes its temporary request workspace. Accepted state, provider files, downstream outputs, and guide publication stay unchanged.</p>
+        <div className="setup-step-footer"><span className="setup-step-status">{proposal ? 'Proposal ready' : 'Playlist required'}</span><button aria-busy={submitting} className="button button-primary" disabled={!playlist || submitting} type="button" onClick={() => void submit()}>{submitting ? 'Analyzing proposal…' : 'Analyze proposal'}</button></div>
+        {proposal ? (
+          <div className="setup-proposal-summary" role="status" aria-live="polite">
+            <strong>Candidate proposal ready. Nothing was published.</strong>
+            <dl>
+              <div><dt>Channels</dt><dd>{proposal.Proposal.ChannelCount}</dd></div>
+              <div><dt>Exact guide matches</dt><dd>{proposal.Proposal.ExactGuideMatchCount}</dd></div>
+              <div><dt>Needs review</dt><dd>{proposal.Proposal.AmbiguityCount}</dd></div>
+              <div><dt>Guide-only records</dt><dd>{proposal.Proposal.GuideOnlyCount}</dd></div>
+            </dl>
+            {proposal.Warnings.length > 0 ? <ul>{proposal.Warnings.map((warning) => <li key={warning.Code}>{warning.Message}</li>)}</ul> : <p>No proposal warnings.</p>}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
 
 export function GuidedSetupPage({
   picker = chooseSetupItem,
@@ -90,6 +183,7 @@ export function GuidedSetupPage({
   matchState: externalMatchState,
   onMatchStateChange,
   onOpenReview,
+  proposalSubmitter = submitGuidedSetupProposal,
 }: GuidedSetupPageProps = {}) {
   const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
   const [playlistContent, setPlaylistContent] = useState(createInitialPlaylistContentState)
@@ -106,6 +200,7 @@ export function GuidedSetupPage({
   const [matching, setMatching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
   const selectionVersion = useRef(0)
+  if (!pickerAvailable) return <BrowserGuidedSetupPage proposalSubmitter={proposalSubmitter} />
 
   const handleSelect = async (kind: SetupSelectionKind) => {
     const operationVersion = selectionVersion.current + 1
