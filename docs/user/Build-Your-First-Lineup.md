@@ -131,6 +131,28 @@ The native acceptance boundary revalidates the candidate, accepted parent, input
 
 ### Browser Guided Setup proposal
 
+This is the screen you will see after choosing **Open Guided Setup**:
+
+![Browser Guided Setup before file selection, showing Add playlist, Add guide, and Analyze proposal](../assets/browser-guided-setup.png)
+
+_Fresh browser capture from September 19, 2026. The demo workspace label is
+sample UI content. You do not need to choose a workspace folder in this flow._
+
+1. Select **Choose playlist** and pick one M3U or M3U8 playlist file.
+2. If you have an XMLTV guide, select **Choose guide (optional)** and pick it.
+   Otherwise, leave the guide empty to continue without guide data.
+3. Select **Analyze proposal**. It stays disabled until a playlist is selected.
+4. Read the channel counts, guide-match summary, and next-step message. A
+   proposal is only a preview; it does not save, accept, or publish your lineup.
+
+Here is a proposal from two sample channels with matching guide entries:
+
+![Fresh browser proposal showing two channels, two exact guide matches, zero needs review, and zero guide-only records](../assets/browser-guided-setup-proposal.png)
+
+_The local server analyzed sample files for this capture. The message
+**Candidate proposal ready. Nothing was published.** means the preview is ready,
+not that your lineup has been saved. Your counts and warnings may differ._
+
 The loopback web UI supports the first browser/API slice without asking for a
 local path. Choose exactly one `.m3u`/`.m3u8` playlist and optionally one
 `.xml`/`.xmltv` guide, then select **Analyze proposal**. The browser sends this

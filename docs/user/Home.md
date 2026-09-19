@@ -15,6 +15,20 @@ ChannelForge turns provider playlists, guide data, and local rules into a determ
 - **I want to troubleshoot a problem.** → [Troubleshooting](TROUBLESHOOTING.md)
 - **I want to understand current limitations.** → [Current Limitations](CURRENT_LIMITATIONS.md)
 
+## A first look at browser Guided Setup
+
+Guided Setup lets you choose a playlist and an optional TV guide, then preview
+a proposal. Follow the [browser setup walkthrough](Build-Your-First-Lineup.md#browser-guided-setup-proposal)
+to build and start the local web UI, select your files, and understand the result.
+
+![Browser Guided Setup with a required playlist, an optional guide, and Analyze proposal](../assets/browser-guided-setup.png)
+
+_Fresh browser capture before selecting files, taken on September 19, 2026. The
+demo workspace label is sample content; you do not choose a workspace folder._
+
+The browser flow currently stops at a proposal. It does not save, accept, or
+publish a lineup, and it does not change provider accounts or downstream players.
+
 ## More
 
 - [Concepts](Concepts/README.md) — the ideas behind ChannelForge, for once the basics work
