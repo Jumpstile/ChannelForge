@@ -413,14 +413,12 @@ Describe 'ChannelForge web server foundation' {
         $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
         $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
         $port = 18769
-        $serverStdout = Join-Path $TestDrive 'acceptance-race-server.out'
-        $serverStderr = Join-Path $TestDrive 'acceptance-race-server.err'
         $serverLauncher = Join-Path $TestDrive 'acceptance-race-server.ps1'
         @(
             "Import-Module '$script:ModulePath' -Force"
             "Start-ChannelForgeWebServer -Port $port -RepositoryRoot '$root'"
         ) | Set-Content -LiteralPath $serverLauncher
-        $server = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $serverLauncher) -WorkingDirectory $script:RepoRoot -RedirectStandardOutput $serverStdout -RedirectStandardError $serverStderr -PassThru
+        $server = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $serverLauncher) -WorkingDirectory $script:RepoRoot -PassThru
         try {
             $ready = $false
             for ($attempt = 0; $attempt -lt 100 -and -not $ready; $attempt++) {
