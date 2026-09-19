@@ -41,15 +41,17 @@ Status: `BLOCKED_PUBLIC`.
 Public release remains blocked. GitHub Support ticket `#4764498` is solved:
 known sensitive commits are not reachable from hosted branch or tag tips, and
 all 61 affected PR diff/code surfaces were removed while PR metadata and
-discussion history were preserved. Repository visibility remains private. The
-root `LICENSE` and GitHub-discoverable root `SECURITY.md` are present on this
-review branch. The source-available license is owner-approved pending the
-public-release gate, and the security policy records the current `main` branch
-as the only supported version until the first tagged release, with GitHub
-private vulnerability reporting as the only private reporting route for now.
-Actions usage/billing remains constrained, protection/ruleset evidence is
-verified for `main`, private-reporting enablement remains unverified, and the
-final exact-head public-readiness audit is still required.
+discussion history were preserved. Repository visibility changed to public on
+2026-09-18 to avoid further private-repository Actions cost; that visibility
+change does not authorize a release. The root `LICENSE` and GitHub-discoverable
+root `SECURITY.md` are present on this review branch. The source-available
+license is owner-approved pending the public-release gate, and the security
+policy records the current `main` branch as the only supported version until
+the first tagged release, with GitHub private vulnerability reporting as the
+only private reporting route for now. Protection/ruleset evidence is verified
+for `main`; private-reporting enablement remains unverified, PR #163 still
+requires its final merge gate, and a final post-merge public-readiness audit is
+still required.
 Issue #19 remains historically documented: the provider token was rotated on
 2026-06-28, and the Product Owner approved leaving Git history as-is under
 Option A. The decision and rationale remain documented in

@@ -255,8 +255,10 @@ non-authorizing Actions usage recommendations.
 
 The slice does not change application behavior, provider acquisition, guide
 handling, lineup generation, accepted state, release behavior, deployment,
-tester distribution, branch protection, workflow behavior, repository
-visibility, or hosted CI execution.
+tester distribution, branch protection, or workflow behavior. Repository
+visibility was changed separately by the owner on 2026-09-18 to make hosted CI
+run on the public-repository billing model; that operational change is not a
+release authorization.
 
 The public-readiness disposition remains `BLOCKED_PUBLIC`. GitHub Support
 ticket `#4764498` is solved: known sensitive commits are not reachable from
@@ -268,5 +270,6 @@ unverified, and the final exact-head public-readiness audit remains required.
 
 Disposition: `PASS_WITH_GAPS`. The owner approved the source-available
 personal/non-commercial license and the security-policy decisions are recorded.
-The remaining gaps are private-reporting verification, Actions constraints,
-repository visibility, and the final public-readiness gate.
+Repository visibility is now public and branch protection remains enforced.
+The remaining gaps are private-reporting verification, completion of the
+public-readiness merge gate, and the final post-merge public-readiness audit.

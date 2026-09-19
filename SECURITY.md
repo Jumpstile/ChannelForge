@@ -56,11 +56,13 @@ that first tagged release.
 
 Response timing is not guaranteed. Security support is not guaranteed for every version or deployment. The project and Materials are provided as-is, without warranty or guarantee of support.
 
-**Publication gate:** Before making the repository public, GitHub private
-vulnerability reporting must be enabled and verified. The current `main`-only
-support statement must remain accurate. GitHub Support cleanup is complete:
-known sensitive commits are not reachable from hosted branch or tag tips, and
-the affected PR diff/code surfaces were removed while PR discussion history was
-preserved. Public release remains blocked by repository visibility, protection
-and ruleset review, Actions constraints, private-reporting verification, and
-the final exact-head public-readiness audit.
+**Publication gate:** Repository visibility changed to public on 2026-09-18
+after hosted-ref cleanup, all-tip secret scanning, branch-protection
+verification, and exact-head pull-request CI. This visibility change does not
+authorize a release. GitHub private vulnerability reporting must now be enabled
+and verified, and the current `main`-only support statement must remain
+accurate. GitHub Support cleanup is complete: known sensitive commits are not
+reachable from hosted branch or tag tips, and the affected PR diff/code
+surfaces were removed while PR discussion history was preserved. Public release
+remains blocked by private-reporting verification, completion of the
+public-readiness merge gate, and the final post-merge public-readiness audit.

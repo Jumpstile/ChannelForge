@@ -94,7 +94,7 @@ The following describes preserved prototype/reference work, not a primary deploy
 
 ## Public release status
 
-ChannelForge remains private and is not public-release ready.
+The ChannelForge repository is public, but no public release is authorized yet.
 
 - `PUBLIC_RELEASE_STATUS=BLOCKED_PUBLIC`.
 - GitHub Support ticket `#4764498` is solved: known sensitive commits are not
@@ -105,11 +105,13 @@ ChannelForge remains private and is not public-release ready.
   gate. Security-policy decisions are recorded: only the current `main` branch
   is supported until the first tagged release, and GitHub private vulnerability
   reporting is the only private reporting route for now.
-- The full hosted-ref privacy scan passed with no classified findings. Private
-  vulnerability reporting remains unverified; Actions usage/billing remains
-  constrained and hosted CI is not an exploratory work surface.
-- Main protection and ruleset evidence is verified. A final exact-head audit
-  remains required before any public switch.
+- The full hosted-ref privacy scan passed with no classified findings.
+  Repository visibility changed to public on 2026-09-18 to avoid further
+  private-repository Actions cost. Private vulnerability reporting remains
+  unverified, and hosted CI remains a release gate rather than an exploratory
+  work surface.
+- Main protection and ruleset evidence is verified. PR #163 still requires its
+  final merge gate, followed by a post-merge public-readiness audit.
 
 ## Why these are deferred, not abandoned
 
