@@ -94,7 +94,11 @@ Describe 'Test-ChannelForgeSourceUrl' {
 
     It 'rejects credentialed URLs' {
         InModuleScope ChannelForge {
-            Test-ChannelForgeSourceUrl -Url 'https://example.invalid/REDACTED' | Should -BeFalse
+            # Construct explicit synthetic userinfo at runtime; no credential-shaped URL is tracked.
+            $syntheticUri = [System.UriBuilder]::new('https', 'example.invalid')
+            $syntheticUri.UserName = 'fixture-user'
+            $syntheticUri.Password = 'fixture-password'
+            Test-ChannelForgeSourceUrl -Url $syntheticUri.Uri.AbsoluteUri | Should -BeFalse
         }
     }
 

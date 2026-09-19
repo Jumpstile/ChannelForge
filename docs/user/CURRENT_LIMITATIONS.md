@@ -92,6 +92,27 @@ The following describes preserved prototype/reference work, not a primary deploy
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.
 - **The complete event-guide workflow is not implemented yet.** Stage D provides the beginner workflow's report-only event-pattern preview, and Stage E provides a read-only future-acceptance plan. Stable title/time/pattern identity is separated from volatile statistics, game summaries, standings, and roster/player facts; those details are omitted or marked for review unless freshness, season context, provenance, and contradiction checks prove them current. The current Stage A/B path does not synthesize those volatile facts; Stage E only evaluates optional safe metadata when a producer supplies it. Neither stage accepts or adopts rules, publishes guides, mutates provider/downstream/accepted state, or creates a learned-rule store. Schedule-source adapters, documented AED-definition JSON import, expert regex/date/time overrides, unattended event refresh, automatic relearning/adoption, beginner GUI integration, and guide publication remain future work.
 
+## Public release status
+
+The ChannelForge repository is public, but no public release is authorized yet.
+
+- `PUBLIC_RELEASE_STATUS=BLOCKED_PUBLIC`.
+- GitHub Support ticket `#4764498` is solved: known sensitive commits are not
+  reachable from hosted branch or tag tips, and all 61 affected PR diff/code
+  surfaces were removed while PR metadata and discussion history were
+  preserved.
+- The source-available license is owner-approved pending the public-release
+  gate. Security-policy decisions are recorded: only the current `main` branch
+  is supported until the first tagged release, and GitHub private vulnerability
+  reporting is the only private reporting route for now.
+- The full hosted-ref privacy scan passed with no classified findings.
+  Repository visibility changed to public on 2026-09-18 to avoid further
+  private-repository Actions cost. Private vulnerability reporting remains
+  unverified, and hosted CI remains a release gate rather than an exploratory
+  work surface.
+- Main protection and ruleset evidence is verified. PR #163 still requires its
+  final merge gate, followed by a post-merge public-readiness audit.
+
 ## Why these are deferred, not abandoned
 
 ChannelForge's evidence-over-assumptions rule (ADR 0005) keeps the supported remote path bounded and fail-closed. Stale, corrupt, or unvalidated disposable cache data never becomes a successful build. Local and remote XMLTV failures are visible in the build status, the public `merged.xml` path is absent after a non-successful run, and any prior artifact is retained only in the non-published rollback area.

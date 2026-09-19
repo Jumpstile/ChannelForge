@@ -245,3 +245,31 @@ Focused GUI tests and the required repository validation gates provide evidence
 for this slice. Full Guided Setup API behavior, mutation flows, Docker,
 Windows server/service deployment, packaging, release, and tester builds remain
 outside scope.
+
+## Public-readiness license, security, and Actions preparation
+
+This documentation-only preparation slice materializes the owner-selected
+source-available personal/non-commercial license model, documents contributor
+intake constraints, adds a root security-policy publication gate, and records
+non-authorizing Actions usage recommendations.
+
+The slice does not change application behavior, provider acquisition, guide
+handling, lineup generation, accepted state, release behavior, deployment,
+tester distribution, branch protection, or workflow behavior. Repository
+visibility was changed separately by the owner on 2026-09-18 to make hosted CI
+run on the public-repository billing model; that operational change is not a
+release authorization.
+
+The public-readiness disposition remains `BLOCKED_PUBLIC`. GitHub Support
+ticket `#4764498` is solved: known sensitive commits are not reachable from
+hosted branch or tag tips, and all 61 affected PR diff/code surfaces were
+removed while PR metadata and discussion history were preserved. Protection
+and ruleset evidence is verified for `main`. The full hosted-ref privacy scan
+passed with no classified findings; private vulnerability reporting remains
+unverified, and the final exact-head public-readiness audit remains required.
+
+Disposition: `PASS_WITH_GAPS`. The owner approved the source-available
+personal/non-commercial license and the security-policy decisions are recorded.
+Repository visibility is now public and branch protection remains enforced.
+The remaining gaps are private-reporting verification, completion of the
+public-readiness merge gate, and the final post-merge public-readiness audit.
