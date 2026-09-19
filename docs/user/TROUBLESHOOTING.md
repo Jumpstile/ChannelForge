@@ -58,6 +58,30 @@ The `/health` and `/api/status` endpoints return safe status JSON only. They do
 not expose provider URLs, credentials, private paths, hashes, generation IDs,
 or parser details. Stop the foreground server with `Ctrl+C`.
 
+## Browser Guided Setup proposal
+
+The browser flow accepts one M3U/M3U8 playlist and an optional XMLTV guide. It
+posts file bytes to `POST /api/guided-setup/proposal` as a bounded JSON/base64
+request. The browser never sends a local path, and the result is a
+candidate-only proposal; it cannot accept or publish a lineup.
+
+| Symptom                                   | Likely cause                                  | What to do                                                                                                   |
+| ----------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Analyze proposal** is disabled          | No playlist has been selected                 | Choose exactly one non-empty M3U or M3U8 file                                                                |
+| The request says the file is too large    | The decoded file exceeds its type limit       | Keep the M3U/M3U8 file at or below 4 MiB and the XMLTV file at or below 12 MiB                               |
+| The request says the proposal is invalid  | Unsupported metadata, encoding, or file shape | Re-select the files and use the browser chooser; do not provide a path or edit the request envelope          |
+| The proposal says analysis is unavailable | The candidate parser rejected the input       | Confirm the playlist is a valid M3U and the guide is valid XMLTV, then retry; raw parser details stay hidden |
+| The proposal has no guide                 | XMLTV was omitted                             | This is supported no-guide mode; review playlist counts without guide-match counts                           |
+
+The server caps the encoded request at 24 MiB and removes its temporary
+request workspace after success or failure. If the loopback server is stopped,
+restart it from the repository root and reload the page. Do not paste playlist
+contents, stream URLs, credentials, or private paths into bug reports.
+
+The proposal summary shows aggregate counts, fixed warnings, and a plain
+candidate-only next action. It does not expose source URLs, raw uploaded
+content, credentials, private paths, parser internals, or accepted-state data.
+
 ## Build problems
 
 | Symptom                                                    | Likely cause                                                                                                         | What to do                                                                                                                                                       |
@@ -104,10 +128,11 @@ Yes. The built React/Vite landing dashboard is served by the local loopback
 server and reads the safe `GET /api/status` contract. It shows whether
 ChannelForge is running, whether an accepted lineup is available, and the next
 Guided Setup direction without changing anything. A `503`, network failure, or
-invalid response produces a safe unavailable message. Full API-backed Guided
-Setup, Docker, and Windows server/service support are not implemented yet.
-Existing Tauri/React work remains an optional reusable reference and future
-packaging path.
+invalid response produces a safe unavailable message. Browser Guided Setup
+proposal analysis is implemented through the bounded candidate-only endpoint
+described above; acceptance, Docker, and Windows server/service support are not
+implemented yet. Existing Tauri/React work remains an optional reusable
+reference and future packaging path.
 
 **Why does the build fail instead of just skipping a bad source?**
 A malformed provider/EPG URL or an out-of-bounds path fails the whole build on purpose. ChannelForge prefers a loud, early failure over silently producing a partial or wrong lineup — see [ADR 0005](../adr/0005-evidence-over-assumptions.md).
