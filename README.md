@@ -80,6 +80,14 @@ ChannelForge is designed to detect that drift, explain what changed, and eventua
 
 > **Early Alpha — not production-ready yet**
 
+Repository publication is complete: the repository is public, protected, and
+post-merge `main` CI is green. That does not mean a downloadable product release
+is ready. The first release is gated by
+[First Usable Alpha readiness](docs/release/FIRST_USABLE_ALPHA.md), tracked in
+issue #164, with a target identity of `v0.1.0-alpha.1` only after its
+install/start, beginner-workflow, persistence, refresh, packaging, clean-machine,
+and exact-head evidence requirements are complete.
+
 Working today:
 
 - PowerShell module layout
