@@ -118,7 +118,7 @@ Working today:
 
 ### UI architecture
 
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). A minimal read-only loopback server and placeholder shell are available through `scripts/Start-ChannelForgeWebServer.ps1`; when `gui/dist` contains a Vite build, the server serves its `index.html` and allowlisted static assets instead. The built React/Vite landing surface now consumes `GET /api/status` and displays only beginner-safe running, lineup, next-action, read-only, and unavailable states. Full API-backed Guided Setup, Docker, and Windows service implementation remain future work.
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). `scripts/Start-ChannelForgeWebServer.ps1` serves the built React/Vite UI and allowlisted static assets, exposes the read-only `GET /api/status` dashboard, and now accepts the bounded candidate-only `POST /api/guided-setup/proposal` request used by browser Guided Setup. The browser proposal path does not accept, publish, mutate provider/downstream state, or expose private paths.
 
 Existing React/TypeScript/Tauri work is preserved as reusable layout, design-token, Guided Setup, validation/review, saved-lineup, accessibility, and beginner-copy reference work. Tauri is optional future packaging, not the primary product shell.
 
@@ -126,11 +126,11 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 
 | Area                                      | Status                                                                                                      |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Built UI or safe placeholder with read-only `/api/status` dashboard available; Guided Setup actions pending |
+| Browser web UI served by engine           | Built UI with read-only `/api/status` dashboard and candidate-only browser Guided Setup proposal |
 | Docker deployment                         | Architecture recorded; implementation pending                                                               |
 | Windows server/service install            | Architecture recorded; implementation pending                                                               |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
-| Guided Setup layout                       | Preview only (prototype)                                                                                    |
+| Guided Setup layout                       | Browser proposal flow works; native picker/review remains prototype/reference work              |
 | Native file-picker bridge                 | Works now (prototype)                                                                                       |
 | Display-safe selection state              | Works now (prototype)                                                                                       |
 | Pre-parse selection checks                | Works now (prototype)                                                                                       |

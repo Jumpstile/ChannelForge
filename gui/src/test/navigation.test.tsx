@@ -47,29 +47,20 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 
-  it('opens Guided Setup and shows display-safe unselected states without enabling controls', async () => {
+  it('opens browser Guided Setup with bounded candidate-only file controls', async () => {
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Open Guided Setup' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
-    expect(screen.getByText('Your playlist tells ChannelForge what channels you have.')).toBeInTheDocument()
-    expect(screen.getByText('Your guide tells ChannelForge what is on those channels.')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Preview only. Playlist content is not checked here.')).toBeInTheDocument()
-    expect(screen.getByText('Preview only. Guide content is not checked here.')).toBeInTheDocument()
+    expect(screen.getByText('Choose files from this browser. No local path is sent, and the proposal remains candidate-only.')).toBeInTheDocument()
+    expect(screen.getByText('Select exactly one M3U or M3U8 playlist.')).toBeInTheDocument()
+    expect(screen.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeInTheDocument()
     expect(screen.getAllByText('Not selected')).toHaveLength(3)
-    expect(screen.getAllByText('Not checked')).toHaveLength(6)
-    expect(screen.getByText('No workspace is selected.')).toBeInTheDocument()
-    expect(screen.getByText('No playlist is selected.')).toBeInTheDocument()
-    expect(screen.getByText('No guide is selected.')).toBeInTheDocument()
-    for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
-      expect(screen.getByRole('button', { name: label })).toBeDisabled()
-    }
+    expect(screen.getAllByText('Not checked')).toHaveLength(5)
+    expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()
+    expect(screen.getByLabelText('Choose guide (optional)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Analyze proposal' })).toBeDisabled()
   })
 
   it('does not expose future workflow pages as active controls', () => {

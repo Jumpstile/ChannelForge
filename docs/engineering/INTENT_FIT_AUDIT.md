@@ -95,9 +95,10 @@ architecture reset does not change that conclusion; it requires future web UI
 state changes to use the engine/API boundary rather than native-only access.
 The Issue #145 CI portion is now `PASS`: the protected `quality-gates` job
 executes GUI TypeScript, Vitest, and locked optional-wrapper Rust checks. The
-overall GUI area remains `PASS_WITH_GAPS` only because the browser web UI and
-engine HTTP/API entry points from Issue #150 are not implemented in this slice.
-No browser behavior is claimed, and no fake web checks were added.
+The overall GUI area was previously `PASS_WITH_GAPS` because browser API
+entry points were not implemented. Issue #166 adds the bounded
+candidate-proposal entry point; browser acceptance and downstream publication
+remain intentionally outside that slice. No fake web checks were added.
 
 Local validation from the exact-base worktree passed `npm run typecheck`,
 `npm test` (7 files, 64 tests), and
@@ -245,6 +246,33 @@ Focused GUI tests and the required repository validation gates provide evidence
 for this slice. Full Guided Setup API behavior, mutation flows, Docker,
 Windows server/service deployment, packaging, release, and tester builds remain
 outside scope.
+
+## Issue #166 browser Guided Setup proposal slice
+
+| Area | Intended behavior | Entry points | Evidence | Disposition |
+| --- | --- | --- | --- | --- |
+| Browser proposal request | Accept exactly one bounded M3U upload and an optional XMLTV upload through a strict same-origin JSON contract, then reuse the candidate engine in-process. | `POST /api/guided-setup/proposal`; `New-ChannelForgeCandidateProposal`; `gui/src/app/guidedSetupProposal.ts` | `tests/unit/WebServer.Tests.ps1`; `gui/src/test/guided-setup-browser.test.tsx`; `gui/src/test/navigation.test.tsx` | PASS |
+| Candidate-only safety | Return an allowlisted aggregate proposal projection and never mutate accepted state, provider state, downstream state, or guide publication. | `Get-ChannelForgeGuidedSetupProposalResponse`; `GuidedSetupPage` browser branch | Mutation snapshot, safety-field, redaction, method-allowlist, malformed-input, and cleanup assertions in focused tests | PASS |
+
+The request is `application/json` with `schemaVersion: 1`, one
+`m3u.contentBase64` object, and optional `xmltv.contentBase64`. Duplicate or
+unknown properties, invalid base64, content-type mismatch, declared-length
+mismatch, and oversized encoded/decoded bodies fail closed. The 16 MiB encoded
+body, 4 MiB M3U, and 12 MiB XMLTV bounds are enforced at the HTTP and decoded
+file boundaries. The server stages fixed filenames under a GUID-named
+`output/.web-guided-setup` request directory, calls the public
+candidate-only module boundary, projects only counts/warnings/safe identity
+hashes, and removes the request directory in `finally`.
+
+No browser Accept/Publish control was added. The proposal response explicitly
+reports `PublicationState=CandidateOnly`, `CanPublish=false`, and `none` for
+accepted-state, provider, downstream, and guide-publication mutation. Existing
+GET/HEAD status/static behavior remains covered by the same web server suite.
+
+Disposition: `PASS` for the Issue #166 proposal boundary. Browser acceptance,
+downstream integrations, Docker, Windows service installation, packaging,
+release, and tester distribution remain outside this slice and outside the
+approval.
 
 ## Public-readiness license, security, and Actions preparation
 

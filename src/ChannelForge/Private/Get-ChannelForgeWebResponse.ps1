@@ -178,7 +178,10 @@ function Get-ChannelForgeWebResponse {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
         [ValidateNotNullOrEmpty()]
         [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot),
-        [string]$StaticRoot = ''
+        [string]$StaticRoot = '',
+        [byte[]]$BodyBytes = $null,
+        [string]$ContentType = '',
+        [long]$ContentLength = -1
     )
 
     $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
@@ -191,9 +194,29 @@ function Get-ChannelForgeWebResponse {
     $staticHeaders = [ordered]@{}
     foreach ($header in $commonHeaders.GetEnumerator()) { $staticHeaders[$header.Key] = $header.Value }
     $staticHeaders['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+    $requestContentType = $ContentType
     $contentType = 'application/json; charset=utf-8'
     $methodName = if ($null -eq $Method) { '' } else { $Method.ToUpperInvariant() }
     $requestPath = if ([string]::IsNullOrWhiteSpace($Path)) { '/' } else { ($Path -split '\?', 2)[0] }
+    $proposalPath = '/api/guided-setup/proposal'
+    if ($requestPath.ToLowerInvariant() -eq $proposalPath) {
+        if ($methodName -ne 'POST') {
+            $headers = [ordered]@{}
+            foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
+            $headers['Allow'] = 'POST'
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 405 -ErrorCode 'method-not-allowed' -Message 'Only POST requests are supported for guided setup proposals.' -Headers $headers
+        }
+        if ($null -eq $BodyBytes) {
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'missing-request-body' -Message 'A guided setup proposal request is required.' -Headers $commonHeaders
+        }
+        if ($ContentLength -gt (Get-ChannelForgeWebProposalLimits).MaxRequestBodyBytes) {
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 413 -ErrorCode 'request-too-large' -Message 'The proposal request is too large.' -Headers $commonHeaders
+        }
+        if ($ContentLength -ge 0 -and $ContentLength -ne $BodyBytes.Length) {
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'request-length-mismatch' -Message 'The proposal request length does not match its body.' -Headers $commonHeaders
+        }
+        return Get-ChannelForgeGuidedSetupProposalResponse -BodyBytes $BodyBytes -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
+    }
 
     if ($methodName -notin @('GET', 'HEAD')) {
         $headers = [ordered]@{}

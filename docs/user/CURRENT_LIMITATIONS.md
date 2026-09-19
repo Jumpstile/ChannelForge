@@ -14,17 +14,18 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Deterministically merging and exporting validated local or remote XMLTV data to `output/merged.xml`; a failed run leaves that public path absent and quarantines any prior artifact for rollback/inspection only.
 - A safe, local-only provider configuration workflow that never requires editing a tracked file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
-- A ChannelForge Guided Setup / Beginner Workflow (`scripts/Build-My-Lineup.ps1`) that stages a candidate, reports exact/ambiguous guide identity, supports no-guide builds, requires explicit acceptance, and promotes through the immutable accepted-generation boundary.
+- A browser Guided Setup proposal flow served by the loopback web server. It accepts one bounded M3U upload and an optional bounded XMLTV upload through `POST /api/guided-setup/proposal`, reuses the candidate engine, returns a redacted summary, and cleans its request workspace without accepting or publishing anything.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
 The primary UI architecture is a browser-based local web UI served by the
-ChannelForge engine. The existing React/Vite application can be built and
-served locally. The landing surface now consumes the same-origin
-`GET /api/status` endpoint and displays beginner-safe running, accepted-lineup,
-next-action, read-only, loading, and unavailable states. It remains a
-presentation-only surface; it does not change a lineup.
+ChannelForge engine. The React/Vite application consumes same-origin
+`GET /api/status` and, from Guided Setup, sends browser-selected bytes to
+`POST /api/guided-setup/proposal`. The proposal response is candidate-only:
+it reports aggregate channel/guide coverage and fixed safety classifications,
+but does not accept, publish, update provider/downstream state, or expose raw
+source values.
 
 Build and serve it from the repository root:
 
@@ -54,11 +55,11 @@ data, credentials, private paths, hashes, generation IDs, accepted-generation
 contents, or parser details.
 
 Docker container and Windows server/service installation remain intended primary
-deployment modes but are not implemented yet. The existing Tauri prototype
-still depends on local native picker and PowerShell bridge behavior. Those
-assumptions must be re-evaluated before web UI implementation; browser
-state-changing behavior must use engine HTTP/API commands and the immutable
-acceptance boundary.
+deployment modes but are not implemented yet. Browser Guided Setup currently
+stops at a candidate proposal; browser acceptance, downstream publication,
+automatic refresh, and native saved-lineup parity remain outside this slice.
+The engine HTTP/API boundary, not React or a browser-local file path, remains
+the only future authority for state-changing behavior.
 
 ### GUI status
 
@@ -66,11 +67,11 @@ The following describes preserved prototype/reference work, not a primary deploy
 
 | Area                                      | Status                                                                                                      |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Built UI or safe placeholder with read-only `/api/status` dashboard available; Guided Setup actions pending |
-| Docker deployment                         | Architecture recorded; implementation pending                                                               |
-| Windows server/service install            | Architecture recorded; implementation pending                                                               |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                       |
-| Guided Setup layout                       | Preview only (prototype)                                                                                    |
+| Browser web UI served by engine           | Built UI with read-only `/api/status` and candidate-only Guided Setup proposal |
+| Docker deployment                         | Architecture recorded; implementation pending                                  |
+| Windows server/service install            | Architecture recorded; implementation pending                                  |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                            |
+| Guided Setup layout                       | Browser proposal works; native picker/review remains prototype/reference work    |
 | Native file-picker bridge                 | Works now (prototype)                                                                                       |
 | Display-safe selection state              | Works now (prototype)                                                                                       |
 | Pre-parse selection checks                | Works now (prototype)                                                                                       |

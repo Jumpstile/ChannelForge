@@ -11,33 +11,20 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
   await expect(page.locator('body')).not.toContainText('https://')
 })
 
-test('renders the preview-only Guided Setup selection contract', async ({ page }) => {
+test('renders the browser Guided Setup candidate proposal contract', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Guided setup steps' })).toBeVisible()
-  await expect(page.getByText('Your playlist tells ChannelForge what channels you have.')).toBeVisible()
-  await expect(page.getByText('Your guide tells ChannelForge what is on those channels.')).toBeVisible()
-  await expect(
-    page.getByText(
-      'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.',
-    ),
-  ).toBeVisible()
-  await expect(page.getByText('Preview only. Playlist content is not checked here.')).toBeVisible()
-  await expect(page.getByText('Preview only. Guide content is not checked here.')).toBeVisible()
+  await expect(page.getByText('Choose files from this browser. No local path is sent, and the proposal remains candidate-only.')).toBeVisible()
+  await expect(page.getByText('Select exactly one M3U or M3U8 playlist.')).toBeVisible()
+  await expect(page.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeVisible()
   const setupRegion = page.getByRole('region', { name: 'Guided setup steps' })
   await expect(setupRegion.getByText('Not selected', { exact: true })).toHaveCount(3)
   await expect(setupRegion.getByText('Not checked', { exact: true })).toHaveCount(5)
-  await expect(page.getByRole('heading', { level: 2, name: 'Check their match' })).toBeVisible()
-  await expect(page.getByText('Playlist and guide matching has not been checked.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Check playlist and guide' })).toBeDisabled()
-  await expect(page.getByText('No workspace is selected.')).toBeVisible()
-  await expect(page.getByText('No playlist is selected.')).toBeVisible()
-  await expect(page.getByText('No guide is selected.')).toBeVisible()
-  for (const label of ['Choose workspace', 'Add playlist', 'Add guide']) {
-    await expect(page.getByRole('button', { name: label })).toBeDisabled()
-  }
-  await expect(page.getByText('Preview only', { exact: true })).toHaveCount(5)
+  await expect(page.getByLabel('Choose playlist')).toBeVisible()
+  await expect(page.getByLabel('Choose guide (optional)')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Analyze proposal' })).toBeDisabled()
   await expect(page.locator('body')).not.toContainText('C:\\')
   await expect(page.locator('body')).not.toContainText('C:/')
   await expect(page.locator('body')).not.toContainText('https://')

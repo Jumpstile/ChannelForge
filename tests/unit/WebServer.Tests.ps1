@@ -11,14 +11,17 @@ BeforeAll {
             [Parameter(Mandatory)][string]$Method,
             [Parameter(Mandatory)][string]$Path,
             [string]$RepositoryRoot = $script:StatusRoot,
-            [string]$StaticRoot = ''
+            [string]$StaticRoot = '',
+            [byte[]]$BodyBytes = $null,
+            [string]$ContentType = '',
+            [long]$ContentLength = -1
         )
 
         $module = Get-Module -Name ChannelForge
         return & $module {
-            param($RequestMethod, $RequestPath, $RequestRoot, $RequestStaticRoot)
-            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath -RepositoryRoot $RequestRoot -StaticRoot $RequestStaticRoot
-        } $Method $Path $RepositoryRoot $StaticRoot
+            param($RequestMethod, $RequestPath, $RequestRoot, $RequestStaticRoot, $RequestBody, $RequestContentType, $RequestContentLength)
+            Get-ChannelForgeWebResponse -Method $RequestMethod -Path $RequestPath -RepositoryRoot $RequestRoot -StaticRoot $RequestStaticRoot -BodyBytes $RequestBody -ContentType $RequestContentType -ContentLength $RequestContentLength
+        } $Method $Path $RepositoryRoot $StaticRoot $BodyBytes $ContentType $ContentLength
     }
 
     function New-TestAcceptedState {
@@ -60,6 +63,22 @@ BeforeAll {
                     }
                 }
         )
+    }
+    function New-TestProposalBody {
+        param(
+            [string]$PlaylistText = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n",
+            [string]$GuideText = '',
+            [switch]$WithGuide
+        )
+
+        $payload = [ordered]@{
+            schemaVersion = 1
+            m3u = [ordered]@{ contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($PlaylistText)) }
+        }
+        if ($WithGuide) {
+            $payload.xmltv = [ordered]@{ contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($GuideText)) }
+        }
+        return [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
     }
 }
 
@@ -294,4 +313,73 @@ Describe 'ChannelForge web server foundation' {
 
         $combined | Should -Not -Match '(?i)(https?://|ftp://|file://|ACCOUNT_ID|API_TOKEN|PASSWORD|TOKEN|SECRET|[A-Z]:[\\/]|\\\\)'
     }
+    It 'accepts an M3U-only browser proposal and removes its request workspace' {
+        $root = Join-Path $TestDrive 'proposal-no-guide'
+        $body = New-TestProposalBody
+        $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal?source=browser' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $response.Body | ConvertFrom-Json
+
+        $response.StatusCode | Should -Be 200
+        $payload.Version | Should -Be 'guided-setup/proposal/v1'
+        $payload.Proposal.GuideStatus | Should -Be 'NO_GUIDE_SELECTED'
+        $payload.Safety.PublicationState | Should -Be 'CandidateOnly'
+        $payload.Safety.CanPublish | Should -BeFalse
+        $payload.Safety.AcceptedStateMutation | Should -Be 'none'
+        $payload.Safety.ProviderMutation | Should -Be 'none'
+        $payload.Safety.DownstreamMutation | Should -Be 'none'
+        $payload.Safety.GuidePublication | Should -Be 'none'
+        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup') -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        $response.Body | Should -Not -Match '(?i)(https?://|file://|[A-Z]:[\\/]|\\\\|input\\.m3u|guide\\.xml)'
+    }
+
+    It 'accepts one XMLTV guide and leaves repository state unchanged' {
+        $root = Join-Path $TestDrive 'proposal-with-guide'
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'provider.json') -Value '{"provider":"fixture"}' -NoNewline
+        $before = Get-TestTreeSnapshot -Root $root
+        $body = New-TestProposalBody -GuideText $guide -WithGuide
+        $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $response.Body | ConvertFrom-Json
+        $after = Get-TestTreeSnapshot -Root $root
+
+        $response.StatusCode | Should -Be 200
+        $payload.Proposal.GuideStatus | Should -Be 'XMLTV_SELECTED'
+        $payload.Proposal.ChannelCount | Should -Be 1
+        $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+    }
+
+    It 'fails closed for unsupported content, duplicate or unknown properties, and malformed uploads' {
+        $root = Join-Path $TestDrive 'proposal-invalid'
+        $valid = New-TestProposalBody
+        $duplicate = [Text.Encoding]::UTF8.GetBytes('{"schemaVersion":1,"m3u":{"contentBase64":"QQ=="},"m3u":{"contentBase64":"QQ=="}}')
+        $unknown = [Text.Encoding]::UTF8.GetBytes('{"schemaVersion":1,"root":"C:\\private","m3u":{"contentBase64":"QQ=="}}')
+        foreach ($body in @([Text.Encoding]::UTF8.GetBytes('{'), $duplicate, $unknown)) {
+            $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json'
+            $response.StatusCode | Should -Be 400
+            $response.Body | Should -Not -Match '(?i)(C:\\\\private|[A-Z]:[\\\\/]|stack|exception)'
+        }
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $valid -ContentType 'text/plain').StatusCode | Should -Be 415
+        $malformed = New-TestProposalBody -PlaylistText '#EXTM3U`nnot a playlist'
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $malformed -ContentType 'application/json').StatusCode | Should -Be 422
+        $empty = New-TestProposalBody -PlaylistText "#EXTM3U`n"
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $empty -ContentType 'application/json').StatusCode | Should -Be 422
+        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup') -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+
+    It 'enforces exact POST allowlisting, declared length, and request size limits' {
+        $root = Join-Path $TestDrive 'proposal-bounds'
+        $body = New-TestProposalBody
+        $get = Get-TestWebResponse -Method GET -Path '/api/guided-setup/proposal' -RepositoryRoot $root
+        $head = Get-TestWebResponse -Method HEAD -Path '/api/guided-setup/proposal' -RepositoryRoot $root
+        $get.StatusCode | Should -Be 405
+        $get.Headers.Allow | Should -Be 'POST'
+        $head.StatusCode | Should -Be 405
+        (Get-TestWebResponse -Method POST -Path '/health' -RepositoryRoot $root -BodyBytes $body).StatusCode | Should -Be 405
+        (Get-TestWebResponse -Method POST -Path '/api/status' -RepositoryRoot $root -BodyBytes $body).StatusCode | Should -Be 405
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength ($body.Length + 1)).StatusCode | Should -Be 400
+        $oversized = [byte[]]::new((16MB) + 1)
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $oversized -ContentType 'application/json' -ContentLength $oversized.Length).StatusCode | Should -Be 413
+    }
+
 }

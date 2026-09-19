@@ -29,6 +29,42 @@ src/ChannelForge/
 
 `ChannelForge.psm1` loads files in this order: classes first (PowerShell classes must exist before any function that references them), then private helpers, then public functions. Only the functions in `Public/` are exported via `Export-ModuleMember`.
 
+## Browser Guided Setup API boundary
+
+The browser proposal path is deliberately split from CLI acceptance:
+
+```text
+POST /api/guided-setup/proposal
+  -> bounded JSON/base64 request adapter
+  -> server-owned per-request staging directory
+  -> New-ChannelForgeCandidateProposal (in-process)
+  -> allowlisted guided-setup/proposal/v1 projection
+  -> request-directory cleanup
+```
+
+The request envelope is version `schemaVersion: 1` with exactly one
+`m3u.contentBase64` object and an optional `xmltv.contentBase64` object. Unknown
+properties, duplicate properties, invalid base64, unsupported content types,
+declared-length mismatches, and decoded files above 4 MiB (M3U) or 12 MiB
+(XMLTV) fail closed. The encoded HTTP body is capped at 16 MiB. Filenames and
+paths never enter the request contract.
+
+`New-ChannelForgeCandidateProposal` is a public, candidate-only module boundary
+shared by `scripts/Build-Candidate.ps1` and the web adapter. It has no
+acceptance, provider-update, downstream, or guide-publication switch. Its
+`OutputRoot` is the request-owned candidate workspace; the web handler never
+invokes `Build-My-Lineup.ps1`, starts a child PowerShell process, or serializes
+raw candidate objects.
+
+The response projection is intentionally aggregate: channel count, exact,
+unmatched, ambiguous, and guide-only counts; fixed warning messages; and
+candidate identity hashes. It excludes raw M3U/XMLTV content, source URLs,
+private paths, credentials, parser exceptions, and PowerShell metadata. The
+projection always marks `PublicationState=CandidateOnly` and
+`CanPublish=false`. Focused coverage lives in
+`tests/unit/WebServer.Tests.ps1`; browser behavior is covered by
+`gui/src/test/guided-setup-browser.test.tsx`.
+
 ## Adding a function
 
 1. Decide whether the function belongs in `Public/` (used by callers outside the module) or `Private/` (an internal helper).
@@ -140,6 +176,7 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | `Export-ChannelForgeM3UPlaylist`          | Render a `Channel[]` to deterministic M3U text                                                         |
 | `New-ChannelForgeChannel`                 | Construct a `Channel` domain object                                                                    |
 | `New-ChannelForgeBuildContext`            | Construct a `BuildContext` domain object                                                               |
+| `New-ChannelForgeCandidateProposal`         | Build one deterministic candidate namespace from server/CLI-owned M3U/XMLTV paths without acceptance or publication |
 | `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel`                                                                |
 | `Assert-ChannelForgeWritePath`            | Throw unless a target path resolves under an explicitly approved root                                  |
 | `Assert-ChannelForgeReadPath`             | Throw unless a configured read path (e.g. `local_playlist`) resolves under an explicitly approved root |
