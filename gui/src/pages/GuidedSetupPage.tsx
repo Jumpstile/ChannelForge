@@ -1,6 +1,13 @@
 import { useRef, useState } from 'react'
 import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-react'
-import { submitGuidedSetupProposal, type GuidedSetupProposal, type GuidedSetupProposalSubmitter } from '../app/guidedSetupProposal'
+import {
+  acceptGuidedSetupProposal,
+  submitGuidedSetupProposal,
+  type GuidedSetupAcceptance,
+  type GuidedSetupAcceptanceSubmitter,
+  type GuidedSetupProposal,
+  type GuidedSetupProposalSubmitter,
+} from '../app/guidedSetupProposal'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
@@ -82,17 +89,29 @@ type GuidedSetupPageProps = {
   onMatchStateChange?: (state: PlaylistGuideMatchState) => void
   onOpenReview?: () => void
   proposalSubmitter?: GuidedSetupProposalSubmitter
+  acceptanceSubmitter?: GuidedSetupAcceptanceSubmitter
 }
-function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: GuidedSetupProposalSubmitter }) {
+function BrowserGuidedSetupPage({
+  proposalSubmitter,
+  acceptanceSubmitter,
+}: {
+  proposalSubmitter: GuidedSetupProposalSubmitter
+  acceptanceSubmitter: GuidedSetupAcceptanceSubmitter
+}) {
   const [playlist, setPlaylist] = useState<File | null>(null)
   const [guide, setGuide] = useState<File | null>(null)
   const [proposal, setProposal] = useState<GuidedSetupProposal | null>(null)
+  const [accepted, setAccepted] = useState<GuidedSetupAcceptance | null>(null)
+  const [acknowledged, setAcknowledged] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [accepting, setAccepting] = useState(false)
 
   const chooseFile = (file: File | undefined, kind: 'playlist' | 'guide') => {
     setError(null)
     setProposal(null)
+    setAccepted(null)
+    setAcknowledged(false)
     if (kind === 'playlist') setPlaylist(file ?? null)
     else setGuide(file ?? null)
   }
@@ -105,6 +124,8 @@ function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: Guid
     setSubmitting(true)
     setError(null)
     setProposal(null)
+    setAccepted(null)
+    setAcknowledged(false)
     try {
       setProposal(await proposalSubmitter(playlist, guide))
     } catch (submissionError) {
@@ -114,21 +135,34 @@ function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: Guid
     }
   }
 
+  const accept = async () => {
+    if (!proposal || !proposal.Proposal.CanAccept || !acknowledged) return
+    setAccepting(true)
+    setError(null)
+    try {
+      setAccepted(await acceptanceSubmitter(proposal.Proposal.ProposalId))
+    } catch (acceptanceError) {
+      setError(acceptanceError instanceof Error ? acceptanceError.message : 'The reviewed proposal could not be accepted safely.')
+    } finally {
+      setAccepting(false)
+    }
+  }
+
   return (
     <div className="page-stack">
       <PageHeader description="Choose a playlist and an optional guide. ChannelForge will analyze a candidate without publishing it." eyebrow="Guided setup" title="Set up your workspace" />
-      <StatusBanner status="Ready" title="Browser proposal">
-        <p>Choose files from this browser. No local path is sent, and the proposal remains candidate-only.</p>
+      <StatusBanner status={accepted ? 'Success' : 'Ready'} title={accepted ? 'Accepted lineup' : 'Browser review'}>
+        <p>{accepted ? 'The reviewed lineup is now the accepted local state.' : 'Choose files from this browser. The review is server-owned until you explicitly acknowledge acceptance.'}</p>
       </StatusBanner>
       {error ? <p className="setup-picker-error" role="alert">{error}</p> : null}
       <section className="setup-step-grid" aria-label="Guided setup steps">
         <article className="setup-step-card">
           <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FolderOpen size={22} /></div><div><p className="setup-step-number">Step 1</p><h2>Choose workspace</h2></div></div>
-          <p className="setup-step-description">Browser proposals use a server-owned temporary workspace.</p>
+          <p className="setup-step-description">Browser reviews use a server-owned workspace.</p>
           <div className="setup-step-selection" role="status" aria-label="Choose workspace selection status">
-            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>Not selected</strong></div>
-            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Validation</span><strong>Not checked</strong></div>
-            <span>No workspace path is requested by the browser flow.</span>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>Server-owned</strong></div>
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Validation</span><strong>Ready</strong></div>
+            <span>No local path is requested by the browser flow.</span>
           </div>
         </article>
         <article className="setup-step-card">
@@ -155,12 +189,12 @@ function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: Guid
         </article>
       </section>
       <section className="setup-match-card" aria-labelledby="browser-proposal-title">
-        <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">Candidate only</p><h2 id="browser-proposal-title">Analyze proposal</h2></div></div>
-        <p className="setup-match-note">The server reads the selected bytes, reuses the candidate engine, and removes its temporary request workspace. Accepted state, provider files, downstream outputs, and guide publication stay unchanged.</p>
-        <div className="setup-step-footer"><span className="setup-step-status">{proposal ? 'Proposal ready' : 'Playlist required'}</span><button aria-busy={submitting} className="button button-primary" disabled={!playlist || submitting} type="button" onClick={() => void submit()}>{submitting ? 'Analyzing proposal…' : 'Analyze proposal'}</button></div>
+        <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">{accepted ? 'Accepted' : proposal ? 'Review ready' : 'Review'}</p><h2 id="browser-proposal-title">{accepted ? 'Lineup accepted' : 'Analyze and review'}</h2></div></div>
+        <p className="setup-match-note">{accepted ? 'The browser acknowledgement committed the exact reviewed candidate through the existing immutable acceptance and recovery path. Provider files, downstream outputs, and scheduler state were not changed.' : 'The server stores the exact candidate bytes for this review. Accepted state remains unchanged until you check the acknowledgement and accept the reviewed proposal.'}</p>
+        <div className="setup-step-footer"><span className="setup-step-status">{accepted ? 'Accepted successfully' : proposal ? (proposal.Proposal.CanAccept ? 'Ready for acknowledgement' : 'Blocked by review') : 'Playlist required'}</span><button aria-busy={submitting} className="button button-primary" disabled={!playlist || submitting} type="button" onClick={() => void submit()}>{submitting ? 'Analyzing proposal…' : 'Analyze proposal'}</button></div>
         {proposal ? (
           <div className="setup-proposal-summary" role="status" aria-live="polite">
-            <strong>Candidate proposal ready. Nothing was published.</strong>
+            <strong>{accepted ? 'Accepted lineup confirmed.' : proposal.Proposal.CanAccept ? 'Review ready. Nothing has been accepted yet.' : 'Review blocked. Nothing has been accepted.'}</strong>
             <dl>
               <div><dt>Channels</dt><dd>{proposal.Proposal.ChannelCount}</dd></div>
               <div><dt>Exact guide matches</dt><dd>{proposal.Proposal.ExactGuideMatchCount}</dd></div>
@@ -168,6 +202,13 @@ function BrowserGuidedSetupPage({ proposalSubmitter }: { proposalSubmitter: Guid
               <div><dt>Guide-only records</dt><dd>{proposal.Proposal.GuideOnlyCount}</dd></div>
             </dl>
             {proposal.Warnings.length > 0 ? <ul>{proposal.Warnings.map((warning) => <li key={warning.Code}>{warning.Message}</li>)}</ul> : <p>No proposal warnings.</p>}
+            {proposal.Proposal.BlockingReasons.length > 0 ? <p role="alert">Acceptance is blocked until the review blockers are resolved.</p> : null}
+            {!accepted ? (
+              <div className="saved-lineup-action-row">
+                <label className="saved-lineup-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /> I reviewed these results and want to accept this exact proposal.</label>
+                <button aria-busy={accepting} className="button button-primary" disabled={!proposal.Proposal.CanAccept || !acknowledged || accepting} type="button" onClick={() => void accept()}>{accepting ? 'Accepting…' : 'Accept reviewed proposal'}</button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -184,6 +225,7 @@ export function GuidedSetupPage({
   onMatchStateChange,
   onOpenReview,
   proposalSubmitter = submitGuidedSetupProposal,
+  acceptanceSubmitter = acceptGuidedSetupProposal,
 }: GuidedSetupPageProps = {}) {
   const [selectionStates, setSelectionStates] = useState(setupSelectionStates)
   const [playlistContent, setPlaylistContent] = useState(createInitialPlaylistContentState)
@@ -200,7 +242,7 @@ export function GuidedSetupPage({
   const [matching, setMatching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
   const selectionVersion = useRef(0)
-  if (!pickerAvailable) return <BrowserGuidedSetupPage proposalSubmitter={proposalSubmitter} />
+  if (!pickerAvailable) return <BrowserGuidedSetupPage proposalSubmitter={proposalSubmitter} acceptanceSubmitter={acceptanceSubmitter} />
 
   const handleSelect = async (kind: SetupSelectionKind) => {
     const operationVersion = selectionVersion.current + 1

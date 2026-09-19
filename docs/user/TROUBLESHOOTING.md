@@ -58,29 +58,41 @@ The `/health` and `/api/status` endpoints return safe status JSON only. They do
 not expose provider URLs, credentials, private paths, hashes, generation IDs,
 or parser details. Stop the foreground server with `Ctrl+C`.
 
-## Browser Guided Setup proposal
+## Browser Guided Setup review and acceptance
 
 The browser flow accepts one M3U/M3U8 playlist and an optional XMLTV guide. It
 posts file bytes to `POST /api/guided-setup/proposal` as a bounded JSON/base64
-request. The browser never sends a local path, and the result is a
-candidate-only proposal; it cannot accept or publish a lineup.
+request. The browser never sends a local path. The server returns an opaque
+review handle and persists the exact candidate under its ignored,
+server-owned review namespace.
 
-| Symptom                                   | Likely cause                                  | What to do                                                                                                   |
-| ----------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Analyze proposal** is disabled          | No playlist has been selected                 | Choose exactly one non-empty M3U or M3U8 file                                                                |
-| The request says the file is too large    | The decoded file exceeds its type limit       | Keep the M3U/M3U8 file at or below 4 MiB and the XMLTV file at or below 12 MiB                               |
-| The request says the proposal is invalid  | Unsupported metadata, encoding, or file shape | Re-select the files and use the browser chooser; do not provide a path or edit the request envelope          |
-| The proposal says analysis is unavailable | The candidate parser rejected the input       | Confirm the playlist is a valid M3U and the guide is valid XMLTV, then retry; raw parser details stay hidden |
-| The proposal has no guide                 | XMLTV was omitted                             | This is supported no-guide mode; review playlist counts without guide-match counts                           |
+| Symptom                                       | Likely cause                                   | What to do                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Analyze proposal** is disabled              | No playlist has been selected                  | Choose exactly one non-empty M3U or M3U8 file                                                               |
+| The request says the file is too large        | The decoded file exceeds its type limit        | Keep the M3U/M3U8 file at or below 4 MiB and the XMLTV file at or below 12 MiB                              |
+| The request says the proposal is invalid      | Unsupported metadata, encoding, or file shape  | Re-select the files and use the browser chooser; do not provide a path or edit the request envelope         |
+| The proposal says analysis is unavailable     | The candidate parser rejected the input        | Confirm the playlist is valid M3U and the guide is valid XMLTV, then retry; raw parser details stay hidden  |
+| Acceptance is blocked                         | Ambiguous guide identity needs review          | Resolve the guide ambiguity by choosing a new unambiguous guide; the browser never guesses a binding        |
+| Acceptance says the proposal is stale         | Another acceptance changed the reviewed parent | Return to Guided Setup and analyze the files again; ChannelForge never rebases a stale review automatically |
+| Acceptance says the proposal was already used | The opaque review session is terminal          | Do not resubmit it; analyze a new proposal when the source files change                                     |
+| Acceptance verification failed                | The durable candidate or session was altered   | Do not retry the same handle; analyze the files again and preserve the server response for diagnostics      |
+| The proposal has no guide                     | XMLTV was omitted                              | This is supported no-guide mode; review playlist counts and accept only after the acknowledgement           |
 
-The server caps the encoded request at 24 MiB and removes its temporary
-request workspace after success or failure. If the loopback server is stopped,
-restart it from the repository root and reload the page. Do not paste playlist
-contents, stream URLs, credentials, or private paths into bug reports.
+The proposal endpoint caps the encoded request at 24 MiB, and the acceptance
+endpoint caps its strict acknowledgement envelope at 8 KiB. The browser sends
+only `schemaVersion`, the opaque `proposalId`, and `acknowledged=true` to
+`POST /api/guided-setup/accept`; it never sends files, paths, hashes, parent
+state, or a force option.
 
-The proposal summary shows aggregate counts, fixed warnings, and a plain
-candidate-only next action. It does not expose source URLs, raw uploaded
-content, credentials, private paths, parser internals, or accepted-state data.
+The acceptance boundary verifies candidate bytes, coverage, ambiguity state,
+and the accepted parent before publishing the immutable generation graph. It
+does not refresh downstream consumer files, configure a scheduler, or mutate
+provider state. `/api/status` is updated after successful acceptance; its
+status page remains read-only.
+
+If the loopback server is stopped, restart it from the repository root and
+reload the page. Do not paste playlist contents, stream URLs, credentials,
+opaque proposal IDs, or private paths into bug reports.
 
 ## Build problems
 

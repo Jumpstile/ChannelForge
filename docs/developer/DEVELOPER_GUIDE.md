@@ -29,41 +29,76 @@ src/ChannelForge/
 
 `ChannelForge.psm1` loads files in this order: classes first (PowerShell classes must exist before any function that references them), then private helpers, then public functions. Only the functions in `Public/` are exported via `Export-ModuleMember`.
 
-## Browser Guided Setup API boundary
+## Browser Guided Setup API and acceptance boundary
 
-The browser proposal path is deliberately split from CLI acceptance:
+The browser flow has a durable review phase and a separate explicit
+acceptance phase:
 
 ```text
 POST /api/guided-setup/proposal
   -> bounded JSON/base64 request adapter
-  -> server-owned per-request staging directory
+  -> server-owned proposal workspace
   -> New-ChannelForgeCandidateProposal (in-process)
+  -> opaque review session + immutable candidate namespace
   -> allowlisted guided-setup/proposal/v1 projection
-  -> request-directory cleanup
+
+POST /api/guided-setup/accept
+  -> strict schemaVersion/proposalId/acknowledged request
+  -> recover accepted generation state
+  -> verify session, candidate bytes, ambiguity, and accepted parent
+  -> New-ChannelForgeAcceptance
+  -> Publish-ChannelForgeReviewedCandidate
+  -> Publish-ChannelForgeAcceptedGeneration
 ```
 
-The request envelope is version `schemaVersion: 1` with exactly one
-`m3u.contentBase64` object and an optional `xmltv.contentBase64` object. Unknown
-properties, duplicate properties, invalid base64, unsupported content types,
-declared-length mismatches, and decoded files above 4 MiB (M3U) or 12 MiB
-(XMLTV) fail closed. The encoded HTTP body is capped at 24 MiB so a request
-containing both maximum decoded files remains representable after base64
-encoding. Filenames and paths never enter the request contract.
+The proposal request envelope is version `schemaVersion: 1` with exactly one
+`m3u.contentBase64` object and an optional `xmltv.contentBase64` object.
+Unknown properties, duplicate properties, invalid base64, unsupported content
+types, declared-length mismatches, and decoded files above 4 MiB (M3U) or
+12 MiB (XMLTV) fail closed. The encoded HTTP body is capped at 24 MiB.
+Filenames and paths never enter the request contract.
 
-`New-ChannelForgeCandidateProposal` is a public, candidate-only module boundary
-shared by `scripts/Build-Candidate.ps1` and the web adapter. It has no
-acceptance, provider-update, downstream, or guide-publication switch. Its
-`OutputRoot` is the request-owned candidate workspace; the web handler never
-invokes `Build-My-Lineup.ps1`, starts a child PowerShell process, or serializes
-raw candidate objects.
+The server-owned proposal identity is a lowercase 32-hex opaque GUID. It is
+resolved only below ignored `output/.web-guided-setup/proposals/` storage.
+`session.json` records the candidate hash/build identity, exact candidate
+artifact namespace, accepted-parent generation/state/output binding, review
+counts, and `CanAccept`; its canonical self-hash detects accidental metadata
+changes. Candidate artifacts are revalidated by their content-addressed
+namespace before acceptance. A session is `Ready` until accepted; `Accepted`
+is terminal and duplicate submissions fail without another publication.
 
-The response projection is intentionally aggregate: channel count, exact,
-unmatched, ambiguous, and guide-only counts; fixed warning messages; and
-candidate identity hashes. It excludes raw M3U/XMLTV content, source URLs,
-private paths, credentials, parser exceptions, and PowerShell metadata. The
-projection always marks `PublicationState=CandidateOnly` and
-`CanPublish=false`. Focused coverage lives in
-`tests/unit/WebServer.Tests.ps1`; browser behavior is covered by
+The acceptance request is exactly:
+
+```json
+{
+  "schemaVersion": 1,
+  "proposalId": "<opaque 32-character id>",
+  "acknowledged": true
+}
+```
+
+It is bounded to 8 KiB and cannot carry files, paths, hashes, parent state, or
+a force option. Ambiguous guide bindings block both the UI and server. The
+server compares the recorded parent with the recovered current generation and
+lets the immutable generation store perform its locked parent validation. A
+stale review is rejected; it is never automatically rebased.
+
+`New-ChannelForgeCandidateProposal` remains candidate-only. The CLI
+`-Accept` adapter and browser acceptance both call
+`Publish-ChannelForgeReviewedCandidate`, which constructs the decision
+M3U/XMLTV/manifests, invokes `New-ChannelForgeAcceptance`, and delegates
+publication to `Publish-ChannelForgeAcceptedGeneration`. No browser route
+calls `Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes
+downstream consumer files, configures a scheduler, or mutates provider state.
+Recovery remains owned by `Recover-ChannelForgeAcceptedStateCore`.
+
+The response projection is intentionally aggregate: counts, fixed warning
+messages, the opaque proposal ID, blocking reasons, and mutation
+classifications. It excludes raw M3U/XMLTV content, source URLs, private paths,
+candidate/build hashes, credentials, parser exceptions, and PowerShell
+metadata. Focused coverage lives in `tests/unit/WebServer.Tests.ps1`,
+`tests/unit/Issue102AcceptedState.Tests.ps1`,
+`tests/unit/Issue103PromotionRecovery.Tests.ps1`, and
 `gui/src/test/guided-setup-browser.test.tsx`.
 
 ## Adding a function

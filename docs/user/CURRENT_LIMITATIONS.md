@@ -14,7 +14,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Deterministically merging and exporting validated local or remote XMLTV data to `output/merged.xml`; a failed run leaves that public path absent and quarantines any prior artifact for rollback/inspection only.
 - A safe, local-only provider configuration workflow that never requires editing a tracked file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
-- A browser Guided Setup proposal flow served by the loopback web server. It accepts one bounded M3U upload and an optional bounded XMLTV upload through `POST /api/guided-setup/proposal`, reuses the candidate engine, returns a redacted summary, and cleans its request workspace without accepting or publishing anything.
+- A browser Guided Setup review and acceptance flow served by the loopback web server. It accepts one bounded M3U upload and an optional bounded XMLTV upload through `POST /api/guided-setup/proposal`, persists a server-owned review session, and accepts only an explicit acknowledgement through `POST /api/guided-setup/accept`. Browser acceptance reuses immutable accepted-state publication and leaves provider, downstream, and scheduler state unchanged.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
@@ -23,9 +23,13 @@ The primary UI architecture is a browser-based local web UI served by the
 ChannelForge engine. The React/Vite application consumes same-origin
 `GET /api/status` and, from Guided Setup, sends browser-selected bytes to
 `POST /api/guided-setup/proposal`. The proposal response is candidate-only:
-it reports aggregate channel/guide coverage and fixed safety classifications,
-but does not accept, publish, update provider/downstream state, or expose raw
-source values.
+it reports aggregate channel/guide coverage, an opaque review handle, and fixed
+safety classifications. It does not expose raw source values or candidate
+hashes. A separate acknowledgement request to
+`POST /api/guided-setup/accept` commits only the exact server-owned reviewed
+candidate through the engine acceptance boundary.
+
+![Accepted browser Guided Setup review](assets/guided-browser-accepted.png)
 
 Build and serve it from the repository root:
 
@@ -45,8 +49,8 @@ confined to `gui/dist`, and do not provide directory listings or SPA fallback.
 When the status request succeeds, the page says **ChannelForge is running** and
 shows either **No lineup has been accepted yet** with **Open Guided Setup to
 begin**, or **An accepted lineup is available** with **Open Guided Setup to
-review**. It also explains: **This page can show status, but it cannot change
-your lineup yet.**
+review**. The status page is read-only; Guided Setup is the separate surface
+for explicit browser review and acceptance.
 
 If the server returns `503`, the request fails, or the response shape is
 unknown, the page shows a safe unavailable message rather than raw error
@@ -55,32 +59,32 @@ data, credentials, private paths, hashes, generation IDs, accepted-generation
 contents, or parser details.
 
 Docker container and Windows server/service installation remain intended primary
-deployment modes but are not implemented yet. Browser Guided Setup currently
-stops at a candidate proposal; browser acceptance, downstream publication,
-automatic refresh, and native saved-lineup parity remain outside this slice.
-The engine HTTP/API boundary, not React or a browser-local file path, remains
-the only future authority for state-changing behavior.
+deployment modes but are not implemented yet. Browser Guided Setup acceptance
+does not publish downstream consumer files, configure a scheduler, or mutate
+provider accounts; those are separate future operations. The engine HTTP/API
+boundary, not React or a browser-local file path, remains the only authority
+for state-changing behavior.
 
 ### GUI status
 
 The following describes preserved prototype/reference work, not a primary deployment surface:
 
-| Area                                      | Status                                                                         |
-| ----------------------------------------- | ------------------------------------------------------------------------------ |
-| Browser web UI served by engine           | Built UI with read-only `/api/status` and candidate-only Guided Setup proposal |
-| Docker deployment                         | Architecture recorded; implementation pending                                  |
-| Windows server/service install            | Architecture recorded; implementation pending                                  |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                          |
-| Guided Setup layout                       | Browser proposal works; native picker/review remains prototype/reference work  |
-| Native file-picker bridge                 | Works now (prototype)                                                          |
-| Display-safe selection state              | Works now (prototype)                                                          |
-| Pre-parse selection checks                | Works now (prototype)                                                          |
-| Playlist structural validation            | Works now — structural only (prototype)                                        |
-| Guide structural validation               | Works now — structural only (prototype)                                        |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                  |
-| Lineup review                             | Implemented — local checks passed (prototype)                                  |
-| Saved lineup                              | Implemented — native acceptance + local checks                                 |
-| Automatic updates                         | Planned / not built yet                                                        |
+| Area                                      | Status                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Browser web UI served by engine           | Built UI with read-only `/api/status`, durable review sessions, and explicit immutable acceptance |
+| Docker deployment                         | Architecture recorded; implementation pending                                                     |
+| Windows server/service install            | Architecture recorded; implementation pending                                                     |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
+| Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work        |
+| Native file-picker bridge                 | Works now (prototype)                                                                             |
+| Display-safe selection state              | Works now (prototype)                                                                             |
+| Pre-parse selection checks                | Works now (prototype)                                                                             |
+| Playlist structural validation            | Works now — structural only (prototype)                                                           |
+| Guide structural validation               | Works now — structural only (prototype)                                                           |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                     |
+| Lineup review                             | Implemented — local checks passed (prototype)                                                     |
+| Saved lineup                              | Implemented — native acceptance + local checks                                                    |
+| Automatic updates                         | Planned / not built yet                                                                           |
 
 ## Not implemented yet
 

@@ -28,19 +28,20 @@ true:
 
 - [ ] A user can install and start ChannelForge without setting up a developer
       environment.
-- [ ] ChannelForge Guided Setup / Beginner Workflow works end-to-end through the
-      intended user-facing surface.
-- [ ] A user can provide an M3U playlist and optional XMLTV source; no-guide mode
+- [x] ChannelForge Guided Setup / Beginner Workflow works end-to-end through
+      the browser review and immutable acceptance surface; clean-install
+      packaging is still a separate gate.
+- [x] A user can provide an M3U playlist and optional XMLTV source; no-guide mode
       remains supported.
-- [ ] Exact mapping is automated and uncertainty is surfaced clearly enough to
+- [x] Exact mapping is automated and uncertainty is surfaced clearly enough to
       block unsafe publication when review matters.
-- [ ] Explicit acceptance promotes only through the immutable accepted-generation
+- [x] Explicit acceptance promotes only through the immutable accepted-generation
       boundary.
 - [ ] Accepted configuration and state survive restart, and stable reruns are
       recognized without forcing setup to be repeated.
 - [ ] Normal source refresh/update works without forcing the user to redo setup.
-- [ ] The user can see what ChannelForge produced, whether it is accepted, and
-      what needs attention.
+- [x] The user can see what ChannelForge produced, whether it is accepted, and
+      what needs attention through redacted review/status summaries.
 - [ ] Update/upgrade behavior for the alpha is defined and beginner-readable.
 - [ ] Install/start/setup/accept/restart/refresh is smoke-tested from a clean
       supported environment.
