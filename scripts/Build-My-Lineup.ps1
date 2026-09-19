@@ -413,20 +413,11 @@ function New-WorkflowDecision {
         [Parameter(Mandatory)][string]$ReasonCode
     )
 
-    $base = [ordered]@{
-        Version = 'blocker-2-contract/v8-acceptance'
-        DecisionType = $DecisionType
-        CandidateEntryId = $CandidateEntryId
-        BindingId = $BindingId
-        ReasonCode = $ReasonCode
-        ReviewStatus = 'Resolved'
-    }
-    $decisionId = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{
-            Domain = 'decision-manifest/v2'
-            InputObject = $base
-        } | Select-Object -Last 1)
-    $base.DecisionId = $decisionId
-    return [pscustomobject]$base
+    return New-ChannelForgeAcceptanceDecision `
+        -DecisionType $DecisionType `
+        -CandidateEntryId $CandidateEntryId `
+        -BindingId $BindingId `
+        -ReasonCode $ReasonCode
 }
 
 function Get-WorkflowAcceptedM3UBytes {
@@ -488,123 +479,17 @@ function Publish-WorkflowAcceptedCandidate {
         [Parameter(Mandatory)][AllowNull()]$PriorSnapshot
     )
 
-    $candidateHash = [string]$CandidateManifest.CandidateManifestHash
-    $buildIdentity = [string]$CandidateManifest.BuildIdentity
-    $priorManifestHash = if ($null -eq $PriorSnapshot) { $null } else { [string]$PriorSnapshot.Manifest.Object.GenerationManifestHash }
-    $parentStateHash = if ($null -eq $PriorSnapshot) { $null } else { [string]$PriorSnapshot.State.Object.AcceptedStateHash }
-    $parentOutputHash = if ($null -eq $PriorSnapshot) { $null } else { [string]$PriorSnapshot.Output.Object.OutputManifestHash }
-    $parentGenerationManifestHash = $priorManifestHash
-
-    $decisionM3U = Invoke-ChannelForgePrivate -Name 'New-ChannelForgeDecisionM3U' -Arguments @{
-        CandidateManifestHash = $candidateHash
-        BuildIdentity = $buildIdentity
-        AcceptedParentGenerationManifestHash = $parentGenerationManifestHash
-        IncludedCandidateEntryIds = @($IncludedEntryIds | Sort-Object)
-        ExcludedCandidateEntryIds = @($ExcludedEntryIds | Sort-Object)
-        DecisionIds = @($DecisionRecords | Sort-Object @{ Expression = { if ($_.DecisionType -eq 'AcceptGuideBinding') { 0 } elseif ($_.DecisionType -eq 'IncludeCandidateEntry') { 3 } else { 4 } } }, DecisionId | ForEach-Object DecisionId)
-    } | Select-Object -Last 1
-
-    $xmltvStatus = if ($null -eq $XMLTVBytes) { 'NotGenerated' } else { 'Generated' }
-    $decisionXMLTV = if ($xmltvStatus -eq 'Generated') {
-        Invoke-ChannelForgePrivate -Name 'New-ChannelForgeDecisionXMLTV' -Arguments @{
-            CandidateManifestHash = $candidateHash
-            BuildIdentity = $buildIdentity
-            AcceptedParentGenerationManifestHash = $parentGenerationManifestHash
-            AcceptedXMLTVStatus = 'Generated'
-            IncludedCandidateEntryIds = @($decisionM3U.IncludedCandidateEntryIds)
-            ExcludedCandidateEntryIds = @($decisionM3U.ExcludedCandidateEntryIds)
-            DecisionIds = @($decisionM3U.DecisionIds)
-        } | Select-Object -Last 1
-    }
-    else { $null }
-
-    $decisionManifest = Invoke-ChannelForgePrivate -Name 'New-ChannelForgeDecisionManifest' -Arguments @{
-        CandidateManifestHash = $candidateHash
-        BuildIdentity = $buildIdentity
-        M3UDecision = $decisionM3U
-        XMLTVDecision = $decisionXMLTV
-        XMLTVDecisionStatus = $xmltvStatus
-    } | Select-Object -Last 1
-
-    # Consume the existing acceptance boundary before constructing the immutable
-    # publication graph. It performs complete candidate/decision coverage checks.
-    $acceptance = New-ChannelForgeAcceptance `
+    $expectedParent = if ($null -eq $PriorSnapshot) { $null } else { [string]$PriorSnapshot.Manifest.Object.GenerationManifestHash }
+    return Publish-ChannelForgeReviewedCandidate `
+        -RepositoryRoot $RepositoryRoot `
         -CandidateManifest $CandidateManifest `
-        -DecisionManifest $decisionManifest `
-        -M3UDecision $decisionM3U `
-        -DecisionRecords $DecisionRecords
-
-    $activeM3UHash = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{ Domain = 'active-m3u/v2'; Bytes = $M3UBytes } | Select-Object -Last 1)
-    $activeXMLTVHash = if ($null -eq $XMLTVBytes) { $null } else { [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{ Domain = 'active-xmltv/v2'; Bytes = $XMLTVBytes } | Select-Object -Last 1) }
-    $generationId = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{
-            Domain = 'generation-id/v2'
-            InputObject = [ordered]@{ CandidateManifestHash = $candidateHash; BuildIdentity = $buildIdentity; DecisionManifestHash = [string]$decisionManifest.DecisionManifestHash; Nonce = ([guid]::NewGuid().ToString('N')) }
-        } | Select-Object -Last 1)
-    $acceptedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
-
-    $acceptedOutputManifest = Invoke-ChannelForgePrivate -Name 'New-ChannelForgeAcceptedOutputManifest' -Arguments @{
-        GenerationId = $generationId
-        ActiveM3UHash = $activeM3UHash
-        ActiveXMLTVStatus = $xmltvStatus
-        ActiveXMLTVHash = $activeXMLTVHash
-        AcceptedStateHash = ('0' * 64)
-    } | Select-Object -Last 1
-    $acceptedState = Invoke-ChannelForgePrivate -Name 'New-ChannelForgeAcceptedState' -Arguments @{
-        GenerationId = $generationId
-        BuildIdentity = $buildIdentity
-        CandidateManifestHash = $candidateHash
-        DecisionManifestHash = [string]$decisionManifest.DecisionManifestHash
-        AcceptedOutputManifestHash = [string]$acceptedOutputManifest.OutputManifestHash
-        PreviousStateHash = $parentStateHash
-        IncludedCandidateEntryIds = @($decisionM3U.IncludedCandidateEntryIds)
-        ExcludedCandidateEntryIds = @($decisionM3U.ExcludedCandidateEntryIds)
-        AcceptedBindingIds = @($decisionM3U.DecisionIds)
-        AcceptedXMLTVStatus = $xmltvStatus
-        AcceptedAtUtc = $acceptedAtUtc
-    } | Select-Object -Last 1
-    $acceptedOutputManifest.AcceptedStateHash = [string]$acceptedState.AcceptedStateHash
-
-    $generationManifest = [ordered]@{
-        Version = 'blocker-2-contract/v8-acceptance'
-        GenerationId = $generationId
-        BuildIdentity = $buildIdentity
-        CandidateManifestHash = $candidateHash
-        DecisionManifestHash = [string]$decisionManifest.DecisionManifestHash
-        AcceptedStateHash = [string]$acceptedState.AcceptedStateHash
-        AcceptedOutputManifestHash = [string]$acceptedOutputManifest.OutputManifestHash
-        ActiveM3UHash = $activeM3UHash
-        ActiveXMLTVHash = $activeXMLTVHash
-        PreviousOutputManifestHash = $parentOutputHash
-        GenerationManifestHash = $null
-    }
-    $generationManifest.GenerationManifestHash = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeAcceptanceHash' -Arguments @{
-            Domain = 'generation-manifest/v2'
-            Projection = $generationManifest
-            HashProperty = 'GenerationManifestHash'
-            Omit = @('GenerationId')
-        } | Select-Object -Last 1)
-
-$publishArguments = @{
-    RepositoryRoot = $RepositoryRoot
-    GenerationManifest = [pscustomobject]$generationManifest
-    AcceptedState = $acceptedState
-    AcceptedOutputManifest = $acceptedOutputManifest
-    DecisionManifest = $decisionManifest
-    M3UBytes = $M3UBytes
-    XMLTVBytes = $XMLTVBytes
-}
-if (-not [string]::IsNullOrWhiteSpace($FaultHook)) { $publishArguments.FaultHook = $FaultHook }
-$publish = Publish-ChannelForgeAcceptedGeneration @publishArguments
-
-    return [pscustomobject][ordered]@{
-        Publish = $publish
-        Acceptance = $acceptance
-        GenerationId = $generationId
-        GenerationManifest = [pscustomobject]$generationManifest
-        AcceptedState = $acceptedState
-        AcceptedOutputManifest = $acceptedOutputManifest
-        DecisionManifest = $decisionManifest
-    }
+        -M3UBytes $M3UBytes `
+        -XMLTVBytes $XMLTVBytes `
+        -DecisionRecords $DecisionRecords `
+        -IncludedEntryIds $IncludedEntryIds `
+        -ExcludedEntryIds $ExcludedEntryIds `
+        -ExpectedParentGenerationManifestHash $expectedParent `
+        -FaultHook $FaultHook
 }
 
 $report = [ordered]@{

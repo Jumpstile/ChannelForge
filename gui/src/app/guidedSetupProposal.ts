@@ -7,14 +7,15 @@ export type GuidedSetupProposal = {
   Version: 'guided-setup/proposal/v1'
   Status: 'PROPOSAL_READY'
   Proposal: {
+    ProposalId: string
     ChannelCount: number
     ExactGuideMatchCount: number
     AmbiguityCount: number
     UnmatchedPlaylistCount: number
     GuideOnlyCount: number
     GuideStatus: 'NO_GUIDE_SELECTED' | 'XMLTV_SELECTED'
-    CandidateManifestHash: string
-    BuildIdentity: string
+    CanAccept: boolean
+    BlockingReasons: string[]
   }
   Warnings: Array<{ Code: string; Message: string }>
   Safety: {
@@ -24,10 +25,27 @@ export type GuidedSetupProposal = {
     DownstreamMutation: 'none'
     GuidePublication: 'none'
     CanPublish: false
+    CanAccept: boolean
+  }
+}
+
+export type GuidedSetupAcceptance = {
+  Version: 'guided-setup/acceptance/v1'
+  Status: 'ACCEPTED'
+  Proposal: {
+    ChannelCount: number
+    GuideStatus: 'NO_GUIDE_SELECTED' | 'XMLTV_ACCEPTED'
+  }
+  Safety: {
+    AcceptedStateMutation: 'accepted-lineup'
+    ProviderMutation: 'none'
+    DownstreamMutation: 'none'
+    SchedulerMutation: 'none'
   }
 }
 
 export type GuidedSetupProposalSubmitter = (playlist: File, guide?: File | null) => Promise<GuidedSetupProposal>
+export type GuidedSetupAcceptanceSubmitter = (proposalId: string) => Promise<GuidedSetupAcceptance>
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -59,8 +77,29 @@ export async function submitGuidedSetupProposal(playlist: File, guide: File | nu
   })
   const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupProposal> & { Message?: string } | null
   if (!response.ok) throw new Error(payload?.Message || 'The playlist or guide could not be analyzed safely.')
-  if (payload?.Version !== 'guided-setup/proposal/v1' || payload.Status !== 'PROPOSAL_READY' || !payload.Proposal || !payload.Safety) {
+  if (
+    payload?.Version !== 'guided-setup/proposal/v1' ||
+    payload.Status !== 'PROPOSAL_READY' ||
+    !payload.Proposal ||
+    !payload.Safety ||
+    typeof payload.Proposal.ProposalId !== 'string' ||
+    typeof payload.Proposal.CanAccept !== 'boolean'
+  ) {
     throw new Error('The proposal response was not recognized.')
   }
   return payload as GuidedSetupProposal
+}
+
+export async function acceptGuidedSetupProposal(proposalId: string): Promise<GuidedSetupAcceptance> {
+  const response = await fetch('/api/guided-setup/accept', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schemaVersion: 1, proposalId, acknowledged: true }),
+  })
+  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupAcceptance> & { Message?: string } | null
+  if (!response.ok) throw new Error(payload?.Message || 'The reviewed proposal could not be accepted safely.')
+  if (payload?.Version !== 'guided-setup/acceptance/v1' || payload.Status !== 'ACCEPTED' || !payload.Proposal || !payload.Safety) {
+    throw new Error('The acceptance response was not recognized.')
+  }
+  return payload as GuidedSetupAcceptance
 }

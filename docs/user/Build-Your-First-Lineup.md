@@ -129,12 +129,12 @@ IPTV playlist (M3U) + optional TV guide (XMLTV)
 
 The native acceptance boundary revalidates the candidate, accepted parent, input fingerprints, and preconditions before staging and publishing. React does not promote files, update an accepted pointer, or maintain a second accepted-state model.
 
-### Browser Guided Setup proposal
+### Browser Guided Setup review and acceptance
 
-The loopback web UI supports the first browser/API slice without asking for a
-local path. Choose exactly one `.m3u`/`.m3u8` playlist and optionally one
-`.xml`/`.xmltv` guide, then select **Analyze proposal**. The browser sends this
-same-origin JSON envelope:
+The loopback web UI supports browser review and explicit acceptance without
+asking for a local path. Choose exactly one `.m3u`/`.m3u8` playlist and
+optionally one `.xml`/`.xmltv` guide, then select **Analyze proposal**. The
+browser sends this same-origin JSON envelope:
 
 ```json
 {
@@ -146,21 +146,47 @@ same-origin JSON envelope:
 
 `xmltv` is omitted for a no-guide proposal. The server accepts only
 `POST /api/guided-setup/proposal`, enforces a 24 MiB encoded request bound, a
-4 MiB M3U bound, and a 12 MiB XMLTV bound. The 24 MiB bound leaves room for
-base64 expansion when both maximum decoded files are submitted. The endpoint
-never uses a browser filename or path. Its `guided-setup/proposal/v1` response
-contains aggregate channel and guide-match counts, fixed warnings, and a safe
-identity. It excludes source URLs, private paths, credentials, parser details,
-and raw uploaded content.
+4 MiB M3U bound, and a 12 MiB XMLTV bound. The proposal response contains an
+opaque `ProposalId`, aggregate channel and guide-match counts, blocking
+reasons, and safe mutation classifications. It never returns candidate hashes,
+build identities, source URLs, private paths, credentials, parser details, or
+raw uploaded content.
 
-This browser flow is **candidate-only**. The response reports
-`PublicationState=CandidateOnly`, `CanPublish=false`, and no accepted-state,
-provider, downstream, or guide-publication mutation. The server stages bytes
-under a per-request server-owned temporary directory, invokes the shared
-candidate engine in-process, and removes the request directory on success or
-failure. It does not create a browser acceptance or publish button.
+The server stores each ready review below the ignored,
+server-owned `output/.web-guided-setup/proposals/<opaque-id>/` namespace. The
+candidate namespace is content-addressed and verified again at acceptance.
+The session binds the candidate to the accepted parent generation, state, and
+output hashes captured when review completed. Sessions have no sliding
+expiration; they remain `Ready` until accepted, and each new review creates a
+separate server-owned session. An accepted session is terminal and cannot be
+submitted again.
 
-The browser flow is available after building the UI:
+The browser review page shows aggregate counts and fixed warnings. Ambiguous
+guide identities set `CanAccept=false`; the disabled control is only a UX
+guard, because the server independently blocks forged acceptance requests.
+No-guide proposals can be accepted when the candidate has no ambiguity
+blockers.
+
+After reviewing, check the acknowledgement and select **Accept reviewed
+proposal**. The browser sends exactly:
+
+```json
+{
+  "schemaVersion": 1,
+  "proposalId": "<opaque 32-character id>",
+  "acknowledged": true
+}
+```
+
+Only `POST /api/guided-setup/accept` accepts this bounded `application/json`
+request. The request cannot submit files, paths, candidate hashes, parent
+state, or a force option. Acceptance revalidates the durable candidate,
+ambiguity state, accepted parent, coverage, exact M3U/XMLTV bytes, and the
+existing immutable generation publication journal. Stale parent, tampered
+candidate, ambiguous review, and duplicate submission fail closed. Provider
+files, downstream outputs, scheduler state, and credentials are not changed.
+
+Build and run the browser surface:
 
 ```powershell
 Push-Location .\gui
@@ -170,9 +196,18 @@ Pop-Location
 pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1
 ```
 
-Open `http://127.0.0.1:8765/`, choose **Open Guided Setup**, and review the
-aggregate proposal. To accept or publish a lineup, use the existing explicit
-CLI/native acceptance boundary; browser acceptance is not part of this slice.
+Open `http://127.0.0.1:8765/`, choose **Open Guided Setup**, upload the files,
+review the counts, acknowledge the exact proposal, and accept it. The
+post-acceptance `/api/status` response reports an accepted lineup. The browser
+does not call `Build-My-Lineup.ps1`; CLI `-Accept` and browser acceptance
+converge on `Publish-ChannelForgeReviewedCandidate`, which is the only
+reviewed-candidate acceptance authority.
+
+![Browser Guided Setup with a selected playlist](assets/guided-browser-file-proposal.png)
+
+![Browser review ready for acknowledgement](assets/guided-browser-ready.png)
+
+![Browser acceptance success](assets/guided-browser-accepted.png)
 
 Run it from the repository root:
 

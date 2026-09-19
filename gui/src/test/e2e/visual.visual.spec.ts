@@ -131,3 +131,57 @@ test('saved-lineup confirmation visual baseline', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page).toHaveScreenshot('saved-lineup-dialog.png', { animations: 'disabled', fullPage: true })
 })
+test('browser acceptance visual states', async ({ page }) => {
+  await page.route('**/api/guided-setup/proposal', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        Version: 'guided-setup/proposal/v1',
+        Status: 'PROPOSAL_READY',
+        Proposal: {
+          ProposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          ChannelCount: 1,
+          ExactGuideMatchCount: 0,
+          AmbiguityCount: 0,
+          UnmatchedPlaylistCount: 1,
+          GuideOnlyCount: 0,
+          GuideStatus: 'NO_GUIDE_SELECTED',
+          CanAccept: true,
+          BlockingReasons: [],
+        },
+        Warnings: [{ Code: 'unmatched-playlist-entry', Message: 'Some playlist entries have no exact guide match.' }],
+        Safety: {
+          PublicationState: 'CandidateOnly',
+          AcceptedStateMutation: 'none',
+          ProviderMutation: 'none',
+          DownstreamMutation: 'none',
+          GuidePublication: 'none',
+          CanPublish: false,
+          CanAccept: true,
+        },
+      }),
+    })
+  })
+  await page.route('**/api/guided-setup/accept', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        Version: 'guided-setup/acceptance/v1',
+        Status: 'ACCEPTED',
+        Proposal: { ChannelCount: 1, GuideStatus: 'NO_GUIDE_SELECTED' },
+        Safety: { AcceptedStateMutation: 'accepted-lineup', ProviderMutation: 'none', DownstreamMutation: 'none', SchedulerMutation: 'none' },
+      }),
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
+  await page.getByLabel('Choose playlist').setInputFiles({ name: 'channels.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,One\\nhttps://example.invalid/one\\n') })
+  await expect(page).toHaveScreenshot('guided-browser-file-proposal.png', { animations: 'disabled', fullPage: true })
+  await page.getByRole('button', { name: 'Analyze proposal' }).click()
+  await expect(page.getByText('Review ready. Nothing has been accepted yet.')).toBeVisible()
+  await expect(page).toHaveScreenshot('guided-browser-ready.png', { animations: 'disabled', fullPage: true })
+  await page.getByLabel(/I reviewed these results/).check()
+  await page.getByRole('button', { name: 'Accept reviewed proposal' }).click()
+  await expect(page.getByText('Accepted lineup confirmed.')).toBeVisible()
+  await expect(page).toHaveScreenshot('guided-browser-accepted.png', { animations: 'disabled', fullPage: true })
+})

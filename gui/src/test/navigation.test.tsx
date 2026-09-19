@@ -47,17 +47,18 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 
-  it('opens browser Guided Setup with bounded candidate-only file controls', async () => {
+  it('opens browser Guided Setup with bounded review and acceptance controls', async () => {
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Open Guided Setup' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
-    expect(screen.getByText('Choose files from this browser. No local path is sent, and the proposal remains candidate-only.')).toBeInTheDocument()
+    expect(screen.getByText(/The review is server-owned until you explicitly acknowledge acceptance/)).toBeInTheDocument()
     expect(screen.getByText('Select exactly one M3U or M3U8 playlist.')).toBeInTheDocument()
     expect(screen.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeInTheDocument()
-    expect(screen.getAllByText('Not selected')).toHaveLength(3)
-    expect(screen.getAllByText('Not checked')).toHaveLength(5)
+    expect(screen.getAllByText('Not selected')).toHaveLength(2)
+    expect(screen.getAllByText('Not checked')).toHaveLength(4)
+    expect(screen.getByText('Server-owned')).toBeInTheDocument()
     expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()
     expect(screen.getByLabelText('Choose guide (optional)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Analyze proposal' })).toBeDisabled()

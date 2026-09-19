@@ -313,7 +313,7 @@ Describe 'ChannelForge web server foundation' {
 
         $combined | Should -Not -Match '(?i)(https?://|ftp://|file://|ACCOUNT_ID|API_TOKEN|PASSWORD|TOKEN|SECRET|[A-Z]:[\\/]|\\\\)'
     }
-    It 'accepts an M3U-only browser proposal and removes its request workspace' {
+    It 'accepts an M3U-only browser proposal and persists an opaque review session' {
         $root = Join-Path $TestDrive 'proposal-no-guide'
         $body = New-TestProposalBody
         $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal?source=browser' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
@@ -321,32 +321,48 @@ Describe 'ChannelForge web server foundation' {
 
         $response.StatusCode | Should -Be 200
         $payload.Version | Should -Be 'guided-setup/proposal/v1'
+        $payload.Proposal.ProposalId | Should -Match '^[0-9a-f]{32}$'
         $payload.Proposal.GuideStatus | Should -Be 'NO_GUIDE_SELECTED'
+        $payload.Proposal.CanAccept | Should -BeTrue
         $payload.Safety.PublicationState | Should -Be 'CandidateOnly'
         $payload.Safety.CanPublish | Should -BeFalse
         $payload.Safety.AcceptedStateMutation | Should -Be 'none'
         $payload.Safety.ProviderMutation | Should -Be 'none'
         $payload.Safety.DownstreamMutation | Should -Be 'none'
         $payload.Safety.GuidePublication | Should -Be 'none'
-        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup') -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
-        $response.Body | Should -Not -Match '(?i)(https?://|file://|[A-Z]:[\\/]|\\\\|input\\.m3u|guide\\.xml)'
+        $response.Body | Should -Not -Match '(?i)(https?://|file://|[A-Z]:[\\/]|\\\\|input\\.m3u|guide\\.xml|CandidateManifestHash|BuildIdentity)'
+        $proposalRoot = Join-Path $root 'output\.web-guided-setup\proposals'
+        @(Get-ChildItem -LiteralPath $proposalRoot -Directory -Force).Count | Should -Be 1
+        Test-Path -LiteralPath (Join-Path $proposalRoot "$($payload.Proposal.ProposalId)\session.json") -PathType Leaf | Should -BeTrue
     }
 
-    It 'accepts one XMLTV guide and leaves repository state unchanged' {
+    It 'accepts one XMLTV guide and persists only the server-owned review package' {
         $root = Join-Path $TestDrive 'proposal-with-guide'
         $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
         New-Item -ItemType Directory -Force -Path $root | Out-Null
         Set-Content -LiteralPath (Join-Path $root 'provider.json') -Value '{"provider":"fixture"}' -NoNewline
-        $before = Get-TestTreeSnapshot -Root $root
         $body = New-TestProposalBody -GuideText $guide -WithGuide
         $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
         $payload = $response.Body | ConvertFrom-Json
-        $after = Get-TestTreeSnapshot -Root $root
 
         $response.StatusCode | Should -Be 200
         $payload.Proposal.GuideStatus | Should -Be 'XMLTV_SELECTED'
         $payload.Proposal.ChannelCount | Should -Be 1
-        $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+        $payload.Proposal.ProposalId | Should -Match '^[0-9a-f]{32}$'
+        Test-Path -LiteralPath (Join-Path $root 'provider.json') -PathType Leaf | Should -BeTrue
+        $response.Body | Should -Not -Match '(?i)(https?://|file://|[A-Z]:[\\/]|\\\\|input\\.m3u|guide\\.xml)'
+        $proposalDirectory = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)"
+        Test-Path -LiteralPath (Join-Path $proposalDirectory 'candidate-output') -PathType Container | Should -BeTrue
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $payload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 200
+        ($accepted.Body | ConvertFrom-Json).Proposal.GuideStatus | Should -Be 'XMLTV_ACCEPTED'
+        $session = Get-Content -LiteralPath (Join-Path $proposalDirectory 'session.json') -Raw | ConvertFrom-Json
+        $candidateDirectory = Join-Path $proposalDirectory ($session.CandidateDirectoryRelative -replace '/', '\')
+        $pointer = Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json
+        $acceptedGeneration = Join-Path $root "state\generations\$($pointer.GenerationId)"
+        [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $candidateDirectory 'merged.m3u'))) | Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $acceptedGeneration 'merged.m3u'))))
+        [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $candidateDirectory 'merged.xml'))) | Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $acceptedGeneration 'merged.xml'))))
     }
 
     It 'fails closed for unsupported content, duplicate or unknown properties, and malformed uploads' {
@@ -364,8 +380,92 @@ Describe 'ChannelForge web server foundation' {
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $malformed -ContentType 'application/json').StatusCode | Should -Be 422
         $empty = New-TestProposalBody -PlaylistText "#EXTM3U`n"
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $empty -ContentType 'application/json').StatusCode | Should -Be 422
-        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup') -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup\proposals') -Directory -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
     }
+    It 'accepts an acknowledged browser proposal through the immutable generation path and rejects duplicate submission' {
+        $root = Join-Path $TestDrive 'acceptance-end-to-end'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'provider.json') -Value '{"provider":"fixture"}' -NoNewline
+        $body = New-TestProposalBody
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $proposalPayload = $proposal.Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $acceptedPointer = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state\accepted-lineup.json')))
+        $recovered = Recover-ChannelForgeAcceptedState -RepositoryRoot $root
+        $duplicate = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+
+        $accepted.StatusCode | Should -Be 200
+        ($accepted.Body | ConvertFrom-Json).Status | Should -Be 'ACCEPTED'
+        $recovered.Outcome | Should -Be 'NEW'
+        (Get-ChannelForgeWebStatus -RepositoryRoot $root).LineupStatus | Should -Be 'accepted'
+        Test-Path -LiteralPath (Join-Path $root 'output\guided-setup') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'provider.json') | Should -BeTrue
+        $duplicate.StatusCode | Should -Be 409
+        ($duplicate.Body | ConvertFrom-Json).Error | Should -Be 'already-accepted'
+        [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state\accepted-lineup.json'))) | Should -Be $acceptedPointer
+    }
+
+    It 'fails closed when a reviewed parent becomes stale' {
+        $root = Join-Path $TestDrive 'acceptance-stale-parent'
+        $body = New-TestProposalBody
+        $first = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length).Body | ConvertFrom-Json
+        $second = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length).Body | ConvertFrom-Json
+        $firstBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $first.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $secondBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $second.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $firstBody -ContentType 'application/json' -ContentLength $firstBody.Length).StatusCode | Should -Be 200
+        $stale = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $secondBody -ContentType 'application/json' -ContentLength $secondBody.Length
+
+        $stale.StatusCode | Should -Be 409
+        ($stale.Body | ConvertFrom-Json).Error | Should -Be 'stale-proposal'
+        (Get-ChannelForgeWebStatus -RepositoryRoot $root).LineupStatus | Should -Be 'accepted'
+    }
+
+    It 'blocks ambiguous browser reviews at the server acceptance boundary' {
+        $root = Join-Path $TestDrive 'acceptance-ambiguous'
+        $playlist = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'tests\fixtures\identity-binding\playlist.m3u') -Raw
+        $guide = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'tests\fixtures\identity-binding\guide.xml') -Raw
+        $body = New-TestProposalBody -PlaylistText $playlist -GuideText $guide -WithGuide
+        $proposal = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length).Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposal.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+
+        $proposal.Proposal.AmbiguityCount | Should -BeGreaterThan 0
+        $proposal.Proposal.CanAccept | Should -BeFalse
+        $accepted.StatusCode | Should -Be 409
+        ($accepted.Body | ConvertFrom-Json).Error | Should -Be 'proposal-blocked'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'fails closed when reviewed candidate bytes change or disappear' {
+        $tamperedRoot = Join-Path $TestDrive 'acceptance-tampered-candidate'
+        $tamperedBody = New-TestProposalBody
+        $tamperedProposal = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $tamperedRoot -BodyBytes $tamperedBody -ContentType 'application/json' -ContentLength $tamperedBody.Length).Body | ConvertFrom-Json
+        $tamperedProposalDirectory = Join-Path $tamperedRoot "output\.web-guided-setup\proposals\$($tamperedProposal.Proposal.ProposalId)"
+        $tamperedSession = Get-Content -LiteralPath (Join-Path $tamperedProposalDirectory 'session.json') -Raw | ConvertFrom-Json
+        $tamperedDirectory = Join-Path $tamperedProposalDirectory ($tamperedSession.CandidateDirectoryRelative -replace '/', '\')
+        [IO.File]::WriteAllText((Join-Path $tamperedDirectory 'merged.m3u'), '#tampered', [Text.UTF8Encoding]::new($false))
+        $tamperedAcceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $tamperedProposal.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $tamperedAccepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $tamperedRoot -BodyBytes $tamperedAcceptBody -ContentType 'application/json' -ContentLength $tamperedAcceptBody.Length
+
+        $missingRoot = Join-Path $TestDrive 'acceptance-missing-candidate'
+        $missingBody = New-TestProposalBody
+        $missingProposal = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $missingRoot -BodyBytes $missingBody -ContentType 'application/json' -ContentLength $missingBody.Length).Body | ConvertFrom-Json
+        $missingProposalDirectory = Join-Path $missingRoot "output\.web-guided-setup\proposals\$($missingProposal.Proposal.ProposalId)"
+        $missingSession = Get-Content -LiteralPath (Join-Path $missingProposalDirectory 'session.json') -Raw | ConvertFrom-Json
+        Remove-Item -LiteralPath (Join-Path $missingProposalDirectory ($missingSession.CandidateDirectoryRelative -replace '/', '\')) -Recurse -Force
+        $missingAcceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $missingProposal.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $missingAccepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $missingRoot -BodyBytes $missingAcceptBody -ContentType 'application/json' -ContentLength $missingAcceptBody.Length
+
+        $tamperedAccepted.StatusCode | Should -Be 422
+        ($tamperedAccepted.Body | ConvertFrom-Json).Error | Should -Be 'acceptance-unavailable'
+        $missingAccepted.StatusCode | Should -Be 422
+        ($missingAccepted.Body | ConvertFrom-Json).Error | Should -Be 'acceptance-unavailable'
+        Test-Path -LiteralPath (Join-Path $tamperedRoot 'state\accepted-lineup.json') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $missingRoot 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+
 
     It 'enforces exact POST allowlisting, declared length, and request size limits' {
         $root = Join-Path $TestDrive 'proposal-bounds'
@@ -380,6 +480,17 @@ Describe 'ChannelForge web server foundation' {
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength ($body.Length + 1)).StatusCode | Should -Be 400
         $oversized = [byte[]]::new((24MB) + 1)
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $oversized -ContentType 'application/json' -ContentLength $oversized.Length).StatusCode | Should -Be 413
+        $acceptGet = Get-TestWebResponse -Method GET -Path '/api/guided-setup/accept' -RepositoryRoot $root
+        $acceptGet.StatusCode | Should -Be 405
+        $acceptGet.Headers.Allow | Should -Be 'POST'
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength ($body.Length + 1)).StatusCode | Should -Be 400
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $body -ContentType 'text/plain' -ContentLength $body.Length).StatusCode | Should -Be 415
+        $oversizedAccept = [byte[]]::new(8193)
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $oversizedAccept -ContentType 'application/json' -ContentLength $oversizedAccept.Length).StatusCode | Should -Be 413
+        $unknownAccept = [Text.Encoding]::UTF8.GetBytes('{"schemaVersion":1,"proposalId":"00000000000000000000000000000000","acknowledged":true,"force":true}')
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $unknownAccept -ContentType 'application/json' -ContentLength $unknownAccept.Length).StatusCode | Should -Be 400
+        $unacknowledged = [Text.Encoding]::UTF8.GetBytes('{"schemaVersion":1,"proposalId":"00000000000000000000000000000000","acknowledged":false}')
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $unacknowledged -ContentType 'application/json' -ContentLength $unacknowledged.Length).StatusCode | Should -Be 400
     }
 
 }

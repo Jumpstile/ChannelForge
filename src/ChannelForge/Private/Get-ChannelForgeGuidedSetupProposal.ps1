@@ -122,14 +122,16 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
 
     $request = $null
     $requestRoot = $null
+    $retainProposal = $false
     try {
         try { $request = ConvertFrom-ChannelForgeGuidedSetupProposalRequest -BodyBytes $BodyBytes }
         catch [System.InvalidOperationException] { return New-ChannelForgeWebProposalErrorResponse -StatusCode 413 -ErrorCode 'file-too-large' -Message 'The selected file is too large.' -Headers $Headers }
         catch { return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'invalid-proposal-request' -Message 'The proposal request is invalid.' -Headers $Headers }
 
-        $stagingRoot = Get-ChannelForgeWebProposalStagingRoot -RepositoryRoot $RepositoryRoot
-        New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
-        $requestRoot = Join-Path $stagingRoot ([guid]::NewGuid().ToString('N'))
+        $storageRoot = Get-ChannelForgeWebProposalStorageRoot -RepositoryRoot $RepositoryRoot
+        New-Item -ItemType Directory -Force -Path $storageRoot | Out-Null
+        $proposalId = [guid]::NewGuid().ToString('N').ToLowerInvariant()
+        $requestRoot = Join-Path $storageRoot $proposalId
         $candidateRoot = Join-Path $requestRoot 'candidate-output'
         New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
         $m3uPath = Join-Path $requestRoot 'input.m3u'
@@ -151,18 +153,50 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
         if ($review -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'ambiguous-guide-match'; Message = 'Some guide identities need review before a guide can be trusted.' }) }
         if ($unbound -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'unmatched-playlist-entry'; Message = 'Some playlist entries have no exact guide match.' }) }
         if ($guideOnly -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-only-record'; Message = 'The guide contains records not present in the playlist.' }) }
+        $current = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $RepositoryRoot
+        $parentManifestHash = if ($null -eq $current) { $null } else { [string]$current.Manifest.Object.GenerationManifestHash }
+        $parentStateHash = if ($null -eq $current) { $null } else { [string]$current.State.Object.AcceptedStateHash }
+        $parentOutputHash = if ($null -eq $current) { $null } else { [string]$current.Output.Object.OutputManifestHash }
+        $blockingReasons = @()
+        if ($review -gt 0) { $blockingReasons += 'ambiguous-guide-match' }
+        $canAccept = @($manifest.Entries).Count -gt 0 -and $blockingReasons.Count -eq 0
+        $session = [pscustomobject][ordered]@{
+            Version = 'guided-setup/review/v1'
+            ProposalId = $proposalId
+            Status = 'Ready'
+            CreatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+            CandidateManifestHash = [string]$candidate.CandidateManifestHash
+            BuildIdentity = [string]$candidate.BuildIdentity
+            CandidateDirectoryRelative = "candidate-output/candidates/$($candidate.CandidateManifestHash)"
+            ParentGenerationManifestHash = $parentManifestHash
+            ParentAcceptedStateHash = $parentStateHash
+            ParentOutputManifestHash = $parentOutputHash
+            ChannelCount = @($manifest.Entries).Count
+            ExactGuideMatchCount = $exact
+            AmbiguityCount = $review
+            UnmatchedPlaylistCount = $unbound
+            GuideOnlyCount = $guideOnly
+            GuideStatus = $guideStatus
+            CanAccept = $canAccept
+            BlockingReasons = @($blockingReasons)
+        }
+        Remove-Item -LiteralPath $m3uPath -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $xmltvPath -PathType Leaf) { Remove-Item -LiteralPath $xmltvPath -Force -ErrorAction SilentlyContinue }
+        $null = Write-ChannelForgeWebProposalSession -RepositoryRoot $RepositoryRoot -Session $session
+        $retainProposal = $true
         $projection = [ordered]@{
             Version = 'guided-setup/proposal/v1'
             Status = 'PROPOSAL_READY'
             Proposal = [ordered]@{
-                ChannelCount = @($manifest.Entries).Count
+                ProposalId = $proposalId
+                ChannelCount = [int]$session.ChannelCount
                 ExactGuideMatchCount = $exact
                 AmbiguityCount = $review
                 UnmatchedPlaylistCount = $unbound
                 GuideOnlyCount = $guideOnly
                 GuideStatus = $guideStatus
-                CandidateManifestHash = [string]$candidate.CandidateManifestHash
-                BuildIdentity = [string]$candidate.BuildIdentity
+                CanAccept = $canAccept
+                BlockingReasons = @($blockingReasons)
             }
             Warnings = @($warnings | Sort-Object Code)
             Safety = [ordered]@{
@@ -172,6 +206,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                 DownstreamMutation = 'none'
                 GuidePublication = 'none'
                 CanPublish = $false
+                CanAccept = $canAccept
             }
         }
         $body = $projection | ConvertTo-Json -Depth 8 -Compress
@@ -181,7 +216,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
         return New-ChannelForgeWebProposalErrorResponse -StatusCode 422 -ErrorCode 'proposal-unavailable' -Message 'The playlist or guide could not be analyzed safely.' -Headers $Headers
     }
     finally {
-        if ($null -ne $requestRoot -and (Test-Path -LiteralPath $requestRoot)) {
+        if (-not $retainProposal -and $null -ne $requestRoot -and (Test-Path -LiteralPath $requestRoot)) {
             Remove-Item -LiteralPath $requestRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     }

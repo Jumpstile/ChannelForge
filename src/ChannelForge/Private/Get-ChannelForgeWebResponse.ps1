@@ -198,6 +198,20 @@ function Get-ChannelForgeWebResponse {
     $contentType = 'application/json; charset=utf-8'
     $methodName = if ($null -eq $Method) { '' } else { $Method.ToUpperInvariant() }
     $requestPath = if ([string]::IsNullOrWhiteSpace($Path)) { '/' } else { ($Path -split '\?', 2)[0] }
+    $acceptPath = '/api/guided-setup/accept'
+    if ($requestPath.ToLowerInvariant() -eq $acceptPath) {
+        if ($methodName -ne 'POST') {
+            $headers = [ordered]@{}
+            foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
+            $headers['Allow'] = 'POST'
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 405 -ErrorCode 'method-not-allowed' -Message 'Only POST requests are supported for guided setup acceptance.' -Headers $headers
+        }
+        if ($null -eq $BodyBytes) { return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'missing-request-body' -Message 'An acceptance request is required.' -Headers $commonHeaders }
+        if ($ContentLength -gt (Get-ChannelForgeWebAcceptanceLimits).MaxRequestBodyBytes) { return New-ChannelForgeWebProposalErrorResponse -StatusCode 413 -ErrorCode 'request-too-large' -Message 'The acceptance request is too large.' -Headers $commonHeaders }
+        if ($ContentLength -ge 0 -and $ContentLength -ne $BodyBytes.Length) { return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'request-length-mismatch' -Message 'The acceptance request length does not match its body.' -Headers $commonHeaders }
+        return Get-ChannelForgeGuidedSetupAcceptanceResponse -BodyBytes $BodyBytes -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
+    }
+
     $proposalPath = '/api/guided-setup/proposal'
     if ($requestPath.ToLowerInvariant() -eq $proposalPath) {
         if ($methodName -ne 'POST') {
