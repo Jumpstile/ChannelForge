@@ -2,7 +2,9 @@
 param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
     [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'output/packages'),
-    [string]$PowerShellRuntimeRoot = $PSHOME,
+    [string]$PowerShellVersion = '7.6.6',
+    [string]$PowerShellRuntimeZipPath = '',
+    [string]$PowerShellRuntimeCacheRoot = '',
     [string]$SourceCommitSha = '',
     [switch]$AllowDirty
 )
@@ -40,6 +42,65 @@ function Write-CanonicalJson([object]$Value, [string]$Path) {
     $json = $Value | ConvertTo-Json -Depth 20 -Compress
     [IO.File]::WriteAllText($Path, $json + "`n", [Text.UTF8Encoding]::new($false))
 }
+function Resolve-PortablePowerShellRuntime {
+    param(
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)][string]$CacheRoot,
+        [string]$ArchivePath = ''
+    )
+
+    $expectedHashes = @{
+        '7.6.6' = '02fe458be20493fbdf43f61ea20610b811ee6c738ab1676c61b9cfcd1a33c860'
+    }
+    if (-not $expectedHashes.ContainsKey($Version)) {
+        throw "Unsupported bundled PowerShell version '$Version'. Add its official win-x64 ZIP SHA256 before packaging."
+    }
+
+    $archiveUrl = "https://github.com/PowerShell/PowerShell/releases/download/v$Version/PowerShell-$Version-win-x64.zip"
+    $expectedHash = $expectedHashes[$Version]
+    if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
+        New-Item -ItemType Directory -Force -Path $CacheRoot | Out-Null
+    } else {
+        $ArchivePath = Get-FullPath $ArchivePath
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ArchivePath) | Out-Null
+
+    $archiveHash = if ([IO.File]::Exists($ArchivePath)) {
+        (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    } else {
+        ''
+    }
+    if ($archiveHash -ne $expectedHash) {
+        $downloadPath = "$ArchivePath.download"
+        if (Test-Path -LiteralPath $downloadPath) { Remove-Item -LiteralPath $downloadPath -Force }
+        Write-Host "Downloading official PowerShell portable runtime: $archiveUrl"
+        Invoke-WebRequest -Uri $archiveUrl -OutFile $downloadPath -UseBasicParsing
+        $downloadHash = (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($downloadHash -ne $expectedHash) {
+            Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue
+            throw "PowerShell portable runtime hash mismatch. Expected $expectedHash, received $downloadHash."
+        }
+        Move-Item -LiteralPath $downloadPath -Destination $ArchivePath -Force
+    }
+
+    $archiveHash = (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($archiveHash -ne $expectedHash) {
+        throw "PowerShell portable runtime hash mismatch. Expected $expectedHash, received $archiveHash."
+    }
+
+    $extractRoot = Join-Path ([IO.Path]::GetTempPath()) ("channelforge-powershell-" + [guid]::NewGuid().ToString('N'))
+    $runtimeRoot = Join-Path $extractRoot 'runtime'
+    New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $runtimeRoot -Force
+    Assert-File (Join-Path $runtimeRoot 'pwsh.exe') 'portable PowerShell executable'
+    return [pscustomobject][ordered]@{
+        ArchivePath = $ArchivePath
+        ArchiveUrl = $archiveUrl
+        ArchiveSha256 = $archiveHash
+        ExtractRoot = $extractRoot
+        RuntimeRoot = $runtimeRoot
+    }
+}
 function Write-DeterministicZip([string]$SourceRoot, [string]$ZipPath) {
     Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -62,10 +123,8 @@ function Write-DeterministicZip([string]$SourceRoot, [string]$ZipPath) {
 
 $rootFull = Get-FullPath $Root
 $outputFull = Get-FullPath $OutputRoot
-$runtimeFull = Get-FullPath $PowerShellRuntimeRoot
 if (-not [IO.Directory]::Exists($rootFull)) { throw "Repository root is missing: $rootFull" }
-if (-not [IO.Directory]::Exists($runtimeFull)) { throw "PowerShell runtime root is missing: $runtimeFull" }
-Assert-File (Join-Path $runtimeFull 'pwsh.exe') 'bundled PowerShell executable'
+$runtimeInfo = $null
 
 $gitHead = (& git -C $rootFull rev-parse HEAD 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitHead)) { throw 'Could not determine source commit SHA.' }
@@ -81,6 +140,14 @@ $version = (Get-Content -LiteralPath $versionPath -Raw).Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unsupported ChannelForge version: $version" }
 $guiDist = Join-Path $rootFull 'gui/dist'
 if (-not [IO.File]::Exists((Join-Path $guiDist 'index.html'))) { throw 'Built GUI is missing. Run npm run build in gui before packaging.' }
+
+$runtimeCacheRoot = if ([string]::IsNullOrWhiteSpace($PowerShellRuntimeCacheRoot)) {
+    Join-Path ([IO.Path]::GetTempPath()) 'ChannelForge-PowerShell'
+} else {
+    Get-FullPath $PowerShellRuntimeCacheRoot
+}
+$runtimeInfo = Resolve-PortablePowerShellRuntime -Version $PowerShellVersion -CacheRoot $runtimeCacheRoot -ArchivePath $PowerShellRuntimeZipPath
+$runtimeFull = $runtimeInfo.RuntimeRoot
 
 $stageParent = Join-Path $outputFull '.staging'
 $stage = Join-Path $stageParent ("windows-x64-" + [guid]::NewGuid().ToString('N'))
@@ -140,6 +207,8 @@ try {
         SourceCommitSha = $SourceCommitSha.ToLowerInvariant()
         BundledPowerShellVersion = $runtimeVersion
         BundledPowerShellHash = $runtimeHash
+        BundledPowerShellArchiveUrl = $runtimeInfo.ArchiveUrl
+        BundledPowerShellArchiveSha256 = $runtimeInfo.ArchiveSha256
         Files = @($files)
     }
     Write-CanonicalJson $manifest (Join-Path $stage 'package-manifest.json')
@@ -159,6 +228,8 @@ try {
         PackageSourceCommitSha = $SourceCommitSha.ToLowerInvariant()
         BundledPowerShellVersion = $runtimeVersion
         BundledPowerShellHash = $runtimeHash
+        BundledPowerShellArchiveUrl = $runtimeInfo.ArchiveUrl
+        BundledPowerShellArchiveSha256 = $runtimeInfo.ArchiveSha256
         FileCount = $files.Count
     }
     Write-CanonicalJson $evidence (Join-Path $outputFull ($packageName + '.evidence.json'))
@@ -175,4 +246,7 @@ try {
 }
 finally {
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($runtimeInfo -and (Test-Path -LiteralPath $runtimeInfo.ExtractRoot)) {
+        Remove-Item -LiteralPath $runtimeInfo.ExtractRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }

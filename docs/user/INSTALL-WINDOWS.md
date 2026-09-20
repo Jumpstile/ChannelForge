@@ -10,7 +10,10 @@ ChannelForge alpha 1 is a portable Windows x64 bundle. It does not install a Win
 4. The installer copies the verified application to `%LOCALAPPDATA%\ChannelForge` and starts the local server.
 5. Confirm that the browser opens `http://127.0.0.1:8765/`.
 
-The bundle includes its own PowerShell runtime. The launcher uses loopback only and stores runtime logs under `%LOCALAPPDATA%\ChannelForge\state\runtime`.
+The bundle includes the official PowerShell `7.6.6` win-x64 portable ZIP
+runtime, pinned by its release-archive SHA256 in `package-manifest.json`. The
+launcher uses loopback only and stores runtime logs under
+`%LOCALAPPDATA%\ChannelForge\state\runtime`.
 
 ## First run
 
