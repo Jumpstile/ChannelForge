@@ -20,9 +20,11 @@ New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $existingManifest = Join-Path $destination 'package-manifest.json'
 if (Test-Path -LiteralPath $existingManifest -PathType Leaf) {
     $updater = Join-Path $destination 'tools/Invoke-ChannelForgeAutoUpdate.ps1'
-    $runtime = Join-Path $destination 'runtime/pwsh/pwsh.exe'
-    if (-not [IO.File]::Exists($updater) -or -not [IO.File]::Exists($runtime)) { throw 'Existing ChannelForge installation is incomplete; refusing to overwrite it.' }
-    & $runtime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $updater -Apply -PackageRoot $package -InstallRoot $destination -SkipRestart:$SkipStart
+    $packageRuntime = Join-Path $package 'runtime/pwsh/pwsh.exe'
+    if (-not [IO.File]::Exists($updater) -or -not [IO.File]::Exists($packageRuntime)) { throw 'Existing ChannelForge installation is incomplete or the source bundle runtime is missing; refusing to overwrite it.' }
+    # Run from the extracted source bundle so the updater can replace the
+    # installed runtime without locking its own DLLs.
+    & $packageRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $updater -Apply -PackageRoot $package -InstallRoot $destination -SkipRestart:$SkipStart
     if ($LASTEXITCODE -ne 0) { throw 'ChannelForge upgrade failed.' }
 } else {
     Copy-ChannelForgeUpdatePackageContent -SourcePath $package -DestinationRoot $destination | Out-Null
