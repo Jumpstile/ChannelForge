@@ -6,17 +6,29 @@ function Read-ChannelForgeWebRequestBody {
         [int]$MaxBytes = 24MB
     )
 
-    if ($ContentLength -gt $MaxBytes) { throw [System.InvalidOperationException]::new('The proposal request is too large.') }
-    $buffer = [byte[]]::new(81920)
-    $output = [System.IO.MemoryStream]::new()
+    if ($ContentLength -lt 0) {
+        throw [System.ArgumentException]::new('A Content-Length header is required for POST requests.')
+    }
+    if ($ContentLength -gt $MaxBytes) {
+        throw [System.InvalidOperationException]::new('The proposal request is too large.')
+    }
+    if ($ContentLength -eq 0) {
+        return [byte[]]::new(0)
+    }
+
+    $output = [System.IO.MemoryStream]::new([int]$ContentLength)
+    $buffer = [byte[]]::new([Math]::Min(81920, [int]$ContentLength))
     $total = 0L
     try {
-        while (($read = $Stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            $total += $read
-            if ($total -gt $MaxBytes) { throw [System.InvalidOperationException]::new('The proposal request is too large.') }
+        while ($total -lt $ContentLength) {
+            $remaining = [int]($ContentLength - $total)
+            $read = $Stream.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
+            if ($read -le 0) {
+                throw [System.ArgumentException]::new('The request body ended before the declared Content-Length.')
+            }
             $output.Write($buffer, 0, $read)
+            $total += $read
         }
-        if ($ContentLength -ge 0 -and $total -ne $ContentLength) { throw [System.ArgumentException]::new('The proposal request length does not match its body.') }
         return $output.ToArray()
     }
     finally {

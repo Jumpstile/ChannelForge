@@ -80,6 +80,72 @@ BeforeAll {
         }
         return [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
     }
+
+    function Invoke-TestRawHttpRequest {
+        param(
+            [Parameter(Mandatory)][int]$Port,
+            [Parameter(Mandatory)][string]$Headers,
+            [byte[]]$BodyBytes = [byte[]]::new(0),
+            [switch]$ShutdownSend
+        )
+
+        $client = [Net.Sockets.TcpClient]::new()
+        try {
+            $client.ReceiveTimeout = 3000
+            $client.SendTimeout = 3000
+            $client.Connect('127.0.0.1', $Port)
+            $stream = $client.GetStream()
+            $requestBytes = [Text.Encoding]::ASCII.GetBytes("$Headers`r`n`r`n")
+            $stream.Write($requestBytes, 0, $requestBytes.Length)
+            if ($BodyBytes.Length -gt 0) {
+                $stream.Write($BodyBytes, 0, $BodyBytes.Length)
+            }
+            $stream.Flush()
+            if ($ShutdownSend) {
+                $client.Client.Shutdown([Net.Sockets.SocketShutdown]::Send)
+            }
+
+            $headerBuffer = [IO.MemoryStream]::new()
+            try {
+                while ($true) {
+                    $value = $stream.ReadByte()
+                    if ($value -lt 0) { throw 'The HTTP response ended before headers were complete.' }
+                    $headerBuffer.WriteByte([byte]$value)
+                    if ($headerBuffer.Length -ge 4) {
+                        $headerBytes = $headerBuffer.ToArray()
+                        $count = $headerBytes.Length
+                        if ($headerBytes[$count - 4] -eq 13 -and $headerBytes[$count - 3] -eq 10 -and $headerBytes[$count - 2] -eq 13 -and $headerBytes[$count - 1] -eq 10) {
+                            break
+                        }
+                    }
+                }
+                $headerText = [Text.Encoding]::ASCII.GetString($headerBuffer.ToArray())
+            }
+            finally {
+                $headerBuffer.Dispose()
+            }
+
+            $statusMatch = [regex]::Match($headerText, '^HTTP/\d\.\d\s+(?<Status>\d+)', [Text.RegularExpressions.RegexOptions]::Multiline)
+            $lengthMatch = [regex]::Match($headerText, '(?im)^Content-Length:\s*(?<Length>\d+)')
+            if (-not $statusMatch.Success -or -not $lengthMatch.Success) { throw 'The HTTP response omitted a status or Content-Length.' }
+            $contentLength = [int]$lengthMatch.Groups['Length'].Value
+            $responseBytes = [byte[]]::new($contentLength)
+            $offset = 0
+            while ($offset -lt $contentLength) {
+                $read = $stream.Read($responseBytes, $offset, $contentLength - $offset)
+                if ($read -le 0) { throw 'The HTTP response ended before its declared body length.' }
+                $offset += $read
+            }
+            return [pscustomobject]@{
+                StatusCode = [int]$statusMatch.Groups['Status'].Value
+                Body       = [Text.Encoding]::UTF8.GetString($responseBytes)
+            }
+        }
+        finally {
+            if ($null -ne $client) { $client.Dispose() }
+        }
+    }
+
 }
 
 Describe 'ChannelForge web server foundation' {
@@ -575,6 +641,72 @@ Describe 'ChannelForge web server foundation' {
     }
 
 
+
+    It 'bounds actual HTTP request bodies and keeps the single-threaded listener responsive' {
+        $root = Join-Path $TestDrive 'request-body-framing'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        $port = 18771
+        $serverLauncher = Join-Path $TestDrive 'request-body-framing-server.ps1'
+        @(
+            "Import-Module '$script:ModulePath' -Force"
+            "Start-ChannelForgeWebServer -Port $port -RepositoryRoot '$root'"
+        ) | Set-Content -LiteralPath $serverLauncher
+        $server = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $serverLauncher) -WorkingDirectory $script:RepoRoot -PassThru
+
+        try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 100 -and -not $ready; $attempt++) {
+                if ($server.HasExited) { break }
+                $tcp = $null
+                try {
+                    $tcp = [Net.Sockets.TcpClient]::new()
+                    $tcp.Connect('127.0.0.1', $port)
+                    $ready = $true
+                }
+                catch {}
+                finally {
+                    if ($null -ne $tcp) { $tcp.Dispose() }
+                }
+                if (-not $ready) { Start-Sleep -Milliseconds 100 }
+            }
+            $ready | Should -BeTrue
+
+            $body = New-TestProposalBody
+            $proposalHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $($body.Length)"
+            $proposalResponse = Invoke-TestRawHttpRequest -Port $port -Headers $proposalHeaders -BodyBytes $body
+            $proposalResponse.StatusCode | Should -Be 200
+            $proposalPayload = $proposalResponse.Body | ConvertFrom-Json
+            $proposalPayload.Status | Should -Be 'PROPOSAL_READY'
+
+            $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+            $acceptHeaders = "POST /api/guided-setup/accept HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $($acceptBody.Length)"
+            $acceptResponse = Invoke-TestRawHttpRequest -Port $port -Headers $acceptHeaders -BodyBytes $acceptBody
+            $acceptResponse.StatusCode | Should -Be 200
+            ($acceptResponse.Body | ConvertFrom-Json).Status | Should -Be 'ACCEPTED'
+            Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
+
+            $shortHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close`r`nContent-Type: application/json`r`nContent-Length: 3"
+            $shortResponse = Invoke-TestRawHttpRequest -Port $port -Headers $shortHeaders -BodyBytes ([Text.Encoding]::UTF8.GetBytes('{}')) -ShutdownSend
+            $shortResponse.StatusCode | Should -Be 400
+
+            $oversizedHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $((24MB) + 1)"
+            $oversizedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $oversizedHeaders
+            $oversizedResponse.StatusCode | Should -Be 413
+
+            $chunkedHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nTransfer-Encoding: chunked"
+            $chunkedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $chunkedHeaders -BodyBytes ([Text.Encoding]::ASCII.GetBytes("0`r`n`r`n"))
+            $chunkedResponse.StatusCode | Should -Be 400
+
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /health HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close").StatusCode | Should -Be 200
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /api/status HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close").StatusCode | Should -Be 200
+        }
+        finally {
+            if ($null -ne $server -and -not $server.HasExited) {
+                $server.Kill()
+                $server.WaitForExit()
+            }
+        }
+    }
 
     It 'enforces exact POST allowlisting, declared length, and request size limits' {
         $root = Join-Path $TestDrive 'proposal-bounds'
