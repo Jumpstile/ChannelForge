@@ -80,7 +80,13 @@
           "CacheChanged": { "type": "boolean" },
           "LastKnownGoodPreserved": { "type": "boolean" },
           "ValidatorOutcome": {
-            "enum": ["NONE", "ETAG", "LAST_MODIFIED", "ETAG_AND_LAST_MODIFIED", "SOURCE_FINGERPRINT"]
+            "enum": [
+              "NONE",
+              "ETAG",
+              "LAST_MODIFIED",
+              "ETAG_AND_LAST_MODIFIED",
+              "SOURCE_FINGERPRINT"
+            ]
           },
           "SafeReason": { "type": "string" }
         }

@@ -27,7 +27,11 @@
     "AcceptedWorkflow": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["GenerationManifestHash", "AcceptedStateHash", "AcceptedOutputManifestHash"],
+      "required": [
+        "GenerationManifestHash",
+        "AcceptedStateHash",
+        "AcceptedOutputManifestHash"
+      ],
       "properties": {
         "GenerationManifestHash": { "type": ["string", "null"] },
         "AcceptedStateHash": { "type": ["string", "null"] },
@@ -53,12 +57,22 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["SourceId", "Kind", "Format", "ManagedPath", "ContentHash", "ByteLength"],
+      "required": [
+        "SourceId",
+        "Kind",
+        "Format",
+        "ManagedPath",
+        "ContentHash",
+        "ByteLength"
+      ],
       "properties": {
         "SourceId": { "$ref": "#/$defs/hash" },
         "Kind": { "enum": ["M3U", "XMLTV"] },
         "Format": { "enum": ["m3u", "xmltv"] },
-        "ManagedPath": { "type": "string", "pattern": "^state/managed-sources/[0-9a-f]{64}\\.(m3u|xml)$" },
+        "ManagedPath": {
+          "type": "string",
+          "pattern": "^state/managed-sources/[0-9a-f]{64}\\.(m3u|xml)$"
+        },
         "ContentHash": { "$ref": "#/$defs/hash" },
         "ByteLength": { "type": "integer", "minimum": 1 }
       }

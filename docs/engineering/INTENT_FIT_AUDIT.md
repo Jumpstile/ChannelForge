@@ -341,12 +341,12 @@ local M3U bytes and optional XMLTV bytes after immutable lineup acceptance,
 without making enrollment a second accepted-lineup authority. The implementation
 keeps those boundaries separate:
 
-| Area | Entry points | Evidence target | Disposition |
-| --- | --- | --- | --- |
-| Enrollment record and managed bytes | `Write-ChannelForgeSourceEnrollment`, `state/source-enrollment.json`, `state/managed-sources/` | Canonical self-hash, content fingerprints, atomic replacement, containment and reparse checks | PASS_WITH_GAPS pending exact-head full gates |
-| Acceptance ordering | `Get-ChannelForgeGuidedSetupProposalResponse`, `Get-ChannelForgeGuidedSetupAcceptanceResponse` | Accepted generation publishes through existing publisher; enrollment failure returns accepted + repair-required without erasing LKG | PASS_WITH_GAPS pending focused WebServer evidence |
-| Refresh reuse | `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath`, `Invoke-ChannelForgeSourceRefresh.ps1` | Stable bytes reuse; changed bytes produce review-only candidate; no accepted mutation | PASS_WITH_GAPS pending focused refresh evidence |
-| Beginner status surface | `Get-ChannelForgeWebStatus`, `/api/sources/refresh`, `StatusDashboard` | Redacted saved/changed/unavailable status, Refresh now, Replace sources | PASS_WITH_GAPS pending GUI/browser evidence |
+| Area                                | Entry points                                                                                   | Evidence target                                                                                                                     | Disposition                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Enrollment record and managed bytes | `Write-ChannelForgeSourceEnrollment`, `state/source-enrollment.json`, `state/managed-sources/` | Canonical self-hash, content fingerprints, atomic replacement, containment and reparse checks                                       | PASS_WITH_GAPS pending exact-head full gates      |
+| Acceptance ordering                 | `Get-ChannelForgeGuidedSetupProposalResponse`, `Get-ChannelForgeGuidedSetupAcceptanceResponse` | Accepted generation publishes through existing publisher; enrollment failure returns accepted + repair-required without erasing LKG | PASS_WITH_GAPS pending focused WebServer evidence |
+| Refresh reuse                       | `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath`, `Invoke-ChannelForgeSourceRefresh.ps1`    | Stable bytes reuse; changed bytes produce review-only candidate; no accepted mutation                                               | PASS_WITH_GAPS pending focused refresh evidence   |
+| Beginner status surface             | `Get-ChannelForgeWebStatus`, `/api/sources/refresh`, `StatusDashboard`                         | Redacted saved/changed/unavailable status, Refresh now, Replace sources                                                             | PASS_WITH_GAPS pending GUI/browser evidence       |
 
 Remote credential enrollment, unattended remote acquisition, auto-acceptance,
 downstream publication, and scheduled source mutation remain outside this

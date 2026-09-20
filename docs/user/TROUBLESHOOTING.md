@@ -49,7 +49,7 @@ errors are intentionally not shown.
 | Server reports that the address is in use           | Another process owns port 8765                              | Run `pwsh -File .\scripts\Start-ChannelForgeWebServer.ps1 -Port 8766` and open `http://127.0.0.1:8766/`                                           |
 | Built UI does not appear                            | `gui/dist/index.html` is absent                             | Run the build commands above, or use the safe placeholder intentionally                                                                           |
 | A static asset returns `404 Not Found`              | The path is unknown or its type is unsafe                   | Confirm the asset exists under `gui/dist` and uses a supported static extension; directory listing is disabled                                    |
-| A request returns `405 Method Not Allowed`          | The method is not allowed for that endpoint                  | Use `GET`/`HEAD` for status/static reads, `POST` for the bounded Guided Setup proposal/acceptance or empty-body saved-source refresh |
+| A request returns `405 Method Not Allowed`          | The method is not allowed for that endpoint                 | Use `GET`/`HEAD` for status/static reads, `POST` for the bounded Guided Setup proposal/acceptance or empty-body saved-source refresh              |
 | A status endpoint returns `503 Service Unavailable` | Accepted-state metadata failed validation                   | The dashboard shows a safe unavailable message; the server stays read-only; inspect accepted-state recovery diagnostics before changing any state |
 | Dashboard says status is unavailable                | Server stopped, network failure, or invalid status response | Confirm the loopback server is running, then refresh; raw response details are intentionally hidden                                               |
 | A remote machine cannot connect                     | The listener is loopback-only                               | This foundation does not expose a public or LAN listener                                                                                          |
@@ -103,13 +103,13 @@ bytes are unchanged. **Changes found** means a review-only candidate was
 created; no accepted lineup changed. Use **Replace sources** to return to
 Guided Setup and explicitly review a new upload.
 
-| Symptom | Meaning | What to do |
-| --- | --- | --- |
-| **Sources not saved** | No browser acceptance has enrolled sources | Open Guided Setup, choose the playlist and optional guide, analyze, acknowledge, and accept |
-| **Needs attention** | The enrollment record failed integrity validation | Do not edit state files; use Replace sources to create a new server-owned enrollment |
-| **Source unavailable** | A managed source is missing, unsafe, or unreadable | Use Replace sources; the accepted lineup remains unchanged |
-| **Changes found** | Managed source bytes differ from the enrolled fingerprint | Review the refresh result, then replace and accept sources explicitly if intended |
-| Refresh reports an unavailable result | Refresh could not safely read or analyze the saved bytes | Preserve the report, confirm the server owns its state directory, and use Replace sources; do not delete accepted state |
+| Symptom                               | Meaning                                                   | What to do                                                                                                              |
+| ------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Sources not saved**                 | No browser acceptance has enrolled sources                | Open Guided Setup, choose the playlist and optional guide, analyze, acknowledge, and accept                             |
+| **Needs attention**                   | The enrollment record failed integrity validation         | Do not edit state files; use Replace sources to create a new server-owned enrollment                                    |
+| **Source unavailable**                | A managed source is missing, unsafe, or unreadable        | Use Replace sources; the accepted lineup remains unchanged                                                              |
+| **Changes found**                     | Managed source bytes differ from the enrolled fingerprint | Review the refresh result, then replace and accept sources explicitly if intended                                       |
+| Refresh reports an unavailable result | Refresh could not safely read or analyze the saved bytes  | Preserve the report, confirm the server owns its state directory, and use Replace sources; do not delete accepted state |
 
 Remote credential enrollment is not part of this slice. The browser flow
 supports local uploaded M3U and optional XMLTV bytes only.

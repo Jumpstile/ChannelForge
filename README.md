@@ -138,7 +138,7 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | Guide structural validation               | Works now — structural only (prototype)                                                                                |
 | Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                                          |
 | Lineup review                             | Implemented — local checks passed (prototype)                                                                          |
-| Saved-source status and manual refresh   | Implemented — redacted status, server-owned local enrollment, review-only refresh |
+| Saved-source status and manual refresh    | Implemented — redacted status, server-owned local enrollment, review-only refresh                                      |
 | Scheduled automatic updates               | Planned / not built yet                                                                                                |
 
 ### Browser Guided Setup snapshots
