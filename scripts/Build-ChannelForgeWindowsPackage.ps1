@@ -60,6 +60,7 @@ function Resolve-PortablePowerShellRuntime {
     $expectedHash = $expectedHashes[$Version]
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         New-Item -ItemType Directory -Force -Path $CacheRoot | Out-Null
+        $ArchivePath = Join-Path $CacheRoot "PowerShell-$Version-win-x64.zip"
     } else {
         $ArchivePath = Get-FullPath $ArchivePath
     }
