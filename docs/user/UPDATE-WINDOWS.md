@@ -12,6 +12,5 @@ Updates are explicit and backup-first. The updater replaces application files on
 
 If validation or startup fails, the updater restores the backup and attempts to start the previous application. Inspect `%LOCALAPPDATA%\ChannelForge\state\runtime\server.stderr.log` if the browser does not open.
 
-![Accepted setup state captured from the running implementation](assets/alpha1-windows/04-accepted-restart.png)
-
-![Guided review state captured from the running implementation](assets/alpha1-windows/05-refresh-now.png)
+Clean-machine packaged update screenshots remain pending the ARCADE validation
+gate.
