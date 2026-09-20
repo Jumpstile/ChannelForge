@@ -149,6 +149,10 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 
 ![Windows alpha bundle launch](docs/user/assets/alpha1-windows/02-started-browser.png)
 
+![Windows alpha packaged update](docs/user/assets/alpha1-windows/06-update-windows.png)
+
+![Windows alpha packaged uninstall](docs/user/assets/alpha1-windows/07-uninstall-windows.png)
+
 ### Browser Guided Setup snapshots
 
 ![Browser Guided Setup proposal](docs/user/assets/guided-browser-file-proposal.png)

@@ -20,5 +20,4 @@ $pw = Join-Path $env:LOCALAPPDATA 'ChannelForge\\runtime\\pwsh\\pwsh.exe'
 
 `-PurgeData` without `-ConfirmPurge` is rejected. The purge removes only ChannelForge-owned data directories; it does not delete arbitrary neighboring files.
 
-Clean-machine packaged uninstall screenshots remain pending the ARCADE
-validation gate.
+![Packaged Alpha.1 uninstall flow](assets/alpha1-windows/07-uninstall-windows.png)
