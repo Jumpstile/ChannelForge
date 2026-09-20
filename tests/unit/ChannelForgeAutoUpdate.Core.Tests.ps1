@@ -7,7 +7,7 @@ BeforeAll {
     function New-ChannelForgeTestRelease {
         param(
             [string]$TagName = 'v0.2.0',
-            [string[]]$AssetNames = @('ChannelForge.zip'),
+            [string[]]$AssetNames = @('ChannelForge-v0.2.0-windows-x64.zip'),
             [string]$Owner = 'Jumpstile',
             [string]$Repository = 'ChannelForge'
         )
@@ -305,8 +305,8 @@ Describe 'Invoke-ChannelForgeAutoUpdate -Apply -WhatIf' {
             [pscustomobject]@{
                 tag_name = 'v0.2.0'
                 assets   = @([pscustomobject]@{
-                    name                  = 'ChannelForge.zip'
-                    browser_download_url = 'https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/ChannelForge.zip'
+                    name                  = 'ChannelForge-v0.2.0-windows-x64.zip'
+                    browser_download_url = 'https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/ChannelForge-v0.2.0-windows-x64.zip'
                 })
             }
         }

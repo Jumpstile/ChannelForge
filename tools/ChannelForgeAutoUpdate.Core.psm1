@@ -24,8 +24,10 @@ $ErrorActionPreference = 'Stop'
 # overrides -- is left untouched even if an update package happens to contain
 # an entry with the same name.
 $script:ChannelForgeUpdateAllowedTopLevelNames = @(
-    'src', 'tools', 'scripts', 'schemas', 'engineering', 'docs',
-    'VERSION', 'README.md', 'LICENSE', 'CHANGELOG.md'
+    'src', 'tools', 'scripts', 'schemas', 'engineering', 'docs', 'gui', 'runtime',
+    'VERSION', 'README.md', 'LICENSE', 'CHANGELOG.md', 'package-manifest.json',
+    'Start ChannelForge.cmd', 'Install ChannelForge.cmd', 'Update ChannelForge.cmd',
+    'Uninstall ChannelForge.cmd'
 )
 
 function Get-ChannelForgeUpdateAllowedTopLevelNames {
@@ -334,6 +336,100 @@ function Copy-ChannelForgeUpdatePackageContent {
         Skipped = $skipped
     }
 }
+function Get-ChannelForgePackageFileHash {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Test-ChannelForgeWindowsPackage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PackageRoot,
+        [switch]$AllowProtectedState,
+        [switch]$AllowUnmanifestedFiles
+    )
+
+    $root = [IO.Path]::GetFullPath($PackageRoot).TrimEnd([char]92, [char]47)
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        throw "Package root does not exist: $root"
+    }
+    $manifestPath = Join-Path $root 'package-manifest.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw 'Package manifest is missing.'
+    }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    if ([string]$manifest.SchemaVersion -ne 'windows-package/v1') { throw 'Unsupported package manifest schema.' }
+    if ([string]$manifest.PackageTarget -ne 'windows-x64-portable-server') { throw 'Unsupported package target.' }
+    if ([string]::IsNullOrWhiteSpace([string]$manifest.SourceCommitSha)) { throw 'Package source commit is missing.' }
+    if ([string]::IsNullOrWhiteSpace([string]$manifest.ChannelForgeVersion)) { throw 'Package version is missing.' }
+    if ([string]::IsNullOrWhiteSpace([string]$manifest.BundledPowerShellVersion)) { throw 'Bundled PowerShell version is missing.' }
+
+    $files = @($manifest.Files)
+    if ($files.Count -eq 0) { throw 'Package manifest contains no files.' }
+    $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($entry in $files) {
+        $relative = ([string]$entry.Path).Replace('\', '/')
+        if ([string]::IsNullOrWhiteSpace($relative) -or $relative.StartsWith('/') -or $relative -match '(^|/)\.\.(/|$)' -or $relative -match '(^|/)\.git(/|$)') {
+            throw "Package manifest contains an unsafe path: $relative"
+        }
+        if (-not $expected.Add($relative)) { throw "Package manifest contains a duplicate path: $relative" }
+        $topLevel = ($relative -split '/')[0]
+        $protected = @('data', 'state', 'config', 'output', 'cache', 'logs', 'UpdateBackups') -contains $topLevel
+        if ($AllowProtectedState -and $protected) {
+            continue
+        }
+        $path = Join-Path $root ($relative -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Manifest file is missing: $relative" }
+        $item = Get-Item -LiteralPath $path -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Manifest file is a reparse point: $relative" }
+        if ([int64]$item.Length -ne [int64]$entry.ByteLength) { throw "Manifest byte length mismatch: $relative" }
+        if ((Get-ChannelForgePackageFileHash -Path $path) -cne ([string]$entry.Sha256).ToLowerInvariant()) { throw "Manifest hash mismatch: $relative" }
+    }
+
+    $actual = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force | Where-Object { $_.FullName -ne $manifestPath })
+    foreach ($item in $actual) {
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Package contains a reparse-point file: $($item.FullName)" }
+        $relative = [IO.Path]::GetRelativePath($root, $item.FullName).Replace('\', '/')
+        $topLevel = ($relative -split '/')[0]
+        $protected = @('data', 'state', 'config', 'output', 'cache', 'logs', 'UpdateBackups') -contains $topLevel
+        if ($AllowProtectedState -and $protected) { continue }
+        if (-not $expected.Contains($relative)) {
+            if ($AllowUnmanifestedFiles) { continue }
+            throw "Package contains an unmanifested file: $relative"
+        }
+    }
+    return [pscustomobject][ordered]@{
+        Manifest = $manifest
+        ManifestPath = $manifestPath
+        Root = $root
+        FileCount = $files.Count
+    }
+}
+
+function Restore-ChannelForgeUpdateBackup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BackupRoot,
+        [Parameter(Mandatory)][string]$DestinationRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $BackupRoot -PathType Container)) { throw "Backup root does not exist: $BackupRoot" }
+    foreach ($name in $script:ChannelForgeUpdateAllowedTopLevelNames) {
+        $backupPath = Join-Path $BackupRoot $name
+        $destinationPath = Join-Path $DestinationRoot $name
+        if (Test-Path -LiteralPath $backupPath) {
+            Assert-ChannelForgeWritableTarget -Path $destinationPath
+            if (Test-Path -LiteralPath $destinationPath) { Remove-Item -LiteralPath $destinationPath -Recurse -Force }
+            Copy-Item -LiteralPath $backupPath -Destination $DestinationRoot -Recurse -Force
+        } elseif (Test-Path -LiteralPath $destinationPath) {
+            Assert-ChannelForgeWritableTarget -Path $destinationPath
+            Remove-Item -LiteralPath $destinationPath -Recurse -Force
+        }
+    }
+}
+
 
 Export-ModuleMember -Function @(
     'Get-ChannelForgeUpdateAllowedTopLevelNames',
@@ -347,5 +443,8 @@ Export-ModuleMember -Function @(
     'Assert-ChannelForgeWritableTarget',
     'New-ChannelForgeUpdateBackup',
     'Save-ChannelForgeReleaseAsset',
-    'Copy-ChannelForgeUpdatePackageContent'
+    'Copy-ChannelForgeUpdatePackageContent',
+    'Get-ChannelForgePackageFileHash',
+    'Test-ChannelForgeWindowsPackage',
+    'Restore-ChannelForgeUpdateBackup'
 )

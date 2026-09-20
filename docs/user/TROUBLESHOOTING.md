@@ -166,9 +166,11 @@ ChannelForge is running, whether an accepted lineup is available, and the next
 Guided Setup direction without changing anything. A `503`, network failure, or
 invalid response produces a safe unavailable message. Browser Guided Setup
 proposal analysis is implemented through the bounded candidate-only endpoint
-described above; acceptance, Docker, and Windows server/service support are not
-implemented yet. Existing Tauri/React work remains an optional reusable
-reference and future packaging path.
+described above; browser acceptance and the Windows x64 portable bundle are
+implemented. The bundle is loopback-only, does not install a Windows service,
+and stores application state under `%LOCALAPPDATA%\ChannelForge`. Docker and
+Windows server/service deployment remain future modes. Existing Tauri/React
+work remains an optional reusable reference.
 
 **Why does the build fail instead of just skipping a bad source?**
 A malformed provider/EPG URL or an out-of-bounds path fails the whole build on purpose. ChannelForge prefers a loud, early failure over silently producing a partial or wrong lineup — see [ADR 0005](../adr/0005-evidence-over-assumptions.md).

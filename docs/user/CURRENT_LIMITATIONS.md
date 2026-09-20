@@ -59,12 +59,15 @@ details. The UI reads only derived status facts; it does not display provider
 data, credentials, private paths, hashes, generation IDs, accepted-generation
 contents, or parser details.
 
-Docker container and Windows server/service installation remain intended primary
-deployment modes but are not implemented yet. Browser Guided Setup acceptance
-does not publish downstream consumer files, configure a scheduler, or mutate
-provider accounts; those are separate future operations. The engine HTTP/API
-boundary, not React or a browser-local file path, remains the only authority
-for state-changing behavior.
+Docker container and Windows server/service installation remain future
+deployment modes. The alpha Windows x64 portable bundle is implemented without
+administrator rights or a Windows service: it uses a pinned runtime, a
+loopback-only listener, manifest-verified application files, backup-first
+updates, rollback, and explicit uninstall. Browser Guided Setup acceptance does
+not publish downstream consumer files, configure a scheduler, or mutate provider
+accounts; those are separate future operations. The engine HTTP/API boundary,
+not React or a browser-local file path, remains the only authority for
+state-changing behavior.
 
 ### GUI status
 
@@ -74,7 +77,7 @@ The following describes preserved prototype/reference work, not a primary deploy
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Browser web UI served by engine           | Built UI with read-only `/api/status`, durable review sessions, and explicit immutable acceptance |
 | Docker deployment                         | Architecture recorded; implementation pending                                                     |
-| Windows server/service install            | Architecture recorded; implementation pending                                                     |
+| Windows server/service install            | Future deployment mode; not implemented                                                       |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
 | Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work        |
 | Native file-picker bridge                 | Works now (prototype)                                                                             |

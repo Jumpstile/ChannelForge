@@ -11,11 +11,14 @@
 param(
     [switch]$CheckOnly,
     [switch]$Apply,
+    [string]$PackagePath = '',
+    [string]$PackageRoot = '',
+    [switch]$SkipRestart,
     [string]$VersionFile = (Join-Path (Split-Path -Parent $PSScriptRoot) 'VERSION'),
     [string]$InstallRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$Owner = 'Jumpstile',
     [string]$Repository = 'ChannelForge',
-    [string]$AssetNamePattern = '^ChannelForge\.(zip|ps1|psm1)$'
+    [string]$AssetNamePattern = '^ChannelForge-v.*-windows-x64\.zip$'
 )
 
 Set-StrictMode -Version 2.0
@@ -44,6 +47,11 @@ function Install-DownloadedUpdate {
             New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
             try {
                 Expand-Archive -LiteralPath $DownloadedPath -DestinationPath $extractPath -Force
+                $manifestPath = Join-Path $extractPath 'package-manifest.json'
+                if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+                    throw 'Windows package manifest is missing.'
+                }
+                Test-ChannelForgeWindowsPackage -PackageRoot $extractPath | Out-Null
                 $result = Copy-ChannelForgeUpdatePackageContent -SourcePath $extractPath -DestinationRoot $Root
                 if ($result.Copied.Count -gt 0) {
                     Write-UpdaterInfo "Updated       : $($result.Copied -join ', ')"
@@ -63,10 +71,75 @@ function Install-DownloadedUpdate {
             Copy-Item -LiteralPath $DownloadedPath -Destination $Root -Force
         }
         default {
+
             throw "Unsupported update asset extension: $extension"
         }
     }
 }
+function Resolve-ChannelForgePackageRoot {
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [IO.Path]::GetFullPath($Path)
+    if ([IO.File]::Exists($full)) {
+        if ([IO.Path]::GetExtension($full) -ine '.zip') { throw 'PackagePath must be a ZIP file.' }
+        $temp = Join-Path ([IO.Path]::GetTempPath()) ('channelforge-package-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path $temp | Out-Null
+        Expand-Archive -LiteralPath $full -DestinationPath $temp -Force
+        return [pscustomobject][ordered]@{ Root = $temp; Temporary = $true }
+    }
+    if (-not [IO.Directory]::Exists($full)) { throw "Package path does not exist: $full" }
+    return [pscustomobject][ordered]@{ Root = $full.TrimEnd([char]92, [char]47); Temporary = $false }
+}
+
+function Invoke-ChannelForgeLocalPackageUpdate {
+    param([Parameter(Mandatory)][string]$SourceRoot)
+    $validated = Test-ChannelForgeWindowsPackage -PackageRoot $SourceRoot
+    if (-not $PSCmdlet.ShouldProcess($InstallRoot, "update ChannelForge to $($validated.Manifest.ChannelForgeVersion)")) { return }
+    $stopScript = Join-Path $InstallRoot 'scripts/Stop-ChannelForge.ps1'
+    $startScript = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
+    $runtime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
+    if (-not $SkipRestart -and [IO.File]::Exists($stopScript) -and [IO.File]::Exists($runtime)) {
+        & $runtime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $stopScript
+    }
+    $backup = $null
+    try {
+        $backup = New-ChannelForgeUpdateBackup -Root $InstallRoot
+        Copy-ChannelForgeUpdatePackageContent -SourcePath $SourceRoot -DestinationRoot $InstallRoot | Out-Null
+        Test-ChannelForgeWindowsPackage -PackageRoot $InstallRoot -AllowProtectedState -AllowUnmanifestedFiles | Out-Null
+        if (-not $SkipRestart) {
+            $newRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
+            $newStart = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
+            & $newRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $newStart
+            if ($LASTEXITCODE -ne 0) { throw 'Updated ChannelForge failed its startup health check.' }
+        }
+        Write-UpdaterInfo "Update installed successfully: $($validated.Manifest.ChannelForgeVersion)"
+    } catch {
+        if ($null -ne $backup) {
+            Restore-ChannelForgeUpdateBackup -BackupRoot $backup -DestinationRoot $InstallRoot
+        }
+        if (-not $SkipRestart -and [IO.File]::Exists($runtime) -and [IO.File]::Exists($startScript)) {
+            & $runtime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $startScript -NoBrowser
+        }
+        throw
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($PackagePath) -and -not [string]::IsNullOrWhiteSpace($PackageRoot)) {
+    throw 'Specify only one of PackagePath or PackageRoot.'
+}
+if (-not [string]::IsNullOrWhiteSpace($PackagePath) -or -not [string]::IsNullOrWhiteSpace($PackageRoot)) {
+    if (-not $CheckOnly -and -not $Apply) { $CheckOnly = $true }
+    $source = if (-not [string]::IsNullOrWhiteSpace($PackageRoot)) { Resolve-ChannelForgePackageRoot -Path $PackageRoot } else { Resolve-ChannelForgePackageRoot -Path $PackagePath }
+    try {
+        $validated = Test-ChannelForgeWindowsPackage -PackageRoot $source.Root
+        Write-UpdaterInfo "Package valid   : $($validated.Manifest.ChannelForgeVersion)"
+        Write-UpdaterInfo "Package source  : $($validated.Manifest.SourceCommitSha)"
+        if ($Apply) { Invoke-ChannelForgeLocalPackageUpdate -SourceRoot $source.Root }
+    } finally {
+        if ($source.Temporary -and (Test-Path -LiteralPath $source.Root)) { Remove-Item -LiteralPath $source.Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    return
+}
+
 
 if (-not $CheckOnly -and -not $Apply) {
     $CheckOnly = $true
@@ -109,16 +182,40 @@ if ($Apply) {
     }
 
     $downloadedPath = $null
+    $backupPath = $null
     try {
+        $stopScript = Join-Path $InstallRoot 'scripts/Stop-ChannelForge.ps1'
+        $oldRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
+        if (-not $SkipRestart -and (Test-Path -LiteralPath $stopScript) -and (Test-Path -LiteralPath $oldRuntime)) {
+            & $oldRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $stopScript
+        }
         $backupPath = New-ChannelForgeUpdateBackup -Root $InstallRoot
         Write-UpdaterInfo "Backup created : $backupPath"
 
         $downloadedPath = Save-ChannelForgeReleaseAsset -Asset $asset
         Write-UpdaterInfo "Downloaded     : $downloadedPath"
-
         Install-DownloadedUpdate -DownloadedPath $downloadedPath -Root $InstallRoot
+        Test-ChannelForgeWindowsPackage -PackageRoot $InstallRoot -AllowProtectedState -AllowUnmanifestedFiles | Out-Null
+        if (-not $SkipRestart) {
+            $newRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
+            $newStart = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
+            if ((Test-Path -LiteralPath $newRuntime) -and (Test-Path -LiteralPath $newStart)) {
+                & $newRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $newStart
+                if ($LASTEXITCODE -ne 0) { throw 'Updated ChannelForge failed its startup health check.' }
+            }
+        }
         Write-UpdaterInfo 'Update installed successfully.'
-        Write-UpdaterInfo 'Restart ChannelForge before continuing work.'
+    } catch {
+        if ($null -ne $backupPath) {
+            Restore-ChannelForgeUpdateBackup -BackupRoot $backupPath -DestinationRoot $InstallRoot
+        }
+        if (-not $SkipRestart -and (Test-Path -LiteralPath $oldRuntime) -and (Test-Path -LiteralPath $stopScript)) {
+            $restoredStart = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
+            if (Test-Path -LiteralPath $restoredStart) {
+                & $oldRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $restoredStart -NoBrowser
+            }
+        }
+        throw
     } finally {
         if ($downloadedPath -and (Test-Path -LiteralPath $downloadedPath -PathType Leaf)) {
             Remove-Item -LiteralPath $downloadedPath -Force -ErrorAction SilentlyContinue
