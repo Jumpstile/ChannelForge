@@ -128,7 +128,7 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Browser web UI served by engine           | Built UI with read-only `/api/status`, durable browser review sessions, and explicit immutable Guided Setup acceptance |
 | Docker deployment                         | Architecture recorded; implementation pending                                                                          |
-| Windows x64 portable bundle               | Alpha implementation: install, loopback start, manifest-verified backup-first update, rollback, and uninstall             |
+| Windows x64 portable bundle               | Alpha implementation: install, loopback start, manifest-verified backup-first update, rollback, and uninstall          |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                                  |
 | Guided Setup layout                       | Browser review and acceptance flow works; native picker/review remains prototype/reference work                        |
 | Native file-picker bridge                 | Works now (prototype)                                                                                                  |

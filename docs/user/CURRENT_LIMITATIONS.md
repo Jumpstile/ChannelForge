@@ -77,7 +77,7 @@ The following describes preserved prototype/reference work, not a primary deploy
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Browser web UI served by engine           | Built UI with read-only `/api/status`, durable review sessions, and explicit immutable acceptance |
 | Docker deployment                         | Architecture recorded; implementation pending                                                     |
-| Windows server/service install            | Future deployment mode; not implemented                                                       |
+| Windows server/service install            | Future deployment mode; not implemented                                                           |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
 | Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work        |
 | Native file-picker bridge                 | Works now (prototype)                                                                             |
