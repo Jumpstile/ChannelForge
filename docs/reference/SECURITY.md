@@ -38,6 +38,17 @@ An enabled provider source without `local_playlist` may be acquired through the 
 
 Remote M3U cache metadata is an ignored, disposable, cache-private operational record. It may contain raw ETag and Last-Modified validators required for conditional requests; those values must never appear outside that cache-private metadata. In particular, they must not appear in build reports or evidence, Programme/Channel objects, generated M3U/XMLTV artifacts, logs or diagnostics, cache directory/file names, user-visible source identity, or Git-tracked data/configuration. The metadata itself excludes provider URLs, query strings, stream URLs, response bodies, credentials, selected addresses, and absolute paths. Build evidence contains only the opaque cache key and bounded operational fields such as outcome, status, normalized content type, encoding list, byte counts, parsed channel count, and validator-presence booleans. This slice performs no authentication, credential handling, proxying, redirect following, or stale/offline publication.
 
+## Browser-accepted managed sources
+
+Browser Guided Setup uploads are promoted only after explicit acceptance into
+the ignored `state/managed-sources/` root, with an ignored
+`state/source-enrollment.json` authority record. These files may contain real
+stream URLs and must be treated as sensitive local data. They are content
+fingerprinted, confined below the managed root, rejected when reparse points
+or tampering are detected, and never returned by `/api/status` or
+`/api/sources/refresh`. Do not copy managed-source bytes or the enrollment
+record into issues, tests, docs, reports, or commits.
+
 ## Native Guide Inference and Review Reports
 
 `Invoke-ChannelForgeGuidePatternInference` and `Get-ChannelForgeGuidePatternReview` treat provider display text and Stage A evidence as untrusted input. Their candidate, preview, review items, provenance, JSON, and Markdown retain only sanitized event text, logical source identifiers, and fingerprints of sanitized examples where a safe provenance label is needed. URL/stream URL, credential/token, private-path, parser-error, candidate-hash, generation-ID, raw examples, and implementation metadata are excluded from rendered values. The fixed `RedactedFields` declaration names omitted categories only; it does not carry source values. The review command is read-only; use ignored local files for real guides and playlists, and never paste their raw contents into a fixture, report, or issue.

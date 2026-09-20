@@ -232,7 +232,8 @@ function Get-SourceRefreshDocument {
     $allowedClassifications = @('AutoHandled', 'Degraded', 'ReviewNeeded', 'NoAction')
     $allowedReasons = @(
         'ReusedValidCache', 'ConditionalUnchanged', 'ConditionalChanged', 'FullRefreshValidated',
-        'RefreshFailedLkgPreserved', 'RefreshFailedNoLkg', 'InvalidCache', 'DisabledSource', 'LocalSource'
+        'RefreshFailedLkgPreserved', 'RefreshFailedNoLkg', 'InvalidCache', 'DisabledSource', 'LocalSource',
+        'CandidateGenerated'
     )
     $rows = [System.Collections.Generic.List[object]]::new()
     foreach ($row in @($result.Sources)) {

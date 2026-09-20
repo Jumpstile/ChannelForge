@@ -179,9 +179,10 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
             GuideStatus = $guideStatus
             CanAccept = $canAccept
             BlockingReasons = @($blockingReasons)
+            SourceM3URelative = 'input.m3u'
+            SourceXMLTVRelative = if ($null -eq $request.XMLTVBytes) { $null } else { 'guide.xml' }
+            EnrollmentStatus = 'Pending'
         }
-        Remove-Item -LiteralPath $m3uPath -Force -ErrorAction SilentlyContinue
-        if (Test-Path -LiteralPath $xmltvPath -PathType Leaf) { Remove-Item -LiteralPath $xmltvPath -Force -ErrorAction SilentlyContinue }
         $null = Write-ChannelForgeWebProposalSession -RepositoryRoot $RepositoryRoot -Session $session
         $retainProposal = $true
         $projection = [ordered]@{

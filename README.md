@@ -118,7 +118,7 @@ Working today:
 
 ### UI architecture
 
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). `scripts/Start-ChannelForgeWebServer.ps1` serves the built React/Vite UI and allowlisted static assets, exposes the read-only `GET /api/status` dashboard, and supports bounded browser Guided Setup review through `POST /api/guided-setup/proposal` plus explicit acknowledgement acceptance through `POST /api/guided-setup/accept`. Browser acceptance reuses the immutable generation publisher, preserves provider/downstream/scheduler state, and exposes only redacted review and acceptance summaries.
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). `scripts/Start-ChannelForgeWebServer.ps1` serves the built React/Vite UI, exposes the redacted `GET /api/status` dashboard, supports bounded browser Guided Setup review through `POST /api/guided-setup/proposal`, explicit acknowledgement acceptance through `POST /api/guided-setup/accept`, and review-only saved-source refresh through `POST /api/sources/refresh`. Accepted browser uploads are promoted into the separate server-owned durable source enrollment authority under ignored `state/managed-sources`; accepted generation state remains the only lineup authority.
 
 Existing React/TypeScript/Tauri work is preserved as reusable layout, design-token, Guided Setup, validation/review, saved-lineup, accessibility, and beginner-copy reference work. Tauri is optional future packaging, not the primary product shell.
 
@@ -138,8 +138,8 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | Guide structural validation               | Works now — structural only (prototype)                                                                                |
 | Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                                          |
 | Lineup review                             | Implemented — local checks passed (prototype)                                                                          |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                                         |
-| Automatic updates                         | Planned / not built yet                                                                                                |
+| Saved-source status and manual refresh   | Implemented — redacted status, server-owned local enrollment, review-only refresh |
+| Scheduled automatic updates               | Planned / not built yet                                                                                                |
 
 ### Browser Guided Setup snapshots
 

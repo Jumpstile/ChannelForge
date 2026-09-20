@@ -15,6 +15,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - A safe, local-only provider configuration workflow that never requires editing a tracked file (see [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md)).
 - A build report (`output/reports/build-summary.json`, `lineup-plan.md`) for every run, with a checksum, so you can verify what happened without trusting it blindly.
 - A browser Guided Setup review and acceptance flow served by the loopback web server. It accepts one bounded M3U upload and an optional bounded XMLTV upload through `POST /api/guided-setup/proposal`, persists a server-owned review session, and accepts only an explicit acknowledgement through `POST /api/guided-setup/accept`. Browser acceptance reuses immutable accepted-state publication and leaves provider, downstream, and scheduler state unchanged.
+- Durable local source enrollment after browser acceptance, including optional XMLTV, no-guide mode, managed-root integrity checks, restart-safe redacted status, manual review-only refresh, and preservation of accepted lineup state when source refresh fails.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
@@ -45,12 +46,12 @@ Open `http://127.0.0.1:8765/`. If `gui/dist/index.html` exists, the server
 serves that built UI and its allowlisted static assets. Otherwise it serves
 the safe placeholder shell. Static requests are read-only, loopback-only,
 confined to `gui/dist`, and do not provide directory listings or SPA fallback.
-
 When the status request succeeds, the page says **ChannelForge is running** and
-shows either **No lineup has been accepted yet** with **Open Guided Setup to
-begin**, or **An accepted lineup is available** with **Open Guided Setup to
-review**. The status page is read-only; Guided Setup is the separate surface
-for explicit browser review and acceptance.
+shows whether the lineup is accepted plus a saved-source summary: **Sources
+saved**, **Up to date**, **Changes found**, **Needs attention**, or **Source
+unavailable**. It also shows playlist and optional-guide status, last checked
+time, **Refresh now**, and **Replace sources**. Refresh creates only
+review-only evidence and never changes accepted lineup state automatically.
 
 If the server returns `503`, the request fails, or the response shape is
 unknown, the page shows a safe unavailable message rather than raw error
@@ -90,7 +91,7 @@ The following describes preserved prototype/reference work, not a primary deploy
 
 - **Export, scheduling, release, and tester distribution remain unavailable.** The GUI saved-lineup view reflects native accepted state only; it does not create downstream packages, schedule refreshes, publish to Plex or another target, create releases, or distribute artifacts.
 - **Native GUI runtime prerequisites remain local.** The GUI acceptance boundary requires the repository PowerShell workflow and `pwsh`; unavailable or stale native results fail closed without changing accepted state.
-- **Remote acquisition is deliberately narrow.** Provider M3U and XMLTV remote sources require HTTPS on port 443 and bounded streaming; redirects, proxies, credentials, authentication, retries, remote ZIP, stale/offline success, and live-network CI are not supported. Report-only scheduled planning is available without fetching sources.
+- **Remote credential enrollment and unattended source acquisition remain deferred.** Browser enrollment supports only local uploaded M3U and optional XMLTV bytes. Manual `Refresh now` checks server-owned saved bytes and creates review-only candidates; it does not fetch remote provider sources, auto-accept changes, or replace accepted state.
 - **Scheduled refresh is opt-in and Windows-only.** The planner remains report-only, while the manual foreground wrapper remains available and defaults to manual mode. Explicit installation creates one owned daily Task Scheduler task per local root; scheduler-owned mode invokes the bounded source-refresh executor once, with deterministic jitter handled by one bounded foreground wait. There is no always-on worker, daemon, service, cron/systemd registration, autonomous retry loop, or cross-platform scheduler backend.
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.

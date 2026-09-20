@@ -4,8 +4,56 @@ function Get-ChannelForgeSourceRefreshPlan {
         [Parameter(Mandatory)][string]$ProviderConfigPath,
         [Parameter(Mandatory)][string]$EpgConfigPath,
         [Parameter(Mandatory)][string]$CacheRoot,
-        [Parameter(Mandatory)][datetimeoffset]$EvaluationTimeUtc
+        [Parameter(Mandatory)][datetimeoffset]$EvaluationTimeUtc,
+        [string]$EnrollmentPath = ''
     )
+    if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
+        $enrollmentRoot = Split-Path -Parent (Split-Path -Parent ([System.IO.Path]::GetFullPath($EnrollmentPath)))
+        $enrollmentStatus = Get-ChannelForgeSourceEnrollment -RepositoryRoot $enrollmentRoot
+        $enrollmentRows = [System.Collections.Generic.List[object]]::new()
+        $managed = $null
+        try { $managed = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $enrollmentRoot } catch { $managed = $null }
+        $m3uState = if ($null -eq $managed) { 'Unavailable' } else { [string]$managed.M3UState }
+        $m3uAction = if ($m3uState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($m3uState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
+        $m3uReason = if ($m3uState -eq 'Ready') { 'Saved playlist bytes are unchanged; no source acquisition is required.' } elseif ($m3uState -eq 'Changed') { 'Saved playlist bytes changed; a candidate refresh is required for review.' } else { 'Saved playlist is unavailable or failed integrity checks.' }
+        $enrollmentRows.Add([pscustomobject][ordered]@{
+            SourceId = if ($null -eq $managed) { 'enrollment-m3u' } else { 'enrollment-m3u-' + ([string]$managed.Enrollment.M3U.SourceId).Substring(0, 16) }
+            Name = 'Saved playlist'
+            Kind = 'local'
+            SourceKind = 'enrolled'
+            Enabled = $true
+            CacheState = 'MANAGED_SOURCE_' + $m3uState.ToUpperInvariant()
+            Validator = 'SOURCE_FINGERPRINT'
+            LastValidatedAtUtc = $enrollmentStatus.LastCheckedUtc
+            RecommendedAction = $m3uAction
+            Reason = $m3uReason
+            EnrollmentKind = 'M3U'
+            SourcePath = if ($null -eq $managed) { $null } else { $managed.M3UPath }
+            GuidePath = if ($null -eq $managed) { $null } else { $managed.XMLTVPath }
+        }) | Out-Null
+        if ([string]$enrollmentStatus.XMLTVStatus -ne 'no-guide') {
+            $xmlState = if ($null -eq $managed) { 'Unavailable' } else { [string]$managed.XMLTVState }
+            $xmlAction = if ($xmlState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($xmlState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
+            $xmlReason = if ($xmlState -eq 'Ready') { 'Saved guide bytes are unchanged; no source acquisition is required.' } elseif ($xmlState -eq 'Changed') { 'Saved guide bytes changed; a candidate refresh is required for review.' } else { 'Saved guide is unavailable or failed integrity checks.' }
+            $enrollmentRows.Add([pscustomobject][ordered]@{
+                SourceId = if ($null -eq $managed) { 'enrollment-xmltv' } else { 'enrollment-xmltv-' + ([string]$managed.Enrollment.XMLTV.SourceId).Substring(0, 16) }
+                Name = 'Saved guide'
+                Kind = 'local'
+                SourceKind = 'enrolled'
+                Enabled = $true
+                CacheState = 'MANAGED_SOURCE_' + $xmlState.ToUpperInvariant()
+                Validator = 'SOURCE_FINGERPRINT'
+                LastValidatedAtUtc = $enrollmentStatus.LastCheckedUtc
+                RecommendedAction = $xmlAction
+                Reason = $xmlReason
+                EnrollmentKind = 'XMLTV'
+                SourcePath = if ($null -eq $managed) { $null } else { $managed.XMLTVPath }
+                PlaylistPath = if ($null -eq $managed) { $null } else { $managed.M3UPath }
+            }) | Out-Null
+        }
+        return @($enrollmentRows | Sort-Object Kind, SourceId)
+    }
+
 
     $providerRaw = Get-Content -LiteralPath $ProviderConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
     $providerId = if (-not [string]::IsNullOrWhiteSpace([string]$providerRaw.provider)) { [string]$providerRaw.provider } else { 'provider' }

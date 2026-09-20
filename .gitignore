@@ -2,6 +2,7 @@ node_modules/
 
 # generated output
 output/
+state/
 backups/
 *.log
 *.tmp

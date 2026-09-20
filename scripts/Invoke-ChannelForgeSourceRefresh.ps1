@@ -5,7 +5,8 @@ param(
     [string]$EpgConfigPath,
     [string]$CacheRoot,
     [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
-    [string]$OutputRoot
+    [string]$OutputRoot,
+    [string]$EnrollmentPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,24 +19,86 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot = Join-Path $rootFu
 $moduleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $moduleRoot 'src/ChannelForge/ChannelForge.psd1') -Force
 
-$providerRaw = Get-Content -LiteralPath $ProviderConfigPath -Raw | ConvertFrom-Json
- $providerId = if (-not [string]::IsNullOrWhiteSpace([string]$providerRaw.provider)) {
-     [string]$providerRaw.provider
- }
- else {
-     'provider'
- }
- $providerConfig = @(Read-ChannelForgeProvider -Path $ProviderConfigPath)
- $epgConfig = @(Read-ChannelForgeEpgSource -Path $EpgConfigPath)
- $plan = @(Get-ChannelForgeSourceRefreshPlan `
-     -ProviderConfigPath $ProviderConfigPath `
-     -EpgConfigPath $EpgConfigPath `
-     -CacheRoot $CacheRoot `
-     -EvaluationTimeUtc $EvaluationTimeUtc) |
-     Where-Object { $_.PSObject.Properties.Name -contains 'RecommendedAction' }
- $rows = [System.Collections.Generic.List[object]]::new()
+$providerId = 'provider'
+$providerConfig = @()
+$epgConfig = @()
+if ([string]::IsNullOrWhiteSpace($EnrollmentPath)) {
+    $providerRaw = Get-Content -LiteralPath $ProviderConfigPath -Raw | ConvertFrom-Json
+    $providerId = if (-not [string]::IsNullOrWhiteSpace([string]$providerRaw.provider)) { [string]$providerRaw.provider } else { 'provider' }
+    $providerConfig = @(Read-ChannelForgeProvider -Path $ProviderConfigPath)
+    $epgConfig = @(Read-ChannelForgeEpgSource -Path $EpgConfigPath)
+}
+$planArguments = @{
+    ProviderConfigPath = $ProviderConfigPath
+    EpgConfigPath = $EpgConfigPath
+    CacheRoot = $CacheRoot
+    EvaluationTimeUtc = $EvaluationTimeUtc
+}
+if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) { $planArguments.EnrollmentPath = $EnrollmentPath }
+$plan = @(Get-ChannelForgeSourceRefreshPlan @planArguments) |
+    Where-Object { $_.PSObject.Properties.Name -contains 'RecommendedAction' }
+$rows = [System.Collections.Generic.List[object]]::new()
+$reportRoot = [IO.Path]::GetFullPath($OutputRoot)
+New-Item -ItemType Directory -Force -Path $reportRoot | Out-Null
 
  foreach ($planned in $plan) {
+     if ([string]$planned.SourceKind -eq 'enrolled') {
+         $row = [ordered]@{
+             SourceId = [string]$planned.SourceId
+             Name = [string]$planned.Name
+             Kind = 'local'
+             PlannedAction = [string]$planned.RecommendedAction
+             Attempted = $false
+             Result = 'NOT_ATTEMPTED'
+             Classification = 'ReviewNeeded'
+             ReasonCode = 'InvalidCache'
+             CacheChanged = $false
+             LastKnownGoodPreserved = $false
+             ValidatorOutcome = [string]$planned.Validator
+             SafeReason = [string]$planned.Reason
+         }
+         if ([string]$planned.RecommendedAction -eq 'USE_VALID_CACHE') {
+             $row.Result = 'REUSED_VALID_CACHE'
+             $row.Classification = 'AutoHandled'
+             $row.ReasonCode = 'ReusedValidCache'
+             $row.SafeReason = 'Saved source bytes are unchanged; no network request was made and accepted state was not modified.'
+         }
+         elseif ([string]$planned.RecommendedAction -eq 'FULL_REFRESH') {
+             $row.Attempted = $true
+             try {
+                 $candidateRoot = Join-Path $reportRoot 'refresh-candidates'
+                 New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
+                 $candidateM3UPath = if ([string]$planned.EnrollmentKind -eq 'XMLTV') { [string]$planned.PlaylistPath } else { [string]$planned.SourcePath }
+                 $candidateXMLTVPath = if ([string]$planned.EnrollmentKind -eq 'XMLTV') { [string]$planned.SourcePath } else { [string]$planned.GuidePath }
+                 $candidate = New-ChannelForgeCandidateProposal `
+                     -Root $rootFull `
+                     -M3UPath $candidateM3UPath `
+                     -XMLTVPath $candidateXMLTVPath `
+                     -OutputRoot $candidateRoot `
+                     -CandidateContractVersion 'blocker-2-contract/v8'
+                 $row.Result = 'REVIEW_REQUIRED'
+                 $row.Classification = 'ReviewNeeded'
+                 $row.ReasonCode = 'CandidateGenerated'
+                 $row.SafeReason = 'Changed saved source bytes produced a review-only candidate; accepted state was not modified.'
+             }
+             catch {
+                 $row.Result = 'REFRESH_FAILED'
+                 $row.Classification = 'ReviewNeeded'
+                 $row.ReasonCode = 'RefreshFailedLkgPreserved'
+                 $row.LastKnownGoodPreserved = $true
+                 $row.SafeReason = 'Changed saved source could not produce a candidate; accepted state was preserved.'
+             }
+         }
+         else {
+             $row.Result = 'REVIEW_REQUIRED'
+             $row.Classification = 'ReviewNeeded'
+             $row.ReasonCode = 'InvalidCache'
+             $row.SafeReason = [string]$planned.Reason
+         }
+         $rows.Add([pscustomobject]$row) | Out-Null
+         continue
+     }
+
      $source = if ($planned.Kind -eq 'remote' -and $planned.SourceId.StartsWith('m3u-')) {
          $providerConfig | Where-Object Name -eq $planned.Name | Select-Object -First 1
      }
@@ -172,6 +235,15 @@ $providerRaw = Get-Content -LiteralPath $ProviderConfigPath -Raw | ConvertFrom-J
  $reviewNeededCount = @($sourceRows | Where-Object {
      [string]$_.Classification -eq 'ReviewNeeded'
  }).Count
+if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
+    try {
+        $refreshState = if ($reviewNeededCount -gt 0) { 'changes-found' } else { 'up-to-date' }
+        Set-ChannelForgeSourceEnrollmentRefreshState -RepositoryRoot $rootFull -RefreshStatus $refreshState | Out-Null
+    }
+    catch {
+        # Refresh evidence remains reportable; inability to update the non-authoritative status marker cannot mutate accepted state.
+    }
+}
  $projection = [ordered]@{
      SchemaVersion      = 'source-refresh-result/v2'
      EvaluationTimeUtc  = $EvaluationTimeUtc.ToUniversalTime().ToString('o')

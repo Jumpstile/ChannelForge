@@ -92,6 +92,32 @@ calls `Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes
 downstream consumer files, configures a scheduler, or mutates provider state.
 Recovery remains owned by `Recover-ChannelForgeAcceptedStateCore`.
 
+## Durable source enrollment authority
+
+Browser acceptance has two distinct outcomes:
+
+1. `Publish-ChannelForgeReviewedCandidate` publishes the accepted generation
+   through the immutable generation store. This remains the lineup authority.
+2. `Write-ChannelForgeSourceEnrollment` promotes the original browser-uploaded
+   M3U bytes and optional XMLTV bytes into `state/managed-sources/` and writes
+   `state/source-enrollment.json` last through an atomic replacement.
+
+The enrollment record is `source-enrollment/v1`, self-hashed with the
+canonical-json/domain-hash helpers. Managed filenames are opaque content
+identities. Reads reject non-canonical records, hash mismatches, missing bytes,
+path traversal, and reparse-point traversal. Enrollment is never stored below
+`output/.web-guided-setup/proposals`; proposal input bytes remain there only
+until successful promotion, so a promotion failure can be repaired without
+invalidating an already-published accepted lineup.
+
+`Get-ChannelForgeSourceEnrollment` returns only redacted status facts.
+`Get-ChannelForgeEnrolledSourceInput` is the engine refresh adapter and is not a
+browser response. `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath` plans
+unchanged bytes for reuse and changed bytes for `FULL_REFRESH`; the executor
+creates a review-only candidate and never mutates accepted generation state.
+`POST /api/sources/refresh` exposes only the safe report summary. Remote
+credential enrollment is intentionally outside this contract.
+
 The response projection is intentionally aggregate: counts, fixed warning
 messages, the opaque proposal ID, blocking reasons, and mutation
 classifications. It excludes raw M3U/XMLTV content, source URLs, private paths,
@@ -213,7 +239,9 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | `New-ChannelForgeChannel`                 | Construct a `Channel` domain object                                                                                 |
 | `New-ChannelForgeBuildContext`            | Construct a `BuildContext` domain object                                                                            |
 | `New-ChannelForgeCandidateProposal`       | Build one deterministic candidate namespace from server/CLI-owned M3U/XMLTV paths without acceptance or publication |
-| `ConvertTo-ChannelForgeNormalizedChannel` | Apply name normalization to a `Channel`                                                                             |
+| `Get-ChannelForgeSourceEnrollment`        | Return redacted durable local source enrollment status                                                             |
+| `Get-ChannelForgeEnrolledSourceInput`     | Read validated managed source input for the refresh engine; not a browser response                               |
+| `Set-ChannelForgeSourceEnrollmentRefreshState` | Persist non-authoritative up-to-date/changes-found refresh status marker                                      |
 | `Assert-ChannelForgeWritePath`            | Throw unless a target path resolves under an explicitly approved root                                               |
 | `Assert-ChannelForgeReadPath`             | Throw unless a configured read path (e.g. `local_playlist`) resolves under an explicitly approved root              |
 | `Assert-ChannelForgePathExists`           | Throw unless a required file/directory exists, with a clear description                                             |
@@ -317,6 +345,11 @@ Every tracked source-of-truth JSON file under `data/` has a JSON Schema (draft-0
 | `data/lineup/categories.json`                                         | `schemas/categories.schema.json`       |
 | `data/rules/aliases.json`                                             | `schemas/aliases.schema.json`          |
 
+
+`state/source-enrollment.json` is runtime state rather than tracked
+configuration, but it is still validated against
+`schemas/source-enrollment.schema.json` in focused persistence tests before
+the record can be used by refresh.
 They validate **structure only** — required/optional fields and types — using PowerShell's built-in `Test-Json -SchemaFile`, so there's no new dependency:
 
 ```powershell

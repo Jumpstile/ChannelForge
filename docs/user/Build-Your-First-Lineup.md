@@ -186,6 +186,26 @@ existing immutable generation publication journal. Stale parent, tampered
 candidate, ambiguous review, and duplicate submission fail closed. Provider
 files, downstream outputs, scheduler state, and credentials are not changed.
 
+### Sources saved for restart-safe refresh
+
+After a successful browser acceptance, ChannelForge saves the uploaded M3U
+bytes and optional XMLTV bytes in a server-owned managed source area. The
+browser never supplies a filesystem path. This source enrollment record is
+separate from accepted lineup state: it describes what may be checked again,
+while the accepted generation remains the only published lineup authority.
+
+Return to the Workbench after restarting the local server. The dashboard shows
+**Sources saved**, playlist status, optional guide status, and the last checked
+time. **Refresh now** checks the saved bytes and may create a review-only
+candidate when they changed. It never replaces the accepted lineup
+automatically. **Replace sources** returns to Guided Setup, where a new
+browser-selected upload must be reviewed and explicitly accepted.
+
+If a saved source is missing, tampered with, or unsafe to read, the dashboard
+shows **Source unavailable** or **Needs attention** and leaves the accepted
+lineup unchanged. Remote credential enrollment is intentionally deferred; this
+slice supports only browser-enrolled local M3U and optional XMLTV bytes.
+
 Build and run the browser surface:
 
 ```powershell
