@@ -22,9 +22,12 @@ The primary deployment modes are:
 
 1. **Docker container** — the engine serves the web UI and API from one container. Persistent mounts must support configuration, disposable source cache, immutable generations, accepted pointers, reports/logs, and generated M3U/XMLTV outputs.
 2. **Windows server/service install** — the installed engine serves the same web UI and API locally as a server/service process. Persistent storage must preserve the same configuration, cache, generation, pointer, report, log, and output boundaries.
+3. **Windows x64 portable local server** — the alpha bundle serves the same engine/API on loopback with a pinned PowerShell runtime, no administrator requirement, and per-user `%LOCALAPPDATA%` storage. It is intentionally not a Windows Service; its launcher owns the foreground server process and health check.
 
-Native/local development may serve the same UI/API without Docker. Docker, Windows server/service, and native/local modes must share the same engine commands, accepted-generation contract, redaction rules, and mutation boundaries.
-
+Native/local development may serve the same UI/API without Docker. Docker,
+Windows server/service, the portable local server, and native/local modes must
+share the same engine commands, accepted-generation contract, redaction rules,
+and mutation boundaries.
 A Tauri/native wrapper is optional future packaging only. It is not the primary shell, must not duplicate product logic, and must not define a second product surface or state authority.
 
 Existing Tauri UI work is preserved and should be reused where practical:

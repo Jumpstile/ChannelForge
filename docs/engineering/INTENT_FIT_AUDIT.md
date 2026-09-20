@@ -351,3 +351,30 @@ keeps those boundaries separate:
 Remote credential enrollment, unattended remote acquisition, auto-acceptance,
 downstream publication, and scheduled source mutation remain outside this
 slice. The accepted generation remains the only lineup authority.
+
+## Issue #173 Windows portable bundle slice
+
+The intended behavior is a beginner-usable Windows x64 portable local server
+that launches the existing ChannelForge engine/API/UI on loopback without a
+Windows Service or administrator rights. The bundle must pin its PowerShell
+runtime, preserve the existing engine/API/state authorities, update only
+immutable application files, protect user state, and provide recoverable
+uninstall boundaries.
+
+| Area                             | Entry points                                                                                                           | Evidence                                                                                                                                                                                                               | Disposition                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Bundle build and runtime pinning | `scripts/Build-ChannelForgeWindowsPackage.ps1`, `runtime/pwsh`                                                         | `package-manifest.json` records source SHA, official PowerShell win-x64 ZIP URL/archive SHA256, runtime version/tree hash, every file length/SHA256; deterministic ZIP, exclusion, and relocated-runtime checks passed | PASS_WITH_GAPS pending ARCADE clean-machine artifact capture |
+| Existing server authority        | `scripts/Start-ChannelForge.ps1`, `scripts/Start-ChannelForgeWebServer.ps1`, `src/ChannelForge`                        | Launcher starts the existing server wrapper on `127.0.0.1:8765`; packaged launcher health and HTTP smoke passed; no second server implementation added                                                                 | PASS                                                         |
+| Single update authority          | `tools/Invoke-ChannelForgeAutoUpdate.ps1`, `tools/ChannelForgeAutoUpdate.Core.psm1`                                    | Local and release paths reuse manifest verification, backup-first replacement, protected-state allowlist, restore-on-failure, and restart checks; focused updater/destructive tests passed                             | PASS                                                         |
+| Protected state and uninstall    | `state/`, `config/`, `output/`, `cache/`, `logs/`, `UpdateBackups/`; `scripts/Uninstall-ChannelForgeWindowsBundle.ps1` | Package excludes runtime state; default uninstall retains user data; explicit purge is bounded and confirmed; lifecycle smoke passed                                                                                   | PASS                                                         |
+| Packaged-layout validation       | `tests/unit/ChannelForgeWindowsPackage.Tests.ps1`, updater tests                                                       | Manifest tamper/unmanifested-file checks, install/update/state-retention/uninstall smoke, and bundled launcher health smoke cover actual extracted package layout                                                      | PASS                                                         |
+
+Provider files, accepted generations, downstream outputs, and guide
+publication remain owned by the existing engine/state contracts. The package
+does not contain provider secrets or runtime state. Stable screenshots under
+`docs/user/assets/alpha1-windows/` are real implementation captures and were
+checked for transient Playwright references and private-path leakage.
+
+Disposition: `PASS_WITH_GAPS`. Hosted exact-head quality-gates and secret-scan
+pass on PR #174, but ARCADE clean-machine validation and its final packaged
+screenshots remain required before merge, release, or tester distribution.

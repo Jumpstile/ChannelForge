@@ -43,6 +43,31 @@ BeforeAll {
                 New-Item -ItemType Directory -Path (Split-Path -Parent $fullPath) -Force | Out-Null
                 Set-Content -LiteralPath $fullPath -Value $Entries[$relativePath] -NoNewline
             }
+            if (-not (Test-Path -LiteralPath (Join-Path $stagingDir 'VERSION'))) {
+                Set-Content -LiteralPath (Join-Path $stagingDir 'VERSION') -Value '0.2.0' -NoNewline
+            }
+            $manifestFiles = foreach ($item in @(Get-ChildItem -LiteralPath $stagingDir -Recurse -File | Sort-Object FullName)) {
+                $relative = [IO.Path]::GetRelativePath($stagingDir, $item.FullName).Replace('\', '/')
+                $topLevel = ($relative -split '/')[0]
+                if (@('src', 'tools', 'scripts', 'schemas', 'engineering', 'docs', 'gui', 'runtime', 'data', 'state', 'config', 'output', 'cache', 'logs', 'UpdateBackups', 'VERSION', 'README.md', 'LICENSE', 'CHANGELOG.md') -notcontains $topLevel) {
+                    continue
+                }
+                [ordered]@{
+                    Path = $relative
+                    ByteLength = [int64]$item.Length
+                    Sha256 = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+            }
+            $manifest = [ordered]@{
+                SchemaVersion = 'windows-package/v1'
+                PackageTarget = 'windows-x64-portable-server'
+                ChannelForgeVersion = '0.2.0'
+                SourceCommitSha = ('a' * 40)
+                BundledPowerShellVersion = '7.6.6'
+                BundledPowerShellHash = ('b' * 64)
+                Files = @($manifestFiles)
+            }
+            Set-Content -LiteralPath (Join-Path $stagingDir 'package-manifest.json') -Value ($manifest | ConvertTo-Json -Depth 10 -Compress) -NoNewline
             [System.IO.Compression.ZipFile]::CreateFromDirectory($stagingDir, $zipPath)
             return , ([System.IO.File]::ReadAllBytes($zipPath))
         } finally {
@@ -87,7 +112,8 @@ BeforeAll {
         param(
             [Parameter(Mandatory)][string]$InstallRoot,
             [Parameter(Mandatory)][scriptblock]$WebRequestMock,
-            [string]$AssetName = 'ChannelForge.zip'
+            [string]$AssetName = 'ChannelForge.zip',
+            [string]$AssetNamePattern = '^ChannelForge.*\.zip$'
         )
 
         # Get-ChannelForgeLatestReleaseInfo is called directly by the
@@ -113,7 +139,7 @@ BeforeAll {
         $errorOutput = $null
         $stdout = $null
         try {
-            $stdout = & $script:OrchestratorPath -Apply -VersionFile $versionFile -InstallRoot $InstallRoot -Owner 'Jumpstile' -Repository 'ChannelForge' *>&1
+            $stdout = & $script:OrchestratorPath -Apply -AssetNamePattern $AssetNamePattern -VersionFile $versionFile -InstallRoot $InstallRoot -Owner 'Jumpstile' -Repository 'ChannelForge' *>&1
         } catch {
             $errorOutput = $_
         }
@@ -147,7 +173,7 @@ Describe '1. Corrupt ZIP' {
 }
 
 Describe '2. Missing expected package paths' {
-    It 'reports nothing copied instead of falsely claiming success when the package has no recognized content' {
+    It 'rejects a package that contains no recognized manifest files' {
         $root = New-DestructiveInstallRoot
         $zipBytes = New-FixtureZipBytes -Entries @{ 'random-unrelated-file.txt' = 'not a real package' }
 
@@ -156,12 +182,8 @@ Describe '2. Missing expected package paths' {
             [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
         }.GetNewClosure()
 
-        $result.Error | Should -BeNullOrEmpty
-        ($result.StdOut -join "`n") | Should -Match 'Skipped'
-        ($result.StdOut -join "`n") | Should -Not -Match 'Updated\s*:'
-
-        # Nothing recognized was in the package, so the install root must be
-        # byte-for-byte unchanged even though the run "succeeded".
+$result.Error | Should -BeOfType ([System.Management.Automation.ErrorRecord])
+        $result.Error.Exception.Message | Should -Match 'unmanifested|missing|no files'
         (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
         (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw) | Should -Be '0.1.0'
     }
@@ -183,13 +205,9 @@ Describe '3. Attempted overwrite of protected config/data/output paths' {
 
         $result.Error | Should -BeNullOrEmpty
         ($result.StdOut -join "`n") | Should -Match 'Skipped.*data'
-
-        # Protected data must survive exactly as it was.
         (Get-Content -LiteralPath (Join-Path $root 'data\providers\mybunny.json') -Raw) | Should -Match 'REAL-USER-SECRET'
         (Get-Content -LiteralPath (Join-Path $root 'data\providers\mybunny.json') -Raw) | Should -Not -Match 'ATTACKER-CONTROLLED-VALUE'
         Test-Path -LiteralPath (Join-Path $root 'config') | Should -BeFalse
-
-        # Allowed content from the same package must still install.
         Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeTrue
     }
 }
@@ -197,9 +215,7 @@ Describe '3. Attempted overwrite of protected config/data/output paths' {
 Describe '4. Read-only destination' {
     It 'refuses the update with a clear error instead of letting Copy-Item -Force clear ReadOnly' {
         # Assert-ChannelForgeWritableTarget checks every allowed target before
-        # any copying begins, rather than relying on Copy-Item -Force --
-        # which was previously found (empirically) to silently clear the
-        # ReadOnly attribute and overwrite the file anyway.
+        # any copying begins, rather than relying on Copy-Item -Force.
         $root = New-DestructiveInstallRoot
         $targetPath = Join-Path $root 'src\existing.psm1'
         Set-ItemProperty -LiteralPath $targetPath -Name IsReadOnly -Value $true

@@ -47,7 +47,7 @@ true:
       without forcing the user to redo setup.
 - [x] The user can see what ChannelForge produced, whether it is accepted, and
       what needs attention through redacted review/status summaries.
-- [ ] Update/upgrade behavior for the alpha is defined and beginner-readable.
+- [x] Update/upgrade behavior for the alpha is defined and beginner-readable.
 - [ ] Install/start/setup/accept/restart/refresh is smoke-tested from a clean
       supported environment.
 - [ ] A release/tester artifact is reproducibly produced from an exact green
@@ -57,6 +57,16 @@ true:
 - [ ] Install, first-run, troubleshooting, limitations, update, and uninstall
       documentation are synchronized and understandable without prior
       ChannelForge knowledge.
+
+Issue #173 adds the implementation candidate for a Windows x64 portable bundle:
+the pinned PowerShell runtime, loopback launcher, manifest verification,
+backup-first update/rollback, and uninstall flows are documented in
+[`docs/user/INSTALL-WINDOWS.md`](../user/INSTALL-WINDOWS.md),
+[`docs/user/UPDATE-WINDOWS.md`](../user/UPDATE-WINDOWS.md), and
+[`docs/user/UNINSTALL-WINDOWS.md`](../user/UNINSTALL-WINDOWS.md). This does not
+close the release gate: exact-head commit, hosted CI, clean-machine smoke, and
+artifact publication evidence are still required before any release or tester
+build.
 
 ## Alpha.1 scope boundary
 

@@ -118,7 +118,7 @@ Working today:
 
 ### UI architecture
 
-The primary UI direction is a browser-based local web UI served by the ChannelForge engine. Docker container and Windows server/service installation are the primary deployment modes; native/local development serves the same UI/API. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). `scripts/Start-ChannelForgeWebServer.ps1` serves the built React/Vite UI, exposes the redacted `GET /api/status` dashboard, supports bounded browser Guided Setup review through `POST /api/guided-setup/proposal`, explicit acknowledgement acceptance through `POST /api/guided-setup/accept`, and review-only saved-source refresh through `POST /api/sources/refresh`. Accepted browser uploads are promoted into the separate server-owned durable source enrollment authority under ignored `state/managed-sources`; accepted generation state remains the only lineup authority.
+The primary UI direction is a browser-based local web UI served by the ChannelForge engine. The alpha Windows x64 distribution is a portable per-user bundle: it includes a pinned PowerShell runtime, uses `%LOCALAPPDATA%\ChannelForge`, listens on loopback at `http://127.0.0.1:8765/`, and does not install a Windows service. This architecture is recorded in [ADR-0016](docs/adr/0016-web-first-local-ui.md). `scripts/Start-ChannelForgeWebServer.ps1` serves the built React/Vite UI and preserves the existing engine/API/state authorities.
 
 Existing React/TypeScript/Tauri work is preserved as reusable layout, design-token, Guided Setup, validation/review, saved-lineup, accessibility, and beginner-copy reference work. Tauri is optional future packaging, not the primary product shell.
 
@@ -128,7 +128,7 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Browser web UI served by engine           | Built UI with read-only `/api/status`, durable browser review sessions, and explicit immutable Guided Setup acceptance |
 | Docker deployment                         | Architecture recorded; implementation pending                                                                          |
-| Windows server/service install            | Architecture recorded; implementation pending                                                                          |
+| Windows x64 portable bundle               | Alpha implementation: install, loopback start, manifest-verified backup-first update, rollback, and uninstall          |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                                                  |
 | Guided Setup layout                       | Browser review and acceptance flow works; native picker/review remains prototype/reference work                        |
 | Native file-picker bridge                 | Works now (prototype)                                                                                                  |
@@ -140,6 +140,18 @@ Existing React/TypeScript/Tauri work is preserved as reusable layout, design-tok
 | Lineup review                             | Implemented — local checks passed (prototype)                                                                          |
 | Saved-source status and manual refresh    | Implemented — redacted status, server-owned local enrollment, review-only refresh                                      |
 | Scheduled automatic updates               | Planned / not built yet                                                                                                |
+
+### Windows alpha bundle
+
+- [Install on Windows](docs/user/INSTALL-WINDOWS.md)
+- [Update on Windows](docs/user/UPDATE-WINDOWS.md)
+- [Uninstall on Windows](docs/user/UNINSTALL-WINDOWS.md)
+
+![Windows alpha bundle launch](docs/user/assets/alpha1-windows/02-started-browser.png)
+
+![Windows alpha packaged update](docs/user/assets/alpha1-windows/06-update-windows.png)
+
+![Windows alpha packaged uninstall](docs/user/assets/alpha1-windows/07-uninstall-windows.png)
 
 ### Browser Guided Setup snapshots
 
