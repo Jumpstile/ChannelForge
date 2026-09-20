@@ -10,9 +10,9 @@ function Get-ChannelForgeWebStatus {
     $paths = Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
     $current = Get-ChannelForgeGenerationCurrentSnapshot -RepositoryRoot $RepositoryRoot -Paths $paths
     $lineupStatus = if ($null -eq $current) { 'not-accepted' } else { 'accepted' }
-    $guidance = if ($null -eq $current) { 'No lineup has been accepted yet' } else { 'An accepted lineup is available' }
-    $nextAction = if ($null -eq $current) { 'Open Guided Setup to begin' } else { 'Open Guided Setup to review' }
-
+    $sourceStatus = Get-ChannelForgeSourceEnrollmentStatus -RepositoryRoot $RepositoryRoot
+    $guidance = if ($null -eq $current) { 'No lineup has been accepted yet' } elseif ($sourceStatus.EnrollmentStatus -eq 'saved') { 'An accepted lineup and saved sources are available' } else { 'An accepted lineup is available' }
+    $nextAction = if ($null -eq $current) { 'Open Guided Setup to begin' } elseif ($sourceStatus.EnrollmentStatus -in @('source-unavailable', 'needs-attention')) { 'Repair saved sources in Guided Setup' } elseif ($sourceStatus.EnrollmentStatus -eq 'changes-found') { 'Refresh sources to review changes' } else { 'Open Guided Setup to review' }
     return [pscustomobject][ordered]@{
         Service                = 'ChannelForge'
         Version                = $version
@@ -26,5 +26,11 @@ function Get-ChannelForgeWebStatus {
         DownstreamMutation     = 'none'
         GuidePublication       = 'none'
         AcceptedStateMutation = 'none'
+        SourcesStatus         = [string]$sourceStatus.EnrollmentStatus
+        PlaylistStatus        = [string]$sourceStatus.M3UStatus
+        GuideStatus           = [string]$sourceStatus.XMLTVStatus
+        LastCheckedUtc        = $sourceStatus.LastCheckedUtc
+        CanRefreshSources     = [bool]$sourceStatus.CanRefresh
+        SourcesGuidance       = [string]$sourceStatus.Guidance
     }
 }

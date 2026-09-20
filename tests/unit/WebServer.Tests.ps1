@@ -392,9 +392,16 @@ Describe 'ChannelForge web server foundation' {
         $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
         $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
         $acceptedPointer = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'state\accepted-lineup.json')))
+        $refresh = Get-TestWebResponse -Method POST -Path '/api/sources/refresh' -RepositoryRoot $root -BodyBytes ([byte[]]::new(0)) -ContentType 'application/json' -ContentLength 0
+        $refreshPayload = $refresh.Body | ConvertFrom-Json
         $recovered = Recover-ChannelForgeAcceptedState -RepositoryRoot $root
         $duplicate = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
 
+        ($accepted.Body | ConvertFrom-Json).EnrollmentStatus | Should -Be 'SAVED'
+        $refresh.StatusCode | Should -Be 200
+        $refreshPayload.Status | Should -Be 'UP_TO_DATE'
+        (Get-ChannelForgeWebStatus -RepositoryRoot $root).SourcesStatus | Should -Be 'up-to-date'
+        Test-Path -LiteralPath (Join-Path $root 'state\managed-sources') | Should -BeTrue
         $accepted.StatusCode | Should -Be 200
         ($accepted.Body | ConvertFrom-Json).Status | Should -Be 'ACCEPTED'
         $recovered.Outcome | Should -Be 'NEW'

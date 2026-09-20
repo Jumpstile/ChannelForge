@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fetchWebStatus } from '../app/webStatus'
+import { fetchWebStatus, refreshSavedSources } from '../app/webStatus'
 
 function response(status: number, payload: unknown) {
   return {
@@ -62,5 +62,24 @@ describe('web status client', () => {
       expect(call[1]?.method).toBe('GET')
       expect(call[1]).not.toHaveProperty('body')
     }
+  })
+  it('consumes the safe saved-source refresh result', async () => {
+    const request = vi.fn().mockResolvedValue(response(200, {
+      Version: 'source-refresh/v1',
+      Status: 'CHANGES_FOUND',
+      ReviewNeeded: true,
+      ReviewNeededCount: 1,
+    }))
+
+    await expect(refreshSavedSources(request as unknown as typeof fetch)).resolves.toEqual({
+      status: 'CHANGES_FOUND',
+      reviewNeeded: true,
+      reviewNeededCount: 1,
+    })
+    expect(request).toHaveBeenCalledWith('/api/sources/refresh', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: '',
+    })
   })
 })

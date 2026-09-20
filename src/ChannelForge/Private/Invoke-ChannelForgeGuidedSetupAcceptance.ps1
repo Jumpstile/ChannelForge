@@ -106,6 +106,31 @@ function Get-ChannelForgeWebProposalCandidate {
     if ([string]$manifest.BuildIdentity -cne [string]$Session.BuildIdentity) { throw 'FAIL_CLOSED: reviewed candidate identity changed.' }
     return [pscustomobject][ordered]@{ Directory = $candidateDirectory; Manifest = $manifest; M3UBytes = $m3uBytes; XMLTVBytes = $xmltvBytes }
 }
+function Get-ChannelForgeGuidedSetupSourceInputs {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)]$Session
+    )
+
+    $proposalDirectory = Get-ChannelForgeWebProposalDirectory -RepositoryRoot $RepositoryRoot -ProposalId ([string]$Session.ProposalId)
+    Assert-ChannelForgeSourceEnrollmentDirectory -Path $proposalDirectory | Out-Null
+    $m3uRelative = [string]$Session.SourceM3URelative
+    if ($m3uRelative -cne 'input.m3u') { throw 'FAIL_CLOSED: guided setup source reference is invalid.' }
+    $m3uPath = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $proposalDirectory $m3uRelative) -AllowedRoot $proposalDirectory
+    if (-not [IO.File]::Exists($m3uPath)) { throw 'FAIL_CLOSED: guided setup playlist bytes are unavailable.' }
+    $xmltvPath = $null
+    if ($null -ne $Session.SourceXMLTVRelative) {
+        if ([string]$Session.SourceXMLTVRelative -cne 'guide.xml') { throw 'FAIL_CLOSED: guided setup guide reference is invalid.' }
+        $xmltvPath = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $proposalDirectory ([string]$Session.SourceXMLTVRelative)) -AllowedRoot $proposalDirectory
+        if (-not [IO.File]::Exists($xmltvPath)) { throw 'FAIL_CLOSED: guided setup guide bytes are unavailable.' }
+    }
+    return [pscustomobject][ordered]@{
+        M3UBytes = [IO.File]::ReadAllBytes($m3uPath)
+        XMLTVBytes = if ($null -eq $xmltvPath) { $null } else { [IO.File]::ReadAllBytes($xmltvPath) }
+        M3UPath = $m3uPath
+        XMLTVPath = $xmltvPath
+    }
+}
 
 function ConvertFrom-ChannelForgeGuidedSetupAcceptanceRequest {
     [CmdletBinding()]
@@ -159,6 +184,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
         if ([string]$session.Status -cne 'Ready') { return New-ChannelForgeWebAcceptanceResponse 409 'proposal-unavailable' 'This reviewed proposal is not available for acceptance.' $Headers }
         if (-not [bool]$session.CanAccept) { return New-ChannelForgeWebAcceptanceResponse 409 'proposal-blocked' 'This proposal has unresolved review blockers and cannot be accepted.' $Headers }
 
+        $sourceInputs = Get-ChannelForgeGuidedSetupSourceInputs -RepositoryRoot $RepositoryRoot -Session $session
         $candidate = Get-ChannelForgeWebProposalCandidate -RepositoryRoot $RepositoryRoot -Session $session
         $bindings = @($candidate.Manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
         if (@($bindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count -gt 0) { return New-ChannelForgeWebAcceptanceResponse 409 'proposal-blocked' 'This proposal has unresolved review blockers and cannot be accepted.' $Headers }
@@ -182,15 +208,37 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
             -IncludedEntryIds $entryIds `
             -ExcludedEntryIds @() `
             -ExpectedParentGenerationManifestHash $expectedParent
+        $enrollmentStatus = 'REPAIR_REQUIRED'
+        $enrollmentMessage = 'Lineup accepted, but saved sources need repair.'
+        try {
+            $enrollment = Write-ChannelForgeSourceEnrollment `
+                -RepositoryRoot $RepositoryRoot `
+                -M3UBytes $sourceInputs.M3UBytes `
+                -XMLTVBytes $sourceInputs.XMLTVBytes `
+                -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
+                -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
+                -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)
+            Remove-Item -LiteralPath $sourceInputs.M3UPath -Force -ErrorAction SilentlyContinue
+            if ($null -ne $sourceInputs.XMLTVPath) { Remove-Item -LiteralPath $sourceInputs.XMLTVPath -Force -ErrorAction SilentlyContinue }
+            $enrollmentStatus = 'SAVED'
+            $enrollmentMessage = 'Sources saved for restart-safe refresh.'
+        }
+        catch {
+            $enrollment = $null
+            $enrollmentMessage = 'Lineup accepted, but saved sources need repair before refresh.'
+        }
 
         $acceptedSession = [ordered]@{}
         foreach ($property in @($session.PSObject.Properties)) { $acceptedSession[$property.Name] = $property.Value }
         $acceptedSession.Status = 'Accepted'
+        $acceptedSession.EnrollmentStatus = $enrollmentStatus
         $acceptedSession.AcceptedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
         $null = Write-ChannelForgeWebProposalSession -RepositoryRoot $RepositoryRoot -Session ([pscustomobject]$acceptedSession) -Replace
         $body = ([ordered]@{
             Version = 'guided-setup/acceptance/v1'
             Status = 'ACCEPTED'
+            EnrollmentStatus = $enrollmentStatus
+            Message = $enrollmentMessage
             Proposal = [ordered]@{ ChannelCount = $entryIds.Count; GuideStatus = if ($null -eq $candidate.XMLTVBytes) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_ACCEPTED' } }
             Safety = [ordered]@{ AcceptedStateMutation = 'accepted-lineup'; ProviderMutation = 'none'; DownstreamMutation = 'none'; SchedulerMutation = 'none' }
         } | ConvertTo-Json -Depth 6 -Compress)

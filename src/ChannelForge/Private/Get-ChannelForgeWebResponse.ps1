@@ -212,6 +212,20 @@ function Get-ChannelForgeWebResponse {
         return Get-ChannelForgeGuidedSetupAcceptanceResponse -BodyBytes $BodyBytes -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
     }
 
+    $refreshPath = '/api/sources/refresh'
+    if ($requestPath.ToLowerInvariant() -eq $refreshPath) {
+        if ($methodName -ne 'POST') {
+            $headers = [ordered]@{}
+            foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
+            $headers['Allow'] = 'POST'
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 405 -ErrorCode 'method-not-allowed' -Message 'Only POST requests are supported for source refresh.' -Headers $headers
+        }
+        if ($null -ne $BodyBytes -and $BodyBytes.Length -gt 0) {
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'invalid-request' -Message 'Source refresh does not accept a request body.' -Headers $commonHeaders
+        }
+        return Get-ChannelForgeWebSourceRefreshResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
+    }
+
     $proposalPath = '/api/guided-setup/proposal'
     if ($requestPath.ToLowerInvariant() -eq $proposalPath) {
         if ($methodName -ne 'POST') {

@@ -32,6 +32,26 @@ describe('read-only status dashboard', () => {
     expect(await screen.findByText('An accepted lineup is available.')).toBeInTheDocument()
     expect(screen.getByText('Open Guided Setup to review.')).toBeInTheDocument()
   })
+  it('shows saved source status and refresh actions without exposing internals', async () => {
+    const fetchStatus = vi.fn().mockResolvedValue({
+      lineupAccepted: true,
+      sourcesStatus: 'saved',
+      playlistStatus: 'ready',
+      guideStatus: 'no-guide',
+      lastCheckedUtc: '2026-01-01T00:00:00Z',
+      canRefreshSources: true,
+    })
+    const refreshSources = vi.fn().mockResolvedValue({ status: 'UP_TO_DATE', reviewNeeded: false, reviewNeededCount: 0 })
+    const replaceSources = vi.fn()
+
+    render(<StatusDashboard fetchStatus={fetchStatus} refreshSources={refreshSources} onReplaceSources={replaceSources} />)
+
+    expect((await screen.findAllByText('Sources saved')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
+    expect(screen.getByText('No guide selected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Replace sources' })).toBeInTheDocument()
+    expect(screen.queryByText(/managed-sources|hash|generation/i)).not.toBeInTheDocument()
+  })
 
   it('renders a safe unavailable state for a 503 result', async () => {
     render(<StatusDashboard fetchStatus={unavailable} />)

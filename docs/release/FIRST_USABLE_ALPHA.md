@@ -39,7 +39,12 @@ true:
       boundary.
 - [ ] Accepted configuration and state survive restart, and stable reruns are
       recognized without forcing setup to be repeated.
-- [ ] Normal source refresh/update works without forcing the user to redo setup.
+- [ ] A browser-accepted local source enrollment survives restart without
+      repeating setup, and manual refresh reports unchanged/changed/unavailable
+      saved bytes without mutating accepted lineup state; release evidence is
+      still pending.
+- [ ] Remote credential enrollment and unattended remote source refresh work
+      without forcing the user to redo setup.
 - [x] The user can see what ChannelForge produced, whether it is accepted, and
       what needs attention through redacted review/status summaries.
 - [ ] Update/upgrade behavior for the alpha is defined and beginner-readable.

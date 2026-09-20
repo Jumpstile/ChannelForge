@@ -33,7 +33,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
         title="Your lineup workbench"
       />
 
-      <StatusDashboard fetchStatus={fetchStatus} />
+      <StatusDashboard fetchStatus={fetchStatus} onReplaceSources={onOpenSetup} />
 
       <StepRail steps={workflowSteps} />
 

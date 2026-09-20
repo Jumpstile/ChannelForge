@@ -91,6 +91,7 @@ a { color: var(--cf-color-brand); }
 .next-action-copy { flex: 1; }
 .next-action-copy h2 { margin: var(--cf-space-1) 0 var(--cf-space-2); font-size: var(--cf-font-size-section-title); }
 .next-action-copy p:last-child { max-width: 48rem; margin: 0; color: var(--cf-color-ink-muted); }
+.next-action-buttons { display: flex; flex-wrap: wrap; gap: var(--cf-space-3); justify-content: flex-end; }
 .workbench-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--cf-space-4); }
 .summary-card { display: grid; gap: var(--cf-space-2); min-height: 7.5rem; padding: var(--cf-space-5); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); box-shadow: var(--cf-shadow-panel); }
 .summary-card-label, .state-card-action-label { color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-label); font-weight: var(--cf-font-weight-bold); letter-spacing: 0.06em; text-transform: uppercase; }
