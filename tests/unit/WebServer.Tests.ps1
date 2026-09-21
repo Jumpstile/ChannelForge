@@ -86,12 +86,14 @@ BeforeAll {
             [Parameter(Mandatory)][int]$Port,
             [Parameter(Mandatory)][string]$Headers,
             [byte[]]$BodyBytes = [byte[]]::new(0),
-            [switch]$ShutdownSend
+            [switch]$ShutdownSend,
+            [ValidateRange(1, 120000)]
+            [int]$ResponseTimeoutMilliseconds = 15000
         )
 
         $client = [Net.Sockets.TcpClient]::new()
         try {
-            $client.ReceiveTimeout = 3000
+            $client.ReceiveTimeout = $ResponseTimeoutMilliseconds
             $client.SendTimeout = 3000
             $client.Connect('127.0.0.1', $Port)
             $stream = $client.GetStream()
@@ -654,6 +656,8 @@ Describe 'ChannelForge web server foundation' {
         $server = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $serverLauncher) -WorkingDirectory $script:RepoRoot -PassThru
 
         try {
+            $malformedResponseTimeoutMilliseconds = 3000
+
             $ready = $false
             for ($attempt = 0; $attempt -lt 100 -and -not $ready; $attempt++) {
                 if ($server.HasExited) { break }
@@ -686,25 +690,53 @@ Describe 'ChannelForge web server foundation' {
             Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
 
             $shortHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close`r`nContent-Type: application/json`r`nContent-Length: 3"
-            $shortResponse = Invoke-TestRawHttpRequest -Port $port -Headers $shortHeaders -BodyBytes ([Text.Encoding]::UTF8.GetBytes('{}')) -ShutdownSend
+            $shortResponse = Invoke-TestRawHttpRequest -Port $port -Headers $shortHeaders -BodyBytes ([Text.Encoding]::UTF8.GetBytes('{}')) -ShutdownSend -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds
             $shortResponse.StatusCode | Should -Be 400
 
             $oversizedHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $((24MB) + 1)"
-            $oversizedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $oversizedHeaders
+            $oversizedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $oversizedHeaders -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds
             $oversizedResponse.StatusCode | Should -Be 413
 
             $chunkedHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nTransfer-Encoding: chunked"
-            $chunkedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $chunkedHeaders -BodyBytes ([Text.Encoding]::ASCII.GetBytes("0`r`n`r`n"))
+            $chunkedResponse = Invoke-TestRawHttpRequest -Port $port -Headers $chunkedHeaders -BodyBytes ([Text.Encoding]::ASCII.GetBytes("0`r`n`r`n")) -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds
             $chunkedResponse.StatusCode | Should -Be 400
 
-            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /health HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close").StatusCode | Should -Be 200
-            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /api/status HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close").StatusCode | Should -Be 200
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /health HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close" -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds).StatusCode | Should -Be 200
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /api/status HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close" -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds).StatusCode | Should -Be 200
         }
         finally {
             if ($null -ne $server -and -not $server.HasExited) {
                 $server.Kill()
                 $server.WaitForExit()
             }
+        }
+    }
+
+    It 'fails within a finite timeout when a connected peer never responds' {
+        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        $serverClient = $null
+        try {
+            $listener.Start()
+            $port = ([Net.IPEndPoint]$listener.LocalEndpoint).Port
+            $acceptTask = $listener.AcceptTcpClientAsync()
+            $headers = "GET /health HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close"
+            $clock = [Diagnostics.Stopwatch]::StartNew()
+            try {
+                {
+                    Invoke-TestRawHttpRequest -Port $port -Headers $headers -ResponseTimeoutMilliseconds 250
+                } | Should -Throw
+            }
+            finally {
+                $clock.Stop()
+            }
+            $clock.ElapsedMilliseconds | Should -BeLessThan 3000
+            if ($acceptTask.IsCompletedSuccessfully) {
+                $serverClient = $acceptTask.Result
+            }
+        }
+        finally {
+            if ($null -ne $serverClient) { $serverClient.Dispose() }
+            $listener.Stop()
         }
     }
 
