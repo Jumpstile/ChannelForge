@@ -148,7 +148,6 @@ never mutates accepted generation state.
 `POST /api/sources/refresh` exposes only the safe report summary. Unattended
 remote refresh remains outside this contract.
 
-
 The response projection is intentionally aggregate: counts, fixed warning
 messages, the opaque proposal ID, blocking reasons, and mutation
 classifications. It excludes raw M3U/XMLTV content, source URLs, private paths,
