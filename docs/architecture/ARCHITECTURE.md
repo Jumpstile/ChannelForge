@@ -209,7 +209,7 @@ Every tracked JSON file under `data/` has a structural contract in `schemas/`, v
 
 Each record has a stable server-derived source ID independent of content bytes and enumeration order. Managed files are retained below `state/managed-sources/`; supported public sources are represented as non-tokenized HTTPS URLs validated by the existing URL trust boundary. Safe status projections omit URLs, managed paths, content hashes, and accepted-state hashes. Tokenized or credential-bearing URLs are unsupported.
 
-The legacy `source-enrollment/v1` document remains readable through a deterministic in-memory compatibility projection; it is not a second authority and is not silently discarded. The source-set authority is separate from accepted lineup state, candidate generations, and disposable fetch caches. Existing refresh planning consumes its compatibility input projection, so the current single-playlist behavior remains intact while the durable model supports multiple records.
+The legacy `source-enrollment/v1` document remains readable through a deterministic in-memory compatibility projection; it is not a second authority and is not silently discarded. Existing refresh planning consumes that compatibility input projection, enumerates every enabled playlist and guide record, reuses unchanged managed bytes, and leaves public descriptors review-only in this slice. The source-set authority is separate from accepted lineup state, candidate generations, and disposable fetch caches, so refresh review never mutates accepted state.
 
 ### Headless multi-source proposal authority
 
