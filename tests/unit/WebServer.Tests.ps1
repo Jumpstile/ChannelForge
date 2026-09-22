@@ -89,13 +89,13 @@ BeforeAll {
         )
         $playlistItems = [System.Collections.Generic.List[object]]::new()
         foreach ($source in @($Playlists)) {
-            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = 100 }
+            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = if ($null -eq $source.Priority) { 100 } else { [int]$source.Priority } }
             if (-not [string]::IsNullOrWhiteSpace([string]$source.Url)) { $item.url = [string]$source.Url } else { $item.contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$source.Text)) }
             [void]$playlistItems.Add([pscustomobject]$item)
         }
         $guideItems = [System.Collections.Generic.List[object]]::new()
         foreach ($source in @($Guides)) {
-            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = 100 }
+            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = if ($null -eq $source.Priority) { 100 } else { [int]$source.Priority } }
             if (-not [string]::IsNullOrWhiteSpace([string]$source.Url)) { $item.url = [string]$source.Url } else { $item.contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$source.Text)) }
             [void]$guideItems.Add([pscustomobject]$item)
         }
@@ -875,6 +875,26 @@ Describe 'ChannelForge web server foundation' {
         $blockedAccept = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $blockedPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $blockedRoot -BodyBytes $blockedAccept -ContentType 'application/json' -ContentLength $blockedAccept.Length).StatusCode | Should -Be 409
         Test-Path -LiteralPath (Join-Path $blockedRoot 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'uses source priority before stable source identity for duplicate playlist entries' {
+        $root = Join-Path $TestDrive 'v2-priority-order'
+        Initialize-TestCandidateData -Root $root
+        $highPriority = "#EXTM3U`n#EXTINF:-1,Same Channel`nhttps://example.invalid/high`n"
+        $lowPriority = "#EXTM3U`n#EXTINF:-1,Same Channel`nhttps://example.invalid/low`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @(
+            [pscustomobject]@{ Key = 'low'; Text = $lowPriority; Priority = 200 }
+            [pscustomobject]@{ Key = 'high'; Text = $highPriority; Priority = 10 }
+        )
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $candidatePath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\$($session.CandidateDirectoryRelative -replace '/', '\')\merged.m3u"
+        $merged = Get-Content -LiteralPath $candidatePath -Raw
+        $merged | Should -Match 'https://example.invalid/high'
+        $merged | Should -Not -Match 'https://example.invalid/low'
     }
 
     It 'accepts explicit selected and all guide bindings and reports mixed unbound guides' {

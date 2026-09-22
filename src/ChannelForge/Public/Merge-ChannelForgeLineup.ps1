@@ -17,15 +17,18 @@ function Merge-ChannelForgeLineup {
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
-    # Prefer the caller's stable, path-independent OrderKey for configured
-    # remote sources. Existing local callers without OrderKey retain their
-    # historical path ordering exactly.
+    # Multi-source candidates supply SourceOrdinal after priority ordering.
+    # Existing callers without it retain their historical OrderKey/path order.
     $sortedSource = @($Source | Sort-Object {
-        if ($_.PSObject.Properties.Name -contains 'OrderKey') {
-            [string]$_.OrderKey
+        if ($_.PSObject.Properties.Name -contains 'SourceOrdinal') {
+            $orderKey = if ($_.PSObject.Properties.Name -contains 'OrderKey') { [string]$_.OrderKey } else { '' }
+            '0|{0:D8}|{1}' -f [int]$_.SourceOrdinal, $orderKey
+        }
+        elseif ($_.PSObject.Properties.Name -contains 'OrderKey') {
+            '1|' + [string]$_.OrderKey
         }
         else {
-            [string]$_.Path
+            '2|' + [string]$_.Path
         }
     })
 

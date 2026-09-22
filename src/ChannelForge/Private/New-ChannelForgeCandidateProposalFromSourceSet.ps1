@@ -19,7 +19,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $blocksPath = Join-Path $rootFull 'data\lineup\numbering_blocks.json'
     $sourceList = [System.Collections.Generic.List[object]]::new()
 
-    $orderedPlaylists = @($PlaylistSources | Sort-Object SourceId)
+    $orderedPlaylists = @($PlaylistSources | Sort-Object Priority, SourceId)
     $playlistOrdinal = 0
     foreach ($source in $orderedPlaylists) {
         $path = [System.IO.Path]::GetFullPath([string]$source.Path)
@@ -67,7 +67,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         })
     }
 
-    $guideRecords = @($GuideSources | Sort-Object SourceId)
+    $guideRecords = @($GuideSources | Sort-Object Priority, SourceId)
     $allProgrammes = [System.Collections.Generic.List[object]]::new()
     $programmesForOutput = [System.Collections.Generic.List[object]]::new()
     $rawXmltv = [System.Collections.Generic.List[object]]::new()
