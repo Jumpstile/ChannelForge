@@ -187,39 +187,39 @@ MLB remains a close alternative and has stronger observed rescheduling fields, b
 
 This is a design mapping only; no mapper is implemented.
 
-| NHL source field | Generic observation field |
-|---|---|
-| `id` | `ProvisionalSubjectKey` / event-id field observation |
-| `startTimeUTC` | scheduled-start field observation |
-| revised schedule value, if later exposed | updated-start field observation |
-| `gameState` | event-status field observation |
-| `gameScheduleState` | schedule-status field observation |
-| `awayTeam.id`, `homeTeam.id` | participant identity field observations |
-| `awayTeam.commonName`, `homeTeam.commonName` | participant name observations |
-| `awayTeam.abbrev`, `homeTeam.abbrev` | participant abbreviation observations |
-| `awayTeam.placeName`, `homeTeam.placeName` | participant location observations |
-| `venue.default` | venue field observation |
-| `venueTimezone` and offsets | source-timezone/time-context observations |
-| `tvBroadcasts[].network` | network/channel-assignment field observation |
-| `season`, `gameType`, `periodDescriptor` | competition/context observations, subject to generic-field review |
-| `gameCenterLink` | safe source reference only; not a credential or canonical identity |
+| NHL source field                             | Generic observation field                                          |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `id`                                         | `ProvisionalSubjectKey` / event-id field observation               |
+| `startTimeUTC`                               | scheduled-start field observation                                  |
+| revised schedule value, if later exposed     | updated-start field observation                                    |
+| `gameState`                                  | event-status field observation                                     |
+| `gameScheduleState`                          | schedule-status field observation                                  |
+| `awayTeam.id`, `homeTeam.id`                 | participant identity field observations                            |
+| `awayTeam.commonName`, `homeTeam.commonName` | participant name observations                                      |
+| `awayTeam.abbrev`, `homeTeam.abbrev`         | participant abbreviation observations                              |
+| `awayTeam.placeName`, `homeTeam.placeName`   | participant location observations                                  |
+| `venue.default`                              | venue field observation                                            |
+| `venueTimezone` and offsets                  | source-timezone/time-context observations                          |
+| `tvBroadcasts[].network`                     | network/channel-assignment field observation                       |
+| `season`, `gameType`, `periodDescriptor`     | competition/context observations, subject to generic-field review  |
+| `gameCenterLink`                             | safe source reference only; not a credential or canonical identity |
 
 Team nicknames, records, logos, radio links, ticket links, countdowns, odds, predictors, and presentation labels remain outside mandatory generic v1 unless separately reviewed.
 
 ## AED/IPTVBoss classification
 
-| AED concept | Classification |
-|---|---|
-| title, subtitle/title2..title10, summary | Generic observed text where sourced; otherwise Guide Intelligence inference input |
-| team1/team2 and league/competition labels | Generic participants/competition observations when directly sourced |
-| team abbreviation, location, arena, city/state | Generic participant/venue observations when directly sourced |
-| single-team and league/event scope | Sports-adapter-specific context plus Guide Intelligence inference input |
-| sports/league AED selection and ESPN+ visibility | Guide Intelligence inference/input policy, not adapter authority |
-| AED defaults and fallback chains | Guide Intelligence/source-selection behavior; not generic observation fields |
-| live tag and countdown | Presentation-only derivatives from observed status/time |
-| predictor and odds | Sports-specific volatile evidence; not mandatory generic v1 |
-| record and nickname | Sports-specific enrichment; not mandatory generic v1 |
-| future AED JSON import | Future compatibility/import field set, requiring a separate reviewed mapping |
+| AED concept                                      | Classification                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| title, subtitle/title2..title10, summary         | Generic observed text where sourced; otherwise Guide Intelligence inference input |
+| team1/team2 and league/competition labels        | Generic participants/competition observations when directly sourced               |
+| team abbreviation, location, arena, city/state   | Generic participant/venue observations when directly sourced                      |
+| single-team and league/event scope               | Sports-adapter-specific context plus Guide Intelligence inference input           |
+| sports/league AED selection and ESPN+ visibility | Guide Intelligence inference/input policy, not adapter authority                  |
+| AED defaults and fallback chains                 | Guide Intelligence/source-selection behavior; not generic observation fields      |
+| live tag and countdown                           | Presentation-only derivatives from observed status/time                           |
+| predictor and odds                               | Sports-specific volatile evidence; not mandatory generic v1                       |
+| record and nickname                              | Sports-specific enrichment; not mandatory generic v1                              |
+| future AED JSON import                           | Future compatibility/import field set, requiring a separate reviewed mapping      |
 
 ## Evidence boundary after shared-contract reconciliation
 
@@ -285,12 +285,12 @@ Sportradar should be considered only after a credential-aware enrollment and lic
 
 ### Production gate result
 
-| Candidate | Technically accessible | Technically useful | Documented | Supported | Permitted | Production eligible |
-|---|---:|---:|---:|---:|---:|---:|
-| NHL public schedule | Yes | Yes | No | Unknown | Unclear / no by default | No |
-| MLB Stats API | Yes | Yes | Yes, current docs | Unclear | Unclear / no by default | No |
-| NBA client schedule | Possibly | Unverified | No general public contract | No | No/unclear | No |
-| Sportradar | Credentialed | Yes | Yes | Yes under product terms | Contract-dependent | Not yet |
+| Candidate           | Technically accessible | Technically useful |                 Documented |               Supported |               Permitted | Production eligible |
+| ------------------- | ---------------------: | -----------------: | -------------------------: | ----------------------: | ----------------------: | ------------------: |
+| NHL public schedule |                    Yes |                Yes |                         No |                 Unknown | Unclear / no by default |                  No |
+| MLB Stats API       |                    Yes |                Yes |          Yes, current docs |                 Unclear | Unclear / no by default |                  No |
+| NBA client schedule |               Possibly |         Unverified | No general public contract |                      No |              No/unclear |                  No |
+| Sportradar          |           Credentialed |                Yes |                        Yes | Yes under product terms |      Contract-dependent |             Not yet |
 
 No current candidate passes the production dependency gate. The earlier NHL recommendation is technically retained but operationally withdrawn pending written source-contract verification. This is not adapter design authorization.
 
@@ -382,13 +382,13 @@ Evidence:
 
 ### Comparison
 
-| Candidate | Public contract | Auth | Multi-sport | Published limits | Personal fit | Current status |
-|---|---|---|---|---|---|---|
-| NHL public endpoint | No | None observed | NHL only | No | Technically easy, governance failure | Not permitted without separate authorization |
-| MLB Stats API | First-party docs; post-registration terms unresolved | Registration/access likely required | MLB only | Not verified | Promising but user review required | Registration review required |
-| NBA public schedule | No general public contract | Unclear | NBA only | No | Poor governance fit | Not ready |
-| Sportradar | Yes | API key/account | Broad, product-specific | Yes | Medium/low until pricing known | Future credentialed candidate |
-| SportsDataIO | Yes | API key/subscription | Broad | Product-specific | Medium; delayed personal plan documented | Future credentialed candidate |
+| Candidate           | Public contract                                      | Auth                                | Multi-sport             | Published limits | Personal fit                             | Current status                               |
+| ------------------- | ---------------------------------------------------- | ----------------------------------- | ----------------------- | ---------------- | ---------------------------------------- | -------------------------------------------- |
+| NHL public endpoint | No                                                   | None observed                       | NHL only                | No               | Technically easy, governance failure     | Not permitted without separate authorization |
+| MLB Stats API       | First-party docs; post-registration terms unresolved | Registration/access likely required | MLB only                | Not verified     | Promising but user review required       | Registration review required                 |
+| NBA public schedule | No general public contract                           | Unclear                             | NBA only                | No               | Poor governance fit                      | Not ready                                    |
+| Sportradar          | Yes                                                  | API key/account                     | Broad, product-specific | Yes              | Medium/low until pricing known           | Future credentialed candidate                |
+| SportsDataIO        | Yes                                                  | API key/subscription                | Broad                   | Product-specific | Medium; delayed personal plan documented | Future credentialed candidate                |
 
 No source is currently approved for adapter implementation. MLB is the best league-controlled candidate pending user registration review. SportsDataIO is the most practical documented multi-sport personal-user fallback found, while Sportradar is the stronger enterprise-grade breadth candidate.
 
@@ -398,20 +398,20 @@ The primary research path is now multi-sport providers, not one adapter per leag
 
 ### Global media and score aggregators
 
-| Provider | Region | Structured access finding | Classification | ChannelForge suitability |
-|---|---|---|---|---|
-| ESPN | Global/US | Public ESPN JSON endpoints are used by ESPN clients, but no current public developer contract, support, rate limit, or automated-use grant was found. | FIRST_PARTY_STRUCTURED_BUT_UNSUPPORTED | Technically broad; not production-eligible without authorization |
-| BBC Sport | UK/global | No public BBC Sport developer API for schedule/event data was found; platform APIs are restricted. | MEDIA_WEB_ONLY | Not suitable |
-| Sky Sports | UK/global | No public supported schedule API or developer contract found. | MEDIA_WEB_ONLY | Not suitable |
-| DAZN | Global/regional | No public developer API; partner/internal data feeds are not a public integration path. | MEDIA_WEB_ONLY | Not suitable |
-| Flashscore | Global | Broad web coverage, but no documented public API; community scraping/wrappers are not acceptable. | NOT_SUITABLE | Reject arbitrary scraping |
-| Sofascore | Global | Public client JSON endpoints are widely used, but undocumented and unsupported; no permitted production API contract found. | FIRST_PARTY_STRUCTURED_BUT_UNSUPPORTED | Research only, not production |
-| OneFootball | Global/Europe | Public site/app coverage is broad, but no documented general schedule API suitable for external production use was verified. | MEDIA_WEB_ONLY | Not suitable pending authorization |
-| LiveScore | Global | No documented public API contract found; public web/app data is not sufficient evidence. | MEDIA_WEB_ONLY | Not suitable |
-| CBS Sports | US | No documented general public multi-sport schedule API found. | MEDIA_WEB_ONLY | Not suitable |
-| TSN/Sportsnet | Canada | Official schedule/media sites exist, but no general public API contract found. | MEDIA_WEB_ONLY | Not suitable |
-| Fox Sports | US | No documented general public multi-sport schedule API found. | MEDIA_WEB_ONLY | Not suitable |
-| beIN Sports | Regional/global | No documented public schedule API suitable for external integration found. | MEDIA_WEB_ONLY | Not suitable |
+| Provider      | Region          | Structured access finding                                                                                                                             | Classification                         | ChannelForge suitability                                         |
+| ------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| ESPN          | Global/US       | Public ESPN JSON endpoints are used by ESPN clients, but no current public developer contract, support, rate limit, or automated-use grant was found. | FIRST_PARTY_STRUCTURED_BUT_UNSUPPORTED | Technically broad; not production-eligible without authorization |
+| BBC Sport     | UK/global       | No public BBC Sport developer API for schedule/event data was found; platform APIs are restricted.                                                    | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| Sky Sports    | UK/global       | No public supported schedule API or developer contract found.                                                                                         | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| DAZN          | Global/regional | No public developer API; partner/internal data feeds are not a public integration path.                                                               | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| Flashscore    | Global          | Broad web coverage, but no documented public API; community scraping/wrappers are not acceptable.                                                     | NOT_SUITABLE                           | Reject arbitrary scraping                                        |
+| Sofascore     | Global          | Public client JSON endpoints are widely used, but undocumented and unsupported; no permitted production API contract found.                           | FIRST_PARTY_STRUCTURED_BUT_UNSUPPORTED | Research only, not production                                    |
+| OneFootball   | Global/Europe   | Public site/app coverage is broad, but no documented general schedule API suitable for external production use was verified.                          | MEDIA_WEB_ONLY                         | Not suitable pending authorization                               |
+| LiveScore     | Global          | No documented public API contract found; public web/app data is not sufficient evidence.                                                              | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| CBS Sports    | US              | No documented general public multi-sport schedule API found.                                                                                          | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| TSN/Sportsnet | Canada          | Official schedule/media sites exist, but no general public API contract found.                                                                        | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| Fox Sports    | US              | No documented general public multi-sport schedule API found.                                                                                          | MEDIA_WEB_ONLY                         | Not suitable                                                     |
+| beIN Sports   | Regional/global | No documented public schedule API suitable for external integration found.                                                                            | MEDIA_WEB_ONLY                         | Not suitable                                                     |
 
 Media brands are valuable corroborating authorities when their schedules are directly available through an approved channel, but their public web JSON is not automatically an approved adapter source. The current investigation found no ESPN-like media aggregator that meets the full supported/permitted production gate.
 
@@ -459,36 +459,36 @@ Evidence: [Sportradar getting started](https://developer.sportradar.com/getting-
 
 The following is a research coverage expectation matrix, not a claim that every row is included in every product tier. `V` means likely/documented product coverage requiring package verification; `U` means unresolved; `—` means not a practical current target.
 
-| Competition/sport | SportsDataIO Global | Sportradar Global/General | Media aggregators |
-|---|---:|---:|---:|
-| NFL | V | V | ESPN/unsupported |
-| MLB | V | V | ESPN/unsupported |
-| NBA | V | V | ESPN/unsupported |
-| NHL | V | V | ESPN/unsupported |
-| NCAA football | V/verify | V/verify | ESPN/unsupported |
-| NCAA basketball | V/verify | V/verify | ESPN/unsupported |
-| Premier League | V | V | Broad web coverage, no approved API |
-| Champions League | V/verify | V | Broad web coverage, no approved API |
-| La Liga | V | V | Broad web coverage, no approved API |
-| Bundesliga | V | V | Broad web coverage, no approved API |
-| Serie A | V | V | Broad web coverage, no approved API |
-| Ligue 1 | V | V | Broad web coverage, no approved API |
-| MLS | V | V | ESPN/unsupported |
-| Formula 1 | V/verify | V/verify | Media web only |
-| NASCAR | V | V/verify | Media web only |
-| IndyCar | V/verify | V/verify | Media web only |
-| ATP | V/verify | V | Media web only |
-| WTA | V/verify | V | Media web only |
-| Grand Slam tennis | V/verify | V | Media web only |
-| PGA/major golf | V | V | Media web only |
-| UFC | V/verify | V/verify | Media web only |
-| Boxing | V/verify | V/verify | Media web only |
-| Cricket | V/verify | V | Regional media web only |
-| Rugby union | V/verify | V | Regional media web only |
-| Rugby league | V/verify | V | Regional media web only |
-| International basketball | V/verify | V | Media web only |
-| International hockey | V/verify | V | Media web only |
-| Olympics/multi-sport events | U | U/product-specific | Media web only |
+| Competition/sport           | SportsDataIO Global | Sportradar Global/General |                   Media aggregators |
+| --------------------------- | ------------------: | ------------------------: | ----------------------------------: |
+| NFL                         |                   V |                         V |                    ESPN/unsupported |
+| MLB                         |                   V |                         V |                    ESPN/unsupported |
+| NBA                         |                   V |                         V |                    ESPN/unsupported |
+| NHL                         |                   V |                         V |                    ESPN/unsupported |
+| NCAA football               |            V/verify |                  V/verify |                    ESPN/unsupported |
+| NCAA basketball             |            V/verify |                  V/verify |                    ESPN/unsupported |
+| Premier League              |                   V |                         V | Broad web coverage, no approved API |
+| Champions League            |            V/verify |                         V | Broad web coverage, no approved API |
+| La Liga                     |                   V |                         V | Broad web coverage, no approved API |
+| Bundesliga                  |                   V |                         V | Broad web coverage, no approved API |
+| Serie A                     |                   V |                         V | Broad web coverage, no approved API |
+| Ligue 1                     |                   V |                         V | Broad web coverage, no approved API |
+| MLS                         |                   V |                         V |                    ESPN/unsupported |
+| Formula 1                   |            V/verify |                  V/verify |                      Media web only |
+| NASCAR                      |                   V |                  V/verify |                      Media web only |
+| IndyCar                     |            V/verify |                  V/verify |                      Media web only |
+| ATP                         |            V/verify |                         V |                      Media web only |
+| WTA                         |            V/verify |                         V |                      Media web only |
+| Grand Slam tennis           |            V/verify |                         V |                      Media web only |
+| PGA/major golf              |                   V |                         V |                      Media web only |
+| UFC                         |            V/verify |                  V/verify |                      Media web only |
+| Boxing                      |            V/verify |                  V/verify |                      Media web only |
+| Cricket                     |            V/verify |                         V |             Regional media web only |
+| Rugby union                 |            V/verify |                         V |             Regional media web only |
+| Rugby league                |            V/verify |                         V |             Regional media web only |
+| International basketball    |            V/verify |                         V |                      Media web only |
+| International hockey        |            V/verify |                         V |                      Media web only |
+| Olympics/multi-sport events |                   U |        U/product-specific |                      Media web only |
 
 For each provider, the required verification dimensions remain: future schedule horizon, event ID, participants, start/end, status changes, venue, broadcast/network/service, historical/live support, and geographic restrictions. Coverage breadth alone is not enough.
 
@@ -530,18 +530,18 @@ The complete current first-party Global API documentation was reviewed, includin
 
 The provider's current public catalog is not anonymously enumerable from the documentation. Therefore, the following requested coverage is **not entitlement-confirmed** without an enabled key or written catalog response:
 
-| Requested coverage | Current evidence classification |
-|---|---|
-| NFL, MLB, NBA, NHL | Likely product target; Global entitlement not confirmed |
-| NCAA football, NCAA basketball | Unresolved |
+| Requested coverage                                                           | Current evidence classification                                                                   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| NFL, MLB, NBA, NHL                                                           | Likely product target; Global entitlement not confirmed                                           |
+| NCAA football, NCAA basketball                                               | Unresolved                                                                                        |
 | Premier League, Champions League, La Liga, Bundesliga, Serie A, Ligue 1, MLS | Soccer is explicitly in the Global API examples; each competition entitlement remains unconfirmed |
-| Major international soccer competitions | Unresolved |
-| Formula 1, NASCAR, IndyCar | Unresolved |
-| ATP, WTA, Grand Slams | Tennis is explicitly in the Global API examples; competition-level entitlement unconfirmed |
-| PGA/major golf | Unresolved |
-| UFC, boxing | Unresolved |
-| Cricket, rugby union, rugby league | Unresolved |
-| International basketball, international hockey | Unresolved |
+| Major international soccer competitions                                      | Unresolved                                                                                        |
+| Formula 1, NASCAR, IndyCar                                                   | Unresolved                                                                                        |
+| ATP, WTA, Grand Slams                                                        | Tennis is explicitly in the Global API examples; competition-level entitlement unconfirmed        |
+| PGA/major golf                                                               | Unresolved                                                                                        |
+| UFC, boxing                                                                  | Unresolved                                                                                        |
+| Cricket, rugby union, rugby league                                           | Unresolved                                                                                        |
+| International basketball, international hockey                               | Unresolved                                                                                        |
 
 “100+ sports,” “hundreds of competitions,” and “thousands of leagues” are first-party product claims, not verified current entitlements for a ChannelForge account. They MUST NOT be used as coverage guarantees.
 
@@ -600,14 +600,14 @@ The current evidence does not identify a SportsDataIO Global endpoint or separat
 
 ### Access classes
 
-| Access class | Current evidence | ChannelForge interpretation |
-|---|---|---|
-| Free Trial | Self-service; scrambled but realistic; selectable available leagues/feeds; no production evidence | Integration-shape testing only |
-| Replay | Real historical data replayed through API structure | Historical workflow testing; not current production |
-| Historical/free | First-party materials describe replay and historical options; exact Global entitlement/pricing unresolved | Not assumed current-data access |
-| Discovery Lab | Previously documented real, next-day-delayed data and 100–1,000 calls/day for selected products; current Global inclusion is not confirmed | Do not assume it includes Global Sports |
-| Global Sports API production | Current schedules/live scores/results product; API key; production key obtained through provider contact; price not public | Only credible current-data path found, subject to contract |
-| Commercial/full access | Production key and selected coverage provisioned by SportsDataIO | Contract-dependent |
+| Access class                 | Current evidence                                                                                                                           | ChannelForge interpretation                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Free Trial                   | Self-service; scrambled but realistic; selectable available leagues/feeds; no production evidence                                          | Integration-shape testing only                             |
+| Replay                       | Real historical data replayed through API structure                                                                                        | Historical workflow testing; not current production        |
+| Historical/free              | First-party materials describe replay and historical options; exact Global entitlement/pricing unresolved                                  | Not assumed current-data access                            |
+| Discovery Lab                | Previously documented real, next-day-delayed data and 100–1,000 calls/day for selected products; current Global inclusion is not confirmed | Do not assume it includes Global Sports                    |
+| Global Sports API production | Current schedules/live scores/results product; API key; production key obtained through provider contact; price not public                 | Only credible current-data path found, subject to contract |
+| Commercial/full access       | Production key and selected coverage provisioned by SportsDataIO                                                                           | Contract-dependent                                         |
 
 The current developer page says production keys provide real-time data and “unrestricted coverage” for selected feeds, but this is not a public Global price or entitlement schedule.
 
@@ -620,18 +620,18 @@ SportsDataIO Terms of Service state:
 - site content may not be copied, distributed, republished, transmitted, or modified except as expressly allowed or authorized in writing;
 - the public Terms do not specify API response caching duration, evidence-retention duration, event-ID retention, derived-data storage, or XMLTV output rights.
 
-| Question | Classification | Evidence-based disposition |
-|---|---|---|
-| Personal/non-commercial use | `UNCLEAR` | Terms do not create a clear Global personal-use license |
-| Automated retrieval | `CONTRACT_DEPENDENT` | API access is authorized only through the selected product/key terms |
-| Local caching | `CONTRACT_DEPENDENT` | No API cache rule found |
-| Evidence retention | `CONTRACT_DEPENDENT` | No retention permission found |
-| Storing event IDs | `UNCLEAR` | IDs are exposed as API data; retention permission is not stated |
-| Derived normalized observations | `CONTRACT_DEPENDENT` | Requires API/product agreement review |
-| Local guide output informed by evidence | `CONTRACT_DEPENDENT` | Raw-response redistribution and derived-output rights are not separated publicly |
-| XMLTV generated from provider evidence | `CONTRACT_DEPENDENT` | Requires explicit clarification |
-| Redistribution | `RESTRICTED` | Public Terms restrict copying/distribution; commercial product terms may qualify |
-| Sharing provider-derived fields with local applications | `UNCLEAR` | Internal local use is not expressly granted or prohibited in the public API terms |
+| Question                                                | Classification       | Evidence-based disposition                                                        |
+| ------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| Personal/non-commercial use                             | `UNCLEAR`            | Terms do not create a clear Global personal-use license                           |
+| Automated retrieval                                     | `CONTRACT_DEPENDENT` | API access is authorized only through the selected product/key terms              |
+| Local caching                                           | `CONTRACT_DEPENDENT` | No API cache rule found                                                           |
+| Evidence retention                                      | `CONTRACT_DEPENDENT` | No retention permission found                                                     |
+| Storing event IDs                                       | `UNCLEAR`            | IDs are exposed as API data; retention permission is not stated                   |
+| Derived normalized observations                         | `CONTRACT_DEPENDENT` | Requires API/product agreement review                                             |
+| Local guide output informed by evidence                 | `CONTRACT_DEPENDENT` | Raw-response redistribution and derived-output rights are not separated publicly  |
+| XMLTV generated from provider evidence                  | `CONTRACT_DEPENDENT` | Requires explicit clarification                                                   |
+| Redistribution                                          | `RESTRICTED`         | Public Terms restrict copying/distribution; commercial product terms may qualify  |
+| Sharing provider-derived fields with local applications | `UNCLEAR`            | Internal local use is not expressly granted or prohibited in the public API terms |
 
 No legal conclusion is made. Written product-specific clarification is required before production enrollment.
 
@@ -639,15 +639,15 @@ No legal conclusion is made. Written product-specific clarification is required 
 
 Illustrative cached single-household model. These are planning estimates, not provider quota claims. The API documentation publishes endpoint call intervals for some feeds, but not a household refresh policy.
 
-| Component | Low | Expected | High |
-|---|---:|---:|---:|
-| A. Baseline schedule refresh | 10 competitions × 1 call/day = 10 | 20 × 1 = 20 | 30 × 1 = 30 |
-| B. Near-event refresh | 5 competitions × 1 = 5 | 10 × 2 = 20 | 20 × 2 = 40 |
-| C. Live/upcoming window | 5 events × 2 = 10 | 10 × 2 = 20 | 20 × 3 = 60 |
-| D. Retry reserve | 10% of A+B+C = 3 | 15% of 60 = 9 | 20% of 130 = 26 |
-| E. Full rebuild amortization | 1 rebuild / 30 days = 1 | 2 / 30 days = 2 | 4 / 30 days = 4 |
-| **Idle day total** | **10 + 5 + 0 + 2 + 1 = 18** | **20 + 10 + 0 + 5 + 2 = 37** | **30 + 20 + 0 + 10 + 4 = 64** |
-| **Busy day total** | **10 + 5 + 10 + 3 + 1 = 29** | **20 + 20 + 20 + 9 + 2 = 71** | **30 + 40 + 60 + 26 + 4 = 160** |
+| Component                    |                               Low |                      Expected |                            High |
+| ---------------------------- | --------------------------------: | ----------------------------: | ------------------------------: |
+| A. Baseline schedule refresh | 10 competitions × 1 call/day = 10 |                   20 × 1 = 20 |                     30 × 1 = 30 |
+| B. Near-event refresh        |            5 competitions × 1 = 5 |                   10 × 2 = 20 |                     20 × 2 = 40 |
+| C. Live/upcoming window      |                 5 events × 2 = 10 |                   10 × 2 = 20 |                     20 × 3 = 60 |
+| D. Retry reserve             |                  10% of A+B+C = 3 |                 15% of 60 = 9 |                 20% of 130 = 26 |
+| E. Full rebuild amortization |           1 rebuild / 30 days = 1 |               2 / 30 days = 2 |                 4 / 30 days = 4 |
+| **Idle day total**           |       **10 + 5 + 0 + 2 + 1 = 18** |  **20 + 10 + 0 + 5 + 2 = 37** |   **30 + 20 + 0 + 10 + 4 = 64** |
+| **Busy day total**           |      **10 + 5 + 10 + 3 + 1 = 29** | **20 + 20 + 20 + 9 + 2 = 71** | **30 + 40 + 60 + 26 + 4 = 160** |
 
 Idle days omit live-window calls and use half of the near-event target. Busy days include the live/upcoming window. The retry reserve is rounded up; rebuild amortization is rounded to the nearest whole call.
 
@@ -749,11 +749,11 @@ Please return one classification for every requested item:
 
 For the specific personal/developer product being quoted, identify the current classification for:
 
-| Group | Requested coverage |
-|---|---|
-| US | NFL; MLB; NBA; NHL; NCAA football; NCAA basketball |
-| Soccer | Premier League; UEFA Champions League; La Liga; Bundesliga; Serie A; Ligue 1; MLS; major international competitions |
-| Other | Formula 1; NASCAR; IndyCar; ATP; WTA; Grand Slams; PGA/major golf; UFC; boxing; cricket; rugby union; rugby league; international basketball; international hockey |
+| Group  | Requested coverage                                                                                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| US     | NFL; MLB; NBA; NHL; NCAA football; NCAA basketball                                                                                                                 |
+| Soccer | Premier League; UEFA Champions League; La Liga; Bundesliga; Serie A; Ligue 1; MLS; major international competitions                                                |
+| Other  | Formula 1; NASCAR; IndyCar; ATP; WTA; Grand Slams; PGA/major golf; UFC; boxing; cricket; rugby union; rugby league; international basketball; international hockey |
 
 Also confirm:
 
