@@ -33,17 +33,25 @@ function Merge-ChannelForgeLineup {
     foreach ($src in $sortedSource) {
         $sourceKind = 'M3U'
         $sourceOrdinal = $channels.Count
-        if ($src.PSObject.Properties.Name -contains 'OrderKey') {
+        if ($src.PSObject.Properties.Name -contains 'SourceOrdinal') {
+            $sourceOrdinal = [int]$src.SourceOrdinal
+        }
+        elseif ($src.PSObject.Properties.Name -contains 'OrderKey') {
             $parsedSourceOrdinal = 0
             if ([int]::TryParse([string]$src.OrderKey, [ref]$parsedSourceOrdinal)) {
                 $sourceOrdinal = $parsedSourceOrdinal
             }
         }
-        $logicalSourceId = Get-ChannelForgeLogicalSourceId `
-            -ProviderName ([string]$src.Provider) `
-            -SourceName ([string]$src.Playlist) `
-            -SourceKind $sourceKind `
-            -SourceOrdinal $sourceOrdinal
+        if ($src.PSObject.Properties.Name -contains 'LogicalSourceId' -and -not [string]::IsNullOrWhiteSpace([string]$src.LogicalSourceId)) {
+            $logicalSourceId = [string]$src.LogicalSourceId
+        }
+        else {
+            $logicalSourceId = Get-ChannelForgeLogicalSourceId `
+                -ProviderName ([string]$src.Provider) `
+                -SourceName ([string]$src.Playlist) `
+                -SourceKind $sourceKind `
+                -SourceOrdinal $sourceOrdinal
+        }
         $parsed = if ($src.PSObject.Properties.Name -contains 'Channels') {
             @($src.Channels)
         }

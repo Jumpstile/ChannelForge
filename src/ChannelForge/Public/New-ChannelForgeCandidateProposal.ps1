@@ -10,8 +10,23 @@ function New-ChannelForgeCandidateProposal {
         [string]$FaultHook = '',
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7',
-        [switch]$EmitEntrySlices
+        [switch]$EmitEntrySlices,
+        [AllowEmptyCollection()][object[]]$PlaylistSources,
+        [AllowEmptyCollection()][object[]]$GuideSources,
+        [AllowEmptyCollection()][object[]]$Bindings
     )
+
+    if ($null -ne $PlaylistSources) {
+        return New-ChannelForgeCandidateProposalFromSourceSet `
+            -Root $Root `
+            -PlaylistSources $PlaylistSources `
+            -GuideSources $GuideSources `
+            -Bindings $Bindings `
+            -OutputRoot $OutputRoot `
+            -TransactionId $TransactionId `
+            -FaultHook $FaultHook `
+            -CandidateContractVersion $CandidateContractVersion
+    }
      $dataDir = Join-Path $Root 'data'
      $outputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
      $playlistDir = Join-Path $dataDir 'playlists'

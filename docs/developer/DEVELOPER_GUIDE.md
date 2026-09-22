@@ -58,6 +58,30 @@ types, declared-length mismatches, and decoded files above 4 MiB (M3U) or
 12 MiB (XMLTV) fail closed. The encoded HTTP body is capped at 24 MiB.
 Filenames and paths never enter the request contract.
 
+Headless callers may use `schemaVersion: 2`, documented by
+[`schemas/guided-setup-proposal-request.schema.json`](../../schemas/guided-setup-proposal-request.schema.json).
+The v2 envelope contains `playlists` (1–8), `guides` (0–8), and optional
+`bindings` (0–16). Each source uses a bounded `sourceKey`, safe label,
+non-negative priority, and exactly one bounded `contentBase64` or non-tokenized
+public HTTPS `url`. `sourceKey` is only a request reference: the server derives
+the durable SourceId and every binding identity.
+
+Bindings refer to request keys. A binding selects one or more playlists, or
+sets `appliesToAll: true` with no playlist references. Duplicate, dangling,
+ambiguous, and malformed bindings fail closed. With one playlist, omitted
+bindings auto-bind every guide. With multiple playlists, omitted bindings
+leave guides unbound and `CanAccept=false`; no guide is silently fanned out.
+The response remains aggregate and opaque. Source bytes and acquired public
+HTTPS content are staged below server-derived 64-hex source IDs, never client
+filenames or paths. Managed bytes are enrolled after acceptance; public HTTPS
+descriptors are retained for later review-only refresh work. The 24 MiB
+request, 4 MiB per-playlist, 12 MiB per-guide, 16 MiB aggregate, and count
+limits are enforced before or during staging.
+
+The browser continues to send the unchanged v1 one-playlist envelope in this
+slice. Browser multi-row source selection and remote refresh UX are separate
+work; v2 is a headless/server contract only.
+
 The server-owned proposal identity is a lowercase 32-hex opaque GUID. It is
 resolved only below ignored `output/.web-guided-setup/proposals/` storage.
 `session.json` records the candidate hash/build identity, exact candidate
@@ -83,14 +107,14 @@ server compares the recorded parent with the recovered current generation and
 lets the immutable generation store perform its locked parent validation. A
 stale review is rejected; it is never automatically rebased.
 
-`New-ChannelForgeCandidateProposal` remains candidate-only. The CLI
-`-Accept` adapter and browser acceptance both call
-`Publish-ChannelForgeReviewedCandidate`, which constructs the decision
-M3U/XMLTV/manifests, invokes `New-ChannelForgeAcceptance`, and delegates
-publication to `Publish-ChannelForgeAcceptedGeneration`. No browser route
-calls `Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes
-downstream consumer files, configures a scheduler, or mutates provider state.
-Recovery remains owned by `Recover-ChannelForgeAcceptedStateCore`.
+`New-ChannelForgeCandidateProposal` remains candidate-only. Both the browser
+v1 and headless v2 acceptance paths call `Publish-ChannelForgeReviewedCandidate`,
+which constructs the decision M3U/XMLTV/manifests, invokes
+`New-ChannelForgeAcceptance`, and delegates publication to
+`Publish-ChannelForgeAcceptedGeneration`. No proposal route calls
+`Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes downstream
+consumer files, configures a scheduler, or mutates provider state. Recovery
+remains owned by `Recover-ChannelForgeAcceptedStateCore`.
 
 ## Durable source enrollment authority
 
@@ -98,25 +122,32 @@ Browser acceptance has two distinct outcomes:
 
 1. `Publish-ChannelForgeReviewedCandidate` publishes the accepted generation
    through the immutable generation store. This remains the lineup authority.
-2. `Write-ChannelForgeSourceEnrollment` promotes the original browser-uploaded
-   M3U bytes and optional XMLTV bytes into `state/managed-sources/` and writes
+2. `Write-ChannelForgeSourceEnrollment` promotes managed source bytes and
+   source descriptors into `state/managed-sources/` and writes
    `state/source-enrollment.json` last through an atomic replacement.
 
-The enrollment record is `source-enrollment/v1`, self-hashed with the
-canonical-json/domain-hash helpers. Managed filenames are opaque content
-identities. Reads reject non-canonical records, hash mismatches, missing bytes,
-path traversal, and reparse-point traversal. Enrollment is never stored below
-`output/.web-guided-setup/proposals`; proposal input bytes remain there only
-until successful promotion, so a promotion failure can be repaired without
-invalidating an already-published accepted lineup.
+The enrollment record is `source-enrollment/v2`, self-hashed with the
+canonical-json/domain-hash helpers. It stores multiple ordered playlist and
+guide records plus explicit guide-to-playlist bindings. Managed filenames are
+opaque content identities. Reads reject non-canonical records, hash
+mismatches, missing bytes, path traversal, and reparse-point traversal.
+Supported public HTTPS descriptors are retained without credentials, query
+tokens, or fragments. Legacy `source-enrollment/v1` remains a deterministic
+compatibility projection rather than a second authority.
 
+Enrollment is never stored below `output/.web-guided-setup`; proposal input
+bytes remain there only until successful promotion, so a promotion failure
+can be repaired without invalidating an already-published accepted lineup.
 `Get-ChannelForgeSourceEnrollment` returns only redacted status facts.
-`Get-ChannelForgeEnrolledSourceInput` is the engine refresh adapter and is not a
-browser response. `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath` plans
-unchanged bytes for reuse and changed bytes for `FULL_REFRESH`; the executor
-creates a review-only candidate and never mutates accepted generation state.
-`POST /api/sources/refresh` exposes only the safe report summary. Remote
-credential enrollment is intentionally outside this contract.
+`Get-ChannelForgeEnrolledSourceInput` is the engine refresh adapter and is not
+a browser response. `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath`
+projects every enrolled record: unchanged managed bytes can be reused,
+changed managed bytes require `FULL_REFRESH`, and public descriptors remain
+review-only in this slice. The executor creates a review-only candidate and
+never mutates accepted generation state.
+`POST /api/sources/refresh` exposes only the safe report summary. Unattended
+remote refresh remains outside this contract.
+
 
 The response projection is intentionally aggregate: counts, fixed warning
 messages, the opaque proposal ID, blocking reasons, and mutation

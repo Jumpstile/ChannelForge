@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/guided-setup-proposal-request.schema.json",
+  "title": "ChannelForge guided setup proposal request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "m3u"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "m3u": { "$ref": "#/$defs/legacyFile" },
+        "xmltv": { "$ref": "#/$defs/legacyFile" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "playlists", "guides"],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "playlists": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "guides": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "bindings": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/binding" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "legacyFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentBase64"],
+      "properties": {
+        "contentBase64": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceKey"],
+      "properties": {
+        "sourceKey": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "priority": { "type": "integer", "minimum": 0 },
+        "contentBase64": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "oneOf": [
+        { "required": ["contentBase64"], "not": { "required": ["url"] } },
+        { "required": ["url"], "not": { "required": ["contentBase64"] } }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guideRef", "playlistRefs", "appliesToAll"],
+      "properties": {
+        "guideRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "playlistRefs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }
+        },
+        "appliesToAll": { "type": "boolean" }
+      }
+    }
+  }
+}

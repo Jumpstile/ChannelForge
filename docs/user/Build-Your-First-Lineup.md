@@ -152,6 +152,13 @@ reasons, and safe mutation classifications. It never returns candidate hashes,
 build identities, source URLs, private paths, credentials, parser details, or
 raw uploaded content.
 
+The server also accepts a headless-only `schemaVersion: 2` contract with
+1–8 playlist descriptors, 0–8 guide descriptors, and explicit selected/all
+bindings. Source references are request-local; the server derives source and
+binding identities and stages bytes below server-owned paths. This contract
+is not exposed as browser multi-row UX yet. The browser flow above remains
+the stable beginner path and its v1 envelope is unchanged.
+
 The server stores each ready review below the ignored,
 server-owned `output/.web-guided-setup/proposals/<opaque-id>/` namespace. The
 candidate namespace is content-addressed and verified again at acceptance.
@@ -201,10 +208,15 @@ candidate when they changed. It never replaces the accepted lineup
 automatically. **Replace sources** returns to Guided Setup, where a new
 browser-selected upload must be reviewed and explicitly accepted.
 
+The headless v2 contract can enroll bounded public HTTPS descriptors after
+one-time candidate acquisition, but remote refresh, unattended acquisition,
+and browser multi-source selection remain deferred. The beginner browser flow
+supports only local uploaded M3U and optional XMLTV bytes.
+
 If a saved source is missing, tampered with, or unsafe to read, the dashboard
 shows **Source unavailable** or **Needs attention** and leaves the accepted
-lineup unchanged. Remote credential enrollment is intentionally deferred; this
-slice supports only browser-enrolled local M3U and optional XMLTV bytes.
+lineup unchanged. Remote credential enrollment is intentionally deferred; the
+beginner browser flow supports only local M3U and optional XMLTV bytes.
 
 Build and run the browser surface:
 
