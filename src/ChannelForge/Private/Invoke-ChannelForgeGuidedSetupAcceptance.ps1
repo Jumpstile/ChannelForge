@@ -260,7 +260,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
             Proposal = [ordered]@{
                 ChannelCount = $entryIds.Count
                 GuideStatus = if ([string]$session.Version -ceq 'guided-setup/review/v2') {
-                    if (@($session.SourceSet.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_ACCEPTED' }
+                    if (@($session.SourceSet.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ([int]$session.UnboundGuideCount -gt 0) { 'XMLTV_ACCEPTED_WITH_UNBOUND' } else { 'XMLTV_ACCEPTED' }
                 } elseif ($null -eq $candidate.XMLTVBytes) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_ACCEPTED' }
             }
             Safety = [ordered]@{ AcceptedStateMutation = 'accepted-lineup'; ProviderMutation = 'none'; DownstreamMutation = 'none'; SchedulerMutation = 'none' }

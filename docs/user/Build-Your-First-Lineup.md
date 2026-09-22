@@ -155,9 +155,11 @@ raw uploaded content.
 The server also accepts a headless-only `schemaVersion: 2` contract with
 1–8 playlist descriptors, 0–8 guide descriptors, and explicit selected/all
 bindings. Source references are request-local; the server derives source and
-binding identities and stages bytes below server-owned paths. This contract
-is not exposed as browser multi-row UX yet. The browser flow above remains
-the stable beginner path and its v1 envelope is unchanged.
+binding identities and stages bytes below server-owned paths. With multiple
+playlists, a guide whose binding is omitted remains enrolled and actionable
+but is not applied to the accepted guide output until you review an explicit
+binding. This contract is not exposed as browser multi-row UX yet. The browser
+flow above remains the stable beginner path and its v1 envelope is unchanged.
 
 The server stores each ready review below the ignored,
 server-owned `output/.web-guided-setup/proposals/<opaque-id>/` namespace. The
@@ -189,9 +191,10 @@ Only `POST /api/guided-setup/accept` accepts this bounded `application/json`
 request. The request cannot submit files, paths, candidate hashes, parent
 state, or a force option. Acceptance revalidates the durable candidate,
 ambiguity state, accepted parent, coverage, exact M3U/XMLTV bytes, and the
-existing immutable generation publication journal. Stale parent, tampered
-candidate, ambiguous review, and duplicate submission fail closed. Provider
-files, downstream outputs, scheduler state, and credentials are not changed.
+authenticated staged byte hash and length for every v2 source before
+publication or enrollment. Stale parent, tampered candidate, staged source,
+ambiguous review, and duplicate submission fail closed. Provider files,
+downstream outputs, scheduler state, and credentials are not changed.
 
 ### Sources saved for restart-safe refresh
 

@@ -153,13 +153,13 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
         New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
         if ($request.SchemaVersion -eq 2) {
             $staged = Write-ChannelForgeGuidedSetupSourceStaging -Request $request -RequestRoot $requestRoot -Limits $limits
-            $candidate = New-ChannelForgeCandidateProposal `
+            $candidate = New-ChannelForgeCandidateProposalFromSourceSet `
                 -Root $RepositoryRoot `
                 -PlaylistSources $staged.Playlists `
                 -GuideSources $staged.Guides `
                 -Bindings $staged.Bindings `
                 -OutputRoot $candidateRoot `
-                -CandidateContractVersion 'blocker-2-contract/v8'
+                -CandidateContractVersion 'blocker-2-contract/v7'
             $manifest = $candidate.Manifest
             if (@($manifest.Entries).Count -eq 0) { throw [System.ArgumentException]::new('No channels were found in the playlists.') }
             $manifestBindings = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
@@ -170,19 +170,18 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
             $boundGuideIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
             foreach ($binding in @($staged.Bindings)) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
             $unboundGuideCount = @($staged.Guides | Where-Object { -not $boundGuideIds.Contains([string]$_.SourceId) }).Count
-            $guideStatus = if (@($staged.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ($unboundGuideCount -gt 0) { 'XMLTV_BINDING_REQUIRED' } else { 'XMLTV_SELECTED' }
+            $guideStatus = if (@($staged.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ($unboundGuideCount -gt 0) { 'XMLTV_UNBOUND_ACTIONABLE' } else { 'XMLTV_SELECTED' }
             $warnings = [System.Collections.Generic.List[object]]::new()
             if ($review -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'ambiguous-guide-match'; Message = 'Some guide identities need review before a guide can be trusted.' }) }
             if ($unbound -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'unmatched-playlist-entry'; Message = 'Some playlist entries have no exact guide match.' }) }
             if ($guideOnly -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-only-record'; Message = 'The guide contains records not present in the playlist.' }) }
-            if ($unboundGuideCount -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-binding-required'; Message = 'Every submitted XMLTV guide must have an explicit playlist binding before acceptance.' }) }
+            if ($unboundGuideCount -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-unbound-actionable'; Message = 'The guide remains enrolled for later review and will not be applied until explicitly bound.' }) }
             $current = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $RepositoryRoot
             $parentManifestHash = if ($null -eq $current) { $null } else { [string]$current.Manifest.Object.GenerationManifestHash }
             $parentStateHash = if ($null -eq $current) { $null } else { [string]$current.State.Object.AcceptedStateHash }
             $parentOutputHash = if ($null -eq $current) { $null } else { [string]$current.Output.Object.OutputManifestHash }
             $blockingReasons = @()
             if ($review -gt 0) { $blockingReasons += 'ambiguous-guide-match' }
-            if ($unboundGuideCount -gt 0) { $blockingReasons += 'guide-binding-required' }
             $canAccept = @($manifest.Entries).Count -gt 0 -and $blockingReasons.Count -eq 0
             $sourceSetForSession = [ordered]@{
                 Version = 'source-set/v2'
@@ -196,6 +195,8 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                         Priority = [int]$_.Priority
                         Url = $_.Url
                         RelativePath = [string]$_.RelativePath
+                        ContentHash = [string]$_.ContentHash
+                        ByteLength = [int]$_.ByteLength
                     }
                 })
                 Guides = @($staged.Guides | ForEach-Object {
@@ -208,6 +209,8 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                         Priority = [int]$_.Priority
                         Url = $_.Url
                         RelativePath = [string]$_.RelativePath
+                        ContentHash = [string]$_.ContentHash
+                        ByteLength = [int]$_.ByteLength
                     }
                 })
                 Bindings = @($staged.Bindings | ForEach-Object {

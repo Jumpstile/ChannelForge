@@ -305,7 +305,8 @@ function Write-ChannelForgeGuidedSetupStagedSource {
     }
     if ($null -eq $bytes -or $bytes.Length -eq 0) { throw "The $($Source.Kind) source is empty." }
     if ($bytes.Length -gt $MaxBytes) { throw "The $($Source.Kind) source is too large." }
-    [IO.File]::WriteAllBytes($path, $bytes)
+[IO.File]::WriteAllBytes($path, $bytes)
+    $contentDomain = if ([string]$Source.Kind -eq 'M3U') { 'input-m3u/v2' } else { 'input-xmltv/v2' }
     return [pscustomobject][ordered]@{
         Kind = [string]$Source.Kind
         SourceId = [string]$Source.SourceId
@@ -316,6 +317,7 @@ function Write-ChannelForgeGuidedSetupStagedSource {
         Url = if ([string]$Source.SourceKind -eq 'public-https') { [string]$Source.Url } else { $null }
         Path = $path
         RelativePath = $relativePath
+        ContentHash = Get-ChannelForgeDomainHash -Domain $contentDomain -Bytes $bytes
         ByteLength = [int]$bytes.Length
     }
 }
@@ -370,6 +372,16 @@ function Get-ChannelForgeGuidedSetupSourceSetInputs {
             }
             $path = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $proposalDirectory ($relative -replace '/', '\')) -AllowedRoot $proposalDirectory
             if (-not [IO.File]::Exists($path)) { throw 'FAIL_CLOSED: guided setup source bytes are unavailable.' }
+            $bytes = [IO.File]::ReadAllBytes($path)
+            if ($bytes.Length -eq 0 -or $bytes.Length -gt $MaxBytes) { throw 'FAIL_CLOSED: guided setup source bytes are invalid.' }
+            if ($null -eq $record.ByteLength -or [int64]$bytes.Length -ne [int64]$record.ByteLength) {
+                throw 'FAIL_CLOSED: guided setup source length changed.'
+            }
+            $contentDomain = if ($Kind -eq 'M3U') { 'input-m3u/v2' } else { 'input-xmltv/v2' }
+            $actualContentHash = Get-ChannelForgeDomainHash -Domain $contentDomain -Bytes $bytes
+            if ([string]$record.ContentHash -cne $actualContentHash) {
+                throw 'FAIL_CLOSED: guided setup source bytes changed.'
+            }
             $descriptor = [ordered]@{
                 Kind = $Kind
                 SourceId = [string]$record.SourceId
@@ -379,10 +391,10 @@ function Get-ChannelForgeGuidedSetupSourceSetInputs {
                 Priority = [int]$record.Priority
                 Path = $path
                 Url = if ([string]$record.SourceKind -eq 'public-https') { [string]$record.Url } else { $null }
+                ContentHash = [string]$record.ContentHash
+                ByteLength = [int64]$record.ByteLength
             }
             if ([string]$record.SourceKind -eq 'managed-file') {
-                $bytes = [IO.File]::ReadAllBytes($path)
-                if ($bytes.Length -eq 0 -or $bytes.Length -gt $MaxBytes) { throw 'FAIL_CLOSED: guided setup source bytes are invalid.' }
                 $descriptor.Bytes = $bytes
             }
             $output += [pscustomobject]$descriptor

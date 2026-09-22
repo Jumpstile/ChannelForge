@@ -17,18 +17,15 @@ function Merge-ChannelForgeLineup {
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
-    # Multi-source candidates supply SourceOrdinal after priority ordering.
-    # Existing callers without it retain their historical OrderKey/path order.
+    # Prefer the caller's stable, path-independent OrderKey for configured
+    # remote sources. Existing local callers without OrderKey retain their
+    # historical path ordering exactly.
     $sortedSource = @($Source | Sort-Object {
-        if ($_.PSObject.Properties.Name -contains 'SourceOrdinal') {
-            $orderKey = if ($_.PSObject.Properties.Name -contains 'OrderKey') { [string]$_.OrderKey } else { '' }
-            '0|{0:D8}|{1}' -f [int]$_.SourceOrdinal, $orderKey
-        }
-        elseif ($_.PSObject.Properties.Name -contains 'OrderKey') {
-            '1|' + [string]$_.OrderKey
+        if ($_.PSObject.Properties.Name -contains 'OrderKey') {
+            [string]$_.OrderKey
         }
         else {
-            '2|' + [string]$_.Path
+            [string]$_.Path
         }
     })
 
@@ -36,25 +33,17 @@ function Merge-ChannelForgeLineup {
     foreach ($src in $sortedSource) {
         $sourceKind = 'M3U'
         $sourceOrdinal = $channels.Count
-        if ($src.PSObject.Properties.Name -contains 'SourceOrdinal') {
-            $sourceOrdinal = [int]$src.SourceOrdinal
-        }
-        elseif ($src.PSObject.Properties.Name -contains 'OrderKey') {
+        if ($src.PSObject.Properties.Name -contains 'OrderKey') {
             $parsedSourceOrdinal = 0
             if ([int]::TryParse([string]$src.OrderKey, [ref]$parsedSourceOrdinal)) {
                 $sourceOrdinal = $parsedSourceOrdinal
             }
         }
-        if ($src.PSObject.Properties.Name -contains 'LogicalSourceId' -and -not [string]::IsNullOrWhiteSpace([string]$src.LogicalSourceId)) {
-            $logicalSourceId = [string]$src.LogicalSourceId
-        }
-        else {
-            $logicalSourceId = Get-ChannelForgeLogicalSourceId `
-                -ProviderName ([string]$src.Provider) `
-                -SourceName ([string]$src.Playlist) `
-                -SourceKind $sourceKind `
-                -SourceOrdinal $sourceOrdinal
-        }
+        $logicalSourceId = Get-ChannelForgeLogicalSourceId `
+            -ProviderName ([string]$src.Provider) `
+            -SourceName ([string]$src.Playlist) `
+            -SourceKind $sourceKind `
+            -SourceOrdinal $sourceOrdinal
         $parsed = if ($src.PSObject.Properties.Name -contains 'Channels') {
             @($src.Channels)
         }

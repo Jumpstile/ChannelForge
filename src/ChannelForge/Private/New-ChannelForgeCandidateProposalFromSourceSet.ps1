@@ -8,7 +8,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         [Parameter(Mandatory)][string]$OutputRoot,
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
@@ -24,34 +24,47 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     foreach ($source in $orderedPlaylists) {
         $path = [System.IO.Path]::GetFullPath([string]$source.Path)
         Assert-ChannelForgeReadPath -Path $path -AllowedRoot $rootFull
-        $channels = @(Import-ChannelForgeM3UPlaylist -Path $path -Provider 'candidate' -Playlist ([string]$source.Label) -CandidateContractVersion $CandidateContractVersion)
-        $logicalSourceId = [string]$source.SourceId
-        $raw = @(Get-ChannelForgeRawM3UProjection -Channel $channels -LogicalSourceId $logicalSourceId -CandidateContractVersion $CandidateContractVersion)
+        $logicalSourceId = Get-ChannelForgeLogicalSourceId `
+            -ProviderName 'candidate' `
+            -SourceName ([string]$source.Label) `
+            -SourceKind 'M3U' `
+            -SourceOrdinal $playlistOrdinal
+        $channels = @(Import-ChannelForgeM3UPlaylist `
+                -Path $path `
+                -Provider 'candidate' `
+                -Playlist ([string]$source.Label) `
+                -CandidateContractVersion $CandidateContractVersion)
+        $raw = @(Get-ChannelForgeRawM3UProjection `
+                -Channel $channels `
+                -LogicalSourceId $logicalSourceId `
+                -CandidateContractVersion $CandidateContractVersion)
         [void]$sourceList.Add([pscustomobject]@{
-            LogicalSourceId = $logicalSourceId
-            SourceId = $logicalSourceId
-            SourceKey = [string]$source.SourceKey
-            Label = [string]$source.Label
-            Priority = [int]$source.Priority
-            Channels = @($channels)
-            Raw = $raw
-            SourceOrdinal = $playlistOrdinal
-            SourcePath = $path
-        })
+                LogicalSourceId = $logicalSourceId
+                SourceId = [string]$source.SourceId
+                SourceKey = [string]$source.SourceKey
+                Label = [string]$source.Label
+                Priority = [int]$source.Priority
+                Channels = @($channels)
+                Raw = $raw
+                SourceOrdinal = $playlistOrdinal
+                SourcePath = $path
+            })
         $playlistOrdinal++
     }
 
     $mergeSources = @($sourceList | ForEach-Object {
-        [pscustomobject]@{
-            Channels = $_.Channels
-            Provider = 'candidate'
-            Playlist = $_.Label
-            OrderKey = $_.LogicalSourceId
-            LogicalSourceId = $_.LogicalSourceId
-            SourceOrdinal = $_.SourceOrdinal
-        }
-    })
-    $merge = Merge-ChannelForgeLineup -Source $mergeSources -AliasPath $aliasPath -NumberingBlocksPath $blocksPath -CandidateContractVersion $CandidateContractVersion
+            [pscustomobject]@{
+                Channels = $_.Channels
+                Provider = 'candidate'
+                Playlist = $_.Label
+                OrderKey = '{0:D10}' -f $_.SourceOrdinal
+            }
+        })
+    $merge = Merge-ChannelForgeLineup `
+        -Source $mergeSources `
+        -AliasPath $aliasPath `
+        -NumberingBlocksPath $blocksPath `
+        -CandidateContractVersion $CandidateContractVersion
     foreach ($sourceRecord in @($sourceList)) {
         $sourceRecord.Raw = @($sourceRecord.Raw | Sort-Object EntryId)
         $sourceRecord.Channels = @($sourceRecord.Raw | ForEach-Object Channel)
@@ -61,50 +74,95 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $inputArtifactHashes = [System.Collections.Generic.List[object]]::new()
     foreach ($sourceRecord in @($sourceList)) {
         [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
-            LogicalSourceId = [string]$sourceRecord.LogicalSourceId
-            ArtifactKind = 'M3U'
-            ArtifactHash = Get-ChannelForgeDomainHash -Domain 'input-m3u/v2' -Bytes ([System.IO.File]::ReadAllBytes([string]$sourceRecord.SourcePath))
-        })
+                LogicalSourceId = [string]$sourceRecord.LogicalSourceId
+                ArtifactKind = 'M3U'
+                ArtifactHash = Get-ChannelForgeDomainHash `
+                    -Domain 'input-m3u/v2' `
+                    -Bytes ([System.IO.File]::ReadAllBytes([string]$sourceRecord.SourcePath))
+            })
     }
 
-    $guideRecords = @($GuideSources | Sort-Object Priority, SourceId)
-    $allProgrammes = [System.Collections.Generic.List[object]]::new()
+    $guideRecords = [System.Collections.Generic.List[object]]::new()
+    $guideOrdinal = 0
+    foreach ($guide in @($GuideSources | Sort-Object Priority, SourceId)) {
+        $logicalSourceId = Get-ChannelForgeLogicalSourceId `
+            -ProviderName 'candidate' `
+            -SourceName ([string]$guide.Label) `
+            -SourceKind 'XMLTV' `
+            -SourceOrdinal $guideOrdinal
+        [void]$guideRecords.Add([pscustomobject]@{
+                SourceId = [string]$guide.SourceId
+                LogicalSourceId = $logicalSourceId
+                SourceKey = [string]$guide.SourceKey
+                Label = [string]$guide.Label
+                Priority = [int]$guide.Priority
+                Path = [string]$guide.Path
+                Url = $guide.Url
+            })
+        $guideOrdinal++
+    }
+
     $programmesForOutput = [System.Collections.Generic.List[object]]::new()
     $rawXmltv = [System.Collections.Generic.List[object]]::new()
     $bindingResults = [System.Collections.Generic.List[object]]::new()
     $bindingByGuide = @{}
     foreach ($binding in @($Bindings)) { $bindingByGuide[[string]$binding.GuideId] = $binding }
+    $playlistLogicalIdsBySourceId = @{}
+    foreach ($sourceRecord in @($sourceList)) {
+        $playlistLogicalIdsBySourceId[[string]$sourceRecord.SourceId] = [string]$sourceRecord.LogicalSourceId
+    }
 
-    foreach ($guide in $guideRecords) {
+    foreach ($guide in @($guideRecords.ToArray())) {
         $xmlPath = [System.IO.Path]::GetFullPath([string]$guide.Path)
         Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $rootFull
         $xmlStatus = [ordered]@{}
-        $guideProgrammes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId ([string]$guide.SourceId) -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion)
-        foreach ($programme in $guideProgrammes) { [void]$allProgrammes.Add($programme) }
-        foreach ($raw in @(Get-ChannelForgeRawXmltvProjection -Programme $guideProgrammes -CandidateContractVersion $CandidateContractVersion)) { [void]$rawXmltv.Add($raw) }
+        $guideProgrammes = @(Import-ChannelForgeXmltvSource `
+                -Path $xmlPath `
+                -SourceId ([string]$guide.LogicalSourceId) `
+                -AcquisitionStatus $xmlStatus `
+                -CandidateContractVersion $CandidateContractVersion)
+        foreach ($raw in @(Get-ChannelForgeRawXmltvProjection `
+                    -Programme $guideProgrammes `
+                    -CandidateContractVersion $CandidateContractVersion)) {
+            [void]$rawXmltv.Add($raw)
+        }
         [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
-            LogicalSourceId = [string]$guide.SourceId
-            ArtifactKind = 'XMLTV'
-            ArtifactHash = [string]$xmlStatus.InputArtifactHash
-        })
+                LogicalSourceId = [string]$guide.LogicalSourceId
+                ArtifactKind = 'XMLTV'
+                ArtifactHash = [string]$xmlStatus.InputArtifactHash
+            })
 
-        $binding = if ($bindingByGuide.ContainsKey([string]$guide.SourceId)) { $bindingByGuide[[string]$guide.SourceId] } else { $null }
-        $allowedSourceIds = if ($null -eq $binding) {
+        $binding = if ($bindingByGuide.ContainsKey([string]$guide.SourceId)) {
+            $bindingByGuide[[string]$guide.SourceId]
+        }
+        else {
+            $null
+        }
+        $allowedLogicalSourceIds = if ($null -eq $binding) {
             @()
         }
         elseif ([bool]$binding.AppliesToAll) {
-            @($sourceList | ForEach-Object SourceId)
+            @($sourceList | ForEach-Object LogicalSourceId)
         }
         else {
-            @($binding.PlaylistIds | ForEach-Object { [string]$_ })
+            @($binding.PlaylistIds | ForEach-Object {
+                    if ($playlistLogicalIdsBySourceId.ContainsKey([string]$_)) {
+                        $playlistLogicalIdsBySourceId[[string]$_]
+                    }
+                })
         }
-        $allowedChannels = @($merge.AllChannels | Where-Object { [string]$_.LogicalSourceId -in $allowedSourceIds })
+        $allowedChannels = @($merge.AllChannels | Where-Object {
+                [string]$_.LogicalSourceId -in $allowedLogicalSourceIds
+            })
         $allowedChannelSet = [System.Collections.Generic.HashSet[object]]::new()
         foreach ($channel in $allowedChannels) { [void]$allowedChannelSet.Add($channel) }
         $allowedCollisions = @($merge.IdentityCollisions | Where-Object {
-            @($_.Channels | Where-Object { $allowedChannelSet.Contains($_) }).Count -gt 0
-        })
-        $bindingResult = Resolve-ChannelForgeM3UXmltvBinding -Channel $allowedChannels -Programme $guideProgrammes -M3UIdentityCollisions $allowedCollisions
+                @($_.Channels | Where-Object { $allowedChannelSet.Contains($_) }).Count -gt 0
+            })
+        $bindingResult = Resolve-ChannelForgeM3UXmltvBinding `
+            -Channel $allowedChannels `
+            -Programme $guideProgrammes `
+            -M3UIdentityCollisions $allowedCollisions
         [void]$bindingResults.Add($bindingResult)
         if ($null -ne $binding) {
             foreach ($programme in $guideProgrammes) { [void]$programmesForOutput.Add($programme) }
@@ -112,7 +170,18 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     }
 
     $bindingResult = [pscustomobject][ordered]@{
-        Status = if (@($bindingResults | Where-Object { $_.HasReviewNeeded }).Count -gt 0) { 'EVALUATED_WITH_REVIEW' } elseif (@($bindingResults | Where-Object { $_.Status -eq 'EVALUATED_WITH_UNBOUND' }).Count -gt 0) { 'EVALUATED_WITH_UNBOUND' } elseif ($bindingResults.Count -gt 0) { 'EXACT_ONLY' } else { 'NOT_EVALUATED' }
+        Status = if (@($bindingResults | Where-Object { $_.HasReviewNeeded }).Count -gt 0) {
+            'EVALUATED_WITH_REVIEW'
+        }
+        elseif (@($bindingResults | Where-Object { $_.Status -eq 'EVALUATED_WITH_UNBOUND' }).Count -gt 0) {
+            'EVALUATED_WITH_UNBOUND'
+        }
+        elseif ($bindingResults.Count -gt 0) {
+            'EXACT_ONLY'
+        }
+        else {
+            'NOT_EVALUATED'
+        }
         ExactBindings = @($bindingResults | ForEach-Object { @($_.ExactBindings) })
         PublishableBindings = @($bindingResults | ForEach-Object { @($_.PublishableBindings) })
         UnboundChannels = @($bindingResults | ForEach-Object { @($_.UnboundChannels) })
@@ -142,9 +211,14 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     }
 
     $serializedM3UEntryOrder = @($merge.Channels | ForEach-Object {
-        $channel = $_
-        @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId)
-    })
+            $channel = $_
+            @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId)
+        })
+    $selectedLogicalSourceIds = @(
+        @($sourceList) + @($guideRecords.ToArray()) |
+            ForEach-Object LogicalSourceId |
+            Sort-Object -Unique
+    )
     $manifestArguments = @{
         RawM3UOccurrences = $rawAll
         M3UIdentityCollisions = @($merge.IdentityCollisions)
@@ -155,10 +229,13 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         InputArtifactHashes = @($inputArtifactHashes.ToArray())
         SerializedM3UEntryOrder = $serializedM3UEntryOrder
         CandidateContractVersion = $CandidateContractVersion
-        SelectedSourceIds = @(@($PlaylistSources) + @($GuideSources) | ForEach-Object SourceId | Sort-Object -Unique)
+        SelectedSourceIds = $selectedLogicalSourceIds
     }
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
-    $counts = Get-ChannelForgeCandidateReviewCounts -RawM3UOccurrences $rawAll -RawXmltvOccurrences @($rawXmltv.ToArray()) -BindingProjection @($manifestResult.BindingProjection)
+    $counts = Get-ChannelForgeCandidateReviewCounts `
+        -RawM3UOccurrences $rawAll `
+        -RawXmltvOccurrences @($rawXmltv.ToArray()) `
+        -BindingProjection @($manifestResult.BindingProjection)
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
     $review = [ordered]@{
         Version = $CandidateContractVersion
@@ -196,12 +273,38 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestBytes = $utf8.GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $manifest))
 
     try {
-        Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.m3u') -Bytes $m3uBytes -HookPrefix 'CandidateStageWrite.M3U' -FaultHook $FaultHook | Out-Null
-        if ($null -ne $xmltvBytes) { Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'merged.xml') -Bytes $xmltvBytes -HookPrefix 'CandidateStageWrite.XMLTV' -FaultHook $FaultHook | Out-Null }
-        Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.json') -Bytes $reviewBytes -HookPrefix 'CandidateStageWrite.ReviewJSON' -FaultHook $FaultHook | Out-Null
-        Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.md') -Bytes $reviewMdBytes -HookPrefix 'CandidateStageWrite.ReviewMarkdown' -FaultHook $FaultHook | Out-Null
-        Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
-        $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
+        Write-ChannelForgeCandidateArtifact `
+            -Path (Join-Path $txRoot 'merged.m3u') `
+            -Bytes $m3uBytes `
+            -HookPrefix 'CandidateStageWrite.M3U' `
+            -FaultHook $FaultHook | Out-Null
+        if ($null -ne $xmltvBytes) {
+            Write-ChannelForgeCandidateArtifact `
+                -Path (Join-Path $txRoot 'merged.xml') `
+                -Bytes $xmltvBytes `
+                -HookPrefix 'CandidateStageWrite.XMLTV' `
+                -FaultHook $FaultHook | Out-Null
+        }
+        Write-ChannelForgeCandidateArtifact `
+            -Path (Join-Path $txRoot 'lineup-change-review.json') `
+            -Bytes $reviewBytes `
+            -HookPrefix 'CandidateStageWrite.ReviewJSON' `
+            -FaultHook $FaultHook | Out-Null
+        Write-ChannelForgeCandidateArtifact `
+            -Path (Join-Path $txRoot 'lineup-change-review.md') `
+            -Bytes $reviewMdBytes `
+            -HookPrefix 'CandidateStageWrite.ReviewMarkdown' `
+            -FaultHook $FaultHook | Out-Null
+        Write-ChannelForgeCandidateArtifact `
+            -Path (Join-Path $txRoot 'manifest.json') `
+            -Bytes $manifestBytes `
+            -HookPrefix 'CandidateStageWrite.Manifest' `
+            -FaultHook $FaultHook | Out-Null
+        $finalPath = Publish-ChannelForgeCandidateNamespace `
+            -OutputRoot $outputRoot `
+            -StagingPath $txRoot `
+            -CandidateManifestHash $manifestHash `
+            -FaultHook $FaultHook
         return [pscustomobject][ordered]@{
             CandidateManifestHash = $manifestHash
             BuildIdentity = $manifestResult.BuildIdentity
@@ -210,7 +313,9 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         }
     }
     catch {
-        if (Test-Path -LiteralPath $txRoot) { Remove-Item -LiteralPath $txRoot -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $txRoot) {
+            Remove-Item -LiteralPath $txRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
         throw
     }
 }

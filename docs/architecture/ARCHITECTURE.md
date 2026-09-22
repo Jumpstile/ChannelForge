@@ -219,8 +219,9 @@ also accepts the headless `schemaVersion: 2` source-set envelope. V2 stages
 and produces one candidate through the same candidate-only path. Request
 references are not authoritative identities: SourceId and binding identities
 are derived by the server. Omitted bindings auto-bind every guide only when
-there is exactly one playlist; multiple playlists leave omitted guides
-unbound and acceptance-blocked. The response never exposes source URLs,
+there is exactly one playlist; with multiple playlists, omitted guides remain
+enrolled and actionable but are not applied to the accepted guide output until
+an explicit binding is reviewed. The response never exposes source URLs,
 filenames, paths, hashes, or raw content.
 
 Managed uploads and one-time acquired public HTTPS bytes are staged under

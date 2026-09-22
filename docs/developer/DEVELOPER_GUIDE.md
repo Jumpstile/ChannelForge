@@ -70,13 +70,17 @@ Bindings refer to request keys. A binding selects one or more playlists, or
 sets `appliesToAll: true` with no playlist references. Duplicate, dangling,
 ambiguous, and malformed bindings fail closed. With one playlist, omitted
 bindings auto-bind every guide. With multiple playlists, omitted bindings
-leave guides unbound and `CanAccept=false`; no guide is silently fanned out.
-The response remains aggregate and opaque. Source bytes and acquired public
-HTTPS content are staged below server-derived 64-hex source IDs, never client
-filenames or paths. Managed bytes are enrolled after acceptance; public HTTPS
-descriptors are retained for later review-only refresh work. The 24 MiB
-request, 4 MiB per-playlist, 12 MiB per-guide, 16 MiB aggregate, and count
-limits are enforced before or during staging.
+leave guides enrolled and actionable with no inferred binding; `CanAccept`
+remains true unless an independent review blocker exists, and the unbound
+guide is excluded from guide application. The response remains aggregate and
+opaque. Source bytes and acquired public HTTPS content are staged below
+server-derived 64-hex source IDs, never client filenames or paths. Each
+staged source's authenticated input hash and byte length are retained in the
+review session and checked again before candidate publication or enrollment.
+Managed bytes are enrolled after acceptance; public HTTPS descriptors are
+retained for later review-only refresh work. The 24 MiB request, 4 MiB
+per-playlist, 12 MiB per-guide, 16 MiB aggregate, and count limits are
+enforced before or during staging.
 
 The browser continues to send the unchanged v1 one-playlist envelope in this
 slice. Browser multi-row source selection and remote refresh UX are separate
@@ -107,7 +111,11 @@ server compares the recorded parent with the recovered current generation and
 lets the immutable generation store perform its locked parent validation. A
 stale review is rejected; it is never automatically rebased.
 
-`New-ChannelForgeCandidateProposal` remains candidate-only. Both the browser
+`New-ChannelForgeCandidateProposal` remains candidate-only. The private v2
+source-set adapter preserves the frozen candidate semantic surfaces at
+`blocker-2-contract/v7`; only the acceptance and promotion surfaces use
+`blocker-2-contract/v8-acceptance`. The acceptance boundary still accepts the
+unchanged browser v1 candidate revision for compatibility. Both the browser
 v1 and headless v2 acceptance paths call `Publish-ChannelForgeReviewedCandidate`,
 which constructs the decision M3U/XMLTV/manifests, invokes
 `New-ChannelForgeAcceptance`, and delegates publication to
