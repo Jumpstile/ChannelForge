@@ -203,6 +203,14 @@ Provider sources, EPG sources, and rules live in `data/` as declarative JSON/CSV
 
 Every tracked JSON file under `data/` has a structural contract in `schemas/`, validated with PowerShell's built-in `Test-Json -SchemaFile` (run them all via `scripts/Validate-ConfigSchemas.ps1`). Schemas check shape — required/optional fields and types — not business content; they do not enumerate today's provider names, EPG roles, or categories, and they do not check URL trust-boundary rules, which remain a runtime concern in `Test-ChannelForgeSourceUrl`. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#configuration-schemas) for the full file-to-schema mapping and how the two validation layers relate.
 
+### Durable source-set authority
+
+`state/source-enrollment.json` is the single server-owned durable source-set authority for guided local sources. Its current schema is `source-enrollment/v2`; it stores ordered playlist records, guide records, and explicit guide-to-playlist bindings in one canonical document. A playlist may have multiple guides, a guide may serve one or many playlists, and `AppliesToAll` is explicit rather than inferred from enumeration order. With one playlist, omitted bindings auto-bind each guide to that playlist; with multiple playlists, omitted bindings leave guides unbound and actionable. Binding revisions and canonical binding identities are part of the source-set hash.
+
+Each record has a stable server-derived source ID independent of content bytes and enumeration order. Managed files are retained below `state/managed-sources/`; supported public sources are represented as non-tokenized HTTPS URLs validated by the existing URL trust boundary. Safe status projections omit URLs, managed paths, content hashes, and accepted-state hashes. Tokenized or credential-bearing URLs are unsupported.
+
+The legacy `source-enrollment/v1` document remains readable through a deterministic in-memory compatibility projection; it is not a second authority and is not silently discarded. The source-set authority is separate from accepted lineup state, candidate generations, and disposable fetch caches. Existing refresh planning consumes its compatibility input projection, so the current single-playlist behavior remains intact while the durable model supports multiple records.
+
 ## Related documents
 
 - [ADR 0001 — ChannelForge owns the source of truth](../adr/0001-source-of-truth.md)

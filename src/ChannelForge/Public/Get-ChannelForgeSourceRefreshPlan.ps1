@@ -14,11 +14,13 @@ function Get-ChannelForgeSourceRefreshPlan {
         $managed = $null
         try { $managed = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $enrollmentRoot } catch { $managed = $null }
         $m3uState = if ($null -eq $managed) { 'Unavailable' } else { [string]$managed.M3UState }
+        $playlistRecord = if ($null -eq $managed) { $null } else { @($managed.Enrollment.Playlists | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1) }
+        $guideRecord = if ($null -eq $managed) { $null } else { @($managed.Enrollment.Guides | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1) }
         $m3uAction = if ($m3uState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($m3uState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
         $m3uReason = if ($m3uState -eq 'Ready') { 'Saved playlist bytes are unchanged; no source acquisition is required.' } elseif ($m3uState -eq 'Changed') { 'Saved playlist bytes changed; a candidate refresh is required for review.' } else { 'Saved playlist is unavailable or failed integrity checks.' }
         $enrollmentRows.Add([pscustomobject][ordered]@{
-            SourceId = if ($null -eq $managed) { 'enrollment-m3u' } else { 'enrollment-m3u-' + ([string]$managed.Enrollment.M3U.SourceId).Substring(0, 16) }
-            Name = 'Saved playlist'
+            SourceId = if ($null -eq $playlistRecord) { 'enrollment-m3u' } else { 'enrollment-m3u-' + ([string]$playlistRecord.SourceId).Substring(0, 16) }
+            Name = if ($null -eq $playlistRecord) { 'Saved playlist' } else { [string]$playlistRecord.Label }
             Kind = 'local'
             SourceKind = 'enrolled'
             Enabled = $true
@@ -36,8 +38,8 @@ function Get-ChannelForgeSourceRefreshPlan {
             $xmlAction = if ($xmlState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($xmlState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
             $xmlReason = if ($xmlState -eq 'Ready') { 'Saved guide bytes are unchanged; no source acquisition is required.' } elseif ($xmlState -eq 'Changed') { 'Saved guide bytes changed; a candidate refresh is required for review.' } else { 'Saved guide is unavailable or failed integrity checks.' }
             $enrollmentRows.Add([pscustomobject][ordered]@{
-                SourceId = if ($null -eq $managed) { 'enrollment-xmltv' } else { 'enrollment-xmltv-' + ([string]$managed.Enrollment.XMLTV.SourceId).Substring(0, 16) }
-                Name = 'Saved guide'
+                SourceId = if ($null -eq $guideRecord) { 'enrollment-xmltv' } else { 'enrollment-xmltv-' + ([string]$guideRecord.SourceId).Substring(0, 16) }
+                Name = if ($null -eq $guideRecord) { 'Saved guide' } else { [string]$guideRecord.Label }
                 Kind = 'local'
                 SourceKind = 'enrolled'
                 Enabled = $true
