@@ -12,14 +12,15 @@ function New-ChannelForgeCandidateProposal {
         [string]$CandidateContractVersion = 'blocker-2-contract/v7',
         [switch]$EmitEntrySlices
     )
-     $dataDir = Join-Path $Root 'data'
-     $outputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
-     $playlistDir = Join-Path $dataDir 'playlists'
-     $providerDir = Join-Path $dataDir 'providers'
-     $aliasPath = Join-Path $dataDir 'rules\aliases.json'
-     $blocksPath = Join-Path $dataDir 'lineup\numbering_blocks.json'
-     $sourceList = [System.Collections.Generic.List[object]]::new()
-     $index = 0
+
+    $dataDir = Join-Path $Root 'data'
+    $outputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
+    $playlistDir = Join-Path $dataDir 'playlists'
+    $providerDir = Join-Path $dataDir 'providers'
+    $aliasPath = Join-Path $dataDir 'rules\aliases.json'
+    $blocksPath = Join-Path $dataDir 'lineup\numbering_blocks.json'
+    $sourceList = [System.Collections.Generic.List[object]]::new()
+    $index = 0
 
      if (-not [string]::IsNullOrWhiteSpace($M3UPath)) {
          $path = [System.IO.Path]::GetFullPath($M3UPath)

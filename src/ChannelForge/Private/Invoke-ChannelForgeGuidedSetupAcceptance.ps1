@@ -78,7 +78,7 @@ function Read-ChannelForgeWebProposalSession {
     }
     catch { throw 'FAIL_CLOSED: reviewed proposal metadata is invalid.' }
     Assert-ChannelForgeWebProposalId -ProposalId ([string]$session.ProposalId)
-    if ([string]$session.ProposalId -cne $ProposalId -or [string]$session.Version -cne 'guided-setup/review/v1' -or [string]$session.SessionHash -cne (Get-ChannelForgeWebProposalSessionHash -Session $session)) {
+    if ([string]$session.ProposalId -cne $ProposalId -or [string]$session.Version -notin @('guided-setup/review/v1', 'guided-setup/review/v2') -or [string]$session.SessionHash -cne (Get-ChannelForgeWebProposalSessionHash -Session $session)) {
         throw 'FAIL_CLOSED: reviewed proposal metadata is not authentic.'
     }
     return $session
@@ -111,6 +111,9 @@ function Get-ChannelForgeGuidedSetupSourceInputs {
         [Parameter(Mandatory)][string]$RepositoryRoot,
         [Parameter(Mandatory)]$Session
     )
+    if ([string]$Session.SourceSetVersion -ceq 'source-set/v2') {
+        return Get-ChannelForgeGuidedSetupSourceSetInputs -RepositoryRoot $RepositoryRoot -Session $Session
+    }
 
     $proposalDirectory = Get-ChannelForgeWebProposalDirectory -RepositoryRoot $RepositoryRoot -ProposalId ([string]$Session.ProposalId)
     Assert-ChannelForgeSourceEnrollmentDirectory -Path $proposalDirectory | Out-Null
@@ -198,7 +201,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
         if ($currentParent -cne $expectedParent -or $currentState -cne $expectedState -or $currentOutput -cne $expectedOutput) { return New-ChannelForgeWebAcceptanceResponse 409 'stale-proposal' 'The accepted lineup changed after this review. Nothing was published; analyze the files again.' $Headers }
 
         $entryIds = @($candidate.Manifest.Entries | ForEach-Object EntryId | Sort-Object)
-        $decisions = @($entryIds | ForEach-Object { New-ChannelForgeAcceptanceDecision -DecisionType 'IncludeCandidateEntry' -CandidateEntryId ([string]$_) -BindingId $null -ReasonCode 'GuidedSetupBrowserAccepted' })
+        $decisions = @($entryIds | ForEach-Object { New-ChannelForgeAcceptanceDecision -DecisionType 'IncludeCandidateEntry' -CandidateEntryId ([string]$_) -BindingId $null -ReasonCode 'GuidedSetupBrowserAccepted' } | Sort-Object DecisionId)
         $accepted = Publish-ChannelForgeReviewedCandidate `
             -RepositoryRoot $RepositoryRoot `
             -CandidateManifest $candidate.Manifest `
@@ -211,15 +214,30 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
         $enrollmentStatus = 'REPAIR_REQUIRED'
         $enrollmentMessage = 'Lineup accepted, but saved sources need repair.'
         try {
-            $enrollment = Write-ChannelForgeSourceEnrollment `
-                -RepositoryRoot $RepositoryRoot `
-                -M3UBytes $sourceInputs.M3UBytes `
-                -XMLTVBytes $sourceInputs.XMLTVBytes `
-                -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
-                -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
-                -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)
-            Remove-Item -LiteralPath $sourceInputs.M3UPath -Force -ErrorAction SilentlyContinue
-            if ($null -ne $sourceInputs.XMLTVPath) { Remove-Item -LiteralPath $sourceInputs.XMLTVPath -Force -ErrorAction SilentlyContinue }
+            if ([string]$session.SourceSetVersion -ceq 'source-set/v2') {
+                $enrollment = Write-ChannelForgeSourceEnrollment `
+                    -RepositoryRoot $RepositoryRoot `
+                    -PlaylistSources $sourceInputs.PlaylistSources `
+                    -GuideSources $sourceInputs.GuideSources `
+                    -Bindings $sourceInputs.Bindings `
+                    -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
+                    -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
+                    -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)
+                foreach ($stagedPath in @($sourceInputs.StagedPaths)) {
+                    Remove-Item -LiteralPath $stagedPath -Force -ErrorAction SilentlyContinue
+                }
+            }
+            else {
+                $enrollment = Write-ChannelForgeSourceEnrollment `
+                    -RepositoryRoot $RepositoryRoot `
+                    -M3UBytes $sourceInputs.M3UBytes `
+                    -XMLTVBytes $sourceInputs.XMLTVBytes `
+                    -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
+                    -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
+                    -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)
+                Remove-Item -LiteralPath $sourceInputs.M3UPath -Force -ErrorAction SilentlyContinue
+                if ($null -ne $sourceInputs.XMLTVPath) { Remove-Item -LiteralPath $sourceInputs.XMLTVPath -Force -ErrorAction SilentlyContinue }
+            }
             $enrollmentStatus = 'SAVED'
             $enrollmentMessage = 'Sources saved for restart-safe refresh.'
         }
@@ -235,11 +253,16 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
         $acceptedSession.AcceptedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
         $null = Write-ChannelForgeWebProposalSession -RepositoryRoot $RepositoryRoot -Session ([pscustomobject]$acceptedSession) -Replace
         $body = ([ordered]@{
-            Version = 'guided-setup/acceptance/v1'
+            Version = if ([string]$session.Version -ceq 'guided-setup/review/v2') { 'guided-setup/acceptance/v2' } else { 'guided-setup/acceptance/v1' }
             Status = 'ACCEPTED'
             EnrollmentStatus = $enrollmentStatus
             Message = $enrollmentMessage
-            Proposal = [ordered]@{ ChannelCount = $entryIds.Count; GuideStatus = if ($null -eq $candidate.XMLTVBytes) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_ACCEPTED' } }
+            Proposal = [ordered]@{
+                ChannelCount = $entryIds.Count
+                GuideStatus = if ([string]$session.Version -ceq 'guided-setup/review/v2') {
+                    if (@($session.SourceSet.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ([int]$session.UnboundGuideCount -gt 0) { 'XMLTV_ACCEPTED_WITH_UNBOUND' } else { 'XMLTV_ACCEPTED' }
+                } elseif ($null -eq $candidate.XMLTVBytes) { 'NO_GUIDE_SELECTED' } else { 'XMLTV_ACCEPTED' }
+            }
             Safety = [ordered]@{ AcceptedStateMutation = 'accepted-lineup'; ProviderMutation = 'none'; DownstreamMutation = 'none'; SchedulerMutation = 'none' }
         } | ConvertTo-Json -Depth 6 -Compress)
         return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'application/json; charset=utf-8' -Body $body -Headers $Headers

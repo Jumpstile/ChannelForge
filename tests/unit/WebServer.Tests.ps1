@@ -81,6 +81,151 @@ BeforeAll {
         return [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
     }
 
+    function New-TestMultiSourceProposalBody {
+        param(
+            [Parameter(Mandatory)][object[]]$Playlists,
+            [object[]]$Guides = @(),
+            [object[]]$Bindings = @()
+        )
+        $playlistItems = [System.Collections.Generic.List[object]]::new()
+        foreach ($source in @($Playlists)) {
+            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = if ($null -eq $source.Priority) { 100 } else { [int]$source.Priority } }
+            if (-not [string]::IsNullOrWhiteSpace([string]$source.Url)) { $item.url = [string]$source.Url } else { $item.contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$source.Text)) }
+            [void]$playlistItems.Add([pscustomobject]$item)
+        }
+        $guideItems = [System.Collections.Generic.List[object]]::new()
+        foreach ($source in @($Guides)) {
+            $item = [ordered]@{ sourceKey = [string]$source.Key; label = if ($null -eq $source.Label) { [string]$source.Key } else { [string]$source.Label }; priority = if ($null -eq $source.Priority) { 100 } else { [int]$source.Priority } }
+            if (-not [string]::IsNullOrWhiteSpace([string]$source.Url)) { $item.url = [string]$source.Url } else { $item.contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$source.Text)) }
+            [void]$guideItems.Add([pscustomobject]$item)
+        }
+        $bindingItems = [System.Collections.Generic.List[object]]::new()
+        foreach ($binding in @($Bindings)) {
+            $refs = [System.Collections.Generic.List[string]]::new()
+            foreach ($reference in @($binding.Playlists)) { [void]$refs.Add([string]$reference) }
+            [void]$bindingItems.Add([pscustomobject][ordered]@{ guideRef = [string]$binding.Guide; playlistRefs = $refs; appliesToAll = [bool]$binding.All })
+        }
+        $payload = [ordered]@{ schemaVersion = 2; playlists = $playlistItems; guides = $guideItems; bindings = $bindingItems }
+        return [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 10 -Compress))
+    }
+
+    function Complete-TestV2Acceptance {
+        param(
+            [Parameter(Mandatory)][string]$RepositoryRoot,
+            [Parameter(Mandatory)]$ProposalPayload,
+            [string]$ExpectedGuideStatus
+        )
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{
+                    schemaVersion = 1
+                    proposalId = $ProposalPayload.Proposal.ProposalId
+                    acknowledged = $true
+                } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse `
+            -Method POST `
+            -Path '/api/guided-setup/accept' `
+            -RepositoryRoot $RepositoryRoot `
+            -BodyBytes $acceptBody `
+            -ContentType 'application/json' `
+            -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 200
+        $acceptedPayload = $accepted.Body | ConvertFrom-Json
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedGuideStatus)) {
+            $acceptedPayload.Proposal.GuideStatus | Should -Be $ExpectedGuideStatus
+        }
+
+        $sessionPath = Join-Path $RepositoryRoot "output\.web-guided-setup\proposals\$($ProposalPayload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $candidatePath = Join-Path $RepositoryRoot "output\.web-guided-setup\proposals\$($ProposalPayload.Proposal.ProposalId)\$($session.CandidateDirectoryRelative -replace '/', '\')"
+        $candidateManifest = Get-Content -LiteralPath (Join-Path $candidatePath 'manifest.json') -Raw | ConvertFrom-Json
+        $candidateManifest.Version | Should -Be 'blocker-2-contract/v7'
+        $candidateManifest.ContractVersion | Should -Be 'blocker-2-contract/v7'
+        @($candidateManifest.SelectedSources).Count | Should -Be (@($session.SourceSet.Playlists).Count + @($session.SourceSet.Guides).Count)
+        $expectedLogicalSourceIds = [System.Collections.Generic.List[string]]::new()
+        $playlistOrdinal = 0
+        foreach ($reviewed in @($session.SourceSet.Playlists | Sort-Object Priority, SourceId)) {
+            [void]$expectedLogicalSourceIds.Add((& (Get-Module ChannelForge) {
+                        param($Label, $Ordinal)
+                        Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName $Label -SourceKind 'M3U' -SourceOrdinal $Ordinal
+                    } $reviewed.Label $playlistOrdinal))
+            $playlistOrdinal++
+        }
+        $guideOrdinal = 0
+        foreach ($reviewed in @($session.SourceSet.Guides | Sort-Object Priority, SourceId)) {
+            [void]$expectedLogicalSourceIds.Add((& (Get-Module ChannelForge) {
+                        param($Label, $Ordinal)
+                        Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName $Label -SourceKind 'XMLTV' -SourceOrdinal $Ordinal
+                    } $reviewed.Label $guideOrdinal))
+            $guideOrdinal++
+        }
+        (@($candidateManifest.SelectedSources | Sort-Object) -join '|') | Should -Be (@($expectedLogicalSourceIds | Sort-Object) -join '|')
+
+        $enrollment = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'state\source-enrollment.json') -Raw | ConvertFrom-Json
+        $assertManagedSource = {
+            param($reviewed, $durable)
+            if ($reviewed.SourceKind -eq 'managed-file') {
+                $managedPath = Join-Path $RepositoryRoot ([string]$durable.ManagedPath -replace '/', '\')
+                $bytes = [IO.File]::ReadAllBytes($managedPath)
+                $durable.ByteLength | Should -Be $bytes.Length
+                $actualHash = & (Get-Module ChannelForge) {
+                    param($Bytes)
+                    Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $Bytes
+                } $bytes
+                $durable.ContentHash | Should -Be $actualHash
+            }
+        }
+        foreach ($reviewed in @($session.SourceSet.Playlists)) {
+            $durable = @($enrollment.Playlists | Where-Object SourceId -eq $reviewed.SourceId)
+            $durable.Count | Should -Be 1
+            $durable[0].Kind | Should -Be 'M3U'
+            $durable[0].SourceKind | Should -Be $reviewed.SourceKind
+            $durable[0].Label | Should -Be $reviewed.Label
+            $durable[0].Priority | Should -Be $reviewed.Priority
+            & $assertManagedSource $reviewed $durable[0]
+            $durable[0].Url | Should -Be $reviewed.Url
+        }
+        foreach ($reviewed in @($session.SourceSet.Guides)) {
+            $durable = @($enrollment.Guides | Where-Object SourceId -eq $reviewed.SourceId)
+            $durable.Count | Should -Be 1
+            $durable[0].Kind | Should -Be 'XMLTV'
+            $durable[0].SourceKind | Should -Be $reviewed.SourceKind
+            $durable[0].Label | Should -Be $reviewed.Label
+            $durable[0].Priority | Should -Be $reviewed.Priority
+            & $assertManagedSource $reviewed $durable[0]
+            $durable[0].Url | Should -Be $reviewed.Url
+        }
+        @($enrollment.Playlists).Count | Should -Be @($session.SourceSet.Playlists).Count
+        @($enrollment.Guides).Count | Should -Be @($session.SourceSet.Guides).Count
+        @($enrollment.Bindings).Count | Should -Be @($session.SourceSet.Bindings).Count
+        foreach ($reviewed in @($session.SourceSet.Bindings)) {
+            $durable = @($enrollment.Bindings | Where-Object GuideId -eq $reviewed.GuideId)
+            $durable.Count | Should -Be 1
+            $durable[0].AppliesToAll | Should -Be $reviewed.AppliesToAll
+            $durable[0].Revision | Should -Be $reviewed.Revision
+            (@($durable[0].PlaylistIds | Sort-Object) -join '|') | Should -Be (@($reviewed.PlaylistIds | Sort-Object) -join '|')
+        }
+
+        $snapshot = & (Get-Module ChannelForge) {
+            param($Root)
+            Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root
+        } $RepositoryRoot
+        $snapshot.Pointer.Object.GenerationId | Should -Be $snapshot.Manifest.Object.GenerationId
+        $snapshot.Pointer.Object.GenerationId | Should -Be $snapshot.State.Object.GenerationId
+        $snapshot.Pointer.Object.GenerationId | Should -Be $snapshot.Output.Object.GenerationId
+        $snapshot.Pointer.Object.GenerationManifestHash | Should -Be $snapshot.Manifest.Object.GenerationManifestHash
+        $snapshot.Pointer.Object.AcceptedStateHash | Should -Be $snapshot.State.Object.AcceptedStateHash
+        $snapshot.Pointer.Object.AcceptedOutputManifestHash | Should -Be $snapshot.Output.Object.OutputManifestHash
+        return $acceptedPayload
+    }
+
+    function Initialize-TestCandidateData {
+        param([Parameter(Mandatory)][string]$Root)
+        $rules = Join-Path $Root 'data\rules'
+        $lineup = Join-Path $Root 'data\lineup'
+        New-Item -ItemType Directory -Force -Path $rules, $lineup | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'data\rules\aliases.json') -Destination (Join-Path $rules 'aliases.json')
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'data\lineup\numbering_blocks.json') -Destination (Join-Path $lineup 'numbering_blocks.json')
+    }
+
     function Invoke-TestRawHttpRequest {
         param(
             [Parameter(Mandatory)][int]$Port,
@@ -427,6 +572,9 @@ Describe 'ChannelForge web server foundation' {
         ($accepted.Body | ConvertFrom-Json).Proposal.GuideStatus | Should -Be 'XMLTV_ACCEPTED'
         $session = Get-Content -LiteralPath (Join-Path $proposalDirectory 'session.json') -Raw | ConvertFrom-Json
         $candidateDirectory = Join-Path $proposalDirectory ($session.CandidateDirectoryRelative -replace '/', '\')
+        $candidateManifest = Get-Content -LiteralPath (Join-Path $candidateDirectory 'manifest.json') -Raw | ConvertFrom-Json
+        $candidateManifest.Version | Should -Be 'blocker-2-contract/v8'
+        $candidateManifest.ContractVersion | Should -Be 'blocker-2-contract/v8'
         $pointer = Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json
         $acceptedGeneration = Join-Path $root "state\generations\$($pointer.GenerationId)"
         [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $candidateDirectory 'merged.m3u'))) | Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $acceptedGeneration 'merged.m3u'))))
@@ -766,4 +914,255 @@ Describe 'ChannelForge web server foundation' {
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $unacknowledged -ContentType 'application/json' -ContentLength $unacknowledged.Length).StatusCode | Should -Be 400
     }
 
+    It 'accepts v2 one-source no-guide proposals through durable source enrollment' {
+        $root = Join-Path $TestDrive 'v2-one-no-guide'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist })
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $payload.Version | Should -Be 'guided-setup/proposal/v2'
+        $payload.Proposal.PlaylistCount | Should -Be 1
+        $payload.Proposal.GuideCount | Should -Be 0
+        $payload.Proposal.GuideStatus | Should -Be 'NO_GUIDE_SELECTED'
+        $payload.Proposal.CanAccept | Should -BeTrue
+        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'NO_GUIDE_SELECTED'
+        $acceptedPayload.Version | Should -Be 'guided-setup/acceptance/v2'
+        $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
+    }
+
+    It 'auto-binds multiple guides when one playlist is submitted' {
+        $root = Join-Path $TestDrive 'v2-one-many-guides'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        $guides = @([pscustomobject]@{ Key = 'g1'; Text = $guide }, [pscustomobject]@{ Key = 'g2'; Text = $guide })
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides $guides
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $payload.Proposal.BoundGuideCount | Should -Be 2
+        $payload.Proposal.UnboundGuideCount | Should -Be 0
+        $payload.Proposal.CanAccept | Should -BeTrue
+        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'XMLTV_ACCEPTED'
+        $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
+    }
+
+    It 'accepts multiple playlists and retains omitted guide bindings as actionable' {
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $playlists = @([pscustomobject]@{ Key = 'p1'; Text = $playlist }, [pscustomobject]@{ Key = 'p2'; Text = $playlist })
+        $noGuideRoot = Join-Path $TestDrive 'v2-many-no-guide'
+        Initialize-TestCandidateData -Root $noGuideRoot
+        $noGuideBody = New-TestMultiSourceProposalBody -Playlists $playlists
+        $noGuideProposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $noGuideRoot -BodyBytes $noGuideBody -ContentType 'application/json' -ContentLength $noGuideBody.Length
+        $noGuidePayload = $noGuideProposal.Body | ConvertFrom-Json
+        $noGuidePayload.Proposal.PlaylistCount | Should -Be 2
+        $noGuidePayload.Proposal.CanAccept | Should -BeTrue
+        Complete-TestV2Acceptance -RepositoryRoot $noGuideRoot -ProposalPayload $noGuidePayload -ExpectedGuideStatus 'NO_GUIDE_SELECTED' | Out-Null
+
+        $unboundRoot = Join-Path $TestDrive 'v2-many-unbound-guides'
+        Initialize-TestCandidateData -Root $unboundRoot
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        $unboundBody = New-TestMultiSourceProposalBody -Playlists $playlists -Guides @([pscustomobject]@{ Key = 'g1'; Text = $guide })
+        $unboundProposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $unboundRoot -BodyBytes $unboundBody -ContentType 'application/json' -ContentLength $unboundBody.Length
+        $unboundPayload = $unboundProposal.Body | ConvertFrom-Json
+        $unboundPayload.Proposal.GuideStatus | Should -Be 'XMLTV_UNBOUND_ACTIONABLE'
+        $unboundPayload.Proposal.CanAccept | Should -BeTrue
+        @($unboundPayload.Proposal.BlockingReasons).Count | Should -Be 0
+        $unboundPayload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
+        Complete-TestV2Acceptance -RepositoryRoot $unboundRoot -ProposalPayload $unboundPayload -ExpectedGuideStatus 'XMLTV_ACCEPTED_WITH_UNBOUND' | Out-Null
+        $snapshot = & (Get-Module ChannelForge) {
+            param($Root)
+            Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root
+        } $unboundRoot
+        $snapshot.Output.Object.ActiveXMLTVStatus | Should -Be 'NotGenerated'
+    }
+
+    It 'uses source priority before stable source identity for duplicate playlist entries' {
+        $root = Join-Path $TestDrive 'v2-priority-order'
+        Initialize-TestCandidateData -Root $root
+        $highPriority = "#EXTM3U`n#EXTINF:-1,Same Channel`nhttps://example.invalid/high`n"
+        $lowPriority = "#EXTM3U`n#EXTINF:-1,Same Channel`nhttps://example.invalid/low`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @(
+            [pscustomobject]@{ Key = 'low'; Text = $lowPriority; Priority = 200 }
+            [pscustomobject]@{ Key = 'high'; Text = $highPriority; Priority = 10 }
+        )
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $candidatePath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\$($session.CandidateDirectoryRelative -replace '/', '\')\merged.m3u"
+        $merged = Get-Content -LiteralPath $candidatePath -Raw
+        $merged | Should -Match 'https://example.invalid/high'
+        $merged | Should -Not -Match 'https://example.invalid/low'
+    }
+
+    It 'accepts explicit selected and all guide bindings and reports mixed unbound guides' {
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        $playlists = @([pscustomobject]@{ Key = 'p1'; Text = $playlist }, [pscustomobject]@{ Key = 'p2'; Text = $playlist })
+        $guides = @([pscustomobject]@{ Key = 'g1'; Text = $guide }, [pscustomobject]@{ Key = 'g2'; Text = $guide })
+        $bindings = @([pscustomobject]@{ Guide = 'g1'; Playlists = @('p1'); All = $false }, [pscustomobject]@{ Guide = 'g2'; Playlists = @(); All = $true })
+        $root = Join-Path $TestDrive 'v2-explicit-bindings'
+        Initialize-TestCandidateData -Root $root
+        $body = New-TestMultiSourceProposalBody -Playlists $playlists -Guides $guides -Bindings $bindings
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $payload.Proposal.BoundGuideCount | Should -Be 2
+        $payload.Proposal.CanAccept | Should -BeTrue
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        @($session.SourceSet.Bindings).Count | Should -Be 2
+        @($session.SourceSet.Playlists | Where-Object { $_.SourceId -match '^[0-9a-f]{64}$' }).Count | Should -Be 2
+        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'XMLTV_ACCEPTED'
+        $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
+
+        $mixedRoot = Join-Path $TestDrive 'v2-mixed-unbound'
+        Initialize-TestCandidateData -Root $mixedRoot
+        $mixedGuides = @($guides) + @([pscustomobject]@{ Key = 'g3'; Text = $guide })
+        $mixedBody = New-TestMultiSourceProposalBody -Playlists $playlists -Guides $mixedGuides -Bindings $bindings
+        $mixed = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $mixedRoot -BodyBytes $mixedBody -ContentType 'application/json' -ContentLength $mixedBody.Length
+        $mixedPayload = $mixed.Body | ConvertFrom-Json
+        $mixedPayload.Proposal.UnboundGuideCount | Should -Be 1
+        $mixedPayload.Proposal.CanAccept | Should -BeTrue
+        $mixedPayload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
+        Complete-TestV2Acceptance -RepositoryRoot $mixedRoot -ProposalPayload $mixedPayload -ExpectedGuideStatus 'XMLTV_ACCEPTED_WITH_UNBOUND' | Out-Null
+    }
+
+    It 'stages a supported public HTTPS playlist with local sources without exposing the URL' {
+        $root = Join-Path $TestDrive 'v2-mixed-public'
+        Initialize-TestCandidateData -Root $root
+        Mock Open-ChannelForgeRemoteM3USourceStream -ModuleName ChannelForge -MockWith {
+            [pscustomobject]@{
+                Stream = [IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=remote,Remote`nhttps://example.invalid/remote`n"))
+                Resources = @()
+            }
+        }
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @(
+            [pscustomobject]@{ Key = 'local'; Text = $playlist }
+            [pscustomobject]@{ Key = 'remote'; Url = 'https://example.invalid/remote.m3u' }
+        )
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $payload.Proposal.PlaylistCount | Should -Be 2
+        $proposal.Body | Should -Not -Match 'example.invalid'
+        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'NO_GUIDE_SELECTED'
+        $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
+        $enrollment = Get-Content -LiteralPath (Join-Path $root 'state\source-enrollment.json') -Raw | ConvertFrom-Json
+        @($enrollment.Playlists | Where-Object SourceKind -eq 'managed-file').Count | Should -Be 1
+        @($enrollment.Playlists | Where-Object SourceKind -eq 'public-https').Count | Should -Be 1
+        $enrollment.Playlists | Where-Object SourceKind -eq 'public-https' | Select-Object -ExpandProperty Url | Should -Be 'https://example.invalid/remote.m3u'
+    }
+
+    It 'rejects v2 duplicate references, dangling bindings, unsafe URLs, malformed content, and bounds' {
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $root = Join-Path $TestDrive 'v2-invalid'
+        $duplicate = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }, [pscustomobject]@{ Key = 'p1'; Text = $playlist })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $duplicate -ContentType 'application/json').StatusCode | Should -Be 400
+        $dangling = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'missing'; Playlists = @('p1'); All = $false })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $dangling -ContentType 'application/json').StatusCode | Should -Be 400
+        $duplicateBinding = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'g1'; Playlists = @('p1'); All = $false }, [pscustomobject]@{ Guide = 'g1'; Playlists = @('p1'); All = $false })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $duplicateBinding -ContentType 'application/json').StatusCode | Should -Be 400
+        $allWithRefs = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'g1'; Playlists = @('p1'); All = $true })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $allWithRefs -ContentType 'application/json').StatusCode | Should -Be 400
+        $emptySelected = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'g1'; Playlists = @(); All = $false })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $emptySelected -ContentType 'application/json').StatusCode | Should -Be 400
+        $unsafeUrl = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Url = 'https://user:password@example.invalid/a.m3u' })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $unsafeUrl -ContentType 'application/json').StatusCode | Should -Be 400
+        $queryUrl = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Url = 'https://example.invalid/a.m3u?token=secret' })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $queryUrl -ContentType 'application/json').StatusCode | Should -Be 400
+        $malformed = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = '#EXTM3U`nnot a playlist' })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $malformed -ContentType 'application/json').StatusCode | Should -Be 422
+        $tooMany = [System.Collections.Generic.List[object]]::new()
+        1..9 | ForEach-Object { [void]$tooMany.Add([pscustomobject]@{ Key = "p$_"; Text = $playlist }) }
+        $tooManyBody = New-TestMultiSourceProposalBody -Playlists $tooMany
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $tooManyBody -ContentType 'application/json').StatusCode | Should -Be 400
+        $large = 'x' * (4MB + 1)
+        $largeBody = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $large })
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $largeBody -ContentType 'application/json').StatusCode | Should -Be 413
+        @(Get-ChildItem -LiteralPath (Join-Path $root 'output\.web-guided-setup\proposals') -Directory -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+
+    It 'fails closed when a staged v2 playlist changes after proposal creation' {
+        $root = Join-Path $TestDrive 'v2-playlist-tamper'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist })
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $proposalDirectory = Split-Path -Parent $sessionPath
+        [IO.File]::AppendAllText((Join-Path $proposalDirectory ($session.SourceSet.Playlists[0].RelativePath -replace '/', '\')), "`ntampered")
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $payload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 422
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'state\source-enrollment.json') | Should -BeFalse
+    }
+
+    It 'fails closed when a staged v2 guide changes after proposal creation' {
+        $root = Join-Path $TestDrive 'v2-guide-tamper'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
+        $body = New-TestMultiSourceProposalBody `
+            -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) `
+            -Guides @([pscustomobject]@{ Key = 'g1'; Text = $guide })
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $proposalDirectory = Split-Path -Parent $sessionPath
+        [IO.File]::AppendAllText((Join-Path $proposalDirectory ($session.SourceSet.Guides[0].RelativePath -replace '/', '\')), "`ntampered")
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $payload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 422
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'state\source-enrollment.json') | Should -BeFalse
+    }
+
+    It 'fails closed when one source in a staged v2 multi-source proposal changes' {
+        $root = Join-Path $TestDrive 'v2-multi-source-tamper'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @(
+            [pscustomobject]@{ Key = 'p1'; Text = $playlist }
+            [pscustomobject]@{ Key = 'p2'; Text = $playlist }
+        )
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $proposalDirectory = Split-Path -Parent $sessionPath
+        [IO.File]::AppendAllText((Join-Path $proposalDirectory ($session.SourceSet.Playlists[1].RelativePath -replace '/', '\')), "`ntampered")
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $payload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 422
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'state\source-enrollment.json') | Should -BeFalse
+    }
+
+    It 'fails closed when a v2 review session is tampered after proposal creation' {
+        $root = Join-Path $TestDrive 'v2-session-tamper'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist })
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $session.SessionHash = '0' * 64
+        $session | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $sessionPath -NoNewline
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $payload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 422
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
 }

@@ -13,44 +13,54 @@ function Get-ChannelForgeSourceRefreshPlan {
         $enrollmentRows = [System.Collections.Generic.List[object]]::new()
         $managed = $null
         try { $managed = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $enrollmentRoot } catch { $managed = $null }
-        $m3uState = if ($null -eq $managed) { 'Unavailable' } else { [string]$managed.M3UState }
-        $playlistRecord = if ($null -eq $managed) { $null } else { @($managed.Enrollment.Playlists | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1) }
-        $guideRecord = if ($null -eq $managed) { $null } else { @($managed.Enrollment.Guides | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1) }
-        $m3uAction = if ($m3uState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($m3uState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
-        $m3uReason = if ($m3uState -eq 'Ready') { 'Saved playlist bytes are unchanged; no source acquisition is required.' } elseif ($m3uState -eq 'Changed') { 'Saved playlist bytes changed; a candidate refresh is required for review.' } else { 'Saved playlist is unavailable or failed integrity checks.' }
-        $enrollmentRows.Add([pscustomobject][ordered]@{
-            SourceId = if ($null -eq $playlistRecord) { 'enrollment-m3u' } else { 'enrollment-m3u-' + ([string]$playlistRecord.SourceId).Substring(0, 16) }
-            Name = if ($null -eq $playlistRecord) { 'Saved playlist' } else { [string]$playlistRecord.Label }
-            Kind = 'local'
-            SourceKind = 'enrolled'
-            Enabled = $true
-            CacheState = 'MANAGED_SOURCE_' + $m3uState.ToUpperInvariant()
-            Validator = 'SOURCE_FINGERPRINT'
-            LastValidatedAtUtc = $enrollmentStatus.LastCheckedUtc
-            RecommendedAction = $m3uAction
-            Reason = $m3uReason
-            EnrollmentKind = 'M3U'
-            SourcePath = if ($null -eq $managed) { $null } else { $managed.M3UPath }
-            GuidePath = if ($null -eq $managed) { $null } else { $managed.XMLTVPath }
-        }) | Out-Null
-        if ([string]$enrollmentStatus.XMLTVStatus -ne 'no-guide') {
-            $xmlState = if ($null -eq $managed) { 'Unavailable' } else { [string]$managed.XMLTVState }
-            $xmlAction = if ($xmlState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($xmlState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
-            $xmlReason = if ($xmlState -eq 'Ready') { 'Saved guide bytes are unchanged; no source acquisition is required.' } elseif ($xmlState -eq 'Changed') { 'Saved guide bytes changed; a candidate refresh is required for review.' } else { 'Saved guide is unavailable or failed integrity checks.' }
+        if ($null -eq $managed) {
             $enrollmentRows.Add([pscustomobject][ordered]@{
-                SourceId = if ($null -eq $guideRecord) { 'enrollment-xmltv' } else { 'enrollment-xmltv-' + ([string]$guideRecord.SourceId).Substring(0, 16) }
-                Name = if ($null -eq $guideRecord) { 'Saved guide' } else { [string]$guideRecord.Label }
+                SourceId = 'enrollment-m3u'
+                Name = 'Saved playlist'
                 Kind = 'local'
                 SourceKind = 'enrolled'
                 Enabled = $true
-                CacheState = 'MANAGED_SOURCE_' + $xmlState.ToUpperInvariant()
+                CacheState = 'MANAGED_SOURCE_UNAVAILABLE'
                 Validator = 'SOURCE_FINGERPRINT'
                 LastValidatedAtUtc = $enrollmentStatus.LastCheckedUtc
-                RecommendedAction = $xmlAction
-                Reason = $xmlReason
-                EnrollmentKind = 'XMLTV'
-                SourcePath = if ($null -eq $managed) { $null } else { $managed.XMLTVPath }
-                PlaylistPath = if ($null -eq $managed) { $null } else { $managed.M3UPath }
+                RecommendedAction = 'REVIEW'
+                Reason = 'Saved playlist is unavailable or failed integrity checks.'
+                EnrollmentKind = 'M3U'
+                SourcePath = $null
+                GuidePath = $null
+            }) | Out-Null
+            return @($enrollmentRows)
+        }
+        $states = @{}
+        foreach ($state in @($managed.SourceStates)) { $states[[string]$state.SourceId] = $state }
+        foreach ($record in @($managed.Enrollment.Playlists) + @($managed.Enrollment.Guides) | Where-Object Enabled | Sort-Object Kind, Priority, OrderKey, SourceId) {
+            $sourceState = if ($states.ContainsKey([string]$record.SourceId)) { [string]$states[[string]$record.SourceId].State } else { 'Unavailable' }
+            $isRemote = [string]$record.SourceKind -eq 'public-https'
+            if ($isRemote) {
+                $action = 'REVIEW'
+                $reason = 'Public source refresh is not part of this enrollment slice; review the source before acquisition.'
+                $cacheState = 'PUBLIC_SOURCE_REVIEW'
+            }
+            else {
+                $action = if ($sourceState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($sourceState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
+                $reason = if ($sourceState -eq 'Ready') { 'Saved source bytes are unchanged; no source acquisition is required.' } elseif ($sourceState -eq 'Changed') { 'Saved source bytes changed; a candidate refresh is required for review.' } else { 'Saved source is unavailable or failed integrity checks.' }
+                $cacheState = 'MANAGED_SOURCE_' + $sourceState.ToUpperInvariant()
+            }
+            $managedPath = if ($isRemote -or [string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) { $null } else { [System.IO.Path]::GetFullPath((Join-Path $enrollmentRoot ([string]$record.ManagedPath -replace '/', '\'))) }
+            $enrollmentRows.Add([pscustomobject][ordered]@{
+                SourceId = 'enrollment-' + ([string]$record.Kind).ToLowerInvariant() + '-' + ([string]$record.SourceId).Substring(0, 16)
+                Name = [string]$record.Label
+                Kind = if ($isRemote) { 'remote' } else { 'local' }
+                SourceKind = 'enrolled'
+                Enabled = [bool]$record.Enabled
+                CacheState = $cacheState
+                Validator = 'SOURCE_FINGERPRINT'
+                LastValidatedAtUtc = $enrollmentStatus.LastCheckedUtc
+                RecommendedAction = $action
+                Reason = $reason
+                EnrollmentKind = [string]$record.Kind
+                SourcePath = if ([string]$record.Kind -eq 'M3U') { $managedPath } else { $null }
+                GuidePath = if ([string]$record.Kind -eq 'XMLTV') { $managedPath } else { $null }
             }) | Out-Null
         }
         return @($enrollmentRows | Sort-Object Kind, SourceId)

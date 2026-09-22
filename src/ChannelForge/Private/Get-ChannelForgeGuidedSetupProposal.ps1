@@ -3,6 +3,11 @@ function Get-ChannelForgeWebProposalLimits {
         MaxRequestBodyBytes = 24MB
         MaxM3UBytes = 4MB
         MaxXMLTVBytes = 12MB
+        MaxPlaylists = 8
+        MaxGuides = 8
+        MaxBindings = 16
+        MaxAggregateSourceBytes = 16MB
+        MaxLabelLength = 128
         MaxJsonDepth = 8
     }
 }
@@ -43,25 +48,37 @@ function ConvertFrom-ChannelForgeGuidedSetupProposalRequest {
     catch {
         throw [System.ArgumentException]::new('The proposal request is not valid JSON.')
     }
-
     try {
         $root = $document.RootElement
         if ($root.ValueKind -ne [System.Text.Json.JsonValueKind]::Object) { throw [System.ArgumentException]::new('The proposal request must be a JSON object.') }
         $schemaValue = 0
         $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+
         $schemaVersion = $null
         $m3uElement = $null
         $xmltvElement = $null
+        $playlistsElement = $null
+        $guidesElement = $null
+        $bindingsElement = $null
         foreach ($property in $root.EnumerateObject()) {
             if (-not $seen.Add($property.Name)) { throw [System.ArgumentException]::new('The proposal request contains duplicate properties.') }
             switch ($property.Name) {
                 'schemaVersion' { $schemaVersion = $property.Value }
                 'm3u' { $m3uElement = $property.Value }
                 'xmltv' { $xmltvElement = $property.Value }
+                'playlists' { $playlistsElement = $property.Value }
+                'guides' { $guidesElement = $property.Value }
+                'bindings' { $bindingsElement = $property.Value }
                 default { throw [System.ArgumentException]::new('The proposal request contains an unsupported property.') }
             }
         }
-        if ($null -eq $schemaVersion -or $schemaVersion.ValueKind -ne [System.Text.Json.JsonValueKind]::Number -or -not $schemaVersion.TryGetInt32([ref]$schemaValue) -or $schemaValue -ne 1) {
+        if ($null -eq $schemaVersion -or $schemaVersion.ValueKind -ne [System.Text.Json.JsonValueKind]::Number -or -not $schemaVersion.TryGetInt32([ref]$schemaValue)) {
+            throw [System.ArgumentException]::new('The proposal request schema is not supported.')
+        }
+        if ($schemaValue -eq 2) {
+            return ConvertFrom-ChannelForgeGuidedSetupMultiSourceRequest -Root $root -Limits $limits
+        }
+        if ($schemaValue -ne 1 -or $null -ne $playlistsElement -or $null -ne $guidesElement -or $null -ne $bindingsElement) {
             throw [System.ArgumentException]::new('The proposal request schema is not supported.')
         }
         if ($null -eq $m3uElement -or $m3uElement.ValueKind -ne [System.Text.Json.JsonValueKind]::Object) {
@@ -134,6 +151,138 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
         $requestRoot = Join-Path $storageRoot $proposalId
         $candidateRoot = Join-Path $requestRoot 'candidate-output'
         New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
+        if ($request.SchemaVersion -eq 2) {
+            $staged = Write-ChannelForgeGuidedSetupSourceStaging -Request $request -RequestRoot $requestRoot -Limits $limits
+            $candidate = New-ChannelForgeCandidateProposalFromSourceSet `
+                -Root $RepositoryRoot `
+                -PlaylistSources $staged.Playlists `
+                -GuideSources $staged.Guides `
+                -Bindings $staged.Bindings `
+                -OutputRoot $candidateRoot `
+                -CandidateContractVersion 'blocker-2-contract/v7'
+            $manifest = $candidate.Manifest
+            if (@($manifest.Entries).Count -eq 0) { throw [System.ArgumentException]::new('No channels were found in the playlists.') }
+            $manifestBindings = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
+            $exact = @($manifestBindings | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
+            $review = @($manifestBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
+            $unbound = @($manifestBindings | Where-Object { [string]$_.Status -eq 'Unbound' }).Count
+            $guideOnly = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
+            $boundGuideIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            foreach ($binding in @($staged.Bindings)) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
+            $unboundGuideCount = @($staged.Guides | Where-Object { -not $boundGuideIds.Contains([string]$_.SourceId) }).Count
+            $guideStatus = if (@($staged.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ($unboundGuideCount -gt 0) { 'XMLTV_UNBOUND_ACTIONABLE' } else { 'XMLTV_SELECTED' }
+            $warnings = [System.Collections.Generic.List[object]]::new()
+            if ($review -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'ambiguous-guide-match'; Message = 'Some guide identities need review before a guide can be trusted.' }) }
+            if ($unbound -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'unmatched-playlist-entry'; Message = 'Some playlist entries have no exact guide match.' }) }
+            if ($guideOnly -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-only-record'; Message = 'The guide contains records not present in the playlist.' }) }
+            if ($unboundGuideCount -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-unbound-actionable'; Message = 'The guide remains enrolled for later review and will not be applied until explicitly bound.' }) }
+            $current = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $RepositoryRoot
+            $parentManifestHash = if ($null -eq $current) { $null } else { [string]$current.Manifest.Object.GenerationManifestHash }
+            $parentStateHash = if ($null -eq $current) { $null } else { [string]$current.State.Object.AcceptedStateHash }
+            $parentOutputHash = if ($null -eq $current) { $null } else { [string]$current.Output.Object.OutputManifestHash }
+            $blockingReasons = @()
+            if ($review -gt 0) { $blockingReasons += 'ambiguous-guide-match' }
+            $canAccept = @($manifest.Entries).Count -gt 0 -and $blockingReasons.Count -eq 0
+            $sourceSetForSession = [ordered]@{
+                Version = 'source-set/v2'
+                Playlists = @($staged.Playlists | ForEach-Object {
+                    [ordered]@{
+                        Kind = 'M3U'
+                        SourceId = [string]$_.SourceId
+                        SourceKey = [string]$_.SourceKey
+                        SourceKind = [string]$_.SourceKind
+                        Label = [string]$_.Label
+                        Priority = [int]$_.Priority
+                        Url = $_.Url
+                        RelativePath = [string]$_.RelativePath
+                        ContentHash = [string]$_.ContentHash
+                        ByteLength = [int]$_.ByteLength
+                    }
+                })
+                Guides = @($staged.Guides | ForEach-Object {
+                    [ordered]@{
+                        Kind = 'XMLTV'
+                        SourceId = [string]$_.SourceId
+                        SourceKey = [string]$_.SourceKey
+                        SourceKind = [string]$_.SourceKind
+                        Label = [string]$_.Label
+                        Priority = [int]$_.Priority
+                        Url = $_.Url
+                        RelativePath = [string]$_.RelativePath
+                        ContentHash = [string]$_.ContentHash
+                        ByteLength = [int]$_.ByteLength
+                    }
+                })
+                Bindings = @($staged.Bindings | ForEach-Object {
+                    [ordered]@{
+                        GuideId = [string]$_.GuideId
+                        PlaylistIds = @($_.PlaylistIds | ForEach-Object { [string]$_ })
+                        AppliesToAll = [bool]$_.AppliesToAll
+                        Revision = [int]$_.Revision
+                        Enabled = [bool]$_.Enabled
+                    }
+                })
+            }
+            $session = [pscustomobject][ordered]@{
+                Version = 'guided-setup/review/v2'
+                ProposalId = $proposalId
+                Status = 'Ready'
+                CreatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                CandidateManifestHash = [string]$candidate.CandidateManifestHash
+                BuildIdentity = [string]$candidate.BuildIdentity
+                CandidateDirectoryRelative = "candidate-output/candidates/$($candidate.CandidateManifestHash)"
+                ParentGenerationManifestHash = $parentManifestHash
+                ParentAcceptedStateHash = $parentStateHash
+                ParentOutputManifestHash = $parentOutputHash
+                ChannelCount = @($manifest.Entries).Count
+                ExactGuideMatchCount = $exact
+                AmbiguityCount = $review
+                UnmatchedPlaylistCount = $unbound
+                GuideOnlyCount = $guideOnly
+                GuideCount = @($staged.Guides).Count
+                BoundGuideCount = @($staged.Bindings).Count
+                UnboundGuideCount = $unboundGuideCount
+                GuideStatus = $guideStatus
+                CanAccept = $canAccept
+                BlockingReasons = @($blockingReasons)
+                SourceSetVersion = 'source-set/v2'
+                SourceSet = [pscustomobject]$sourceSetForSession
+                EnrollmentStatus = 'Pending'
+            }
+            $null = Write-ChannelForgeWebProposalSession -RepositoryRoot $RepositoryRoot -Session $session
+            $retainProposal = $true
+            $projection = [ordered]@{
+                Version = 'guided-setup/proposal/v2'
+                Status = 'PROPOSAL_READY'
+                Proposal = [ordered]@{
+                    ProposalId = $proposalId
+                    PlaylistCount = @($staged.Playlists).Count
+                    GuideCount = @($staged.Guides).Count
+                    BoundGuideCount = @($staged.Bindings).Count
+                    UnboundGuideCount = $unboundGuideCount
+                    ChannelCount = [int]$session.ChannelCount
+                    ExactGuideMatchCount = $exact
+                    AmbiguityCount = $review
+                    UnmatchedPlaylistCount = $unbound
+                    GuideOnlyCount = $guideOnly
+                    GuideStatus = $guideStatus
+                    CanAccept = $canAccept
+                    BlockingReasons = @($blockingReasons)
+                }
+                Warnings = @($warnings | Sort-Object Code)
+                Safety = [ordered]@{
+                    PublicationState = 'CandidateOnly'
+                    AcceptedStateMutation = 'none'
+                    ProviderMutation = 'none'
+                    DownstreamMutation = 'none'
+                    GuidePublication = 'none'
+                    CanPublish = $false
+                    CanAccept = $canAccept
+                }
+            }
+            $body = $projection | ConvertTo-Json -Depth 12 -Compress
+            return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'application/json; charset=utf-8' -Body $body -Headers $Headers
+        }
         $m3uPath = Join-Path $requestRoot 'input.m3u'
         $xmltvPath = Join-Path $requestRoot 'guide.xml'
         [IO.File]::WriteAllBytes($m3uPath, [byte[]]$request.M3UBytes)
