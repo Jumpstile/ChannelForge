@@ -111,11 +111,7 @@ server compares the recorded parent with the recovered current generation and
 lets the immutable generation store perform its locked parent validation. A
 stale review is rejected; it is never automatically rebased.
 
-`New-ChannelForgeCandidateProposal` remains candidate-only. The private v2
-source-set adapter preserves the frozen candidate semantic surfaces at
-`blocker-2-contract/v7`; only the acceptance and promotion surfaces use
-`blocker-2-contract/v8-acceptance`. The acceptance boundary still accepts the
-unchanged browser v1 candidate revision for compatibility. Both the browser
+`New-ChannelForgeCandidateProposal` remains candidate-only. Both the browser
 v1 and headless v2 acceptance paths call `Publish-ChannelForgeReviewedCandidate`,
 which constructs the decision M3U/XMLTV/manifests, invokes
 `New-ChannelForgeAcceptance`, and delegates publication to
@@ -123,6 +119,11 @@ which constructs the decision M3U/XMLTV/manifests, invokes
 `Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes downstream
 consumer files, configures a scheduler, or mutates provider state. Recovery
 remains owned by `Recover-ChannelForgeAcceptedStateCore`.
+
+The private v2 source-set adapter preserves the frozen candidate semantic
+surfaces at `blocker-2-contract/v7`; only the acceptance and promotion
+surfaces use `blocker-2-contract/v8-acceptance`. The acceptance boundary still
+accepts the unchanged browser v1 candidate revision for compatibility.
 
 ## Durable source enrollment authority
 
