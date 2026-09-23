@@ -394,7 +394,7 @@ function Get-ChannelForgeGuidedSetupSourceSetInputs {
                 ContentHash = [string]$record.ContentHash
                 ByteLength = [int64]$record.ByteLength
             }
-            if ([string]$record.SourceKind -eq 'managed-file') {
+            if ([string]$record.SourceKind -in @('managed-file', 'public-https')) {
                 $descriptor.Bytes = $bytes
             }
             $output += [pscustomobject]$descriptor

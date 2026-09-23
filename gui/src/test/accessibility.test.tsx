@@ -21,19 +21,16 @@ describe('shell accessibility scaffolding', () => {
     expect(screen.getByRole('region', { name: 'Guided setup steps' })).toBeInTheDocument()
   })
 
-  it('names each display-safe selection and content status', async () => {
+  it('names browser source controls and explicit no-guide state', async () => {
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Guided Setup' }))
 
     expect(screen.getByRole('status', { name: 'Choose workspace selection status' })).toHaveTextContent('Server-owned')
-    expect(screen.getByRole('status', { name: 'Choose workspace selection status' })).toHaveTextContent('Ready')
-    for (const label of ['Add playlist', 'Add guide']) {
-      expect(screen.getByRole('status', { name: `${label} selection status` })).toHaveTextContent('Not selected')
-      expect(screen.getByRole('status', { name: `${label} selection status` })).toHaveTextContent('Not checked')
-    }
-    expect(screen.getByRole('status', { name: 'Add playlist selection status' })).toHaveTextContent('Content')
-    expect(screen.getByRole('status', { name: 'Add guide selection status' })).toHaveTextContent('Content')
+    expect(screen.getByText('No guide selected')).toBeInTheDocument()
+    expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add another playlist' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add guide' })).toBeInTheDocument()
   })
 })

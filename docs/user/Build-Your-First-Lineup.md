@@ -116,7 +116,12 @@ omitted or marked for review; the stable pattern can remain visible.
 
 ## One safe flow
 
-The ChannelForge Guided Setup / Beginner Workflow asks for the two inputs, analyzes them, and creates a read-only candidate plan. The plan is eligible for saving only when native matching reports **Checked**: every playlist entry has exactly one guide identity match. Needs-attention, review-needed, blocked, checking, not-checked, stale, and unavailable states are save-blocking.
+The native ChannelForge Guided Setup / Beginner Workflow asks for the two
+inputs, analyzes them, and creates a read-only candidate plan. The plan is
+eligible for saving only when native matching reports **Checked**: every
+playlist entry has exactly one guide identity match. The browser multi-source
+review loop is documented below; both paths keep acceptance behind explicit
+review.
 
 ```text
 IPTV playlist (M3U) + optional TV guide (XMLTV)
@@ -132,34 +137,51 @@ The native acceptance boundary revalidates the candidate, accepted parent, input
 ### Browser Guided Setup review and acceptance
 
 The loopback web UI supports browser review and explicit acceptance without
-asking for a local path. Choose exactly one `.m3u`/`.m3u8` playlist and
-optionally one `.xml`/`.xmltv` guide, then select **Analyze proposal**. The
-browser sends this same-origin JSON envelope:
+asking for a local path. Add one or more `.m3u`/`.m3u8` playlists. Add zero or
+more `.xml`/`.xmltv` guides, or choose **Public HTTPS** for a non-tokenized
+`https://` source. Select **Add another playlist** when a provider publishes
+more than one playlist. With multiple playlists, bind each guide explicitly to
+selected playlists or to **All playlists**. With one playlist, guides are
+bound automatically. **No guide selected** is an explicit playlist-only mode.
+
+The browser sends this same-origin JSON envelope:
 
 ```json
 {
-  "schemaVersion": 1,
-  "m3u": { "contentBase64": "..." },
-  "xmltv": { "contentBase64": "..." }
+  "schemaVersion": 2,
+  "playlists": [
+    {
+      "sourceKey": "playlist-1",
+      "label": "Living room",
+      "contentBase64": "..."
+    },
+    {
+      "sourceKey": "playlist-2",
+      "label": "Sports",
+      "url": "https://example.invalid/sports.m3u"
+    }
+  ],
+  "guides": [
+    { "sourceKey": "guide-1", "label": "Primary guide", "contentBase64": "..." }
+  ],
+  "bindings": [
+    { "guideRef": "guide-1", "playlistRefs": [], "appliesToAll": true }
+  ]
 }
 ```
 
-`xmltv` is omitted for a no-guide proposal. The server accepts only
-`POST /api/guided-setup/proposal`, enforces a 24 MiB encoded request bound, a
-4 MiB M3U bound, and a 12 MiB XMLTV bound. The proposal response contains an
-opaque `ProposalId`, aggregate channel and guide-match counts, blocking
-reasons, and safe mutation classifications. It never returns candidate hashes,
-build identities, source URLs, private paths, credentials, parser details, or
-raw uploaded content.
+Each source provides exactly one local file or public HTTPS URL. URL
+enrollment rejects non-HTTPS, credentials, query or fragment tokens,
+localhost/private/internal targets, unsafe redirects, malformed responses,
+oversized or empty content, and acquisition or parser failures. The server
+enforces a 24 MiB request bound, 4 MiB M3U bound, 12 MiB XMLTV bound, and
+aggregate source limits. It derives source and binding identities; the browser
+does not supply filesystem paths or server IDs.
 
-The server also accepts a headless-only `schemaVersion: 2` contract with
-1–8 playlist descriptors, 0–8 guide descriptors, and explicit selected/all
-bindings. Source references are request-local; the server derives source and
-binding identities and stages bytes below server-owned paths. With multiple
-playlists, a guide whose binding is omitted remains enrolled and actionable
-but is not applied to the accepted guide output until you review an explicit
-binding. This contract is not exposed as browser multi-row UX yet. The browser
-flow above remains the stable beginner path and its v1 envelope is unchanged.
+The proposal response contains an opaque `ProposalId`, source and guide
+coverage counts, binding warnings, blocking reasons, and safe mutation
+classifications. It never returns candidate hashes, build identities, source
+URLs, private paths, credentials, parser details, or raw uploaded content.
 
 The server stores each ready review below the ignored,
 server-owned `output/.web-guided-setup/proposals/<opaque-id>/` namespace. The
@@ -173,53 +195,50 @@ submitted again.
 The browser review page shows aggregate counts and fixed warnings. Ambiguous
 guide identities set `CanAccept=false`; the disabled control is only a UX
 guard, because the server independently blocks forged acceptance requests.
-No-guide proposals can be accepted when the candidate has no ambiguity
-blockers.
+Unbound multi-playlist guides remain enrolled and actionable but are not
+applied to accepted guide output until explicitly bound in a later review.
 
 After reviewing, check the acknowledgement and select **Accept reviewed
 proposal**. The browser sends exactly:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "proposalId": "<opaque 32-character id>",
   "acknowledged": true
 }
 ```
 
-Only `POST /api/guided-setup/accept` accepts this bounded `application/json`
-request. The request cannot submit files, paths, candidate hashes, parent
-state, or a force option. Acceptance revalidates the durable candidate,
-ambiguity state, accepted parent, coverage, exact M3U/XMLTV bytes, and the
-authenticated staged byte hash and length for every v2 source before
-publication or enrollment. Stale parent, tampered candidate, staged source,
-ambiguous review, and duplicate submission fail closed. Provider files,
-downstream outputs, scheduler state, and credentials are not changed.
+Only `POST /api/guided-setup/accept` accepts this bounded JSON request.
+Acceptance revalidates the durable candidate, ambiguity state, accepted parent,
+coverage, every source's exact bytes, and the authenticated staged byte hash
+and length before publication or enrollment. Stale parent, tampered
+candidate, staged source, ambiguous review, and duplicate submission fail
+closed. Provider files, downstream outputs, scheduler state, and credentials
+are not changed.
 
 ### Sources saved for restart-safe refresh
 
-After a successful browser acceptance, ChannelForge saves the uploaded M3U
-bytes and optional XMLTV bytes in a server-owned managed source area. The
-browser never supplies a filesystem path. This source enrollment record is
-separate from accepted lineup state: it describes what may be checked again,
-while the accepted generation remains the only published lineup authority.
+After successful browser acceptance, ChannelForge saves validated source bytes
+under the server-owned `state/managed-sources/` root. A public HTTPS source
+retains its declarative URL and its managed last-known-good snapshot; the URL
+is never shown in redacted status or refresh reports. The source enrollment
+record is separate from accepted lineup state: it describes what may be
+checked again, while the accepted generation remains the only published lineup
+authority.
 
 Return to the Workbench after restarting the local server. The dashboard shows
-**Sources saved**, playlist status, optional guide status, and the last checked
-time. **Refresh now** checks the saved bytes and may create a review-only
-candidate when they changed. It never replaces the accepted lineup
-automatically. **Replace sources** returns to Guided Setup, where a new
-browser-selected upload must be reviewed and explicitly accepted.
+**Sources saved**, per-source playlist and guide status, optional-guide state,
+and the last checked time. **Refresh now** checks every enabled source with the
+bounded HTTPS transport. A healthy source survives another source's failure.
+An unchanged source is reused; changed source content creates a review-only
+candidate; a failed source reports **Source unavailable** while preserving its
+last-known-good snapshot and accepted lineup. No refresh automatically accepts
+or publishes a changed lineup.
 
-The headless v2 contract can enroll bounded public HTTPS descriptors after
-one-time candidate acquisition, but remote refresh, unattended acquisition,
-and browser multi-source selection remain deferred. The beginner browser flow
-supports only local uploaded M3U and optional XMLTV bytes.
-
-If a saved source is missing, tampered with, or unsafe to read, the dashboard
-shows **Source unavailable** or **Needs attention** and leaves the accepted
-lineup unchanged. Remote credential enrollment is intentionally deferred; the
-beginner browser flow supports only local M3U and optional XMLTV bytes.
+**Replace sources** returns to Guided Setup, where a new browser-selected source
+set must be reviewed and explicitly accepted. Credentials, tokenized URLs, and
+raw source bytes never enter status responses or public reports.
 
 Build and run the browser surface:
 

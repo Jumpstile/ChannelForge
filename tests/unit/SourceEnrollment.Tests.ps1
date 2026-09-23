@@ -308,4 +308,27 @@ Describe 'durable source enrollment' {
         $record = Get-Content -LiteralPath (Join-Path $script:Project 'state/source-enrollment.json') -Raw | ConvertFrom-Json
         $record.AcceptedWorkflow.AcceptedStateHash | Should -BeNullOrEmpty
     }
+    It 'persists validated public HTTPS bytes as a restart-safe last-known-good snapshot' {
+        $source = [pscustomobject]@{
+            Kind = 'M3U'
+            SourceKind = 'public-https'
+            SourceKey = 'remote-playlist'
+            Label = 'Remote playlist'
+            Url = 'https://example.invalid/playlist.m3u'
+            Bytes = $script:M3U
+        }
+        $saved = & (Get-Module ChannelForge) {
+            param($root, $source)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($source)
+        } $script:Project $source
+        $record = Get-Content -LiteralPath (Join-Path $script:Project 'state/source-enrollment.json') -Raw | ConvertFrom-Json
+        $record.Playlists[0].SourceKind | Should -Be 'public-https'
+        $record.Playlists[0].ManagedPath | Should -Match '^state/managed-sources/[0-9a-f]{64}\.m3u$'
+        $record.Playlists[0].ContentHash | Should -Match '^[0-9a-f]{64}$'
+        $record.Playlists[0].ByteLength | Should -Be $script:M3U.Length
+        $record.Playlists[0].Refresh.State | Should -Be 'up-to-date'
+        $input = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $script:Project
+        Test-Path -LiteralPath $input.M3UPath -PathType Leaf | Should -BeTrue
+        $saved.Playlists[0].Url | Should -Be 'https://example.invalid/playlist.m3u'
+    }
 }

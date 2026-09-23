@@ -116,7 +116,7 @@ BeforeAll {
             [string]$ExpectedGuideStatus
         )
         $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{
-                    schemaVersion = 1
+                    schemaVersion = 2
                     proposalId = $ProposalPayload.Proposal.ProposalId
                     acknowledged = $true
                 } | ConvertTo-Json -Compress))
@@ -162,7 +162,7 @@ BeforeAll {
         $enrollment = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'state\source-enrollment.json') -Raw | ConvertFrom-Json
         $assertManagedSource = {
             param($reviewed, $durable)
-            if ($reviewed.SourceKind -eq 'managed-file') {
+            if (-not [string]::IsNullOrWhiteSpace([string]$durable.ManagedPath)) {
                 $managedPath = Join-Path $RepositoryRoot ([string]$durable.ManagedPath -replace '/', '\')
                 $bytes = [IO.File]::ReadAllBytes($managedPath)
                 $durable.ByteLength | Should -Be $bytes.Length

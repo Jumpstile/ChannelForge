@@ -223,7 +223,27 @@ function Get-ChannelForgeSourceEnrollmentIntegrity {
         foreach ($record in $entry.Records) {
             $sourceState = 'Ready'
             if ([string]$record.SourceKind -eq 'public-https') {
-                $sourceState = 'Remote'
+                $refreshState = if ($null -ne $record.Refresh -and $record.Refresh.PSObject.Properties.Name -contains 'State') {
+                    [string]$record.Refresh.State
+                } else { 'saved' }
+                if ($refreshState -eq 'source-unavailable') {
+                    $sourceState = 'Unavailable'
+                } elseif ($refreshState -eq 'changes-found') {
+                    $sourceState = 'Changed'
+                } elseif ([string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) {
+                    $sourceState = 'Remote'
+                } else {
+                    try {
+                        $relative = [string]$record.ManagedPath
+                        if ($relative -notmatch '^state/managed-sources/[0-9a-f]{64}\.(m3u|xml)$') { throw 'invalid managed source reference' }
+                        $path = [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ($relative -replace '/', '\')))
+                        Assert-ChannelForgeSourceEnrollmentPath -Path $path -AllowedRoot $paths.RepositoryRoot | Out-Null
+                        if (-not [System.IO.File]::Exists($path)) { throw 'missing managed source' }
+                        $currentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes ([System.IO.File]::ReadAllBytes($path))
+                        if ($currentHash -cne [string]$record.ContentHash) { $sourceState = 'Changed' }
+                    }
+                    catch { $sourceState = 'Unavailable' }
+                }
             }
             else {
                 try {
@@ -257,10 +277,15 @@ function Get-ChannelForgeSourceEnrollmentIntegrity {
         'Valid' { 'Saved sources are ready.' }
         'Changed' { 'Saved source bytes changed and require review before acceptance.' }
         'SourceUnavailable' { 'A saved source is missing or cannot be read safely.' }
-        default { 'Saved sources need attention before refresh can continue.' }
     }
-    return [pscustomobject][ordered]@{ State = $state; Enrollment = $enrollment; M3UState = $m3uState; XMLTVState = $xmltvState; SourceStates = @($sourceStates.ToArray()); Reason = $reason }
-
+    return [pscustomobject][ordered]@{
+        State = $state
+        Enrollment = $enrollment
+        M3UState = $m3uState
+        XMLTVState = $xmltvState
+        SourceStates = @($sourceStates.ToArray())
+        Reason = $reason
+    }
 }
 function Get-ChannelForgeSourceEnrollmentStatus {
     [CmdletBinding()]
@@ -278,7 +303,9 @@ function Get-ChannelForgeSourceEnrollmentStatus {
         'Missing' { 'not-enrolled' }
         default { 'needs-attention' }
     }
-    $canRefresh = $integrity.State -in @('Valid', 'Changed')
+    $canRefresh = $integrity.State -in @('Valid', 'Changed') -or @($integrity.SourceStates | Where-Object {
+        $_.SourceKind -eq 'public-https' -and $_.State -in @('Remote', 'Unavailable', 'Changed')
+    }).Count -gt 0
     return [pscustomobject][ordered]@{
         EnrollmentStatus = $enrollmentStatus
         M3UStatus = switch ($integrity.M3UState) {
@@ -309,18 +336,22 @@ function Get-ChannelForgeSourceEnrollmentStatus {
         })
     }
 }
-
 function Get-ChannelForgeSourceEnrollmentInputs {
-    param([Parameter(Mandatory)][string]$RepositoryRoot)
     $integrity = Get-ChannelForgeSourceEnrollmentIntegrity -RepositoryRoot $RepositoryRoot
-    if ($integrity.State -notin @('Valid', 'Changed')) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
+    $remoteRetryable = @($integrity.SourceStates | Where-Object { $_.SourceKind -eq 'public-https' -and $_.State -in @('Remote', 'Unavailable', 'Changed') }).Count -gt 0
+    if ($integrity.State -notin @('Valid', 'Changed') -and -not $remoteRetryable) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
     $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
     $playlist = @($integrity.Enrollment.Playlists | Where-Object { $_.Enabled }) | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1
     $guide = @($integrity.Enrollment.Guides | Where-Object { $_.Enabled }) | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1
-    $m3uPath = if ($null -eq $playlist -or [string]$playlist.SourceKind -ne 'managed-file') { $null } else { [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$playlist.ManagedPath -replace '/', '\'))) }
-    $xmltvPath = if ($null -eq $guide -or [string]$guide.SourceKind -ne 'managed-file') { $null } else { [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$guide.ManagedPath -replace '/', '\'))) }
-    if ($null -ne $m3uPath) { Assert-ChannelForgeSourceEnrollmentPath -Path $m3uPath -AllowedRoot $paths.RepositoryRoot | Out-Null }
-    if ($null -ne $xmltvPath) { Assert-ChannelForgeSourceEnrollmentPath -Path $xmltvPath -AllowedRoot $paths.RepositoryRoot | Out-Null }
+    $resolveManagedPath = {
+        param($record)
+        if ($null -eq $record -or [string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) { return $null }
+        $path = [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$record.ManagedPath -replace '/', '\')))
+        Assert-ChannelForgeSourceEnrollmentPath -Path $path -AllowedRoot $paths.RepositoryRoot | Out-Null
+        return $path
+    }
+    $m3uPath = & $resolveManagedPath $playlist
+    $xmltvPath = & $resolveManagedPath $guide
     return [pscustomobject][ordered]@{
         State = $integrity.State
         Enrollment = $integrity.Enrollment
@@ -332,8 +363,8 @@ function Get-ChannelForgeSourceEnrollmentInputs {
         Guides = @($integrity.Enrollment.Guides)
         Bindings = @($integrity.Enrollment.Bindings)
         SourceStates = @($integrity.SourceStates)
-        PlaylistPaths = @($integrity.Enrollment.Playlists | Where-Object { $_.Enabled -and [string]$_.SourceKind -eq 'managed-file' } | ForEach-Object { [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$_.ManagedPath -replace '/', '\'))) })
-        GuidePaths = @($integrity.Enrollment.Guides | Where-Object { $_.Enabled -and [string]$_.SourceKind -eq 'managed-file' } | ForEach-Object { [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$_.ManagedPath -replace '/', '\'))) })
+        PlaylistPaths = @($integrity.Enrollment.Playlists | Where-Object { $_.Enabled } | ForEach-Object { & $resolveManagedPath $_ } | Where-Object { $null -ne $_ })
+        GuidePaths = @($integrity.Enrollment.Guides | Where-Object { $_.Enabled } | ForEach-Object { & $resolveManagedPath $_ } | Where-Object { $null -ne $_ })
     }
 }
 
@@ -390,7 +421,7 @@ function Write-ChannelForgeSourceSet {
         $key = [string]$descriptor.SourceKey
         if ([string]::IsNullOrWhiteSpace($key)) { $key = "$kind|$([string]$descriptor.Label)|$sourceKind" }
         $id = Get-ChannelForgeSourceSetSourceId -Kind $kind -SourceKind $sourceKind -SourceKey $key
-        $managedPath = $null; $url = $null; $contentHash = $null; $byteLength = $null
+        $managedPath = $null; $url = $null; $contentHash = $null; $byteLength = $null; $refreshState = 'saved'
         if ($sourceKind -eq 'managed-file') {
             $bytes = [byte[]]$descriptor.Bytes
             if ($null -eq $bytes -or $bytes.Length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: managed source bytes cannot be empty.' }
@@ -399,17 +430,29 @@ function Write-ChannelForgeSourceSet {
             Write-ChannelForgeSourceEnrollmentAtomicBytes -Path (Join-Path $paths.RepositoryRoot ($managedPath -replace '/', '\')) -Bytes $bytes -AllowedRoot $paths.ManagedSourceRoot
             $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
             $byteLength = $bytes.Length
+            $refreshState = 'up-to-date'
         } else {
             $url = [string]$descriptor.Url
             $parsed = $null
             if (-not (Test-ChannelForgeSourceUrl -Url $url) -or -not [Uri]::TryCreate($url,[UriKind]::Absolute,[ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.UserInfo) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source must be a non-tokenized URL.' }
+            $descriptorProperties = @($descriptor.PSObject.Properties.Name)
+            $bytes = if ($descriptorProperties -contains 'Bytes') { [byte[]]$descriptor.Bytes } else { $null }
+            if ($null -ne $bytes) {
+                if ($bytes.Length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source bytes cannot be empty.' }
+                $extension = if ($kind -eq 'M3U') { 'm3u' } else { 'xml' }
+                $managedPath = "state/managed-sources/$id.$extension"
+                Write-ChannelForgeSourceEnrollmentAtomicBytes -Path (Join-Path $paths.RepositoryRoot ($managedPath -replace '/', '\')) -Bytes $bytes -AllowedRoot $paths.ManagedSourceRoot
+                $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
+                $byteLength = $bytes.Length
+                $refreshState = 'up-to-date'
+            }
         }
         return [ordered]@{
             SourceId = $id; Kind = $kind; Format = if ($kind -eq 'M3U') { 'm3u' } else { 'xmltv' }; Label = if ([string]::IsNullOrWhiteSpace([string]$descriptor.Label)) { "$kind source" } else { [string]$descriptor.Label }
             SourceKind = $sourceKind; Enabled = if ($null -eq $descriptor.Enabled) { $true } else { [bool]$descriptor.Enabled }; Present = $true; Priority = if ($null -eq $descriptor.Priority) { 100 } else { [int]$descriptor.Priority }; OrderKey = $id
             ManagedPath = $managedPath; Url = $url; ContentHash = $contentHash; ByteLength = $byteLength
             Provenance = if ($null -eq $descriptor.Provenance) { [ordered]@{ Origin = 'source-set-v2' } } else { $descriptor.Provenance }
-            Refresh = [ordered]@{ State = 'saved'; LastValidatedAtUtc = $now; CacheKey = $null; ETag = $null; LastModified = $null }
+            Refresh = [ordered]@{ State = $refreshState; LastValidatedAtUtc = $now; CacheKey = $null; ETag = $null; LastModified = $null }
         }
     }
     $playlists = @(); $i = 0; foreach ($source in $PlaylistSources) { $playlists += & $makeSource $source $i; $i++ }
@@ -455,11 +498,26 @@ function Write-ChannelForgeSourceSet {
 function Update-ChannelForgeSourceEnrollmentRefreshState {
     param(
         [Parameter(Mandatory)][string]$RepositoryRoot,
-        [Parameter(Mandatory)][ValidateSet('up-to-date', 'changes-found')][string]$RefreshStatus
+        [Parameter(Mandatory)][ValidateSet('up-to-date', 'changes-found')][string]$RefreshStatus,
+        [AllowEmptyCollection()][object[]]$SourceUpdates = @()
     )
 
     $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
     $enrollment = Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $RepositoryRoot
+    foreach ($update in @($SourceUpdates)) {
+        $sourceId = [string]$update.SourceId
+        $source = @($enrollment.Playlists + $enrollment.Guides | Where-Object { [string]$_.SourceId -eq $sourceId }) | Select-Object -First 1
+        if ($null -eq $source) { continue }
+        if ($null -eq $source.Refresh) { $source.Refresh = [ordered]@{} }
+        $source.Refresh.State = [string]$update.State
+        $source.Refresh.LastValidatedAtUtc = if ($null -eq $update.LastValidatedAtUtc) {
+            (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        } else { [string]$update.LastValidatedAtUtc }
+        if ($update.PSObject.Properties.Name -contains 'ContentHash' -and
+            -not [string]::IsNullOrWhiteSpace([string]$update.ContentHash)) {
+            $source.Refresh.ContentHash = [string]$update.ContentHash
+        }
+    }
     $enrollment.LastRefreshStatus = $RefreshStatus
     $enrollment.UpdatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
     $enrollment.EnrollmentHash = Get-ChannelForgeSourceEnrollmentHash -Enrollment $enrollment

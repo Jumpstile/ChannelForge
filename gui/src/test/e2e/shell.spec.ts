@@ -13,13 +13,24 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
 
 test('renders the browser Guided Setup review and acceptance contract', async ({ page }) => {
   await page.route('**/api/guided-setup/proposal', async (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toMatchObject({
+      schemaVersion: 2,
+      playlists: [{ sourceKey: 'playlist-1', label: 'Playlist 1', priority: 1, contentBase64: expect.any(String) }],
+      guides: [],
+      bindings: [],
+    })
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/proposal/v1',
+        Version: 'guided-setup/proposal/v2',
         Status: 'PROPOSAL_READY',
         Proposal: {
           ProposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          PlaylistCount: 1,
+          GuideCount: 0,
+          BoundGuideCount: 0,
+          UnboundGuideCount: 0,
           ChannelCount: 1,
           ExactGuideMatchCount: 0,
           AmbiguityCount: 0,
@@ -44,11 +55,11 @@ test('renders the browser Guided Setup review and acceptance contract', async ({
   })
   await page.route('**/api/guided-setup/accept', async (route) => {
     expect(route.request().method()).toBe('POST')
-    expect(await route.request().postDataJSON()).toEqual({ schemaVersion: 1, proposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', acknowledged: true })
+    expect(await route.request().postDataJSON()).toEqual({ schemaVersion: 2, proposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', acknowledged: true })
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/acceptance/v1',
+        Version: 'guided-setup/acceptance/v2',
         Status: 'ACCEPTED',
         Proposal: { ChannelCount: 1, GuideStatus: 'NO_GUIDE_SELECTED' },
         Safety: { AcceptedStateMutation: 'accepted-lineup', ProviderMutation: 'none', DownstreamMutation: 'none', SchedulerMutation: 'none' },
@@ -59,20 +70,17 @@ test('renders the browser Guided Setup review and acceptance contract', async ({
   await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Guided setup steps' })).toBeVisible()
-  await expect(page.getByText('The review is server-owned until you explicitly acknowledge acceptance.')).toBeVisible()
-  await expect(page.getByText('Select exactly one M3U or M3U8 playlist.')).toBeVisible()
-  await expect(page.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeVisible()
-  const setupRegion = page.getByRole('region', { name: 'Guided setup steps' })
-  await expect(setupRegion.getByText('Not selected', { exact: true })).toHaveCount(2)
-  await expect(setupRegion.getByText('Not checked', { exact: true })).toHaveCount(4)
+  await expect(page.getByText('Files are read in this browser only to create a server-owned candidate. Nothing is accepted until you acknowledge the review.')).toBeVisible()
+  await expect(page.getByText('Add every playlist that belongs in the source set.')).toBeVisible()
+  await expect(page.getByText('No guide selected')).toBeVisible()
   await page.getByLabel('Choose playlist').setInputFiles({ name: 'channels.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,One\\nhttps://example.invalid/one\\n') })
-  await page.getByRole('button', { name: 'Analyze proposal' }).click()
+  await page.getByRole('button', { name: 'Analyze source set' }).click()
   await expect(page.getByText('Review ready. Nothing has been accepted yet.')).toBeVisible()
   await expect(page.locator('body')).not.toContainText('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
   await page.getByLabel(/I reviewed these results/).check()
   await page.getByRole('button', { name: 'Accept reviewed proposal' }).click()
   await expect(page.getByText('Accepted lineup confirmed.')).toBeVisible()
-  await expect(page.getByText('The reviewed lineup is now the accepted local state.')).toBeVisible()
+  await expect(page.getByText('The reviewed source set is now the accepted local state.')).toBeVisible()
   await expect(page.locator('body')).not.toContainText('C:\\')
   await expect(page.locator('body')).not.toContainText('file://')
 })

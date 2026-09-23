@@ -40,7 +40,7 @@ POST /api/guided-setup/proposal
   -> server-owned proposal workspace
   -> New-ChannelForgeCandidateProposal (in-process)
   -> opaque review session + immutable candidate namespace
-  -> allowlisted guided-setup/proposal/v1 projection
+  -> allowlisted guided-setup/proposal/v1 or source-set/v2 projection
 
 POST /api/guided-setup/accept
   -> strict schemaVersion/proposalId/acknowledged request
@@ -51,14 +51,15 @@ POST /api/guided-setup/accept
   -> Publish-ChannelForgeAcceptedGeneration
 ```
 
-The proposal request envelope is version `schemaVersion: 1` with exactly one
+Legacy callers may submit `schemaVersion: 1` with exactly one
 `m3u.contentBase64` object and an optional `xmltv.contentBase64` object.
 Unknown properties, duplicate properties, invalid base64, unsupported content
 types, declared-length mismatches, and decoded files above 4 MiB (M3U) or
 12 MiB (XMLTV) fail closed. The encoded HTTP body is capped at 24 MiB.
 Filenames and paths never enter the request contract.
 
-Headless callers may use `schemaVersion: 2`, documented by
+The current browser and headless source-set contract uses `schemaVersion: 2`,
+documented by
 [`schemas/guided-setup-proposal-request.schema.json`](../../schemas/guided-setup-proposal-request.schema.json).
 The v2 envelope contains `playlists` (1–8), `guides` (0–8), and optional
 `bindings` (0–16). Each source uses a bounded `sourceKey`, safe label,
@@ -77,14 +78,18 @@ opaque. Source bytes and acquired public HTTPS content are staged below
 server-derived 64-hex source IDs, never client filenames or paths. Each
 staged source's authenticated input hash and byte length are retained in the
 review session and checked again before candidate publication or enrollment.
-Managed bytes are enrolled after acceptance; public HTTPS descriptors are
-retained for later review-only refresh work. The 24 MiB request, 4 MiB
+Managed bytes are enrolled after acceptance; public HTTPS descriptors retain
+their declarative URL and validated last-known-good snapshot for later bounded
+refresh. A changed or unavailable public source updates per-source refresh
+status without replacing accepted state. The 24 MiB request, 4 MiB
 per-playlist, 12 MiB per-guide, 16 MiB aggregate, and count limits are
 enforced before or during staging.
 
-The browser continues to send the unchanged v1 one-playlist envelope in this
-slice. Browser multi-row source selection and remote refresh UX are separate
-work; v2 is a headless/server contract only.
+The browser sends the same v2 source-set contract: multiple playlist rows,
+optional multiple guide rows, local file or public HTTPS input per row, and
+explicit selected/all binding controls. A no-guide submission sends an empty
+guide array. Legacy v1 callers remain accepted for compatibility, but new
+browser behavior uses v2.
 
 The server-owned proposal identity is a lowercase 32-hex opaque GUID. It is
 resolved only below ignored `output/.web-guided-setup/proposals/` storage.
@@ -95,26 +100,27 @@ changes. Candidate artifacts are revalidated by their content-addressed
 namespace before acceptance. A session is `Ready` until accepted; `Accepted`
 is terminal and duplicate submissions fail without another publication.
 
-The acceptance request is exactly:
+The browser v2 acceptance request is exactly:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "proposalId": "<opaque 32-character id>",
   "acknowledged": true
 }
 ```
 
-It is bounded to 8 KiB and cannot carry files, paths, hashes, parent state, or
-a force option. Ambiguous guide bindings block both the UI and server. The
+Legacy schemaVersion 1 remains accepted for existing callers. Both forms are
+bounded to 8 KiB and cannot carry files, paths, hashes, parent state, or a
+force option. Ambiguous guide bindings block both the UI and server. The
 server compares the recorded parent with the recovered current generation and
 lets the immutable generation store perform its locked parent validation. A
 stale review is rejected; it is never automatically rebased.
-
 `New-ChannelForgeCandidateProposal` remains candidate-only. Both the browser
-v1 and headless v2 acceptance paths call `Publish-ChannelForgeReviewedCandidate`,
-which constructs the decision M3U/XMLTV/manifests, invokes
-`New-ChannelForgeAcceptance`, and delegates publication to
+v2 and legacy browser v1 acceptance paths call
+`Publish-ChannelForgeReviewedCandidate`, which constructs the decision
+M3U/XMLTV/manifests, invokes `New-ChannelForgeAcceptance`, and delegates
+publication to
 `Publish-ChannelForgeAcceptedGeneration`. No proposal route calls
 `Build-My-Lineup.ps1`, writes accepted pointers directly, refreshes downstream
 consumer files, configures a scheduler, or mutates provider state. Recovery
@@ -140,9 +146,11 @@ canonical-json/domain-hash helpers. It stores multiple ordered playlist and
 guide records plus explicit guide-to-playlist bindings. Managed filenames are
 opaque content identities. Reads reject non-canonical records, hash
 mismatches, missing bytes, path traversal, and reparse-point traversal.
-Supported public HTTPS descriptors are retained without credentials, query
-tokens, or fragments. Legacy `source-enrollment/v1` remains a deterministic
-compatibility projection rather than a second authority.
+Supported public HTTPS descriptors retain their declarative URL plus a
+validated bounded last-known-good snapshot in `state/managed-sources/`;
+credentials, query tokens, and fragments are never retained. Legacy
+`source-enrollment/v1` remains a deterministic compatibility projection rather
+than a second authority.
 
 Enrollment is never stored below `output/.web-guided-setup`; proposal input
 bytes remain there only until successful promotion, so a promotion failure
@@ -150,12 +158,12 @@ can be repaired without invalidating an already-published accepted lineup.
 `Get-ChannelForgeSourceEnrollment` returns only redacted status facts.
 `Get-ChannelForgeEnrolledSourceInput` is the engine refresh adapter and is not
 a browser response. `Get-ChannelForgeSourceRefreshPlan -EnrollmentPath`
-projects every enrolled record: unchanged managed bytes can be reused,
-changed managed bytes require `FULL_REFRESH`, and public descriptors remain
-review-only in this slice. The executor creates a review-only candidate and
-never mutates accepted generation state.
-`POST /api/sources/refresh` exposes only the safe report summary. Unattended
-remote refresh remains outside this contract.
+projects every enrolled record: unchanged snapshots can be reused, public
+HTTPS records use the existing bounded transport, and changed or failed
+sources update per-source review status without replacing accepted state. The
+executor creates review-only candidate evidence and never mutates accepted
+generation state. `POST /api/sources/refresh` exposes only the safe report
+summary; unattended remote refresh remains outside this contract.
 
 The response projection is intentionally aggregate: counts, fixed warning
 messages, the opaque proposal ID, blocking reasons, and mutation

@@ -136,10 +136,14 @@ test('browser acceptance visual states', async ({ page }) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/proposal/v1',
+        Version: 'guided-setup/proposal/v2',
         Status: 'PROPOSAL_READY',
         Proposal: {
           ProposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          PlaylistCount: 1,
+          GuideCount: 0,
+          BoundGuideCount: 0,
+          UnboundGuideCount: 0,
           ChannelCount: 1,
           ExactGuideMatchCount: 0,
           AmbiguityCount: 0,
@@ -166,7 +170,7 @@ test('browser acceptance visual states', async ({ page }) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/acceptance/v1',
+        Version: 'guided-setup/acceptance/v2',
         Status: 'ACCEPTED',
         Proposal: { ChannelCount: 1, GuideStatus: 'NO_GUIDE_SELECTED' },
         Safety: { AcceptedStateMutation: 'accepted-lineup', ProviderMutation: 'none', DownstreamMutation: 'none', SchedulerMutation: 'none' },
@@ -177,7 +181,7 @@ test('browser acceptance visual states', async ({ page }) => {
   await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   await page.getByLabel('Choose playlist').setInputFiles({ name: 'channels.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,One\\nhttps://example.invalid/one\\n') })
   await expect(page).toHaveScreenshot('guided-browser-file-proposal.png', { animations: 'disabled', fullPage: true })
-  await page.getByRole('button', { name: 'Analyze proposal' }).click()
+  await page.getByRole('button', { name: 'Analyze source set' }).click()
   await expect(page.getByText('Review ready. Nothing has been accepted yet.')).toBeVisible()
   await expect(page).toHaveScreenshot('guided-browser-ready.png', { animations: 'disabled', fullPage: true })
   await page.getByLabel(/I reviewed these results/).check()

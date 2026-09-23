@@ -45,6 +45,73 @@ export type GuidedSetupAcceptance = {
 }
 
 export type GuidedSetupProposalSubmitter = (playlist: File, guide?: File | null) => Promise<GuidedSetupProposal>
+export type GuidedSetupSourceDraft = {
+  sourceKey: string
+  label: string
+  priority?: number
+  file?: File | null
+  url?: string
+}
+
+export type GuidedSetupBindingDraft = {
+  guideRef: string
+  playlistRefs: string[]
+  appliesToAll: boolean
+}
+
+export type GuidedSetupSourceSetProposal = {
+  Version: 'guided-setup/proposal/v2'
+  Status: 'PROPOSAL_READY'
+  Proposal: {
+    ProposalId: string
+    PlaylistCount: number
+    GuideCount: number
+    BoundGuideCount: number
+    UnboundGuideCount: number
+    ChannelCount: number
+    ExactGuideMatchCount: number
+    AmbiguityCount: number
+    UnmatchedPlaylistCount: number
+    GuideOnlyCount: number
+    GuideStatus: 'NO_GUIDE_SELECTED' | 'XMLTV_SELECTED' | 'XMLTV_UNBOUND_ACTIONABLE'
+    CanAccept: boolean
+    BlockingReasons: string[]
+  }
+  Warnings: Array<{ Code: string; Message: string }>
+  Safety: {
+    PublicationState: 'CandidateOnly'
+    AcceptedStateMutation: 'none'
+    ProviderMutation: 'none'
+    DownstreamMutation: 'none'
+    GuidePublication: 'none'
+    CanPublish: false
+    CanAccept: boolean
+  }
+}
+
+export type GuidedSetupSourceSetAcceptance = {
+  Version: 'guided-setup/acceptance/v2'
+  Status: 'ACCEPTED'
+  EnrollmentStatus: 'SAVED' | string
+  Message: string
+  Proposal: {
+    ChannelCount: number
+    GuideStatus: 'NO_GUIDE_SELECTED' | 'XMLTV_ACCEPTED' | 'XMLTV_ACCEPTED_WITH_UNBOUND'
+  }
+  Safety: {
+    AcceptedStateMutation: 'accepted-lineup'
+    ProviderMutation: 'none'
+    DownstreamMutation: 'none'
+    SchedulerMutation: 'none'
+  }
+}
+
+export type GuidedSetupSourceSetSubmitter = (
+  playlists: GuidedSetupSourceDraft[],
+  guides: GuidedSetupSourceDraft[],
+  bindings: GuidedSetupBindingDraft[],
+) => Promise<GuidedSetupSourceSetProposal>
+
 export type GuidedSetupAcceptanceSubmitter = (proposalId: string) => Promise<GuidedSetupAcceptance>
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -102,4 +169,71 @@ export async function acceptGuidedSetupProposal(proposalId: string): Promise<Gui
     throw new Error('The acceptance response was not recognized.')
   }
   return payload as GuidedSetupAcceptance
+}
+
+async function encodeSource(source: GuidedSetupSourceDraft, maximumBytes: number): Promise<{ contentBase64: string } | { url: string }> {
+  if (source.file) return { contentBase64: await readFileBase64(source.file, maximumBytes) }
+  const url = source.url?.trim() ?? ''
+  if (!url) throw new Error(`Add a file or HTTPS URL for ${source.label}.`)
+  return { url }
+}
+
+export async function submitGuidedSetupSourceSetProposal(
+  playlists: GuidedSetupSourceDraft[],
+  guides: GuidedSetupSourceDraft[] = [],
+  bindings: GuidedSetupBindingDraft[] = [],
+): Promise<GuidedSetupSourceSetProposal> {
+  if (playlists.length === 0) throw new Error('Add at least one playlist before analyzing the proposal.')
+  const request = {
+    schemaVersion: 2 as const,
+    playlists: await Promise.all(playlists.map(async (source, index) => ({
+      sourceKey: source.sourceKey,
+      label: source.label,
+      priority: source.priority ?? index + 1,
+      ...(await encodeSource(source, proposalRequestLimits.maxM3UBytes)),
+    }))),
+    guides: await Promise.all(guides.map(async (source, index) => ({
+      sourceKey: source.sourceKey,
+      label: source.label,
+      priority: source.priority ?? index + 1,
+      ...(await encodeSource(source, proposalRequestLimits.maxXMLTVBytes)),
+    }))),
+    bindings: bindings.map((binding) => ({
+      guideRef: binding.guideRef,
+      playlistRefs: binding.playlistRefs,
+      appliesToAll: binding.appliesToAll,
+    })),
+  }
+  const response = await fetch('/api/guided-setup/proposal', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupSourceSetProposal> & { Message?: string } | null
+  if (!response.ok) throw new Error(payload?.Message || 'The playlist or guide could not be analyzed safely.')
+  if (
+    payload?.Version !== 'guided-setup/proposal/v2' ||
+    payload.Status !== 'PROPOSAL_READY' ||
+    !payload.Proposal ||
+    !payload.Safety ||
+    typeof payload.Proposal.ProposalId !== 'string' ||
+    typeof payload.Proposal.CanAccept !== 'boolean'
+  ) {
+    throw new Error('The proposal response was not recognized.')
+  }
+  return payload as GuidedSetupSourceSetProposal
+}
+
+export async function acceptGuidedSetupSourceSetProposal(proposalId: string): Promise<GuidedSetupSourceSetAcceptance> {
+  const response = await fetch('/api/guided-setup/accept', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schemaVersion: 2, proposalId, acknowledged: true }),
+  })
+  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupSourceSetAcceptance> & { Message?: string } | null
+  if (!response.ok) throw new Error(payload?.Message || 'The reviewed proposal could not be accepted safely.')
+  if (payload?.Version !== 'guided-setup/acceptance/v2' || payload.Status !== 'ACCEPTED' || !payload.Proposal || !payload.Safety) {
+    throw new Error('The acceptance response was not recognized.')
+  }
+  return payload as GuidedSetupSourceSetAcceptance
 }
