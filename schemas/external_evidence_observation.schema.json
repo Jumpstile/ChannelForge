@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/ChannelForgeExternalEvidenceObservation-v1.schema.json",
+  "title": "ChannelForgeExternalEvidenceObservation/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ContractVersion",
+    "ObservationId",
+    "ObservationStatus",
+    "ObservationKind",
+    "EntityType",
+    "AdapterId",
+    "AdapterVersion",
+    "ParserVersion",
+    "SourceId",
+    "SourceFamily",
+    "EvidenceClass",
+    "SourceRelationship",
+    "SourceRecordReference",
+    "ProvisionalSubjectKey",
+    "SourceChannelReference",
+    "BindingContext",
+    "FieldObservations",
+    "SourceDataTimeUtc",
+    "ObservationTimeUtc",
+    "FetchTimeUtc",
+    "InputArtifactFingerprint",
+    "ReasonCodes",
+    "RedactedFields",
+    "ReadOnly"
+  ],
+  "properties": {
+    "ContractVersion": {
+      "const": "ChannelForgeExternalEvidenceObservation/v1"
+    },
+    "ObservationId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ObservationStatus": {
+      "enum": ["Observed", "SourceUnavailable", "Rejected"]
+    },
+    "ObservationKind": {
+      "enum": [
+        "ScheduleEvent",
+        "ChannelSchedule",
+        "ProgrammeMetadata",
+        "EventStatus",
+        "Availability",
+        "Other"
+      ]
+    },
+    "EntityType": {
+      "enum": ["Programme", "Event", "Channel", "Source", "Other"]
+    },
+    "AdapterId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "AdapterVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "ParserVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "SourceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "SourceFamily": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "EvidenceClass": {
+      "enum": [
+        "OfficialBroadcaster",
+        "OfficialOrganizer",
+        "ProviderXMLTV",
+        "ConfiguredTrustedXMLTV",
+        "TrustedSecondarySchedule",
+        "AEDDerived",
+        "Heuristic",
+        "Other"
+      ]
+    },
+    "SourceRelationship": {
+      "enum": ["Authoritative", "Independent", "Mirror", "Unknown"]
+    },
+    "SourceRecordReference": {
+      "type": ["string", "null"],
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9._:/#?=-]*$"
+    },
+    "ProvisionalSubjectKey": { "type": ["string", "null"], "maxLength": 256 },
+    "SourceChannelReference": { "type": ["string", "null"], "maxLength": 256 },
+    "BindingContext": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "PlaylistId",
+        "ChannelReference",
+        "StationReference",
+        "BindingKind"
+      ],
+      "properties": {
+        "PlaylistId": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "ChannelReference": { "type": ["string", "null"], "maxLength": 256 },
+        "StationReference": { "type": ["string", "null"], "maxLength": 256 },
+        "BindingKind": {
+          "type": ["string", "null"],
+          "enum": ["SourceScoped", "Shared", "Unbound", null]
+        }
+      }
+    },
+    "FieldObservations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fieldObservation" },
+      "uniqueItems": true
+    },
+    "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+    "ObservationTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+    "FetchTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+    "InputArtifactFingerprint": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ReasonCodes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$"
+      },
+      "uniqueItems": true
+    },
+    "RedactedFields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$"
+      },
+      "uniqueItems": true
+    },
+    "ReadOnly": { "const": true }
+  },
+  "$defs": {
+    "fieldObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "FieldName",
+        "ValueType",
+        "NormalizedValue",
+        "OriginalValueOrFingerprint",
+        "SourceDataTimeUtc",
+        "ObservationTimeUtc",
+        "ReasonCodes",
+        "Redacted"
+      ],
+      "properties": {
+        "FieldName": {
+          "enum": [
+            "Title",
+            "Subtitle",
+            "Description",
+            "Category",
+            "ScheduledStartUtc",
+            "UpdatedStartUtc",
+            "StopUtc",
+            "EventStatus",
+            "Participant",
+            "Competition",
+            "Venue",
+            "Network",
+            "ChannelAssignment"
+          ]
+        },
+        "ValueType": { "enum": ["String", "StringArray", "Instant", "Object"] },
+        "NormalizedValue": { "type": ["string", "array", "object", "null"] },
+        "OriginalValueOrFingerprint": {
+          "type": ["string", "null"],
+          "maxLength": 512
+        },
+        "SourceDataTimeUtc": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "ObservationTimeUtc": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "ReasonCodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "Redacted": { "type": "boolean" }
+      }
+    }
+  }
+}
