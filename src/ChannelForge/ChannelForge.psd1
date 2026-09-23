@@ -101,6 +101,7 @@ FunctionsToExport = @(
     'New-ChannelForgeChannel'
     'New-ChannelForgeProgramme'
     'New-ChannelForgeGuideEvidence'
+    'ConvertTo-ChannelForgeExternalEvidenceObservation'
     'Invoke-ChannelForgeGuidePatternInference'
     'Get-ChannelForgeGuidePatternReview'
     'Get-ChannelForgeGuidePatternAcceptancePlan'
