@@ -113,6 +113,44 @@ export type GuidedSetupSourceSetSubmitter = (
 ) => Promise<GuidedSetupSourceSetProposal>
 
 export type GuidedSetupAcceptanceSubmitter = (proposalId: string) => Promise<GuidedSetupAcceptance>
+type GuidedSetupProposalErrorCode =
+  | 'unsupported-content-type'
+  | 'request-too-large'
+  | 'file-too-large'
+  | 'invalid-proposal-request'
+  | 'missing-request-body'
+  | 'request-length-mismatch'
+  | 'unsupported-source'
+  | 'package-data-unavailable'
+  | 'source-unavailable'
+  | 'invalid-playlist'
+  | 'invalid-guide'
+  | 'proposal-unavailable'
+
+type GuidedSetupProposalErrorPayload = { Error?: unknown }
+
+const guidedSetupProposalErrorMessages: Record<GuidedSetupProposalErrorCode, string> = {
+  'unsupported-content-type': 'The analysis request used an unsupported format. Refresh Guided Setup and try again.',
+  'request-too-large': 'The selected source set exceeds the safe analysis size limit. Reduce the file sizes and try again.',
+  'file-too-large': 'A selected source exceeds the safe analysis size limit. Choose a smaller file and try again.',
+  'invalid-proposal-request': 'The analysis request was not accepted. Choose the sources again and retry.',
+  'missing-request-body': 'The analysis request was empty. Choose the sources again and retry.',
+  'request-length-mismatch': 'The analysis request was incomplete. Choose the sources again and retry.',
+  'unsupported-source': 'Use a local source file or a public HTTPS URL without credentials, query parameters, or fragments.',
+  'package-data-unavailable': 'ChannelForge is missing required analysis data. Repair or reinstall the application, then analyze again.',
+  'source-unavailable': 'A public HTTPS source could not be retrieved. Check its URL and connection, then try again.',
+  'invalid-playlist': 'A selected playlist is not valid M3U. Choose a valid M3U or M3U8 file, then analyze again.',
+  'invalid-guide': 'A selected guide is not valid XMLTV. Choose a valid XMLTV file, then analyze again.',
+  'proposal-unavailable': 'ChannelForge could not safely analyze these sources. Check the selected files or retry later.',
+}
+
+function guidedSetupProposalErrorMessage(payload: GuidedSetupProposalErrorPayload | null): string {
+  const code = payload?.Error
+  return typeof code === 'string' && Object.hasOwn(guidedSetupProposalErrorMessages, code)
+    ? guidedSetupProposalErrorMessages[code as GuidedSetupProposalErrorCode]
+    : guidedSetupProposalErrorMessages['proposal-unavailable']
+}
+
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -142,8 +180,8 @@ export async function submitGuidedSetupProposal(playlist: File, guide: File | nu
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   })
-  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupProposal> & { Message?: string } | null
-  if (!response.ok) throw new Error(payload?.Message || 'The playlist or guide could not be analyzed safely.')
+  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupProposal> & GuidedSetupProposalErrorPayload | null
+  if (!response.ok) throw new Error(guidedSetupProposalErrorMessage(payload))
   if (
     payload?.Version !== 'guided-setup/proposal/v1' ||
     payload.Status !== 'PROPOSAL_READY' ||
@@ -209,8 +247,8 @@ export async function submitGuidedSetupSourceSetProposal(
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   })
-  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupSourceSetProposal> & { Message?: string } | null
-  if (!response.ok) throw new Error(payload?.Message || 'The playlist or guide could not be analyzed safely.')
+  const payload = (await response.json().catch(() => null)) as Partial<GuidedSetupSourceSetProposal> & GuidedSetupProposalErrorPayload | null
+  if (!response.ok) throw new Error(guidedSetupProposalErrorMessage(payload))
   if (
     payload?.Version !== 'guided-setup/proposal/v2' ||
     payload.Status !== 'PROPOSAL_READY' ||

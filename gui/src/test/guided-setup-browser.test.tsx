@@ -65,6 +65,7 @@ describe('browser Guided Setup proposal and acceptance', () => {
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     await user.upload(screen.getByLabelText('Choose guide'), guide)
     await user.click(screen.getByLabelText('All playlists'))
+    expect(screen.getByText('Selected for all playlists. This guide will be applied to every playlist only after you accept the reviewed proposal.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
 
     expect(submitter).toHaveBeenCalledTimes(1)
@@ -115,5 +116,73 @@ describe('browser Guided Setup proposal and acceptance', () => {
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Complete every playlist with a local file or public HTTPS URL.')
     expect(submitter).not.toHaveBeenCalled()
+  })
+  it('shows the configured playlist count and focuses an actionable analysis failure', async () => {
+    const user = userEvent.setup()
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockRejectedValue(new Error('A selected playlist is not valid M3U. Choose a valid M3U or M3U8 file, then analyze again.'))
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
+
+    expect(screen.getByRole('heading', { name: 'Workspace ready' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Choose workspace' })).not.toBeInTheDocument()
+    expect(screen.getByText('Add at least one playlist to analyze.')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+    expect(screen.getByText('Ready to analyze 1 playlist.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add another playlist' }))
+    await user.upload(screen.getAllByLabelText('Choose playlist')[1], new File(['#EXTM3U\n'], 'two.m3u'))
+    expect(screen.getByText('Ready to analyze 2 playlists.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('A selected playlist is not valid M3U.')
+    expect(alert).toHaveFocus()
+    expect(screen.getByText('Analysis stopped; 2 playlists remain selected.')).toBeInTheDocument()
+    expect(screen.getByText('one.m3u')).toBeInTheDocument()
+    expect(screen.getByText('two.m3u')).toBeInTheDocument()
+  })
+
+  it('keeps a guide unbound until its playlist is explicitly selected', async () => {
+    const user = userEvent.setup()
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
+
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one\n'], 'one.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
+    expect(screen.getByText('Currently unbound. This guide remains enrolled for review but will not be applied.')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /Apply this guide to/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+    await screen.findByText('Review ready. Nothing has been accepted yet.')
+    expect(submitter.mock.calls[0][2]).toEqual([])
+
+    await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
+    expect(screen.getByText(/Selected for 1 playlist/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+    await screen.findByText('Review ready. Nothing has been accepted yet.')
+    expect(submitter.mock.calls[1][2]).toEqual([
+      expect.objectContaining({ playlistRefs: ['playlist-1'], appliesToAll: false }),
+    ])
+  })
+
+  it('sends multiple selected playlists as an explicit non-ALL guide binding', async () => {
+    const user = userEvent.setup()
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
+
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add another playlist' }))
+    await user.upload(screen.getAllByLabelText('Choose playlist')[1], new File(['#EXTM3U\n'], 'two.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
+    await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Playlist 2' }))
+
+    expect(screen.getByText(/Selected for 2 playlists/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+    await screen.findByText('Review ready. Nothing has been accepted yet.')
+    expect(submitter.mock.calls[0][2]).toEqual([
+      expect.objectContaining({ playlistRefs: ['playlist-1', expect.stringMatching(/^playlist-2-/)], appliesToAll: false }),
+    ])
   })
 })

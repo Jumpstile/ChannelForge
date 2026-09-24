@@ -225,19 +225,6 @@ function ConvertFrom-ChannelForgeGuidedSetupMultiSourceRequest {
         }
     }
 
-    if ($bindings.Count -eq 0 -and $guides.Count -gt 0 -and $playlists.Count -eq 1) {
-        foreach ($guide in $guides) {
-            $bindings += [pscustomobject][ordered]@{
-                GuideKey = [string]$guide.SourceKey
-                GuideId = [string]$guide.SourceId
-                PlaylistKeys = @([string]$playlists[0].SourceKey)
-                PlaylistIds = @([string]$playlists[0].SourceId)
-                AppliesToAll = $false
-                Revision = 1
-                Enabled = $true
-            }
-        }
-    }
 
     return [pscustomobject][ordered]@{
         SchemaVersion = 2
@@ -301,7 +288,13 @@ function Write-ChannelForgeGuidedSetupStagedSource {
         [byte[]]$Source.Bytes
     }
     else {
-        Read-ChannelForgeGuidedSetupRemoteBytes -Kind ([string]$Source.Kind) -Url ([string]$Source.Url) -MaxBytes $MaxBytes
+        try {
+            Read-ChannelForgeGuidedSetupRemoteBytes -Kind ([string]$Source.Kind) -Url ([string]$Source.Url) -MaxBytes $MaxBytes
+        }
+        catch {
+            $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'source-unavailable'
+            throw
+        }
     }
     if ($null -eq $bytes -or $bytes.Length -eq 0) { throw "The $($Source.Kind) source is empty." }
     if ($bytes.Length -gt $MaxBytes) { throw "The $($Source.Kind) source is too large." }
@@ -315,7 +308,7 @@ function Write-ChannelForgeGuidedSetupStagedSource {
         Label = [string]$Source.Label
         Priority = [int]$Source.Priority
         Url = if ([string]$Source.SourceKind -eq 'public-https') { [string]$Source.Url } else { $null }
-        Path = $path
+        Path = [System.IO.Path]::GetFullPath($path)
         RelativePath = $relativePath
         ContentHash = Get-ChannelForgeDomainHash -Domain $contentDomain -Bytes $bytes
         ByteLength = [int]$bytes.Length

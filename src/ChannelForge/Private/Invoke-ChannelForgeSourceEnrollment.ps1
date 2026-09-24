@@ -377,13 +377,22 @@ function Write-ChannelForgeSourceEnrollment {
         [AllowEmptyCollection()][object[]]$PlaylistSources,
         [AllowEmptyCollection()][object[]]$GuideSources = @(),
         [AllowEmptyCollection()][object[]]$Bindings = @(),
+        [switch]$PreserveUnboundGuides,
         [AllowNull()][string]$AcceptedGenerationManifestHash,
         [AllowNull()][string]$AcceptedStateHash,
         [AllowNull()][string]$AcceptedOutputManifestHash
     )
     if ($null -ne $PlaylistSources) {
         if (@($PlaylistSources).Count -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: at least one playlist is required.' }
-        return Write-ChannelForgeSourceSet -RepositoryRoot $RepositoryRoot -PlaylistSources $PlaylistSources -GuideSources $GuideSources -Bindings $Bindings -AcceptedGenerationManifestHash $AcceptedGenerationManifestHash -AcceptedStateHash $AcceptedStateHash -AcceptedOutputManifestHash $AcceptedOutputManifestHash
+        return Write-ChannelForgeSourceSet `
+            -RepositoryRoot $RepositoryRoot `
+            -PlaylistSources $PlaylistSources `
+            -GuideSources $GuideSources `
+            -Bindings $Bindings `
+            -PreserveUnboundGuides:$PreserveUnboundGuides `
+            -AcceptedGenerationManifestHash $AcceptedGenerationManifestHash `
+            -AcceptedStateHash $AcceptedStateHash `
+            -AcceptedOutputManifestHash $AcceptedOutputManifestHash
     }
     if ($null -eq $M3UBytes -or $M3UBytes.Length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: M3U source bytes cannot be empty.' }
     $playlist = [pscustomobject][ordered]@{ Kind = 'M3U'; SourceKind = 'managed-file'; SourceKey = 'browser-playlist'; Label = 'Saved playlist'; Bytes = $M3UBytes; Priority = 100; Enabled = $true; Provenance = [ordered]@{ Origin = 'guided-setup' } }
@@ -402,6 +411,7 @@ function Write-ChannelForgeSourceSet {
         [Parameter(Mandatory)][object[]]$PlaylistSources,
         [object[]]$GuideSources = @(),
         [object[]]$Bindings = @(),
+        [switch]$PreserveUnboundGuides,
         [AllowNull()][string]$AcceptedGenerationManifestHash,
         [AllowNull()][string]$AcceptedStateHash,
         [AllowNull()][string]$AcceptedOutputManifestHash
@@ -475,7 +485,7 @@ function Write-ChannelForgeSourceSet {
         $revision = if ($null -eq $binding.Revision) { 1 } else { [int]$binding.Revision }
         $bindingsOut += [ordered]@{ BindingId = Get-ChannelForgeDomainHash -Domain 'source-binding/v2' -InputObject ([ordered]@{ GuideId = $guideId; PlaylistIds = @($playlistIds | Sort-Object); AppliesToAll = $all; Revision = $revision }); GuideId = $guideId; PlaylistIds = @($playlistIds | Sort-Object); AppliesToAll = $all; Enabled = if ($null -eq $binding.Enabled) { $true } else { [bool]$binding.Enabled }; Revision = $revision }
     }
-    if (@($guides).Count -gt 0 -and @($bindingsOut).Count -eq 0 -and @($playlists).Count -eq 1) {
+    if (-not $PreserveUnboundGuides -and @($guides).Count -gt 0 -and @($bindingsOut).Count -eq 0 -and @($playlists).Count -eq 1) {
         $playlistId = [string]$playlists[0].SourceId
         $bindingsOut = @($guides | ForEach-Object {
             $guideId = [string]$_.SourceId

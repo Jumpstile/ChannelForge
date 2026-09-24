@@ -913,6 +913,20 @@ Describe 'ChannelForge web server foundation' {
         $unacknowledged = [Text.Encoding]::UTF8.GetBytes('{"schemaVersion":1,"proposalId":"00000000000000000000000000000000","acknowledged":false}')
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $unacknowledged -ContentType 'application/json' -ContentLength $unacknowledged.Length).StatusCode | Should -Be 400
     }
+    It 'returns a bounded package-data error before staging a source set when required files are absent' {
+        $root = Join-Path $TestDrive 'v2-missing-runtime-data'
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist })
+        $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $response.Body | ConvertFrom-Json
+
+        $response.StatusCode | Should -Be 503
+        $payload.Error | Should -Be 'package-data-unavailable'
+        $payload.Message | Should -Match 'Repair or reinstall'
+        $response.Body | Should -Not -Match '(?i)([A-Z]:[\\/]|\\\\|stack|exception|example\\.invalid)'
+        Test-Path -LiteralPath (Join-Path $root 'output\.web-guided-setup') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
 
     It 'accepts v2 one-source no-guide proposals through durable source enrollment' {
         $root = Join-Path $TestDrive 'v2-one-no-guide'
@@ -933,7 +947,7 @@ Describe 'ChannelForge web server foundation' {
         Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
     }
 
-    It 'auto-binds multiple guides when one playlist is submitted' {
+    It 'keeps guides unbound until the user explicitly selects a playlist' {
         $root = Join-Path $TestDrive 'v2-one-many-guides'
         Initialize-TestCandidateData -Root $root
         $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
@@ -943,10 +957,12 @@ Describe 'ChannelForge web server foundation' {
         $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
         $payload = $proposal.Body | ConvertFrom-Json
         $proposal.StatusCode | Should -Be 200
-        $payload.Proposal.BoundGuideCount | Should -Be 2
-        $payload.Proposal.UnboundGuideCount | Should -Be 0
+        $payload.Proposal.BoundGuideCount | Should -Be 0
+        $payload.Proposal.UnboundGuideCount | Should -Be 2
+        $payload.Proposal.GuideStatus | Should -Be 'XMLTV_UNBOUND_ACTIONABLE'
         $payload.Proposal.CanAccept | Should -BeTrue
-        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'XMLTV_ACCEPTED'
+        $payload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
+        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'XMLTV_ACCEPTED_WITH_UNBOUND'
         $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
     }
 
@@ -1059,10 +1075,27 @@ Describe 'ChannelForge web server foundation' {
         @($enrollment.Playlists | Where-Object SourceKind -eq 'public-https').Count | Should -Be 1
         $enrollment.Playlists | Where-Object SourceKind -eq 'public-https' | Select-Object -ExpandProperty Url | Should -Be 'https://example.invalid/remote.m3u'
     }
+    It 'returns a typed redacted transient-source error' {
+        $root = Join-Path $TestDrive 'v2-public-source-unavailable'
+        Initialize-TestCandidateData -Root $root
+        Mock Open-ChannelForgeRemoteM3USourceStream -ModuleName ChannelForge -MockWith {
+            throw [System.IO.IOException]::new('https://account:password@private.example.invalid/file?token=secret at C:\\private')
+        }
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'remote'; Url = 'https://example.invalid/playlist.m3u' })
+        $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $response.Body | ConvertFrom-Json
+
+        $response.StatusCode | Should -Be 503
+        $payload.Error | Should -Be 'source-unavailable'
+        $payload.Message | Should -Match 'Check its URL and connection'
+        $response.Body | Should -Not -Match '(?i)(example\\.invalid|password|token=|C:\\\\private|stack|exception)'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
 
     It 'rejects v2 duplicate references, dangling bindings, unsafe URLs, malformed content, and bounds' {
         $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
         $root = Join-Path $TestDrive 'v2-invalid'
+        Initialize-TestCandidateData -Root $root
         $duplicate = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }, [pscustomobject]@{ Key = 'p1'; Text = $playlist })
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $duplicate -ContentType 'application/json').StatusCode | Should -Be 400
         $dangling = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'missing'; Playlists = @('p1'); All = $false })
@@ -1074,11 +1107,21 @@ Describe 'ChannelForge web server foundation' {
         $emptySelected = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv></tv>' }) -Bindings @([pscustomobject]@{ Guide = 'g1'; Playlists = @(); All = $false })
         (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $emptySelected -ContentType 'application/json').StatusCode | Should -Be 400
         $unsafeUrl = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Url = 'https://user:password@example.invalid/a.m3u' })
-        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $unsafeUrl -ContentType 'application/json').StatusCode | Should -Be 400
+        $unsafeResponse = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $unsafeUrl -ContentType 'application/json'
+        $unsafeResponse.StatusCode | Should -Be 400
+        ($unsafeResponse.Body | ConvertFrom-Json).Error | Should -Be 'unsupported-source'
         $queryUrl = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Url = 'https://example.invalid/a.m3u?token=secret' })
-        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $queryUrl -ContentType 'application/json').StatusCode | Should -Be 400
+        $queryResponse = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $queryUrl -ContentType 'application/json'
+        $queryResponse.StatusCode | Should -Be 400
+        ($queryResponse.Body | ConvertFrom-Json).Error | Should -Be 'unsupported-source'
         $malformed = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = '#EXTM3U`nnot a playlist' })
-        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $malformed -ContentType 'application/json').StatusCode | Should -Be 422
+        $malformedResponse = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $malformed -ContentType 'application/json'
+        $malformedResponse.StatusCode | Should -Be 422
+        ($malformedResponse.Body | ConvertFrom-Json).Error | Should -Be 'invalid-playlist'
+        $invalidGuide = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = '<tv>' })
+        $invalidGuideResponse = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $invalidGuide -ContentType 'application/json'
+        $invalidGuideResponse.StatusCode | Should -Be 422
+        ($invalidGuideResponse.Body | ConvertFrom-Json).Error | Should -Be 'invalid-guide'
         $tooMany = [System.Collections.Generic.List[object]]::new()
         1..9 | ForEach-Object { [void]$tooMany.Add([pscustomobject]@{ Key = "p$_"; Text = $playlist }) }
         $tooManyBody = New-TestMultiSourceProposalBody -Playlists $tooMany

@@ -1,6 +1,9 @@
 # Update ChannelForge on Windows
 
-Updates are explicit and backup-first. The updater replaces application files only; it does not overwrite provider configuration, state, lineup output, caches, logs, or prior update backups.
+Updates are explicit and backup-first. The updater replaces application files
+and adds the two required ChannelForge analysis-data defaults only when
+absent. It never overwrites existing files under `data`, provider configuration,
+state, lineup output, caches, logs, or prior update backups.
 
 ## Update from a new bundle
 

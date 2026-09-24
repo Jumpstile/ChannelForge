@@ -242,26 +242,33 @@ Describe 'Copy-ChannelForgeUpdatePackageContent' {
     It 'copies allowed items and skips protected items' {
         $source = Join-Path $TestDrive 'extracted'
         $dest = Join-Path $TestDrive 'install-root'
-        New-Item -ItemType Directory -Path (Join-Path $source 'src') -Force | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $source 'data') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $source 'src'), (Join-Path $source 'data\rules'), (Join-Path $source 'data\lineup') -Force | Out-Null
         New-Item -ItemType Directory -Path $dest -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $source 'src\module.psm1') -Value 'new code'
         Set-Content -LiteralPath (Join-Path $source 'data\secrets.json') -Value '{"token":"stolen"}'
+        Set-Content -LiteralPath (Join-Path $source 'data\rules\aliases.json') -Value '{"aliases":["package-default"]}' -NoNewline
+        Set-Content -LiteralPath (Join-Path $source 'data\lineup\numbering_blocks.json') -Value '{"blocks":["package-default"]}' -NoNewline
         Set-Content -LiteralPath (Join-Path $source 'VERSION') -Value '0.2.0'
 
         # Pre-existing protected data in the install root must survive the update.
         New-Item -ItemType Directory -Path (Join-Path $dest 'data') -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $dest 'data\secrets.json') -Value '{"token":"real-user-secret"}'
+        New-Item -ItemType Directory -Path (Join-Path $dest 'data\rules') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $dest 'data\rules\aliases.json') -Value '{"aliases":["real-user-rule"]}' -NoNewline
 
         $result = Copy-ChannelForgeUpdatePackageContent -SourcePath $source -DestinationRoot $dest
 
         $result.Copied | Should -Contain 'src'
         $result.Copied | Should -Contain 'VERSION'
         $result.Skipped | Should -Contain 'data'
+        $result.RequiredDataAdded | Should -Contain 'data/lineup/numbering_blocks.json'
+        $result.RequiredDataAdded | Should -Not -Contain 'data/rules/aliases.json'
 
         Test-Path -LiteralPath (Join-Path $dest 'src\module.psm1') | Should -BeTrue
         (Get-Content -LiteralPath (Join-Path $dest 'VERSION')) | Should -Be '0.2.0'
         (Get-Content -LiteralPath (Join-Path $dest 'data\secrets.json')) | Should -Match 'real-user-secret'
+        (Get-Content -LiteralPath (Join-Path $dest 'data\rules\aliases.json')) | Should -Match 'real-user-rule'
+        (Get-Content -LiteralPath (Join-Path $dest 'data\lineup\numbering_blocks.json')) | Should -Match 'package-default'
     }
 
     It 'throws when the source path does not exist' {

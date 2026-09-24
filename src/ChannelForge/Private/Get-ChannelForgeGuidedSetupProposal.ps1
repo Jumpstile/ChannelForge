@@ -143,7 +143,20 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
     try {
         try { $request = ConvertFrom-ChannelForgeGuidedSetupProposalRequest -BodyBytes $BodyBytes }
         catch [System.InvalidOperationException] { return New-ChannelForgeWebProposalErrorResponse -StatusCode 413 -ErrorCode 'file-too-large' -Message 'The selected file is too large.' -Headers $Headers }
-        catch { return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'invalid-proposal-request' -Message 'The proposal request is invalid.' -Headers $Headers }
+        catch {
+            if ($_.Exception.Message -match 'source URL is not a supported public HTTPS URL') {
+                return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'unsupported-source' -Message 'Choose a local source file or a public HTTPS URL without credentials, query parameters, or fragments.' -Headers $Headers
+            }
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'invalid-proposal-request' -Message 'The proposal request is invalid.' -Headers $Headers
+        }
+        if ($request.SchemaVersion -eq 2) {
+            foreach ($relativePath in @('data/rules/aliases.json', 'data/lineup/numbering_blocks.json')) {
+                $requiredPath = Join-Path $RepositoryRoot ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+                if (-not [IO.File]::Exists($requiredPath)) {
+                    return New-ChannelForgeWebProposalErrorResponse -StatusCode 503 -ErrorCode 'package-data-unavailable' -Message 'ChannelForge is missing required local analysis data. Repair or reinstall the application, then try again.' -Headers $Headers
+                }
+            }
+        }
 
         $storageRoot = Get-ChannelForgeWebProposalStorageRoot -RepositoryRoot $RepositoryRoot
         New-Item -ItemType Directory -Force -Path $storageRoot | Out-Null
@@ -161,7 +174,11 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                 -OutputRoot $candidateRoot `
                 -CandidateContractVersion 'blocker-2-contract/v7'
             $manifest = $candidate.Manifest
-            if (@($manifest.Entries).Count -eq 0) { throw [System.ArgumentException]::new('No channels were found in the playlists.') }
+            if (@($manifest.Entries).Count -eq 0) {
+                $invalidPlaylistError = [System.ArgumentException]::new('No channels were found in the playlists.')
+                $invalidPlaylistError.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-playlist'
+                throw $invalidPlaylistError
+            }
             $manifestBindings = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
             $exact = @($manifestBindings | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
             $review = @($manifestBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
@@ -291,7 +308,11 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
 
         $candidate = New-ChannelForgeCandidateProposal -Root $RepositoryRoot -M3UPath $m3uPath -XMLTVPath $xmltvInputPath -OutputRoot $candidateRoot -CandidateContractVersion 'blocker-2-contract/v8'
         $manifest = $candidate.Manifest
-        if (@($manifest.Entries).Count -eq 0) { throw [System.ArgumentException]::new('No channels were found in the playlist.') }
+        if (@($manifest.Entries).Count -eq 0) {
+            $invalidPlaylistError = [System.ArgumentException]::new('No channels were found in the playlist.')
+            $invalidPlaylistError.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-playlist'
+            throw $invalidPlaylistError
+        }
         $bindings = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
         $exact = @($bindings | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
         $review = @($bindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count
@@ -363,7 +384,33 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
         return New-ChannelForgeWebResponse -StatusCode 200 -ContentType 'application/json; charset=utf-8' -Body $body -Headers $Headers
     }
     catch {
-        return New-ChannelForgeWebProposalErrorResponse -StatusCode 422 -ErrorCode 'proposal-unavailable' -Message 'The playlist or guide could not be analyzed safely.' -Headers $Headers
+        $failureCode = 'proposal-unavailable'
+        $failureStatus = 422
+        $failureMessage = 'ChannelForge could not safely analyze these sources. Check the selected files or retry later.'
+        $currentException = $_.Exception
+        while ($null -ne $currentException) {
+            if ($currentException.Data.Contains('ChannelForgeGuidedSetupErrorCode')) {
+                $failureCode = [string]$currentException.Data['ChannelForgeGuidedSetupErrorCode']
+                break
+            }
+            $currentException = $currentException.InnerException
+        }
+        switch ($failureCode) {
+            'invalid-playlist' {
+                $failureMessage = 'A selected playlist is not valid M3U. Choose a valid M3U or M3U8 file, then analyze again.'
+            }
+            'invalid-guide' {
+                $failureMessage = 'A selected guide is not valid XMLTV. Choose a valid XMLTV file, then analyze again.'
+            }
+            'source-unavailable' {
+                $failureStatus = 503
+                $failureMessage = 'A public HTTPS source could not be retrieved. Check its URL and connection, then try again.'
+            }
+            default {
+                $failureCode = 'proposal-unavailable'
+            }
+        }
+        return New-ChannelForgeWebProposalErrorResponse -StatusCode $failureStatus -ErrorCode $failureCode -Message $failureMessage -Headers $Headers
     }
     finally {
         if (-not $retainProposal -and $null -ne $requestRoot -and (Test-Path -LiteralPath $requestRoot)) {

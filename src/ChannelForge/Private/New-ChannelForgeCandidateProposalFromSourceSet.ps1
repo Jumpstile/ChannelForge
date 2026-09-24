@@ -29,11 +29,17 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             -SourceName ([string]$source.Label) `
             -SourceKind 'M3U' `
             -SourceOrdinal $playlistOrdinal
-        $channels = @(Import-ChannelForgeM3UPlaylist `
-                -Path $path `
-                -Provider 'candidate' `
-                -Playlist ([string]$source.Label) `
-                -CandidateContractVersion $CandidateContractVersion)
+        try {
+            $channels = @(Import-ChannelForgeM3UPlaylist `
+                    -Path $path `
+                    -Provider 'candidate' `
+                    -Playlist ([string]$source.Label) `
+                    -CandidateContractVersion $CandidateContractVersion)
+        }
+        catch {
+            $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-playlist'
+            throw
+        }
         $raw = @(Get-ChannelForgeRawM3UProjection `
                 -Channel $channels `
                 -LogicalSourceId $logicalSourceId `
@@ -116,11 +122,17 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         $xmlPath = [System.IO.Path]::GetFullPath([string]$guide.Path)
         Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $rootFull
         $xmlStatus = [ordered]@{}
-        $guideProgrammes = @(Import-ChannelForgeXmltvSource `
-                -Path $xmlPath `
-                -SourceId ([string]$guide.LogicalSourceId) `
-                -AcquisitionStatus $xmlStatus `
-                -CandidateContractVersion $CandidateContractVersion)
+        try {
+            $guideProgrammes = @(Import-ChannelForgeXmltvSource `
+                    -Path $xmlPath `
+                    -SourceId ([string]$guide.LogicalSourceId) `
+                    -AcquisitionStatus $xmlStatus `
+                    -CandidateContractVersion $CandidateContractVersion)
+        }
+        catch {
+            $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-guide'
+            throw
+        }
         foreach ($raw in @(Get-ChannelForgeRawXmltvProjection `
                     -Programme $guideProgrammes `
                     -CandidateContractVersion $CandidateContractVersion)) {

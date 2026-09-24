@@ -27,7 +27,9 @@ describe('shell accessibility scaffolding', () => {
 
     await user.click(screen.getByRole('button', { name: 'Guided Setup' }))
 
-    expect(screen.getByRole('status', { name: 'Choose workspace selection status' })).toHaveTextContent('Server-owned')
+    expect(screen.getByRole('status', { name: 'Workspace status' })).toHaveTextContent('Server-owned')
+    expect(screen.getByRole('heading', { name: 'Workspace ready' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose workspace' })).not.toBeInTheDocument()
     expect(screen.getByText('No guide selected')).toBeInTheDocument()
     expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add another playlist' })).toBeInTheDocument()

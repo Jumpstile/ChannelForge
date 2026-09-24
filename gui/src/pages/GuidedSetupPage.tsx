@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-react'
 import {
   acceptGuidedSetupSourceSetProposal,
@@ -121,6 +121,13 @@ function BrowserGuidedSetupPage({
   const [accepted, setAccepted] = useState<GuidedSetupSourceSetAcceptance | null>(null)
   const [acknowledged, setAcknowledged] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const proposalErrorRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const message = proposalErrorRef.current
+    if (!error || !message) return
+    message.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    message.focus()
+  }, [error])
   const [submitting, setSubmitting] = useState(false)
   const [accepting, setAccepting] = useState(false)
 
@@ -215,14 +222,12 @@ function BrowserGuidedSetupPage({
       file: source.mode === 'file' ? source.file : null,
       url: source.mode === 'url' ? source.url : undefined,
     }))
-    const bindingDrafts = guides.length > 0 && playlists.length > 1
-      ? guides.flatMap((guide) => {
-        const selection = bindings[guide.id] ?? { all: false, playlistIds: [] }
-        if (selection.all) return [{ guideRef: guide.id, playlistRefs: [], appliesToAll: true }]
-        if (selection.playlistIds.length === 0) return []
-        return [{ guideRef: guide.id, playlistRefs: selection.playlistIds, appliesToAll: false }]
-      })
-      : []
+    const bindingDrafts = guides.flatMap((guide) => {
+      const selection = bindings[guide.id] ?? { all: false, playlistIds: [] }
+      if (selection.all) return [{ guideRef: guide.id, playlistRefs: [], appliesToAll: true }]
+      if (selection.playlistIds.length === 0) return []
+      return [{ guideRef: guide.id, playlistRefs: selection.playlistIds, appliesToAll: false }]
+    })
     setSubmitting(true)
     setError(null)
     setProposal(null)
@@ -250,45 +255,55 @@ function BrowserGuidedSetupPage({
     }
   }
 
+  const selectedPlaylistCount = playlists.filter((source) =>
+    source.mode === 'file' ? source.file !== null : source.url.trim().length > 0,
+  ).length
+
   return (
     <div className="page-stack">
       <PageHeader description="Add one or more playlists, optionally add guides, and review explicit guide bindings before acceptance." eyebrow="Guided setup" title="Set up your workspace" />
       <StatusBanner status={accepted ? 'Success' : 'Ready'} title={accepted ? 'Accepted lineup' : 'Browser review'}>
         <p>{accepted ? 'The reviewed source set is now the accepted local state.' : 'Files are read in this browser only to create a server-owned candidate. Nothing is accepted until you acknowledge the review.'}</p>
       </StatusBanner>
-      {error ? <p className="setup-picker-error" role="alert">{error}</p> : null}
+      {error ? <p className="setup-picker-error" ref={proposalErrorRef} role="alert" tabIndex={-1}>{error}</p> : null}
       <section className="setup-step-grid" aria-label="Guided setup steps">
         <article className="setup-step-card">
-          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FolderOpen size={22} /></div><div><p className="setup-step-number">Step 1</p><h2>Choose workspace</h2></div></div>
-          <p className="setup-step-description">Browser reviews use a server-owned workspace.</p>
-          <div className="setup-step-selection" role="status" aria-label="Choose workspace selection status">
-            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Selection</span><strong>Server-owned</strong></div>
-            <span>No local path is requested by the browser flow.</span>
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FolderOpen size={22} /></div><div><p className="eyebrow">Workspace</p><h2>Workspace ready</h2></div></div>
+          <p className="setup-step-description">ChannelForge keeps this review in a server-owned workspace.</p>
+          <div className="setup-step-selection" role="status" aria-label="Workspace status">
+            <div className="setup-step-selection-row"><span className="setup-step-selection-label">Status</span><strong>Server-owned</strong></div>
+            <span>This browser flow does not ask you to choose a folder.</span>
           </div>
         </article>
         <article className="setup-step-card">
-          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><ListVideo size={22} /></div><div><p className="setup-step-number">Step 2</p><h2>Playlists</h2></div></div>
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><ListVideo size={22} /></div><div><p className="setup-step-number">Step 1</p><h2>Playlists</h2></div></div>
           <p className="setup-step-description">Add every playlist that belongs in the source set. Each item can be a local file or a public HTTPS URL.</p>
           {playlists.map((source, index) => renderSourceRow(source, 'playlist', index))}
           <button className="button button-secondary" type="button" onClick={addPlaylist}>Add another playlist</button>
         </article>
         <article className="setup-step-card">
-          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FileText size={22} /></div><div><p className="setup-step-number">Step 3</p><h2>Guides</h2></div></div>
+          <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FileText size={22} /></div><div><p className="setup-step-number">Step 2</p><h2>Guides</h2></div></div>
           <p className="setup-step-description">Guides are optional. Continue with no guide, or add each XMLTV file or public HTTPS URL explicitly.</p>
           {guides.length === 0 ? <div className="setup-step-selection" role="status"><strong>No guide selected</strong><span>ChannelForge will keep the source set in playlist-only mode.</span></div> : guides.map((source, index) => renderSourceRow(source, 'guide', index))}
           <button className="button button-secondary" type="button" onClick={addGuide}>Add guide</button>
         </article>
       </section>
-      {guides.length > 0 && playlists.length > 1 ? (
+      {guides.length > 0 ? (
         <section className="setup-match-card" aria-labelledby="guide-binding-title">
           <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">Explicit review</p><h2 id="guide-binding-title">Bind each guide to playlists</h2></div></div>
           <p className="setup-match-note">Select the playlists a guide covers, or choose all playlists. Unselected guides remain enrolled but are not applied.</p>
           {guides.map((guide) => {
             const selection = bindings[guide.id] ?? { all: false, playlistIds: [] }
+            const bindingStatus = selection.all
+              ? 'Selected for all playlists. This guide will be applied to every playlist only after you accept the reviewed proposal.'
+              : selection.playlistIds.length > 0
+                ? `Selected for ${selection.playlistIds.length} playlist${selection.playlistIds.length === 1 ? '' : 's'}. This guide will be applied only to those playlists after acceptance.`
+                : 'Currently unbound. This guide remains enrolled for review but will not be applied.'
             return (
               <fieldset className="setup-binding-fieldset" key={guide.id}>
-                <legend>{guide.label || 'Guide'} applies to:</legend>
-                <label><input checked={selection.all} type="checkbox" onChange={(event) => setBinding(guide.id, { all: event.target.checked, playlistIds: [] })} /> All playlists</label>
+                <legend>{guide.label || 'Guide'} — Apply this guide to:</legend>
+                <p className="setup-binding-status" role="status">{bindingStatus}</p>
+                {playlists.length > 1 ? <label><input checked={selection.all} type="checkbox" onChange={(event) => setBinding(guide.id, { all: event.target.checked, playlistIds: [] })} /> All playlists</label> : null}
                 {playlists.map((playlist) => <label key={playlist.id}><input checked={!selection.all && selection.playlistIds.includes(playlist.id)} disabled={selection.all} type="checkbox" onChange={(event) => setBinding(guide.id, { all: false, playlistIds: event.target.checked ? [...selection.playlistIds, playlist.id] : selection.playlistIds.filter((id) => id !== playlist.id) })} /> {playlist.label || 'Playlist'}</label>)}
               </fieldset>
             )
@@ -298,7 +313,7 @@ function BrowserGuidedSetupPage({
       <section className="setup-match-card" aria-labelledby="browser-proposal-title">
         <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">{accepted ? 'Accepted' : proposal ? 'Review ready' : 'Review'}</p><h2 id="browser-proposal-title">{accepted ? 'Lineup accepted' : 'Analyze and review'}</h2></div></div>
         <p className="setup-match-note">{accepted ? 'The acknowledgement committed the exact reviewed candidate through the existing immutable acceptance and recovery path. Provider files and downstream outputs were not changed.' : 'The server stores the exact candidate bytes for this review. Accepted state remains unchanged until you acknowledge and accept the reviewed proposal.'}</p>
-        <div className="setup-step-footer"><span className="setup-step-status">{accepted ? 'Accepted successfully' : proposal ? (proposal.Proposal.CanAccept ? 'Ready for acknowledgement' : 'Blocked by review') : 'At least one playlist required'}</span><button aria-busy={submitting} className="button button-primary" disabled={playlists.length === 0 || submitting} type="button" onClick={() => void submit()}>{submitting ? 'Analyzing proposal…' : 'Analyze source set'}</button></div>
+        <div className="setup-step-footer"><span className="setup-step-status">{accepted ? 'Accepted successfully' : proposal ? (proposal.Proposal.CanAccept ? 'Ready for acknowledgement' : 'Blocked by review') : error ? (selectedPlaylistCount > 0 ? `Analysis stopped; ${selectedPlaylistCount} playlist${selectedPlaylistCount === 1 ? '' : 's'} remain selected.` : 'Add at least one playlist to analyze.') : submitting ? `Analyzing ${selectedPlaylistCount} playlist${selectedPlaylistCount === 1 ? '' : 's'}…` : selectedPlaylistCount === 0 ? 'Add at least one playlist to analyze.' : `Ready to analyze ${selectedPlaylistCount} playlist${selectedPlaylistCount === 1 ? '' : 's'}.`}</span><button aria-busy={submitting} className="button button-primary" disabled={playlists.length === 0 || submitting} type="button" onClick={() => void submit()}>{submitting ? 'Analyzing proposal…' : 'Analyze source set'}</button></div>
         {proposal ? (
           <div className="setup-proposal-summary" role="status" aria-live="polite">
             <strong>{accepted ? 'Accepted lineup confirmed.' : proposal.Proposal.CanAccept ? 'Review ready. Nothing has been accepted yet.' : 'Review blocked. Nothing has been accepted.'}</strong>

@@ -220,6 +220,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
                     -PlaylistSources $sourceInputs.PlaylistSources `
                     -GuideSources $sourceInputs.GuideSources `
                     -Bindings $sourceInputs.Bindings `
+                    -PreserveUnboundGuides `
                     -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
                     -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
                     -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)

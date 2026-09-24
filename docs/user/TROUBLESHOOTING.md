@@ -60,23 +60,32 @@ or parser details. Stop the foreground server with `Ctrl+C`.
 
 ## Browser Guided Setup review and acceptance
 
-The browser flow accepts one M3U/M3U8 playlist and an optional XMLTV guide. It
-posts file bytes to `POST /api/guided-setup/proposal` as a bounded JSON/base64
-request. The browser never sends a local path. The server returns an opaque
-review handle and persists the exact candidate under its ignored,
-server-owned review namespace.
+The browser flow accepts one or more M3U/M3U8 playlists and optional XMLTV
+guides, supplied as local files or public HTTPS URLs. Local file contents are
+sent as a bounded JSON/base64 request; the browser never sends a local path.
+The server returns an opaque review handle and stores the candidate in its
+server-owned review namespace. **Workspace ready** is informational; this flow
+does not ask the user to choose a folder.
 
-| Symptom                                       | Likely cause                                   | What to do                                                                                                  |
-| --------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Analyze proposal** is disabled              | No playlist has been selected                  | Choose exactly one non-empty M3U or M3U8 file                                                               |
-| The request says the file is too large        | The decoded file exceeds its type limit        | Keep the M3U/M3U8 file at or below 4 MiB and the XMLTV file at or below 12 MiB                              |
-| The request says the proposal is invalid      | Unsupported metadata, encoding, or file shape  | Re-select the files and use the browser chooser; do not provide a path or edit the request envelope         |
-| The proposal says analysis is unavailable     | The candidate parser rejected the input        | Confirm the playlist is valid M3U and the guide is valid XMLTV, then retry; raw parser details stay hidden  |
-| Acceptance is blocked                         | Ambiguous guide identity needs review          | Resolve the guide ambiguity by choosing a new unambiguous guide; the browser never guesses a binding        |
-| Acceptance says the proposal is stale         | Another acceptance changed the reviewed parent | Return to Guided Setup and analyze the files again; ChannelForge never rebases a stale review automatically |
-| Acceptance says the proposal was already used | The opaque review session is terminal          | Do not resubmit it; analyze a new proposal when the source files change                                     |
-| Acceptance verification failed                | The durable candidate or session was altered   | Do not retry the same handle; analyze the files again and preserve the server response for diagnostics      |
-| The proposal has no guide                     | XMLTV was omitted                              | This is supported no-guide mode; review playlist counts and accept only after the acknowledgement           |
+| Symptom                                       | Likely cause                                                                              | What to do                                                                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Analyze is unavailable                        | One or more playlist or guide rows are incomplete                                         | Complete every configured row; the footer counts ready playlists                                                                    |
+| Analysis stopped after an error               | The request or one of its sources could not be safely analyzed                            | Read the focused error banner, correct the file or URL, and retry; selected sources remain available                                |
+| Required analysis data is missing             | The installed package is incomplete                                                       | Repair or reinstall ChannelForge; user configuration is not replaced by this repair                                                 |
+| A playlist or guide is invalid                | Its content does not match M3U/M3U8 or XMLTV structure                                    | Choose a valid source file; parser details and local paths are intentionally hidden                                                 |
+| A source URL is unsupported                   | It is not a public HTTPS URL, or it contains credentials, query parameters, or a fragment | Use a local file or a public HTTPS URL without credentials, query parameters, or fragments                                          |
+| A public HTTPS source is unavailable          | The remote host could not be safely retrieved                                             | Check the URL and connection, then retry                                                                                            |
+| Acceptance is blocked                         | A candidate review blocker needs resolution                                               | Resolve the displayed review blocker; ChannelForge never guesses a guide binding                                                    |
+| Acceptance says the proposal is stale         | Another acceptance changed the reviewed parent                                            | Return to Guided Setup and analyze the files again; ChannelForge never rebases a stale review automatically                         |
+| Acceptance says the proposal was already used | The opaque review session is terminal                                                     | Do not resubmit it; analyze a new proposal when the source files change                                                             |
+| Acceptance verification failed                | The durable candidate or session was altered                                              | Do not retry the same handle; analyze the files again and preserve the server response for diagnostics                              |
+| A guide is unbound                            | No playlist was explicitly selected for that guide                                        | Select one or more playlists, or explicitly choose **All playlists**; unbound guides remain enrolled for review but are not applied |
+
+Each guide starts unbound, including when only one playlist is configured.
+Choose the playlist(s) a guide covers before analysis. **All playlists** is a
+separate explicit choice. No selection means the guide remains unbound;
+it is not interpreted as “all playlists.” An unbound guide can remain in the
+accepted source enrollment, but it is not applied to a playlist or published as guide output.
 
 The proposal endpoint caps the encoded request at 24 MiB, and the acceptance
 endpoint caps its strict acknowledgement envelope at 8 KiB. The browser sends

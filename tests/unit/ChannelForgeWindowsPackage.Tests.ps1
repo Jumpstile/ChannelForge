@@ -7,6 +7,9 @@ BeforeAll {
         $root = Join-Path $TestDrive ('package-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'src') | Out-Null
         Set-Content -LiteralPath (Join-Path $root 'src\app.ps1') -Value 'Write-Output app' -NoNewline
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'data\rules'), (Join-Path $root 'data\lineup') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Value '{"aliases":[]}' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root 'data\lineup\numbering_blocks.json') -Value '{"blocks":[]}' -NoNewline
         Set-Content -LiteralPath (Join-Path $root 'VERSION') -Value '0.1.0' -NoNewline
         $files = foreach ($item in @(Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName)) {
             [ordered]@{
@@ -33,7 +36,18 @@ Describe 'Test-ChannelForgeWindowsPackage' {
     It 'accepts a complete package manifest and hashes' {
         $root = New-TestWindowsPackage
         $result = Test-ChannelForgeWindowsPackage -PackageRoot $root
-        $result.FileCount | Should -Be 2
+        $result.FileCount | Should -Be 4
+        @($result.Manifest.Files.Path) | Should -Contain 'data/rules/aliases.json'
+        @($result.Manifest.Files.Path) | Should -Contain 'data/lineup/numbering_blocks.json'
+        @($result.Manifest.Files.Path) | Should -Not -Contain 'data/providers/mybunny.json'
+    }
+
+    It 'rejects a package missing either required runtime data file' {
+        foreach ($relativePath in @('data\rules\aliases.json', 'data\lineup\numbering_blocks.json')) {
+            $root = New-TestWindowsPackage
+            Remove-Item -LiteralPath (Join-Path $root $relativePath) -Force
+            { Test-ChannelForgeWindowsPackage -PackageRoot $root } | Should -Throw '*Required package runtime data is missing*'
+        }
     }
 
     It 'rejects a tampered manifest file' {
