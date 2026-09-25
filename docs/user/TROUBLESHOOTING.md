@@ -79,13 +79,15 @@ does not ask the user to choose a folder.
 | Acceptance says the proposal is stale         | Another acceptance changed the reviewed parent                                            | Return to Guided Setup and analyze the files again; ChannelForge never rebases a stale review automatically                         |
 | Acceptance says the proposal was already used | The opaque review session is terminal                                                     | Do not resubmit it; analyze a new proposal when the source files change                                                             |
 | Acceptance verification failed                | The durable candidate or session was altered                                              | Do not retry the same handle; analyze the files again and preserve the server response for diagnostics                              |
-| A guide is unbound                            | No playlist was explicitly selected for that guide                                        | Select one or more playlists, or explicitly choose **All playlists**; unbound guides remain enrolled for review but are not applied |
+| A guide is unbound                            | No playlist was selected, or the choice was explicitly cleared                            | Select one or more playlists, or explicitly choose **All playlists**; unbound guides remain enrolled for review but are not applied |
 
-Each guide starts unbound, including when only one playlist is configured.
-Choose the playlist(s) a guide covers before analysis. **All playlists** is a
-separate explicit choice. No selection means the guide remains unbound;
-it is not interpreted as “all playlists.” An unbound guide can remain in the
-accepted source enrollment, but it is not applied to a playlist or published as guide output.
+A newly added guide defaults to the only playlist when exactly one playlist is
+configured and no saved binding decision exists. Clearing that selection is an
+explicit unbound choice and remains so during repeated analysis and enrollment.
+With multiple playlists, an omitted binding remains unbound; it is never
+interpreted as **All playlists**. An unbound guide can remain in accepted
+source enrollment, but it is not applied to a playlist or published as guide
+output.
 
 The proposal endpoint caps the encoded request at 24 MiB, and the acceptance
 endpoint caps its strict acknowledgement envelope at 8 KiB. The browser sends

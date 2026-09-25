@@ -103,6 +103,7 @@ type BrowserSourceRow = {
 type GuideBindingSelection = {
   all: boolean
   playlistIds: string[]
+  explicitlyUnbound: boolean
 }
 
 function BrowserGuidedSetupPage({
@@ -150,7 +151,11 @@ function BrowserGuidedSetupPage({
   }
   const addGuide = () => {
     const number = guides.length + 1
-    setGuides((items) => [...items, { id: `guide-${number}-${Date.now()}`, label: `Guide ${number}`, mode: 'file', file: null, url: '' }])
+    const guide = { id: `guide-${number}-${Date.now()}`, label: `Guide ${number}`, mode: 'file' as const, file: null, url: '' }
+    setGuides((items) => [...items, guide])
+    if (playlists.length === 1) {
+      setBindings((current) => ({ ...current, [guide.id]: { all: false, playlistIds: [playlists[0].id], explicitlyUnbound: false } }))
+    }
     resetReview()
   }
   const removeGuide = (id: string) => {
@@ -162,8 +167,11 @@ function BrowserGuidedSetupPage({
     })
     resetReview()
   }
-  const setBinding = (guideId: string, selection: GuideBindingSelection) => {
-    setBindings((current) => ({ ...current, [guideId]: selection }))
+  const setBinding = (guideId: string, selection: Omit<GuideBindingSelection, 'explicitlyUnbound'>) => {
+    setBindings((current) => ({
+      ...current,
+      [guideId]: { ...selection, explicitlyUnbound: !selection.all && selection.playlistIds.length === 0 },
+    }))
     resetReview()
   }
 
@@ -223,10 +231,12 @@ function BrowserGuidedSetupPage({
       url: source.mode === 'url' ? source.url : undefined,
     }))
     const bindingDrafts = guides.flatMap((guide) => {
-      const selection = bindings[guide.id] ?? { all: false, playlistIds: [] }
+      const selection = bindings[guide.id]
+      if (!selection) return []
       if (selection.all) return [{ guideRef: guide.id, playlistRefs: [], appliesToAll: true }]
-      if (selection.playlistIds.length === 0) return []
-      return [{ guideRef: guide.id, playlistRefs: selection.playlistIds, appliesToAll: false }]
+      if (selection.playlistIds.length > 0) return [{ guideRef: guide.id, playlistRefs: selection.playlistIds, appliesToAll: false }]
+      if (selection.explicitlyUnbound) return [{ guideRef: guide.id, playlistRefs: [], appliesToAll: false, explicitlyUnbound: true }]
+      return []
     })
     setSubmitting(true)
     setError(null)
@@ -291,14 +301,16 @@ function BrowserGuidedSetupPage({
       {guides.length > 0 ? (
         <section className="setup-match-card" aria-labelledby="guide-binding-title">
           <div className="setup-match-heading"><div className="setup-progress-icon" aria-hidden="true"><CheckCircle2 size={20} /></div><div><p className="eyebrow">Explicit review</p><h2 id="guide-binding-title">Bind each guide to playlists</h2></div></div>
-          <p className="setup-match-note">Select the playlists a guide covers, or choose all playlists. Unselected guides remain enrolled but are not applied.</p>
+          <p className="setup-match-note">A guide defaults to the only playlist. Clear its selection to keep it explicitly unbound, or choose all playlists when more than one is configured.</p>
           {guides.map((guide) => {
-            const selection = bindings[guide.id] ?? { all: false, playlistIds: [] }
+            const selection = bindings[guide.id] ?? { all: false, playlistIds: [], explicitlyUnbound: false }
             const bindingStatus = selection.all
               ? 'Selected for all playlists. This guide will be applied to every playlist only after you accept the reviewed proposal.'
               : selection.playlistIds.length > 0
                 ? `Selected for ${selection.playlistIds.length} playlist${selection.playlistIds.length === 1 ? '' : 's'}. This guide will be applied only to those playlists after acceptance.`
-                : 'Currently unbound. This guide remains enrolled for review but will not be applied.'
+                : selection.explicitlyUnbound
+                  ? 'Explicitly unbound. This guide remains enrolled for review but will not be applied.'
+                  : 'Unbound because no binding decision was supplied. This guide remains enrolled for review but will not be applied.'
             return (
               <fieldset className="setup-binding-fieldset" key={guide.id}>
                 <legend>{guide.label || 'Guide'} — Apply this guide to:</legend>

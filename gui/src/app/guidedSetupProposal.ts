@@ -57,6 +57,7 @@ export type GuidedSetupBindingDraft = {
   guideRef: string
   playlistRefs: string[]
   appliesToAll: boolean
+  explicitlyUnbound?: true
 }
 
 export type GuidedSetupSourceSetProposal = {
@@ -240,6 +241,7 @@ export async function submitGuidedSetupSourceSetProposal(
       guideRef: binding.guideRef,
       playlistRefs: binding.playlistRefs,
       appliesToAll: binding.appliesToAll,
+      ...(binding.explicitlyUnbound ? { explicitlyUnbound: true } : {}),
     })),
   }
   const response = await fetch('/api/guided-setup/proposal', {

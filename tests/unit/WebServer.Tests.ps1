@@ -103,7 +103,9 @@ BeforeAll {
         foreach ($binding in @($Bindings)) {
             $refs = [System.Collections.Generic.List[string]]::new()
             foreach ($reference in @($binding.Playlists)) { [void]$refs.Add([string]$reference) }
-            [void]$bindingItems.Add([pscustomobject][ordered]@{ guideRef = [string]$binding.Guide; playlistRefs = $refs; appliesToAll = [bool]$binding.All })
+            $item = [ordered]@{ guideRef = [string]$binding.Guide; playlistRefs = $refs; appliesToAll = [bool]$binding.All }
+            if ($binding.ExplicitlyUnbound) { $item.explicitlyUnbound = $true }
+            [void]$bindingItems.Add([pscustomobject]$item)
         }
         $payload = [ordered]@{ schemaVersion = 2; playlists = $playlistItems; guides = $guideItems; bindings = $bindingItems }
         return [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 10 -Compress))
@@ -947,23 +949,48 @@ Describe 'ChannelForge web server foundation' {
         Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
     }
 
-    It 'keeps guides unbound until the user explicitly selects a playlist' {
-        $root = Join-Path $TestDrive 'v2-one-many-guides'
+    It 'auto-binds omitted guide decisions to the sole playlist' {
+        $root = Join-Path $TestDrive 'v2-one-guide'
+        Initialize-TestCandidateData -Root $root
+        $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=`"one`",One`nhttps://example.invalid/one`n"
+        $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>One</title></programme></tv>'
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = $guide })
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        $payload = $proposal.Body | ConvertFrom-Json
+        $proposal.StatusCode | Should -Be 200
+        $payload.Proposal.BoundGuideCount | Should -Be 1
+        $payload.Proposal.UnboundGuideCount | Should -Be 0
+        $payload.Proposal.GuideStatus | Should -Be 'XMLTV_SELECTED'
+        $payload.Proposal.ExactGuideMatchCount | Should -Be 1
+        $payload.Proposal.UnmatchedPlaylistCount | Should -Be 0
+        $payload.Proposal.AmbiguityCount | Should -Be 0
+        $sessionPath = Join-Path $root "output\\.web-guided-setup\\proposals\\$($payload.Proposal.ProposalId)\\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $session.SourceSet.Bindings.Count | Should -Be 1
+        $session.SourceSet.Bindings[0].PlaylistIds.Count | Should -Be 1
+        $session.SourceSet.Bindings[0].ExplicitlyUnbound | Should -BeFalse
+    }
+
+    It 'preserves an explicit browser unbind instead of applying the one-playlist default' {
+        $root = Join-Path $TestDrive 'v2-one-explicit-unbound'
         Initialize-TestCandidateData -Root $root
         $playlist = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n"
         $guide = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>News</title></programme></tv>'
-        $guides = @([pscustomobject]@{ Key = 'g1'; Text = $guide }, [pscustomobject]@{ Key = 'g2'; Text = $guide })
-        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides $guides
+        $bindings = @([pscustomobject]@{ Guide = 'g1'; Playlists = @(); All = $false; ExplicitlyUnbound = $true })
+        $body = New-TestMultiSourceProposalBody -Playlists @([pscustomobject]@{ Key = 'p1'; Text = $playlist }) -Guides @([pscustomobject]@{ Key = 'g1'; Text = $guide }) -Bindings $bindings
         $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
         $payload = $proposal.Body | ConvertFrom-Json
         $proposal.StatusCode | Should -Be 200
         $payload.Proposal.BoundGuideCount | Should -Be 0
-        $payload.Proposal.UnboundGuideCount | Should -Be 2
-        $payload.Proposal.GuideStatus | Should -Be 'XMLTV_UNBOUND_ACTIONABLE'
+        $payload.Proposal.UnboundGuideCount | Should -Be 1
+        $payload.Proposal.ExactGuideMatchCount | Should -Be 0
+        $payload.Proposal.AmbiguityCount | Should -Be 0
         $payload.Proposal.CanAccept | Should -BeTrue
-        $payload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
-        $acceptedPayload = Complete-TestV2Acceptance -RepositoryRoot $root -ProposalPayload $payload -ExpectedGuideStatus 'XMLTV_ACCEPTED_WITH_UNBOUND'
-        $acceptedPayload.EnrollmentStatus | Should -Be 'SAVED'
+        $sessionPath = Join-Path $root "output\\.web-guided-setup\\proposals\\$($payload.Proposal.ProposalId)\\session.json"
+        $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        $session.SourceSet.Bindings[0].ExplicitlyUnbound | Should -BeTrue
+        @($session.SourceSet.Bindings[0].PlaylistIds).Count | Should -Be 0
+        $session.SourceSet.Bindings[0].AppliesToAll | Should -BeFalse
     }
 
     It 'accepts multiple playlists and retains omitted guide bindings as actionable' {

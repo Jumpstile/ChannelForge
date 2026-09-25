@@ -141,7 +141,7 @@ describe('browser Guided Setup proposal and acceptance', () => {
     expect(screen.getByText('two.m3u')).toBeInTheDocument()
   })
 
-  it('keeps a guide unbound until its playlist is explicitly selected', async () => {
+  it('defaults one guide to the sole playlist and preserves an explicit unbind across analysis', async () => {
     const user = userEvent.setup()
     const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)
     render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
@@ -149,23 +149,24 @@ describe('browser Guided Setup proposal and acceptance', () => {
     await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one\n'], 'one.m3u'))
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
-    expect(screen.getByText('Currently unbound. This guide remains enrolled for review but will not be applied.')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Playlist 1' })).not.toBeChecked()
-    expect(screen.getByRole('group', { name: /Apply this guide to/ })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
-    await screen.findByText('Review ready. Nothing has been accepted yet.')
-    expect(submitter.mock.calls[0][0]).toHaveLength(1)
-    expect(submitter.mock.calls[0][1]).toHaveLength(1)
-    expect(submitter.mock.calls[0][2]).toEqual([])
-
-    await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
+    expect(screen.getByRole('checkbox', { name: 'Playlist 1' })).toBeChecked()
     expect(screen.getByText(/Selected for 1 playlist/)).toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
     await screen.findByText('Review ready. Nothing has been accepted yet.')
-    expect(submitter.mock.calls[1][2]).toEqual([
+    expect(submitter.mock.calls[0][2]).toEqual([
       expect.objectContaining({ playlistRefs: ['playlist-1'], appliesToAll: false }),
     ])
+
+    await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
+    expect(screen.getByText(/Explicitly unbound/)).toBeInTheDocument()
+    for (let index = 1; index <= 2; index += 1) {
+      await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+      await screen.findByText('Review ready. Nothing has been accepted yet.')
+      expect(submitter.mock.calls[index][2]).toEqual([
+        expect.objectContaining({ playlistRefs: [], appliesToAll: false, explicitlyUnbound: true }),
+      ])
+    }
   })
 
   it('sends multiple selected playlists as an explicit non-ALL guide binding', async () => {

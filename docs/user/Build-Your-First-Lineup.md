@@ -140,11 +140,12 @@ The loopback web UI supports browser review and explicit acceptance without
 asking for a local path. Add one or more `.m3u`/`.m3u8` playlists. Add zero or
 more `.xml`/`.xmltv` guides, or choose **Public HTTPS** for a non-tokenized
 `https://` source. Select **Add another playlist** when a provider publishes
-more than one playlist. Each guide starts unbound, even when only one playlist
-is configured. Bind it to one or more playlists, or explicitly choose **All
-playlists**. Leaving every playlist unselected keeps the guide unbound; it is
-not treated as **All playlists**. **No guide selected** is an explicit
-playlist-only mode.
+more than one playlist. When a guide is added with exactly one playlist and
+no saved binding decision, ChannelForge selects that playlist by default.
+Clear the selection to explicitly keep the guide unbound; that choice is
+preserved through repeated analysis and enrollment. With multiple playlists,
+an omitted choice remains unbound. Bind a guide to one or more playlists, or
+explicitly choose **All playlists**. No guide selected is playlist-only mode.
 
 The browser sends this same-origin JSON envelope:
 
@@ -171,6 +172,12 @@ The browser sends this same-origin JSON envelope:
   ]
 }
 ```
+
+When a user clears the sole-playlist default, the browser submits
+`{ "guideRef": "guide-1", "playlistRefs": [], "appliesToAll": false, "explicitlyUnbound": true }`.
+That explicit decision is distinct from an omitted binding descriptor. **All
+playlists** remains a separate explicit choice; an omitted multi-playlist
+binding remains unbound.
 
 Each source provides exactly one local file or public HTTPS URL. URL
 enrollment rejects non-HTTPS, credentials, query or fragment tokens,

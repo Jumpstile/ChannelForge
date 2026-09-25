@@ -180,7 +180,7 @@ function ConvertFrom-ChannelForgeGuidedSetupMultiSourceRequest {
             if ($bindingProperties.ContainsKey($property.Name)) {
                 throw [System.ArgumentException]::new('The guide binding descriptor contains duplicate properties.')
             }
-            if ($property.Name -notin @('guideRef', 'playlistRefs', 'appliesToAll')) {
+            if ($property.Name -notin @('guideRef', 'playlistRefs', 'appliesToAll', 'explicitlyUnbound')) {
                 throw [System.ArgumentException]::new('The guide binding descriptor contains an unsupported property.')
             }
             $bindingProperties[$property.Name] = $property.Value
@@ -209,10 +209,20 @@ function ConvertFrom-ChannelForgeGuidedSetupMultiSourceRequest {
             throw [System.ArgumentException]::new('A guide binding must declare appliesToAll.')
         }
         $appliesToAll = $bindingProperties['appliesToAll'].GetBoolean()
+        $explicitlyUnbound = $false
+        if ($bindingProperties.ContainsKey('explicitlyUnbound')) {
+            if ($bindingProperties['explicitlyUnbound'].ValueKind -ne [System.Text.Json.JsonValueKind]::True) {
+                throw [System.ArgumentException]::new('explicitlyUnbound must be true when supplied.')
+            }
+            $explicitlyUnbound = $true
+        }
+        if ($explicitlyUnbound -and ($appliesToAll -or $playlistKeysForBinding.Count -gt 0)) {
+            throw [System.ArgumentException]::new('An explicitly unbound guide cannot select playlists or apply to all.')
+        }
         if ($appliesToAll -and $playlistKeysForBinding.Count -gt 0) { throw [System.ArgumentException]::new('ALL/shared bindings cannot list playlist references.') }
-        if (-not $appliesToAll -and $playlistKeysForBinding.Count -eq 0) { throw [System.ArgumentException]::new('A non-ALL guide binding must select at least one playlist.') }
+        if (-not $appliesToAll -and $playlistKeysForBinding.Count -eq 0 -and -not $explicitlyUnbound) { throw [System.ArgumentException]::new('A non-ALL guide binding must select at least one playlist.') }
         $sortedPlaylistKeys = @($playlistKeysForBinding | Sort-Object)
-        $effectiveKey = "$guideKey|$appliesToAll|$($sortedPlaylistKeys -join ',')"
+        $effectiveKey = "$guideKey|$appliesToAll|$explicitlyUnbound|$($sortedPlaylistKeys -join ',')"
         if (-not $effectiveBindings.Add($effectiveKey)) { throw [System.ArgumentException]::new('Duplicate effective guide binding is not allowed.') }
         $bindings += [pscustomobject][ordered]@{
             GuideKey    = $guideKey
@@ -220,11 +230,28 @@ function ConvertFrom-ChannelForgeGuidedSetupMultiSourceRequest {
             PlaylistKeys = $sortedPlaylistKeys
             PlaylistIds = @($sortedPlaylistKeys | ForEach-Object { [string]$playlistByKey[$_].SourceId })
             AppliesToAll = $appliesToAll
+            ExplicitlyUnbound = $explicitlyUnbound
             Revision    = 1
             Enabled     = $true
         }
     }
-
+    if ($playlists.Count -eq 1) {
+        foreach ($guide in $guides) {
+            if ($boundGuideKeys.Add([string]$guide.SourceKey)) {
+                $playlist = $playlists[0]
+                $bindings += [pscustomobject][ordered]@{
+                    GuideKey = [string]$guide.SourceKey
+                    GuideId = [string]$guide.SourceId
+                    PlaylistKeys = @([string]$playlist.SourceKey)
+                    PlaylistIds = @([string]$playlist.SourceId)
+                    AppliesToAll = $false
+                    ExplicitlyUnbound = $false
+                    Revision = 1
+                    Enabled = $true
+                }
+            }
+        }
+    }
 
     return [pscustomobject][ordered]@{
         SchemaVersion = 2
@@ -405,6 +432,7 @@ function Get-ChannelForgeGuidedSetupSourceSetInputs {
                 GuideId = [string]$_.GuideId
                 PlaylistIds = @($_.PlaylistIds | ForEach-Object { [string]$_ })
                 AppliesToAll = [bool]$_.AppliesToAll
+                ExplicitlyUnbound = [bool]$_.ExplicitlyUnbound
                 Revision = if ($null -eq $_.Revision) { 1 } else { [int]$_.Revision }
                 Enabled = if ($null -eq $_.Enabled) { $true } else { [bool]$_.Enabled }
             }

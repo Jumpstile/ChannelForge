@@ -185,8 +185,11 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
             $unbound = @($manifestBindings | Where-Object { [string]$_.Status -eq 'Unbound' }).Count
             $guideOnly = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
             $boundGuideIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-            foreach ($binding in @($staged.Bindings)) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
+            foreach ($binding in @($staged.Bindings)) {
+                if (-not [bool]$binding.ExplicitlyUnbound) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
+            }
             $unboundGuideCount = @($staged.Guides | Where-Object { -not $boundGuideIds.Contains([string]$_.SourceId) }).Count
+            $boundGuideCount = $boundGuideIds.Count
             $guideStatus = if (@($staged.Guides).Count -eq 0) { 'NO_GUIDE_SELECTED' } elseif ($unboundGuideCount -gt 0) { 'XMLTV_UNBOUND_ACTIONABLE' } else { 'XMLTV_SELECTED' }
             $warnings = [System.Collections.Generic.List[object]]::new()
             if ($review -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'ambiguous-guide-match'; Message = 'Some guide identities need review before a guide can be trusted.' }) }
@@ -235,6 +238,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                         GuideId = [string]$_.GuideId
                         PlaylistIds = @($_.PlaylistIds | ForEach-Object { [string]$_ })
                         AppliesToAll = [bool]$_.AppliesToAll
+                        ExplicitlyUnbound = [bool]$_.ExplicitlyUnbound
                         Revision = [int]$_.Revision
                         Enabled = [bool]$_.Enabled
                     }
@@ -257,7 +261,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                 UnmatchedPlaylistCount = $unbound
                 GuideOnlyCount = $guideOnly
                 GuideCount = @($staged.Guides).Count
-                BoundGuideCount = @($staged.Bindings).Count
+                BoundGuideCount = $boundGuideCount
                 UnboundGuideCount = $unboundGuideCount
                 GuideStatus = $guideStatus
                 CanAccept = $canAccept
@@ -275,7 +279,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                     ProposalId = $proposalId
                     PlaylistCount = @($staged.Playlists).Count
                     GuideCount = @($staged.Guides).Count
-                    BoundGuideCount = @($staged.Bindings).Count
+                    BoundGuideCount = $boundGuideCount
                     UnboundGuideCount = $unboundGuideCount
                     ChannelCount = [int]$session.ChannelCount
                     ExactGuideMatchCount = $exact

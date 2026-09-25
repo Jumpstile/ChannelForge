@@ -118,13 +118,20 @@ function Assert-ChannelForgeSourceEnrollmentV2Integrity {
         $guideId = [string]$binding.GuideId
         if ($guideId -notin $guideIds) { throw 'FAIL_CLOSED: source enrollment binding references a missing guide.' }
         $all = [bool]$binding.AppliesToAll
+        $explicitlyUnbound = if ($binding -is [System.Collections.IDictionary]) {
+            $binding.Contains('ExplicitlyUnbound') -and [bool]$binding['ExplicitlyUnbound']
+        } else {
+            $null -ne $binding.PSObject.Properties['ExplicitlyUnbound'] -and [bool]$binding.ExplicitlyUnbound
+        }
         $ids = @($binding.PlaylistIds | ForEach-Object { [string]$_ } | Sort-Object -Unique)
-        if ($all) {
+        if ($explicitlyUnbound) {
+            if ($all -or $ids.Count -gt 0) { throw 'FAIL_CLOSED: explicit unbound source enrollment binding cannot select playlists.' }
+        } elseif ($all) {
             if ($ids.Count -ne 0) { throw 'FAIL_CLOSED: ALL source enrollment binding must not list playlist IDs.' }
         } elseif ($ids.Count -eq 0 -or @($ids | Where-Object { $_ -notin $playlistIds }).Count -gt 0) {
             throw 'FAIL_CLOSED: source enrollment binding references an invalid playlist selection.'
         }
-        $key = "$guideId|$all|$($ids -join ',')"
+        $key = "$guideId|$all|$explicitlyUnbound|$($ids -join ',')"
         if ($effective.ContainsKey($key)) { throw 'FAIL_CLOSED: source enrollment contains a duplicate effective guide binding.' }
         $effective[$key] = $true
     }
@@ -475,15 +482,28 @@ function Write-ChannelForgeSourceSet {
         $guideId = [string]$binding.GuideId
         if ($guideId -notin @($guides | ForEach-Object SourceId)) { throw 'SOURCE_ENROLLMENT_INVALID: binding guide is not enrolled.' }
         $all = [bool]$binding.AppliesToAll
+        $explicitlyUnbound = $binding.PSObject.Properties.Name -contains 'ExplicitlyUnbound' -and [bool]$binding.ExplicitlyUnbound
         $playlistIds = @($binding.PlaylistIds | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
         if ($all) {
             if ($playlistIds.Count -gt 0) { throw 'SOURCE_ENROLLMENT_INVALID: ALL bindings cannot list playlist IDs.' }
+            $playlistIds = @()
+        } elseif ($explicitlyUnbound) {
+            if ($playlistIds.Count -gt 0) { throw 'SOURCE_ENROLLMENT_INVALID: explicitly unbound bindings cannot list playlist IDs.' }
             $playlistIds = @()
         } elseif ($playlistIds.Count -eq 0 -or @($playlistIds | Where-Object { $_ -notin @($playlists | ForEach-Object SourceId) }).Count -gt 0) {
             throw 'SOURCE_ENROLLMENT_INVALID: binding playlist selection is invalid.'
         }
         $revision = if ($null -eq $binding.Revision) { 1 } else { [int]$binding.Revision }
-        $bindingsOut += [ordered]@{ BindingId = Get-ChannelForgeDomainHash -Domain 'source-binding/v2' -InputObject ([ordered]@{ GuideId = $guideId; PlaylistIds = @($playlistIds | Sort-Object); AppliesToAll = $all; Revision = $revision }); GuideId = $guideId; PlaylistIds = @($playlistIds | Sort-Object); AppliesToAll = $all; Enabled = if ($null -eq $binding.Enabled) { $true } else { [bool]$binding.Enabled }; Revision = $revision }
+        $bindingRecord = [ordered]@{
+            BindingId = Get-ChannelForgeDomainHash -Domain 'source-binding/v2' -InputObject ([ordered]@{ GuideId = $guideId; PlaylistIds = @($playlistIds | Sort-Object); AppliesToAll = $all; Revision = $revision })
+            GuideId = $guideId
+            PlaylistIds = @($playlistIds | Sort-Object)
+            AppliesToAll = $all
+            Enabled = if ($null -eq $binding.Enabled) { $true } else { [bool]$binding.Enabled }
+            Revision = $revision
+        }
+        if ($explicitlyUnbound) { $bindingRecord.ExplicitlyUnbound = $true }
+        $bindingsOut += $bindingRecord
     }
     if (-not $PreserveUnboundGuides -and @($guides).Count -gt 0 -and @($bindingsOut).Count -eq 0 -and @($playlists).Count -eq 1) {
         $playlistId = [string]$playlists[0].SourceId

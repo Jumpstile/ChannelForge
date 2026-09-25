@@ -67,14 +67,16 @@ non-negative priority, and exactly one bounded `contentBase64` or non-tokenized
 public HTTPS `url`. `sourceKey` is only a request reference: the server derives
 the durable SourceId and every binding identity.
 
-Bindings refer to request keys. A binding selects one or more playlists, or
-sets `appliesToAll: true` with no playlist references. Duplicate, dangling,
-ambiguous, and malformed bindings fail closed. With one playlist, omitted
-bindings auto-bind every guide. With multiple playlists, omitted bindings
-leave guides enrolled and actionable with no inferred binding; `CanAccept`
-remains true unless an independent review blocker exists, and the unbound
-guide is excluded from guide application. The response remains aggregate and
-opaque. Source bytes and acquired public HTTPS content are staged below
+Bindings refer to request keys. A binding selects one or more playlists,
+sets `appliesToAll: true` with no playlist references, or supplies
+`explicitlyUnbound: true` with no playlist references and `appliesToAll: false`.
+Duplicate, dangling, ambiguous, and malformed bindings fail closed. With one
+playlist, an omitted decision auto-binds each guide unless an explicit-unbound
+descriptor is present. With multiple playlists, omitted bindings leave guides
+enrolled and actionable with no inferred binding; `CanAccept` remains true
+unless an independent review blocker exists, and the unbound guide is excluded
+from guide application. The response remains aggregate and opaque.
+Source bytes and acquired public HTTPS content are staged below
 server-derived 64-hex source IDs, never client filenames or paths. Each
 staged source's authenticated input hash and byte length are retained in the
 review session and checked again before candidate publication or enrollment.
@@ -87,9 +89,9 @@ enforced before or during staging.
 
 The browser sends the same v2 source-set contract: multiple playlist rows,
 optional multiple guide rows, local file or public HTTPS input per row, and
-explicit selected/all binding controls. A no-guide submission sends an empty
-guide array. Legacy v1 callers remain accepted for compatibility, but new
-browser behavior uses v2.
+explicit selected/all/unbound binding decisions. A no-guide submission sends
+an empty guide array. Legacy v1 callers remain accepted for compatibility,
+but new browser behavior uses v2.
 
 The server-owned proposal identity is a lowercase 32-hex opaque GUID. It is
 resolved only below ignored `output/.web-guided-setup/proposals/` storage.
