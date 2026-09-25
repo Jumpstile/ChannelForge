@@ -76,6 +76,7 @@ describe('browser Guided Setup proposal and acceptance', () => {
     expect(submitter.mock.calls[0][1]).toEqual([expect.objectContaining({ file: guide })])
     expect(submitter.mock.calls[0][2]).toEqual([{ guideRef: expect.any(String), playlistRefs: [], appliesToAll: true }])
     expect(await screen.findByText('Review ready. Nothing has been accepted yet.')).toBeInTheDocument()
+    expect(screen.getByText('Unmatched playlists').parentElement).toHaveTextContent(/Unmatched playlists\s*1/)
     expect(screen.getByText('Some playlist entries have no exact guide match.')).toBeInTheDocument()
     expect(screen.queryByText('a'.repeat(64))).not.toBeInTheDocument()
     const acceptButton = screen.getByRole('button', { name: 'Accept reviewed proposal' })

@@ -333,6 +333,7 @@ function BrowserGuidedSetupPage({
               <div><dt>Playlists</dt><dd>{proposal.Proposal.PlaylistCount}</dd></div>
               <div><dt>Guides</dt><dd>{proposal.Proposal.GuideCount}</dd></div>
               <div><dt>Exact guide matches</dt><dd>{proposal.Proposal.ExactGuideMatchCount}</dd></div>
+              <div><dt>Unmatched playlists</dt><dd>{proposal.Proposal.UnmatchedPlaylistCount}</dd></div>
               <div><dt>Needs review</dt><dd>{proposal.Proposal.AmbiguityCount}</dd></div>
               <div><dt>Unbound guides</dt><dd>{proposal.Proposal.UnboundGuideCount}</dd></div>
             </dl>

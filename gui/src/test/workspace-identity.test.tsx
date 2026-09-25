@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { WorkspaceIdentity } from '../components/WorkspaceIdentity'
 
  describe('workspace identity display', () => {
-  it('shows a safe label and digest placeholder without a filesystem path', () => {
-    render(<WorkspaceIdentity identity={{ label: 'Fixture workspace', digest: 'root-ab12…34ef' }} />)
+  it('shows the workspace name without internal identity tokens or filesystem paths', () => {
+    render(<WorkspaceIdentity identity={{ label: 'Fixture workspace' }} />)
 
     expect(screen.getByLabelText('Workspace Fixture workspace')).toBeInTheDocument()
-    expect(screen.getByText('root-ab12…34ef')).toBeInTheDocument()
+    expect(screen.queryByText(/^root-/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^[A-Za-z]:\\/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^\\\\/)).not.toBeInTheDocument()
   })

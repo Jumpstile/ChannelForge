@@ -29,7 +29,6 @@ a { color: var(--cf-color-brand); }
 .workspace-identity { gap: var(--cf-space-2); color: var(--cf-color-ink-muted); font-size: var(--cf-font-size-small); }
 .workspace-identity-label { color: var(--cf-color-ink-subtle); }
 .workspace-identity-name { color: var(--cf-color-ink); font-weight: var(--cf-font-weight-semibold); }
-.workspace-identity-digest { color: var(--cf-color-ink-subtle); font-family: var(--cf-font-family-mono); font-size: 0.75rem; }
 
 .side-nav { display: flex; width: var(--cf-nav-width); flex: 0 0 var(--cf-nav-width); flex-direction: column; min-height: 100vh; padding: var(--cf-space-8) var(--cf-space-4) var(--cf-space-5); border-right: 1px solid var(--cf-color-border); background: #f1f3f7; }
 .side-nav-intro { padding: 0 var(--cf-space-3) var(--cf-space-8); }
