@@ -140,9 +140,11 @@ The loopback web UI supports browser review and explicit acceptance without
 asking for a local path. Add one or more `.m3u`/`.m3u8` playlists. Add zero or
 more `.xml`/`.xmltv` guides, or choose **Public HTTPS** for a non-tokenized
 `https://` source. Select **Add another playlist** when a provider publishes
-more than one playlist. With multiple playlists, bind each guide explicitly to
-selected playlists or to **All playlists**. With one playlist, guides are
-bound automatically. **No guide selected** is an explicit playlist-only mode.
+more than one playlist. Each guide starts unbound, even when only one playlist
+is configured. Bind it to one or more playlists, or explicitly choose **All
+playlists**. Leaving every playlist unselected keeps the guide unbound; it is
+not treated as **All playlists**. **No guide selected** is an explicit
+playlist-only mode.
 
 The browser sends this same-origin JSON envelope:
 

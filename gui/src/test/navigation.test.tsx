@@ -40,6 +40,9 @@ describe('navigation shell', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Add playlists and optional guides' })).toBeInTheDocument()
+    expect(screen.getByText("Open Guided Setup to add one or more playlists and optional XMLTV guides. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.")).toBeInTheDocument()
+    expect(screen.queryByText(/Choose a workspace/)).not.toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: /view state gallery/i }).at(-1)!)
     expect(screen.getByRole('heading', { name: 'State gallery' })).toBeInTheDocument()
     expect(screen.getByText('Synthetic data only')).toBeInTheDocument()
