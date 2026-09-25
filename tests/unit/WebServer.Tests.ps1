@@ -985,6 +985,8 @@ Describe 'ChannelForge web server foundation' {
         $payload.Proposal.UnboundGuideCount | Should -Be 1
         $payload.Proposal.ExactGuideMatchCount | Should -Be 0
         $payload.Proposal.AmbiguityCount | Should -Be 0
+        $payload.Proposal.GuideStatus | Should -Be 'XMLTV_UNBOUND_ACTIONABLE'
+        $payload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
         $payload.Proposal.CanAccept | Should -BeTrue
         $sessionPath = Join-Path $root "output\\.web-guided-setup\\proposals\\$($payload.Proposal.ProposalId)\\session.json"
         $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
@@ -1073,21 +1075,25 @@ Describe 'ChannelForge web server foundation' {
         $bindings = @(
             [pscustomobject]@{ Guide = 'news-guide'; Playlists = @('news'); All = $false }
             [pscustomobject]@{ Guide = 'sports-guide'; Playlists = @('sports'); All = $false }
+            [pscustomobject]@{ Guide = 'unbound-guide'; Playlists = @(); All = $false; ExplicitlyUnbound = $true }
         )
         $body = New-TestMultiSourceProposalBody -Playlists $playlists -Guides $guides -Bindings $bindings
         $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
         $payload = $proposal.Body | ConvertFrom-Json
 
         $proposal.StatusCode | Should -Be 200
+        $payload.Proposal.BoundGuideCount | Should -Be 2
         $payload.Proposal.ExactGuideMatchCount | Should -Be 2
         $payload.Proposal.UnmatchedPlaylistCount | Should -Be 0
         $payload.Proposal.UnboundGuideCount | Should -Be 1
         $payload.Proposal.GuideOnlyCount | Should -Be 1
         $payload.Proposal.AmbiguityCount | Should -Be 0
         $payload.Proposal.GuideStatus | Should -Be 'XMLTV_UNBOUND_ACTIONABLE'
+        $payload.Warnings.Code | Should -Contain 'guide-unbound-actionable'
 
         $sessionPath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\session.json"
         $session = Get-Content -LiteralPath $sessionPath -Raw | ConvertFrom-Json
+        @($session.SourceSet.Bindings | Where-Object ExplicitlyUnbound).Count | Should -Be 1
         $candidatePath = Join-Path $root "output\.web-guided-setup\proposals\$($payload.Proposal.ProposalId)\$($session.CandidateDirectoryRelative -replace '/', '\')"
         $manifest = Get-Content -LiteralPath (Join-Path $candidatePath 'manifest.json') -Raw | ConvertFrom-Json
         $exactPairs = @($manifest.BindingRecords | Where-Object { $_.BindingKind -eq 'M3U' -and $_.Status -eq 'ExactBound' } | ForEach-Object { "$($_.M3URawId)->$($_.XMLTVId)" } | Sort-Object)

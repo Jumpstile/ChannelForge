@@ -181,7 +181,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             -Programme $guideProgrammes `
             -M3UIdentityCollisions $allowedCollisions
         [void]$bindingResults.Add($bindingResult)
-        if ($null -ne $binding) {
+        if ($null -ne $binding -and -not [bool]$binding.ExplicitlyUnbound) {
             foreach ($programme in $guideProgrammes) { [void]$programmesForOutput.Add($programme) }
         }
     }
