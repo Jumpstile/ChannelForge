@@ -18,11 +18,10 @@
 # was added.)
 $ErrorActionPreference = 'Stop'
 
-# Fail-closed allowlist for auto-update package content (ADR-0006). Only these
-# top-level names may be replaced by an update package. Everything else --
-# data/, config/, output/, backups/, logs, caches, secrets, and local
-# overrides -- is left untouched even if an update package happens to contain
-# an entry with the same name.
+# Only explicitly allowlisted application paths are replaced by an update.
+# Protected data, configuration, outputs, logs, caches, and local overrides
+# remain untouched. The two deterministic engine-data defaults below are an
+# additive exception: update copies them only when a required file is absent.
 $script:ChannelForgeUpdateAllowedTopLevelNames = @(
     'src', 'tools', 'scripts', 'schemas', 'engineering', 'docs', 'gui', 'runtime',
     'VERSION', 'README.md', 'LICENSE', 'CHANGELOG.md', 'package-manifest.json',
@@ -299,6 +298,18 @@ function Copy-ChannelForgeUpdatePackageContent {
         throw "Extracted update content not found: $SourcePath"
     }
 
+    $requiredRuntimeDataFiles = @('data/rules/aliases.json', 'data/lineup/numbering_blocks.json')
+    foreach ($relativePath in $requiredRuntimeDataFiles) {
+        $sourceFile = Join-Path $SourcePath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) {
+            throw "Update package is missing required runtime data: $relativePath"
+        }
+        $destinationFile = Join-Path $DestinationRoot ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if ((Test-Path -LiteralPath $destinationFile) -and
+            -not (Test-Path -LiteralPath $destinationFile -PathType Leaf)) {
+            throw "Required runtime data path is not a file; refusing to replace it: $relativePath"
+        }
+    }
     $items = Get-ChildItem -LiteralPath $SourcePath -Force
     $allowedItems = @($items | Where-Object { Test-ChannelForgeUpdateAllowedPath -Name $_.Name })
 
@@ -330,10 +341,23 @@ function Copy-ChannelForgeUpdatePackageContent {
             $skipped += $item.Name
         }
     }
+    $addedRuntimeData = @()
+    foreach ($relativePath in $requiredRuntimeDataFiles) {
+        $sourceFile = Join-Path $SourcePath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+        $destinationFile = Join-Path $DestinationRoot ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if (Test-Path -LiteralPath $destinationFile) { continue }
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destinationFile) | Out-Null
+        Copy-Item -LiteralPath $sourceFile -Destination $destinationFile
+        if (-not (Test-Path -LiteralPath $destinationFile -PathType Leaf)) {
+            throw "Required runtime data did not reach the install root: $relativePath"
+        }
+        $addedRuntimeData += $relativePath
+    }
 
     return [pscustomobject]@{
-        Copied  = $copied
-        Skipped = $skipped
+        Copied              = $copied
+        Skipped             = $skipped
+        RequiredDataAdded   = $addedRuntimeData
     }
 }
 function Get-ChannelForgePackageFileHash {
@@ -368,6 +392,13 @@ function Test-ChannelForgeWindowsPackage {
 
     $files = @($manifest.Files)
     if ($files.Count -eq 0) { throw 'Package manifest contains no files.' }
+    $requiredRuntimeDataFiles = @('data/rules/aliases.json', 'data/lineup/numbering_blocks.json')
+    foreach ($relativePath in $requiredRuntimeDataFiles) {
+        $requiredPath = Join-Path $root ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+            throw "Required package runtime data is missing: $relativePath"
+        }
+    }
     $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($entry in $files) {
         $relative = ([string]$entry.Path).Replace('\', '/')
@@ -386,6 +417,11 @@ function Test-ChannelForgeWindowsPackage {
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Manifest file is a reparse point: $relative" }
         if ([int64]$item.Length -ne [int64]$entry.ByteLength) { throw "Manifest byte length mismatch: $relative" }
         if ((Get-ChannelForgePackageFileHash -Path $path) -cne ([string]$entry.Sha256).ToLowerInvariant()) { throw "Manifest hash mismatch: $relative" }
+    }
+    foreach ($relativePath in $requiredRuntimeDataFiles) {
+        if (-not $expected.Contains($relativePath)) {
+            throw "Package manifest omits required runtime data: $relativePath"
+        }
     }
 
     $actual = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force | Where-Object { $_.FullName -ne $manifestPath })

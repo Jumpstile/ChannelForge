@@ -40,6 +40,9 @@ describe('navigation shell', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Add playlists and optional guides' })).toBeInTheDocument()
+    expect(screen.getByText("Open Guided Setup to add one or more playlists and optional XMLTV guides. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.")).toBeInTheDocument()
+    expect(screen.queryByText(/Choose a workspace/)).not.toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: /view state gallery/i }).at(-1)!)
     expect(screen.getByRole('heading', { name: 'State gallery' })).toBeInTheDocument()
     expect(screen.getByText('Synthetic data only')).toBeInTheDocument()
@@ -47,21 +50,21 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 
-  it('opens browser Guided Setup with bounded review and acceptance controls', async () => {
+  it('opens browser Guided Setup with multi-source review and explicit binding controls', async () => {
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Open Guided Setup' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
-    expect(screen.getByText(/The review is server-owned until you explicitly acknowledge acceptance/)).toBeInTheDocument()
-    expect(screen.getByText('Select exactly one M3U or M3U8 playlist.')).toBeInTheDocument()
-    expect(screen.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeInTheDocument()
-    expect(screen.getAllByText('Not selected')).toHaveLength(2)
-    expect(screen.getAllByText('Not checked')).toHaveLength(4)
+    expect(screen.getByText(/Files are read in this browser only to create a server-owned candidate/)).toBeInTheDocument()
+    expect(screen.getByText('Add every playlist that belongs in the source set. Each item can be a local file or a public HTTPS URL.')).toBeInTheDocument()
+    expect(screen.getByText('Guides are optional. Continue with no guide, or add each XMLTV file or public HTTPS URL explicitly.')).toBeInTheDocument()
+    expect(screen.getByText('No guide selected')).toBeInTheDocument()
     expect(screen.getByText('Server-owned')).toBeInTheDocument()
     expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()
-    expect(screen.getByLabelText('Choose guide (optional)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Analyze proposal' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add another playlist' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add guide' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Analyze source set' })).toBeEnabled()
   })
 
   it('does not expose future workflow pages as active controls', () => {

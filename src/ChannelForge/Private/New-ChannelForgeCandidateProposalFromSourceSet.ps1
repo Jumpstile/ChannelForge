@@ -29,11 +29,17 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             -SourceName ([string]$source.Label) `
             -SourceKind 'M3U' `
             -SourceOrdinal $playlistOrdinal
-        $channels = @(Import-ChannelForgeM3UPlaylist `
-                -Path $path `
-                -Provider 'candidate' `
-                -Playlist ([string]$source.Label) `
-                -CandidateContractVersion $CandidateContractVersion)
+        try {
+            $channels = @(Import-ChannelForgeM3UPlaylist `
+                    -Path $path `
+                    -Provider 'candidate' `
+                    -Playlist ([string]$source.Label) `
+                    -CandidateContractVersion $CandidateContractVersion)
+        }
+        catch {
+            $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-playlist'
+            throw
+        }
         $raw = @(Get-ChannelForgeRawM3UProjection `
                 -Channel $channels `
                 -LogicalSourceId $logicalSourceId `
@@ -116,11 +122,17 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         $xmlPath = [System.IO.Path]::GetFullPath([string]$guide.Path)
         Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $rootFull
         $xmlStatus = [ordered]@{}
-        $guideProgrammes = @(Import-ChannelForgeXmltvSource `
-                -Path $xmlPath `
-                -SourceId ([string]$guide.LogicalSourceId) `
-                -AcquisitionStatus $xmlStatus `
-                -CandidateContractVersion $CandidateContractVersion)
+        try {
+            $guideProgrammes = @(Import-ChannelForgeXmltvSource `
+                    -Path $xmlPath `
+                    -SourceId ([string]$guide.LogicalSourceId) `
+                    -AcquisitionStatus $xmlStatus `
+                    -CandidateContractVersion $CandidateContractVersion)
+        }
+        catch {
+            $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-guide'
+            throw
+        }
         foreach ($raw in @(Get-ChannelForgeRawXmltvProjection `
                     -Programme $guideProgrammes `
                     -CandidateContractVersion $CandidateContractVersion)) {
@@ -152,7 +164,12 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                 })
         }
         $allowedChannels = @($merge.AllChannels | Where-Object {
-                [string]$_.LogicalSourceId -in $allowedLogicalSourceIds
+                $occurrenceProperty = $_.PSObject.Properties['RawM3UOccurrence']
+                if ($null -eq $occurrenceProperty -or $null -eq $occurrenceProperty.Value) { return $false }
+                $logicalSourceIdProperty = $occurrenceProperty.Value.PSObject.Properties['LogicalSourceId']
+                $null -ne $logicalSourceIdProperty -and
+                -not [string]::IsNullOrEmpty([string]$logicalSourceIdProperty.Value) -and
+                [string]$logicalSourceIdProperty.Value -in $allowedLogicalSourceIds
             })
         $allowedChannelSet = [System.Collections.Generic.HashSet[object]]::new()
         foreach ($channel in $allowedChannels) { [void]$allowedChannelSet.Add($channel) }
@@ -164,7 +181,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             -Programme $guideProgrammes `
             -M3UIdentityCollisions $allowedCollisions
         [void]$bindingResults.Add($bindingResult)
-        if ($null -ne $binding) {
+        if ($null -ne $binding -and -not [bool]$binding.ExplicitlyUnbound) {
             foreach ($programme in $guideProgrammes) { [void]$programmesForOutput.Add($programme) }
         }
     }

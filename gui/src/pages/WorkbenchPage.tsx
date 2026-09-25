@@ -28,7 +28,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
             View state gallery
           </button>
         }
-        description="Build a TV lineup from your playlist and guide."
+        description="Build a TV lineup from one or more playlists and optional XMLTV guides."
         eyebrow="Guided workspace"
         title="Your lineup workbench"
       />
@@ -41,17 +41,17 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
         <div className="next-action-icon" aria-hidden="true"><ArrowRight size={24} /></div>
         <div className="next-action-copy">
           <p className="eyebrow">Your next step</p>
-          <h2 id="next-action-title">Add your playlist and guide</h2>
-          <p>Choose a workspace, then add your playlist and guide.</p>
+          <h2 id="next-action-title">Add playlists and optional guides</h2>
+          <p>Open Guided Setup to add one or more playlists and optional XMLTV guides. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.</p>
         </div>
         <button className="button button-primary" type="button" onClick={onOpenSetup}>Open Guided Setup</button>
       </section>
 
       <section className="workbench-grid" aria-label="Workspace summary">
         <article className="summary-card">
-          <span className="summary-card-label">Playlist and guide</span>
+          <span className="summary-card-label">Playlists and guides</span>
           <strong>Not configured</strong>
-          <span className="summary-card-detail">Playlist and guide files</span>
+          <span className="summary-card-detail">M3U playlists and optional XMLTV guides</span>
         </article>
         <article className="summary-card">
           <span className="summary-card-label">Lineup</span>

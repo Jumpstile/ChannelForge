@@ -98,6 +98,8 @@ FunctionsToExport = @(
     'Merge-ChannelForgeXmltvProgrammes'
     'New-ChannelForgeBuildContext'
     'New-ChannelForgeCandidateProposal'
+    'Get-ChannelForgeRemoteSourceBytes'
+    'New-ChannelForgeSourceSetCandidateProposal'
     'New-ChannelForgeChannel'
     'New-ChannelForgeProgramme'
     'New-ChannelForgeGuideEvidence'

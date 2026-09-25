@@ -5,7 +5,8 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Workflow pages' })).toBeVisible()
-  await expect(page.getByText('root-7a91…d42c')).toBeVisible()
+  await expect(page.getByText('Demo workspace')).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('root-')
   await expect(page.getByRole('button', { name: 'Open Guided Setup' })).toBeEnabled()
   await expect(page.locator('body')).not.toContainText('C:\\')
   await expect(page.locator('body')).not.toContainText('https://')
@@ -13,13 +14,24 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
 
 test('renders the browser Guided Setup review and acceptance contract', async ({ page }) => {
   await page.route('**/api/guided-setup/proposal', async (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toMatchObject({
+      schemaVersion: 2,
+      playlists: [{ sourceKey: 'playlist-1', label: 'Playlist 1', priority: 1, contentBase64: expect.any(String) }],
+      guides: [],
+      bindings: [],
+    })
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/proposal/v1',
+        Version: 'guided-setup/proposal/v2',
         Status: 'PROPOSAL_READY',
         Proposal: {
           ProposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          PlaylistCount: 1,
+          GuideCount: 0,
+          BoundGuideCount: 0,
+          UnboundGuideCount: 0,
           ChannelCount: 1,
           ExactGuideMatchCount: 0,
           AmbiguityCount: 0,
@@ -44,11 +56,11 @@ test('renders the browser Guided Setup review and acceptance contract', async ({
   })
   await page.route('**/api/guided-setup/accept', async (route) => {
     expect(route.request().method()).toBe('POST')
-    expect(await route.request().postDataJSON()).toEqual({ schemaVersion: 1, proposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', acknowledged: true })
+    expect(await route.request().postDataJSON()).toEqual({ schemaVersion: 2, proposalId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', acknowledged: true })
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        Version: 'guided-setup/acceptance/v1',
+        Version: 'guided-setup/acceptance/v2',
         Status: 'ACCEPTED',
         Proposal: { ChannelCount: 1, GuideStatus: 'NO_GUIDE_SELECTED' },
         Safety: { AcceptedStateMutation: 'accepted-lineup', ProviderMutation: 'none', DownstreamMutation: 'none', SchedulerMutation: 'none' },
@@ -58,23 +70,61 @@ test('renders the browser Guided Setup review and acceptance contract', async ({
   await page.goto('/')
   await page.getByRole('button', { name: 'Open Guided Setup' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Workspace ready' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Choose workspace' })).toHaveCount(0)
+  await expect(page.getByText('Add at least one playlist to analyze.')).toBeVisible()
   await expect(page.getByRole('region', { name: 'Guided setup steps' })).toBeVisible()
-  await expect(page.getByText('The review is server-owned until you explicitly acknowledge acceptance.')).toBeVisible()
-  await expect(page.getByText('Select exactly one M3U or M3U8 playlist.')).toBeVisible()
-  await expect(page.getByText('Optionally select one XMLTV guide, or continue without a guide.')).toBeVisible()
-  const setupRegion = page.getByRole('region', { name: 'Guided setup steps' })
-  await expect(setupRegion.getByText('Not selected', { exact: true })).toHaveCount(2)
-  await expect(setupRegion.getByText('Not checked', { exact: true })).toHaveCount(4)
+  await expect(page.getByText('Files are read in this browser only to create a server-owned candidate. Nothing is accepted until you acknowledge the review.')).toBeVisible()
+  await expect(page.getByText('Add every playlist that belongs in the source set.')).toBeVisible()
+  await expect(page.getByText('No guide selected')).toBeVisible()
   await page.getByLabel('Choose playlist').setInputFiles({ name: 'channels.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,One\\nhttps://example.invalid/one\\n') })
-  await page.getByRole('button', { name: 'Analyze proposal' }).click()
+  await expect(page.getByText('Ready to analyze 1 playlist.')).toBeVisible()
+  await page.getByRole('button', { name: 'Analyze source set' }).click()
   await expect(page.getByText('Review ready. Nothing has been accepted yet.')).toBeVisible()
+  await expect(page.getByText('Unmatched playlists')).toBeVisible()
+  await expect(page.locator('dt').filter({ hasText: 'Unmatched playlists' }).locator('xpath=following-sibling::dd[1]')).toHaveText('1')
   await expect(page.locator('body')).not.toContainText('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
   await page.getByLabel(/I reviewed these results/).check()
   await page.getByRole('button', { name: 'Accept reviewed proposal' }).click()
   await expect(page.getByText('Accepted lineup confirmed.')).toBeVisible()
-  await expect(page.getByText('The reviewed lineup is now the accepted local state.')).toBeVisible()
+  await expect(page.getByText('The reviewed source set is now the accepted local state.')).toBeVisible()
   await expect(page.locator('body')).not.toContainText('C:\\')
   await expect(page.locator('body')).not.toContainText('file://')
+})
+test('shows a focused safe error and retains loaded playlists after Analyze fails', async ({ page }) => {
+  await page.route('**/api/guided-setup/proposal', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      schemaVersion: 2,
+      playlists: [{ sourceKey: 'playlist-1' }, { label: 'Playlist 2' }],
+    })
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        Error: 'package-data-unavailable',
+        Message: 'C:\\private\\provider.local.json?token=secret',
+      }),
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open Guided Setup' }).click()
+  await page.getByLabel('Choose playlist').setInputFiles({ name: 'channels-one.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,One\\nhttps://example.invalid/one\\n') })
+  await page.getByRole('button', { name: 'Add another playlist' }).click()
+  await page.getByLabel('Choose playlist').nth(1).setInputFiles({ name: 'channels-two.m3u', mimeType: 'audio/x-mpegurl', buffer: Buffer.from('#EXTM3U\\n#EXTINF:-1,Two\\nhttps://example.invalid/two\\n') })
+  await expect(page.getByText('Ready to analyze 2 playlists.')).toBeVisible()
+  await page.getByRole('button', { name: 'Analyze source set' }).click()
+
+  const error = page.getByRole('alert')
+  await expect(error).toContainText('ChannelForge is missing required analysis data.')
+  await expect(error).toBeVisible()
+  await expect(error).toBeInViewport()
+  await expect(error).toBeFocused()
+  await expect(page.getByText('Analysis stopped; 2 playlists remain selected.')).toBeVisible()
+  await expect(page.getByText('channels-one.m3u')).toBeVisible()
+  await expect(page.getByText('channels-two.m3u')).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('C:\\private')
+  await expect(page.locator('body')).not.toContainText('token=secret')
 })
 
 test('passes the axe accessibility scan on the workbench', async ({ page }) => {

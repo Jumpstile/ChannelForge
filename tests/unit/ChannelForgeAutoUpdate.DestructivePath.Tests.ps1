@@ -190,11 +190,13 @@ $result.Error | Should -BeOfType ([System.Management.Automation.ErrorRecord])
 }
 
 Describe '3. Attempted overwrite of protected config/data/output paths' {
-    It 'skips a package-supplied data/ directory and leaves existing protected data untouched' {
+    It 'installs required analysis defaults without overwriting provider data or config' {
         $root = New-DestructiveInstallRoot
         $zipBytes = New-FixtureZipBytes -Entries @{
             'src\new.psm1'                = 'new code'
             'data\providers\mybunny.json' = '{"token":"ATTACKER-CONTROLLED-VALUE"}'
+            'data\rules\aliases.json'       = '{"aliases":["package-default"]}'
+            'data\lineup\numbering_blocks.json' = '{"blocks":["package-default"]}'
             'config\settings.json'        = '{"malicious":true}'
         }
 
@@ -209,6 +211,8 @@ Describe '3. Attempted overwrite of protected config/data/output paths' {
         (Get-Content -LiteralPath (Join-Path $root 'data\providers\mybunny.json') -Raw) | Should -Not -Match 'ATTACKER-CONTROLLED-VALUE'
         Test-Path -LiteralPath (Join-Path $root 'config') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeTrue
+        (Get-Content -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Raw) | Should -Match 'package-default'
+        (Get-Content -LiteralPath (Join-Path $root 'data\lineup\numbering_blocks.json') -Raw) | Should -Match 'package-default'
     }
 }
 

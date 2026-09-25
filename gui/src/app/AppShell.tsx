@@ -32,7 +32,7 @@ export function AppShell({ activePage, onNavigate, navigationAvailability, child
         <footer className="app-footer">
           <span className="privacy-note">
             <ShieldCheck size={16} aria-hidden="true" />
-            Local workspace · safe identity display
+            Local workspace
           </span>
           <span>ChannelForge GUI foundation</span>
         </footer>

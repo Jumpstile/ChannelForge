@@ -408,4 +408,65 @@ Describe 'one-shot source refresh executor' {
         $harness.Report.ReviewNeededCount | Should -Be 0
     }
 
+    It 'refreshes public enrolled sources into review-only candidate evidence' {
+        $root = Join-Path $TestDrive 'remote-enrolled-project'
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'data/rules'), (Join-Path $root 'data/lineup') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/rules/aliases.json') -Destination (Join-Path $root 'data/rules/aliases.json')
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/lineup/numbering_blocks.json') -Destination (Join-Path $root 'data/lineup/numbering_blocks.json')
+        Import-Module (Join-Path $script:Root 'src/ChannelForge/ChannelForge.psd1') -Force
+        $oldBytes = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1,Old`nhttps://example.invalid/old`n")
+        $newBytes = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1,New`nhttps://example.invalid/new`n")
+        $source = [pscustomobject]@{
+            Kind = 'M3U'
+            SourceKind = 'public-https'
+            SourceKey = 'remote-playlist'
+            Label = 'Remote playlist'
+            Url = 'https://example.invalid/playlist.m3u'
+            Bytes = $oldBytes
+        }
+        & (Get-Module ChannelForge) {
+            param($root, $source)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($source) | Out-Null
+        } $root $source
+        Mock -CommandName Get-ChannelForgeRemoteSourceBytes -MockWith { $newBytes }
+
+        $result = & $script:Executor `
+            -Root $root `
+            -ProviderConfigPath (Join-Path $root 'provider.json') `
+            -EpgConfigPath (Join-Path $root 'epg.json') `
+            -EnrollmentPath (Join-Path $root 'state/source-enrollment.json') `
+            -OutputRoot (Join-Path $root 'reports')
+        $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        $row = @($report.Sources)[0]
+        $row.Result | Should -Be 'REVIEW_REQUIRED'
+        $row.ReasonCode | Should -Be 'CandidateGenerated'
+        $row.LastKnownGoodPreserved | Should -BeTrue
+        $report.ReviewNeeded | Should -BeTrue
+        (Get-ChannelForgeSourceEnrollment -RepositoryRoot $root).EnrollmentStatus | Should -Be 'changes-found'
+        $saved = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $root
+        [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($saved.M3UPath)) | Should -Be ([Text.Encoding]::UTF8.GetString($oldBytes))
+        ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'example.invalid|old|new'
+    }
+    It 'preserves enrolled remote last-known-good bytes when refresh fails' {
+        $root = Join-Path $TestDrive 'remote-failure-project'
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'data/rules'), (Join-Path $root 'data/lineup') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/rules/aliases.json') -Destination (Join-Path $root 'data/rules/aliases.json')
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/lineup/numbering_blocks.json') -Destination (Join-Path $root 'data/lineup/numbering_blocks.json')
+        Import-Module (Join-Path $script:Root 'src/ChannelForge/ChannelForge.psd1') -Force
+        $oldBytes = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1,Old`nhttps://example.invalid/old`n")
+        $source = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; SourceKey = 'remote-playlist'; Label = 'Remote playlist'; Url = 'https://example.invalid/playlist.m3u'; Bytes = $oldBytes }
+        & (Get-Module ChannelForge) { param($root, $source) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($source) | Out-Null } $root $source
+        Mock -CommandName Get-ChannelForgeRemoteSourceBytes -MockWith { throw 'simulated remote outage' }
+
+        $result = & $script:Executor -Root $root -EnrollmentPath (Join-Path $root 'state/source-enrollment.json') -OutputRoot (Join-Path $root 'reports')
+        $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        $row = @($report.Sources)[0]
+        $row.Result | Should -Be 'REFRESH_FAILED'
+        $row.Classification | Should -Be 'Degraded'
+        $row.ReasonCode | Should -Be 'RefreshFailedLkgPreserved'
+        $row.LastKnownGoodPreserved | Should -BeTrue
+        (Get-ChannelForgeSourceEnrollment -RepositoryRoot $root).EnrollmentStatus | Should -Be 'source-unavailable'
+        $saved = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $root
+        [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($saved.M3UPath)) | Should -Be ([Text.Encoding]::UTF8.GetString($oldBytes))
+    }
 }

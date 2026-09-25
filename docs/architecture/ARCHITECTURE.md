@@ -205,30 +205,31 @@ Every tracked JSON file under `data/` has a structural contract in `schemas/`, v
 
 ### Durable source-set authority
 
-`state/source-enrollment.json` is the single server-owned durable source-set authority for guided local sources. Its current schema is `source-enrollment/v2`; it stores ordered playlist records, guide records, and explicit guide-to-playlist bindings in one canonical document. A playlist may have multiple guides, a guide may serve one or many playlists, and `AppliesToAll` is explicit rather than inferred from enumeration order. With one playlist, omitted bindings auto-bind each guide to that playlist; with multiple playlists, omitted bindings leave guides unbound and actionable. Binding revisions and canonical binding identities are part of the source-set hash.
+`state/source-enrollment.json` is the single server-owned durable source-set authority for guided local sources. Its current schema is `source-enrollment/v2`; it stores ordered playlist records, guide records, and guide-to-playlist decisions in one canonical document. A playlist may have multiple guides, a guide may serve one or many playlists, and `AppliesToAll` is explicit rather than inferred from enumeration order. With one playlist, an omitted decision defaults each guide to that playlist; an `ExplicitlyUnbound: true` decision with no playlist IDs preserves a user-cleared binding instead. With multiple playlists, omitted bindings leave guides unbound and actionable. Binding revisions and canonical binding identities are part of the source-set hash; the optional explicit-unbound marker is included in enrollment integrity.
 
-Each record has a stable server-derived source ID independent of content bytes and enumeration order. Managed files are retained below `state/managed-sources/`; supported public sources are represented as non-tokenized HTTPS URLs validated by the existing URL trust boundary. Safe status projections omit URLs, managed paths, content hashes, and accepted-state hashes. Tokenized or credential-bearing URLs are unsupported.
+Each record has a stable server-derived source ID independent of content bytes and enumeration order. Managed files are retained below `state/managed-sources/`; supported public sources retain their non-tokenized HTTPS URL plus a bounded validated last-known-good snapshot in that same managed root. Safe status projections omit URLs, managed paths, content hashes, and accepted-state hashes. Tokenized or credential-bearing URLs are unsupported.
 
-The legacy `source-enrollment/v1` document remains readable through a deterministic in-memory compatibility projection; it is not a second authority and is not silently discarded. Existing refresh planning consumes that compatibility input projection, enumerates every enabled playlist and guide record, reuses unchanged managed bytes, and leaves public descriptors review-only in this slice. The source-set authority is separate from accepted lineup state, candidate generations, and disposable fetch caches, so refresh review never mutates accepted state.
+The legacy `source-enrollment/v1` document remains readable through a deterministic in-memory compatibility projection; it is not a second authority and is not silently discarded. Existing refresh planning consumes this compatibility input projection, enumerates every enabled playlist and guide record, reuses unchanged managed bytes, and refreshes public HTTPS records through the existing bounded transport. A changed source creates review-only candidate evidence; a failed source preserves the prior snapshot and accepted state. The source-set authority is separate from accepted lineup state, candidate generations, and disposable fetch caches, so refresh review never mutates accepted state.
 
 ### Headless multi-source proposal authority
 
-`POST /api/guided-setup/proposal` retains the exact v1 browser envelope and
-also accepts the headless `schemaVersion: 2` source-set envelope. V2 stages
-1–8 playlists and 0–8 guides, validates explicit selected/all guide bindings,
-and produces one candidate through the same candidate-only path. Request
-references are not authoritative identities: SourceId and binding identities
-are derived by the server. Omitted bindings auto-bind every guide only when
-there is exactly one playlist; with multiple playlists, omitted guides remain
-enrolled and actionable but are not applied to the accepted guide output until
-an explicit binding is reviewed. The response never exposes source URLs,
-filenames, paths, hashes, or raw content.
+`POST /api/guided-setup/proposal` retains the exact v1 browser envelope for
+legacy callers and accepts the current `schemaVersion: 2` source-set envelope.
+V2 stages 1–8 playlists and 0–8 guides, validates selected, explicit-all, and
+explicitly-unbound guide decisions, and produces one candidate through the
+same candidate-only path. Request limits, source identities, and binding
+identities are derived by the server. Omitted decisions auto-bind each guide
+only when exactly one playlist exists; with multiple playlists, omitted guides
+remain enrolled and actionable but are not applied to accepted guide output.
+The explicit-unbound descriptor is distinct from omission and suppresses the
+single-playlist default. The response never exposes source URLs, filenames,
+paths, hashes, or raw content.
 
 Managed uploads and one-time acquired public HTTPS bytes are staged under
-server-derived source IDs. Acceptance promotes managed records into the
-durable source-set authority and preserves public HTTPS descriptors without
-redesigning remote refresh. Browser multi-row selection, unattended remote
-refresh, and accepted-state semantics remain outside this slice.
+server-derived source IDs. Acceptance promotes validated source bytes and
+declarative public descriptors into the durable source-set authority. The
+browser renders the v2 multi-row source contract; refresh remains manual and
+review-only, with no unattended acquisition or accepted-state mutation.
 
 ## Related documents
 

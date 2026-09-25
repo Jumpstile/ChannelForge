@@ -158,6 +158,9 @@ try {
     Copy-Tree (Join-Path $rootFull 'gui/dist') (Join-Path $stage 'gui/dist')
     Copy-Tree (Join-Path $rootFull 'schemas') (Join-Path $stage 'schemas')
     Copy-Tree (Join-Path $rootFull 'tools') (Join-Path $stage 'tools')
+    foreach ($path in @('data/rules/aliases.json', 'data/lineup/numbering_blocks.json')) {
+        Copy-File (Join-Path $rootFull $path) (Join-Path $stage $path)
+    }
     Copy-Tree $runtimeFull (Join-Path $stage 'runtime/pwsh')
 
     $scriptNames = @(

@@ -125,6 +125,7 @@
           "uniqueItems": true
         },
         "AppliesToAll": { "type": "boolean" },
+        "ExplicitlyUnbound": { "const": true },
         "Enabled": { "type": "boolean" },
         "Revision": { "type": "integer", "minimum": 1 }
       }
