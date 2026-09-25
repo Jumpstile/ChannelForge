@@ -164,7 +164,12 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                 })
         }
         $allowedChannels = @($merge.AllChannels | Where-Object {
-                [string]$_.LogicalSourceId -in $allowedLogicalSourceIds
+                $occurrenceProperty = $_.PSObject.Properties['RawM3UOccurrence']
+                if ($null -eq $occurrenceProperty -or $null -eq $occurrenceProperty.Value) { return $false }
+                $logicalSourceIdProperty = $occurrenceProperty.Value.PSObject.Properties['LogicalSourceId']
+                $null -ne $logicalSourceIdProperty -and
+                -not [string]::IsNullOrEmpty([string]$logicalSourceIdProperty.Value) -and
+                [string]$logicalSourceIdProperty.Value -in $allowedLogicalSourceIds
             })
         $allowedChannelSet = [System.Collections.Generic.HashSet[object]]::new()
         foreach ($channel in $allowedChannels) { [void]$allowedChannelSet.Add($channel) }

@@ -150,10 +150,13 @@ describe('browser Guided Setup proposal and acceptance', () => {
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
     expect(screen.getByText('Currently unbound. This guide remains enrolled for review but will not be applied.')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Playlist 1' })).not.toBeChecked()
     expect(screen.getByRole('group', { name: /Apply this guide to/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
     await screen.findByText('Review ready. Nothing has been accepted yet.')
+    expect(submitter.mock.calls[0][0]).toHaveLength(1)
+    expect(submitter.mock.calls[0][1]).toHaveLength(1)
     expect(submitter.mock.calls[0][2]).toEqual([])
 
     await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
