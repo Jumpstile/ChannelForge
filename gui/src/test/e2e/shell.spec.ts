@@ -6,6 +6,7 @@ test('renders the guided workbench shell and links to setup', async ({ page }) =
   await expect(page.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Workflow pages' })).toBeVisible()
   await expect(page.getByText('Demo workspace')).toBeVisible()
+  await expect(page.locator('.top-bar')).not.toContainText('Not configured')
   await expect(page.locator('body')).not.toContainText('root-')
   await expect(page.getByRole('button', { name: 'Open Guided Setup' })).toBeEnabled()
   await expect(page.locator('body')).not.toContainText('C:\\')
