@@ -41,6 +41,20 @@ if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
 }
 
+$portInUse = $false
+$portProbe = [Net.Sockets.TcpClient]::new()
+try {
+    try {
+        $connect = $portProbe.ConnectAsync([Net.IPAddress]::Loopback, $Port)
+        if ($connect.Wait(250)) { $portInUse = $portProbe.Connected }
+    } catch { }
+} finally {
+    $portProbe.Dispose()
+}
+if ($portInUse) {
+    throw "ChannelForge could not start. Port $Port is already in use by another process."
+}
+
 $arguments = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $serverScript, '-Port', $Port, '-BindAddress', '127.0.0.1')
 $process = Start-Process -FilePath $runtime -ArgumentList $arguments -WorkingDirectory $root -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
 Set-Content -LiteralPath $pidPath -Value ([string]$process.Id) -NoNewline

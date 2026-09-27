@@ -2,6 +2,7 @@ BeforeAll {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $repoRoot 'tools\ChannelForgeAutoUpdate.Core.psm1') -Force
     $script:UninstallPath = Join-Path $repoRoot 'scripts\Uninstall-ChannelForgeWindowsBundle.ps1'
+    $script:StartPath = Join-Path $repoRoot 'scripts\Start-ChannelForge.ps1'
 
     function New-TestWindowsPackage {
         $root = Join-Path $TestDrive ('package-' + [guid]::NewGuid().ToString('N'))
@@ -89,6 +90,36 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
             Test-Path -LiteralPath $root | Should -BeFalse
         } finally {
             $env:LOCALAPPDATA = $oldLocalAppData
+        }
+    }
+}
+
+Describe 'Start-ChannelForge' {
+    It 'fails without taking over a requested loopback port held by another process' {
+        $root = Join-Path $TestDrive ('occupied-port-' + [guid]::NewGuid().ToString('N'))
+        $requiredFiles = @(
+            (Join-Path $root 'runtime\pwsh\pwsh.exe')
+            (Join-Path $root 'scripts\Start-ChannelForgeWebServer.ps1')
+            (Join-Path $root 'src\ChannelForge\ChannelForge.psd1')
+            (Join-Path $root 'gui\dist\index.html')
+        )
+        foreach ($file in $requiredFiles) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null
+            Set-Content -LiteralPath $file -Value 'test' -NoNewline
+        }
+
+        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        try {
+            $listener.Start()
+            $port = ([Net.IPEndPoint]$listener.LocalEndpoint).Port
+            {
+                & $script:StartPath -InstallRoot $root -Port $port -NoBrowser
+            } | Should -Throw "*Port $port is already in use by another process*"
+
+            Test-Path -LiteralPath (Join-Path $root 'state\runtime\server.pid') | Should -BeFalse
+            $listener.Server.IsBound | Should -BeTrue
+        } finally {
+            $listener.Stop()
         }
     }
 }
