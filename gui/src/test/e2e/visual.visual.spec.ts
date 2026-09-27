@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('workbench visual baseline', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('heading', { level: 2, name: 'Status unavailable' })).toBeVisible()
   await expect(page).toHaveScreenshot('workbench.png', { animations: 'disabled', fullPage: true })
 })
 
