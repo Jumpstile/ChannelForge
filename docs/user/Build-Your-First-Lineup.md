@@ -244,6 +244,8 @@ An unchanged source is reused; changed source content creates a review-only
 candidate; a failed source reports **Source unavailable** while preserving its
 last-known-good snapshot and accepted lineup. No refresh automatically accepts
 or publishes a changed lineup.
+After restart, the Workbench summary cards also reflect the saved source
+configuration and accepted lineup instead of showing first-run values.
 
 **Replace sources** returns to Guided Setup, where a new browser-selected source
 set must be reviewed and explicitly accepted. Credentials, tokenized URLs, and
