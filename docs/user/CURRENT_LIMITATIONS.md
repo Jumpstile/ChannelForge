@@ -44,11 +44,20 @@ providers, enumerate current source configuration, or repair accepted state.
 Starting Soon means a programme starts after now and within two hours; Live Now
 includes its start but excludes its stop. The eight category keys are
 `live-now`, `starting-soon`, `wrestling`, `football`, `baseball`, `soccer`,
-`movies`, and `news`. Results are paged with `limit` (1–100) and `offset`;
-titles and optional metadata are redacted and bounded. The merged accepted
-guide does not preserve source identity per programme, so offerings identify
-the accepted guide and a safe channel reference. Entitlement, freshness,
-confidence, DVR, timeshift, and playback are not available in this slice. The
+`movies`, and `news`.
+List `GET` and `HEAD` requests support `limit` (1–100) and `offset`
+(0–2,147,483,647); item Details does not accept an offset. Malformed or
+out-of-range values fail with HTTP 400, while an offset beyond the list result
+count returns an empty page.
+
+The accepted XMLTV path does not preserve a cross-channel `CanonicalEventId` or
+provider attribution for each programme. Matching titles and times on separate
+source/channel occurrences therefore remain separate items; the API does not
+guess that they are one event. The source label is `Accepted guide`, public
+source/channel/promotion identifiers are opaque, and `Kind` remains
+`Programme` unless the input explicitly supplies a recognized value. Optional
+metadata appears only when preserved by the accepted guide; entitlement,
+freshness, confidence, DVR, timeshift, and playback remain unavailable. The
 local server is loopback-only and does not provide authenticated LAN access.
 
 ![Accepted browser Guided Setup review](assets/guided-browser-accepted.png)

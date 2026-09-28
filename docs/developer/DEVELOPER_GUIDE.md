@@ -456,13 +456,24 @@ accept `limit` (1–100) and `offset` (nonnegative decimal integer); responses
 include total counts and truncation flags. Each item returns at most 16
 offerings and reports `OfferingCount` and `OfferingsTruncated`.
 
-The accepted merged XMLTV does not preserve provider-level per-programme
-provenance. The initial API therefore labels its origin `Accepted guide` and
-uses safe channel references for offerings; it reports availability as
-guide-only and leaves entitlement, freshness, confidence, DVR, and timeshift
-unknown. Promotion is a structured optional `{ Id, Name }` value and is never
-inferred from title text. This is a read contract, not playback, provider
-selection, or authenticated LAN access.
+The accepted merged XMLTV does not retain provider attribution or a
+`CanonicalEventId` per programme. Cross-channel grouping requires the same
+explicit identity and normalized title, subtitle, episode number, and schedule;
+matching title and time alone never merge separate source/channel occurrences.
+Accepted-guide HTTP responses use the display label `Accepted guide` and opaque
+domain-separated source, channel, and promotion identifiers. They report `Kind`
+as `Programme` unless the input explicitly supplies a recognized kind. Sport,
+promotion, entitlement, and launch metadata are emitted only when the input
+actually contains them; the title is never used to infer those fields.
+
+The server holds a one-entry in-memory projection cache keyed by the current
+accepted pointer and manifest identity. Catalogue construction parses and
+stores UTC interval ticks once and builds a direct item-ID lookup. Warm list
+requests validate the pointer and scan the cached records without rereading or
+reparsing XMLTV; they create response objects only for the returned page of at
+most 100 items. Details uses the direct lookup. A generation change replaces
+the entry; the cache is disposable and introduces no persisted state or second
+authority.
 
 The primary deployment modes are:
 

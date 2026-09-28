@@ -14,7 +14,7 @@ BeforeAll {
                 $start = [datetimeoffset]::Parse([string]$row.Start, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal)
                 $end = [datetimeoffset]::Parse([string]$row.End, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal)
                 $programme = New-OneGuideTestProgramme -ChannelId $row.ChannelId -Start $start -End $end -Title $row.Title -Categories $row.Categories -SourceId $row.SourceId
-                foreach ($name in @('SourceLabel', 'Sport', 'League', 'HomeParticipant', 'AwayParticipant', 'Promotion')) {
+                foreach ($name in @('SourceLabel', 'Sport', 'League', 'HomeParticipant', 'AwayParticipant', 'Promotion', 'CanonicalEventId', 'Kind')) {
                     $property = $row.PSObject.Properties[$name]
                     if ($null -ne $property) { $programme | Add-Member -NotePropertyName $name -NotePropertyValue $property.Value }
                 }
@@ -72,12 +72,12 @@ Describe 'One Guide read projection' {
         $items = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $programmes -EvaluationTimeUtc $Evaluation
         $wrestling = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $programmes -EvaluationTimeUtc $Evaluation
         $items.Items[0].Promotion | Should -BeNullOrEmpty
-        $wrestling.Items[0].Promotion.Id | Should -Be 'wwe'
+        $wrestling.Items[0].Promotion.Id | Should -Match '^cf-[a-f0-9]{64}$'
         $wrestling.Items[0].Promotion.Name | Should -Be 'WWE'
         @($wrestling.Items[0].CategoryKeys | Where-Object { $_ -notin $expectedTaxonomy }) | Should -BeNullOrEmpty
     }
 
-    It 'groups one event across offerings despite classification disagreement with order-independent output' {
+    It 'groups offerings only when an explicit canonical event identity is present' {
         $programmes = Get-OneGuideFixtureProgrammes
         $reversed = @($programmes)
         [array]::Reverse($reversed)
@@ -85,6 +85,7 @@ Describe 'One Guide read projection' {
         $reverse = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $reversed -EvaluationTimeUtc $Evaluation
         $item = $forward.Items[0]
 
+        $forward.TotalCount | Should -Be 1
         $item.ItemId | Should -Be $reverse.Items[0].ItemId
         ($forward | ConvertTo-Json -Depth 10 -Compress) | Should -Be ($reverse | ConvertTo-Json -Depth 10 -Compress)
         $item.Offerings.Count | Should -Be 2
@@ -94,10 +95,36 @@ Describe 'One Guide read projection' {
         $item.CategoryKeys | Should -Contain 'wrestling'
         $item.Sport | Should -Be 'Wrestling'
         $item.League | Should -Be 'WWE'
-        $item.Promotion.Id | Should -Be 'wwe'
-        @($item.Offerings.Launch.ChannelReference | Sort-Object) | Should -Be @('channel-wwe-a', 'channel-wwe-b')
-        @($item.Offerings.SourceId | Sort-Object) | Should -Be @('provider-a', 'provider-b')
+        $item.Promotion.Id | Should -Match '^cf-[a-f0-9]{64}$'
+        $item.Promotion.Id | Should -Not -Be 'wwe'
+        @($item.Offerings.Launch.ChannelReference | Where-Object { $_ -notmatch '^cf-[a-f0-9]{64}$' }) | Should -BeNullOrEmpty
+        @($item.Offerings.SourceId | Where-Object { $_ -notmatch '^cf-[a-f0-9]{64}$' }) | Should -BeNullOrEmpty
         $item.ItemId | Should -Not -Be $item.Offerings[0].Launch.ChannelReference
+    }
+
+    It 'keeps matching title and time on separate channels as separate items without explicit identity' {
+        $first = New-OneGuideTestProgramme 'channel-a' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Same Scheduled Title' @('Wrestling') 'provider-a'
+        $second = New-OneGuideTestProgramme 'channel-b' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Same Scheduled Title' @('Wrestling') 'provider-b'
+        $result = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes @($first, $second) -EvaluationTimeUtc $Evaluation
+
+        $result.TotalCount | Should -Be 2
+        @($result.Items.ItemId | Select-Object -Unique).Count | Should -Be 2
+        @($result.Items | Where-Object { $_.OfferingCount -ne 1 }) | Should -BeNullOrEmpty
+    }
+
+    It 'uses only an exactly recognized explicit Kind value instead of inferring from category or episode metadata' {
+        $categoryOnly = New-OneGuideTestProgramme 'category-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Wrestling Movie' @('Wrestling', 'Movies') 'provider-a' -EpisodeNumber 'S01E01'
+        $explicit = New-OneGuideTestProgramme 'explicit-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Explicit Event' @('Wrestling') 'provider-a'
+        $lowercase = New-OneGuideTestProgramme 'lowercase-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Unrecognized Kind' @('Wrestling') 'provider-a'
+        $explicit | Add-Member -NotePropertyName Kind -NotePropertyValue Event
+        $lowercase | Add-Member -NotePropertyName Kind -NotePropertyValue event
+        $categoryResult = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($categoryOnly) -EvaluationTimeUtc $Evaluation
+        $explicitResult = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($explicit) -EvaluationTimeUtc $Evaluation
+        $lowercaseResult = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($lowercase) -EvaluationTimeUtc $Evaluation
+
+        $categoryResult.Items[0].Kind | Should -Be 'Programme'
+        $explicitResult.Items[0].Kind | Should -Be 'Event'
+        $lowercaseResult.Items[0].Kind | Should -Be 'Programme'
     }
 
     It 'selects repeated-offering metadata deterministically when source rows disagree' {
@@ -118,7 +145,9 @@ Describe 'One Guide read projection' {
     It 'bounds large offering sets while reporting their full count' {
         $programmes = @(
             for ($index = 0; $index -lt 17; $index++) {
-                New-OneGuideTestProgramme "channel-$index" ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Multi-channel Event' @('Football') 'provider-a'
+                $programme = New-OneGuideTestProgramme "channel-$index" ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Multi-channel Event' @('Football') 'provider-a'
+                $programme | Add-Member -NotePropertyName CanonicalEventId -NotePropertyValue 'sample-event:multi-channel-2026'
+                $programme
             }
         )
         $result = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $programmes -EvaluationTimeUtc $Evaluation
@@ -145,7 +174,6 @@ Describe 'One Guide read projection' {
         $programme = New-OneGuideTestProgramme 'details-channel' ($Evaluation.AddHours(3)) ($Evaluation.AddHours(4)) 'No Metadata'
         $before = $programme | ConvertTo-Json -Depth 5 -Compress
         $list = Get-ChannelForgeOneGuide -Query Category -CategoryKey football -Programmes @($programme) -EvaluationTimeUtc $Evaluation
-        $all = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($programme) -EvaluationTimeUtc $Evaluation
         $futureProgramme = New-OneGuideTestProgramme 'details-channel' ($Evaluation.AddMinutes(5)) ($Evaluation.AddHours(1)) 'Details Event'
         $future = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($futureProgramme) -EvaluationTimeUtc $Evaluation
         $details = Get-ChannelForgeOneGuide -Query Details -ItemId $future.Items[0].ItemId -Programmes @($futureProgramme) -EvaluationTimeUtc $Evaluation
@@ -172,6 +200,18 @@ Describe 'One Guide read projection' {
         $json | Should -Not -Match 'https?://|ACCOUNT_ID|API_TOKEN|very-secret|hidden|C:\\private|D:\\private'
         $result.Items[0].Offerings[0].Launch.PSObject.Properties.Name | Should -Contain 'ChannelReference'
         $result.Items[0].Offerings[0].Launch.PSObject.Properties.Name | Should -Not -Contain 'Url'
+    }
+    It 'hashes source, channel, and promotion identifiers even when they resemble ordinary labels' {
+        $programme = New-OneGuideTestProgramme 'ChannelPlan42' ($Evaluation.AddMinutes(5)) ($Evaluation.AddHours(1)) 'Visible Programme' @('Wrestling') 'ProviderAccount19'
+        $programme | Add-Member -NotePropertyName Promotion -NotePropertyValue @{ Id = 'PromoAccess29'; Name = 'WWE' }
+        $result = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($programme) -EvaluationTimeUtc $Evaluation
+        $json = $result | ConvertTo-Json -Depth 10 -Compress
+
+        $json | Should -Not -Match 'ChannelPlan42|ProviderAccount19|PromoAccess29'
+        $result.Items[0].Offerings[0].SourceId | Should -Match '^cf-[a-f0-9]{64}$'
+        $result.Items[0].Offerings[0].Launch.ChannelReference | Should -Match '^cf-[a-f0-9]{64}$'
+        $result.Items[0].Promotion.Id | Should -Match '^cf-[a-f0-9]{64}$'
+        $result.Items[0].Offerings[0].SourceLabel | Should -Be 'Source'
     }
 
     It 'matches the versioned JSON schema and rejects malformed intervals' {

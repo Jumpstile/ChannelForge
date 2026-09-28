@@ -1,3 +1,74 @@
+$script:ChannelForgeOneGuideAcceptedProjectionCache = $null
+
+function Get-ChannelForgeWebOneGuideCatalogue {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    $paths = Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
+    if (-not [IO.File]::Exists($paths.Current)) {
+        $script:ChannelForgeOneGuideAcceptedProjectionCache = $null
+        return @()
+    }
+    $pointer = Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $paths.Current -Domain 'pointer/v2'
+    Assert-ChannelForgeGenerationPropertySequence $pointer.Object @('Version', 'GenerationId', 'GenerationManifestHash', 'AcceptedStateHash', 'AcceptedOutputManifestHash', 'PointerHash') 'Pointer'
+    Assert-ChannelForgeGenerationHash $pointer.Object.PointerHash 'PointerHash'
+    Assert-ChannelForgeGenerationId ([string]$pointer.Object.GenerationId)
+    if (-not (Test-ChannelForgeGenerationProjectionHash $pointer.Object 'pointer/v2' 'PointerHash')) { throw 'FAIL_CLOSED: current pointer hash is invalid.' }
+    $cacheKey = @(
+        [string]$pointer.Object.GenerationId,
+        [string]$pointer.Object.GenerationManifestHash,
+        [string]$pointer.Object.AcceptedStateHash,
+        [string]$pointer.Object.AcceptedOutputManifestHash,
+        [string]$pointer.Object.PointerHash
+    ) -join '|'
+    if ($null -ne $script:ChannelForgeOneGuideAcceptedProjectionCache -and
+        [string]$script:ChannelForgeOneGuideAcceptedProjectionCache.Key -ceq $cacheKey) {
+        return @($script:ChannelForgeOneGuideAcceptedProjectionCache.Items)
+    }
+
+    $snapshot = Get-ChannelForgeGenerationCurrentSnapshot -RepositoryRoot $RepositoryRoot -Paths $paths
+    if ($null -eq $snapshot) {
+        $script:ChannelForgeOneGuideAcceptedProjectionCache = $null
+        return @()
+    }
+    $snapshotPointer = $snapshot.Pointer.Object
+    $snapshotKey = @(
+        [string]$snapshotPointer.GenerationId,
+        [string]$snapshotPointer.GenerationManifestHash,
+        [string]$snapshotPointer.AcceptedStateHash,
+        [string]$snapshotPointer.AcceptedOutputManifestHash,
+        [string]$snapshotPointer.PointerHash
+    ) -join '|'
+    if ($snapshotKey -cne $cacheKey) { throw 'Accepted generation changed while the One Guide projection was loading.' }
+
+    $programmes = @()
+    if ($null -ne $snapshot.XMLTV) {
+        $bytes = [byte[]]$snapshot.XMLTV.Bytes
+        if ($bytes.Length -gt 268435456) { throw 'Accepted guide exceeds the read projection limit.' }
+        $stream = [System.IO.MemoryStream]::new($bytes, $false)
+        try {
+            $programmes = @(Read-ChannelForgeXmltvDocument `
+                -Stream $stream `
+                -SourceId 'accepted-guide' `
+                -SourcePath $snapshot.XMLTV.Path `
+                -SourceKind local `
+                -MaxDocumentBytes 268435456 `
+                -CandidateContractVersion 'blocker-2-contract/v8')
+        }
+        finally { $stream.Dispose() }
+    }
+    $minimumEvaluationTimeUtc = [datetimeoffset]::MinValue
+    $catalogue = @(Get-ChannelForgeOneGuide -Query LiveNow -Programmes $programmes -EvaluationTimeUtc $minimumEvaluationTimeUtc -ReturnCatalogue)
+    $itemsById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($item in $catalogue) { $itemsById[[string]$item.ItemId] = $item }
+    $script:ChannelForgeOneGuideAcceptedProjectionCache = [pscustomobject]@{
+        Key = $cacheKey
+        Items = $catalogue
+        ItemsById = $itemsById
+    }
+    return $catalogue
+}
+
 function Get-ChannelForgeWebOneGuidePaging {
     param([AllowEmptyString()][string]$QueryString = '')
 
@@ -45,33 +116,17 @@ function Get-ChannelForgeWebOneGuideResponse {
         if ($Query -eq 'Details' -and $Offset -ne 0) {
             return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $ContentType -Body (@{ Error = 'invalid-query'; Message = 'Item detail does not support an offset.' } | ConvertTo-Json -Compress) -Headers $Headers
         }
-        $paths = Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
-        # Read the validated immutable generation directly. The recovery wrapper
-        # is intentionally not used because it may repair durable state.
-        $snapshot = Get-ChannelForgeGenerationCurrentSnapshot -RepositoryRoot $RepositoryRoot -Paths $paths
-        $programmes = @()
-        if ($null -ne $snapshot -and $null -ne $snapshot.XMLTV) {
-            $bytes = [byte[]]$snapshot.XMLTV.Bytes
-            if ($bytes.Length -gt 268435456) { throw 'Accepted guide exceeds the read projection limit.' }
-            $stream = [System.IO.MemoryStream]::new($bytes, $false)
-            try {
-                $programmes = @(Read-ChannelForgeXmltvDocument `
-                    -Stream $stream `
-                    -SourceId 'accepted-guide' `
-                    -SourcePath $snapshot.XMLTV.Path `
-                    -SourceKind local `
-                    -MaxDocumentBytes 268435456 `
-                    -CandidateContractVersion 'blocker-2-contract/v8')
-            }
-            finally { $stream.Dispose() }
-        }
+        $catalogue = Get-ChannelForgeWebOneGuideCatalogue -RepositoryRoot $RepositoryRoot
         $arguments = @{
             Query = $Query
-            Programmes = $programmes
+            Programmes = @()
+            Catalogue = $catalogue
+            UseCatalogue = $true
             EvaluationTimeUtc = [datetimeoffset]::UtcNow
             MaximumItems = $MaximumItems
             Offset = $Offset
         }
+        if ($Query -eq 'Details') { $arguments.CatalogueById = $script:ChannelForgeOneGuideAcceptedProjectionCache.ItemsById }
         if (-not [string]::IsNullOrWhiteSpace($CategoryKey)) { $arguments.CategoryKey = $CategoryKey }
         if (-not [string]::IsNullOrWhiteSpace($ItemId)) { $arguments.ItemId = $ItemId }
         $projection = Get-ChannelForgeOneGuide @arguments

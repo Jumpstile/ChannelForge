@@ -96,18 +96,33 @@ safe placeholder shell. Static requests are confined to the configured
 The One Guide API (`GET`/`HEAD /api/one-guide/...`) returns the versioned
 `one-guide/v1` projection defined by
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json).
-It reads the verified immutable accepted XMLTV artifact directly; it does not
-run recovery, enumerate configured sources, fetch the network, or mutate
-accepted/source/evidence state. Live Now and Starting Soon are evaluated in UTC
-at request time; the public query function takes an explicit evaluation instant.
+It reads the verified immutable accepted XMLTV artifact through a disposable
+derived in-memory catalogue; it does not run recovery, enumerate configured
+sources, fetch the network, or mutate accepted/source/evidence state. Live Now
+and Starting Soon are evaluated in UTC at request time; the public query
+function takes an explicit evaluation instant.
 The fixed category keys are Live Now, Starting Soon, Wrestling, Football,
-Baseball, Soccer, Movies, and News. Item identity is content-derived and
-independent of source enumeration; distinct channel references remain distinct
-safe offerings. The accepted merged XMLTV artifact does not retain provider
-per-programme provenance, entitlement, or launch URLs, so this slice reports
-the accepted guide as its source and leaves entitlement, freshness, confidence,
-DVR, and timeshift unknown. Structured promotion metadata is included only
-when explicitly supplied; no promotion is guessed from a title.
+Baseball, Soccer, Movies, and News. Cross-channel grouping requires an explicit
+`CanonicalEventId` in projection input; the generated item identity also
+includes the normalized title, subtitle, episode number, and schedule. Without
+the explicit ID, generated identities are scoped to a source/channel occurrence,
+so matching title and time on distinct pairs remain separate. Accepted XMLTV
+does not preserve `CanonicalEventId` or provider attribution per programme. The
+HTTP projection keeps those channel occurrences separate and labels their
+source `Accepted guide`. It reports
+`Kind` as `Programme` unless the input explicitly carries a recognized kind.
+Sport, league, participant, promotion, entitlement, and launch metadata are
+reported only when actually supplied; title text is never used to invent them.
+Source, channel, and promotion identifiers are opaque domain-separated hashes.
+
+The server keeps one bounded in-memory projection for the current accepted
+generation, keyed by its pointer and manifest identity. Catalogue construction
+precomputes parsed UTC interval ticks and a direct item-ID lookup. Warm list
+requests validate the current pointer, scan the cached records, and clone only
+the returned page (maximum 100); Details uses the ID lookup. Warm requests do
+not reread or reparse accepted XMLTV. A new generation replaces the entry. The
+cache is derived and disposable; no database or second source of truth is
+introduced.
 
 List routes use `limit` and `offset` for bounded enumeration (maximum 100
 items); each item reports the number of offerings and whether its 16-offering

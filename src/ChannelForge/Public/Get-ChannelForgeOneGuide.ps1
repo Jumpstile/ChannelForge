@@ -7,13 +7,25 @@ function Get-ChannelForgeOneGuide {
         [ValidateSet('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')][string]$CategoryKey,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ItemId,
         [ValidateRange(1, 100)][int]$MaximumItems = 100,
-        [ValidateRange(0, 2147483647)][int]$Offset = 0
+        [ValidateRange(0, 2147483647)][int]$Offset = 0,
+        [Parameter(DontShow)][AllowNull()][object]$CatalogueById,
+        [Parameter(DontShow)][AllowNull()][AllowEmptyCollection()][object[]]$Catalogue = @(),
+        [Parameter(DontShow)][switch]$UseCatalogue,
+        [Parameter(DontShow)][switch]$ReturnCatalogue
     )
 
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
     $startingSoonEnd = $evaluation.AddHours(2)
-    $itemGroups = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
     $taxonomyOrder = @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')
+    if ($UseCatalogue) {
+        if ($Query -eq 'Details' -and $null -ne $CatalogueById) {
+            if ($CatalogueById.ContainsKey($ItemId)) { $orderedItems = @($CatalogueById[$ItemId]) }
+            else { $orderedItems = @() }
+        }
+        else { $orderedItems = @($Catalogue) }
+    }
+    else {
+        $itemGroups = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
     $taxonomy = @{
         wrestling = 'wrestling'
         football = 'football'
@@ -36,13 +48,11 @@ function Get-ChannelForgeOneGuide {
         return $null
     }
 
-    function Get-SafeIdentifier {
+    function Get-OpaqueIdentifier {
         param([AllowNull()][object]$Value, [Parameter(Mandatory)][string]$Domain, [string]$Fallback = '')
         $raw = if ($null -eq $Value) { '' } else { ([string]$Value).Trim() }
         if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $Fallback }
         if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
-        $safe = ConvertTo-ChannelForgeGuideSafeText -Value $raw -MaximumLength 128
-        if ($safe -match '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$') { return $safe.ToLowerInvariant() }
         return ('cf-' + (Get-ChannelForgeDomainHash -Domain $Domain -InputObject $raw))
     }
 
@@ -85,13 +95,7 @@ function Get-ChannelForgeOneGuide {
             if ($taxonomy.ContainsKey($key)) { [void]$categories.Add([string]$taxonomy[$key]) }
         }
         $declaredKind = [string](Get-InputValue $programme 'Kind')
-        if ($declaredKind -notin @('Programme', 'Event', 'Movie', 'SeriesEpisode', 'Other')) { $declaredKind = '' }
-        $kind = if ($categories.Contains('movies')) { 'Movie' }
-            elseif (-not [string]::IsNullOrWhiteSpace($episodeNumber)) { 'SeriesEpisode' }
-            elseif (@($categories | Where-Object { $_ -in @('wrestling', 'football', 'baseball', 'soccer') }).Count -gt 0) { 'Event' }
-            elseif (-not [string]::IsNullOrWhiteSpace($declaredKind)) { $declaredKind }
-            else { 'Programme' }
-
+        if ($declaredKind -cnotin @('Programme', 'Event', 'Movie', 'SeriesEpisode', 'Other')) { $declaredKind = $null }
         $sport = Get-SafeOptionalText (Get-InputValue $programme 'Sport') 128
         $league = Get-SafeOptionalText (Get-InputValue $programme 'League') 128
         $homeParticipant = Get-SafeOptionalText (Get-InputValue $programme 'HomeParticipant') 128
@@ -99,7 +103,7 @@ function Get-ChannelForgeOneGuide {
         $promotion = $null
         $promotionInput = Get-InputValue $programme 'Promotion'
         if ($categories.Contains('wrestling') -and $null -ne $promotionInput) {
-            $promotionId = Get-SafeIdentifier (Get-InputValue $promotionInput 'Id') 'one-guide-promotion/v1'
+            $promotionId = Get-OpaqueIdentifier (Get-InputValue $promotionInput 'Id') 'one-guide-promotion/v1'
             $promotionName = Get-SafeOptionalText (Get-InputValue $promotionInput 'Name') 128
             if (-not [string]::IsNullOrWhiteSpace($promotionId) -and $null -ne $promotionName) {
                 $promotion = [ordered]@{ Id = $promotionId; Name = $promotionName }
@@ -115,10 +119,16 @@ function Get-ChannelForgeOneGuide {
 
         $safeTitleKey = [regex]::Replace($title.Trim().ToLowerInvariant(), '\s+', ' ')
         $safeSubtitleKey = if ($null -eq $subtitle) { '' } else { [regex]::Replace($subtitle.Trim().ToLowerInvariant(), '\s+', ' ') }
-        # V1 correlation deliberately excludes classification and provider/channel
-        # metadata. Corroborating sources may disagree on those fields while still
-        # describing the same scheduled content.
+        $rawSourceId = [string](Get-InputValue $programme 'SourceId')
+        $rawChannelId = [string](Get-InputValue $programme 'ChannelId')
+        $canonicalEventId = [string](Get-InputValue $programme 'CanonicalEventId')
+        if ([string]::IsNullOrWhiteSpace($canonicalEventId)) { $canonicalEventId = $null }
+        else { $canonicalEventId = $canonicalEventId.Trim() }
         $identity = [ordered]@{
+            Correlation = if ($null -ne $canonicalEventId) { 'ExplicitEvent' } else { 'ChannelOccurrence' }
+            CanonicalEventId = if ($null -ne $canonicalEventId) { $canonicalEventId } else { '' }
+            SourceId = if ($null -eq $canonicalEventId) { $rawSourceId } else { '' }
+            ChannelId = if ($null -eq $canonicalEventId) { $rawChannelId } else { '' }
             Title = $safeTitleKey
             Subtitle = $safeSubtitleKey
             EpisodeNumber = if ($null -eq $episodeNumber) { '' } else { $episodeNumber.ToLowerInvariant() }
@@ -126,11 +136,10 @@ function Get-ChannelForgeOneGuide {
             StopUtc = $stopText
         }
         $itemId = Get-ChannelForgeDomainHash -Domain 'one-guide-item/v1' -InputObject $identity
-
-        $sourceId = Get-SafeIdentifier (Get-InputValue $programme 'SourceId') 'one-guide-source/v1' 'accepted-guide'
+        $sourceId = Get-OpaqueIdentifier $rawSourceId 'one-guide-source/v1' 'accepted-guide'
         $sourceLabel = Get-SafeOptionalText (Get-InputValue $programme 'SourceLabel') 128
-        if ($null -eq $sourceLabel) { $sourceLabel = if ($sourceId -eq 'accepted-guide') { 'Accepted guide' } else { $sourceId } }
-        $channelReference = Get-SafeIdentifier (Get-InputValue $programme 'ChannelId') 'one-guide-channel/v1'
+        if ($null -eq $sourceLabel) { $sourceLabel = if ($rawSourceId -ceq 'accepted-guide') { 'Accepted guide' } else { 'Source' } }
+        $channelReference = Get-OpaqueIdentifier $rawChannelId 'one-guide-channel/v1'
         if ([string]::IsNullOrWhiteSpace($channelReference)) { continue }
         $offeringId = Get-ChannelForgeDomainHash -Domain 'one-guide-offering/v1' -InputObject ([ordered]@{
             ItemId = $itemId
@@ -150,9 +159,10 @@ function Get-ChannelForgeOneGuide {
 
         if (-not $itemGroups.ContainsKey($itemId)) {
             $itemGroups[$itemId] = [pscustomobject][ordered]@{
-                Identity = $identity
                 ItemId = $itemId
-                Kind = $kind
+                Kind = $null
+                HasExplicitKind = $false
+                KindConflict = $false
                 Title = $title
                 Subtitle = $subtitle
                 Description = $description
@@ -170,6 +180,16 @@ function Get-ChannelForgeOneGuide {
             }
         }
         $group = $itemGroups[$itemId]
+        if ($null -ne $declaredKind -and -not $group.KindConflict) {
+            if (-not $group.HasExplicitKind) {
+                $group.Kind = $declaredKind
+                $group.HasExplicitKind = $true
+            }
+            elseif ($group.Kind -cne $declaredKind) {
+                $group.Kind = 'Programme'
+                $group.KindConflict = $true
+            }
+        }
         if (-not $group.Offerings.ContainsKey($offeringId)) {
             $group.Offerings[$offeringId] = $offering
         }
@@ -227,11 +247,7 @@ function Get-ChannelForgeOneGuide {
         foreach ($taxonomyKey in $taxonomyOrder) {
             if (@($group.CategoryKeys) -contains $taxonomyKey) { [void]$orderedCategories.Add($taxonomyKey) }
         }
-        $finalKind = if (@($orderedCategories) -contains 'movies') { 'Movie' }
-            elseif (-not [string]::IsNullOrWhiteSpace([string]$group.EpisodeNumber)) { 'SeriesEpisode' }
-            elseif (@($orderedCategories | Where-Object { $_ -in @('wrestling', 'football', 'baseball', 'soccer') }).Count -gt 0) { 'Event' }
-            elseif (@($orderedCategories) -contains 'news') { 'Programme' }
-            else { 'Other' }
+        $finalKind = if ($group.HasExplicitKind -and -not $group.KindConflict) { $group.Kind } else { 'Programme' }
         $items.Add([pscustomobject][ordered]@{
             ItemId = $group.ItemId
             Kind = $finalKind
@@ -258,26 +274,74 @@ function Get-ChannelForgeOneGuide {
     }
     $orderedItems = $items.ToArray()
     [Array]::Sort($orderedItems, $itemComparison)
-
+    }
+    if ($ReturnCatalogue) {
+        foreach ($item in $orderedItems) {
+            $item | Add-Member -NotePropertyName StartUtcTicks -NotePropertyValue ([datetimeoffset]::Parse([string]$item.StartUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).UtcTicks)
+            $item | Add-Member -NotePropertyName StopUtcTicks -NotePropertyValue ([datetimeoffset]::Parse([string]$item.StopUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).UtcTicks)
+        }
+        return $orderedItems
+    }
     if ($Query -eq 'Category') {
         if ([string]::IsNullOrWhiteSpace($CategoryKey)) { throw 'CategoryKey is required for a category query.' }
         $CategoryKey = $CategoryKey.ToLowerInvariant()
     }
     if ($Query -eq 'Details' -and [string]::IsNullOrWhiteSpace($ItemId)) { throw 'ItemId is required for a details query.' }
+
     $selected = [System.Collections.Generic.List[object]]::new()
+    $totalCount = 0
+    $pageEnd = [int64]$Offset + [int64]$MaximumItems
     foreach ($item in $orderedItems) {
+        $status = [string]$item.Status
+        if ($UseCatalogue) {
+            $startTicks = [long]$item.StartUtcTicks
+            $stopTicks = [long]$item.StopUtcTicks
+            $status = if ($startTicks -le $evaluation.UtcTicks -and $stopTicks -gt $evaluation.UtcTicks) { 'Live' }
+                elseif ($startTicks -gt $evaluation.UtcTicks -and $startTicks -le $startingSoonEnd.UtcTicks) { 'StartingSoon' }
+                elseif ($startTicks -gt $evaluation.UtcTicks) { 'Upcoming' }
+                else { 'Past' }
+        }
         $include = switch ($Query) {
-            'LiveNow' { $item.Status -ceq 'Live' }
-            'StartingSoon' { $item.Status -ceq 'StartingSoon' }
-            'Category' { $item.CategoryKeys -ccontains $CategoryKey }
+            'LiveNow' { $status -ceq 'Live' }
+            'StartingSoon' { $status -ceq 'StartingSoon' }
+            'Category' {
+                if ($CategoryKey -ceq 'live-now') { $status -ceq 'Live' }
+                elseif ($CategoryKey -ceq 'starting-soon') { $status -ceq 'StartingSoon' }
+                else { $item.CategoryKeys -ccontains $CategoryKey }
+            }
             'Details' { [string]$item.ItemId -ceq $ItemId }
         }
-        if ($include) { [void]$selected.Add($item) }
+        if ($include) {
+            if ([int64]$totalCount -ge [int64]$Offset -and [int64]$totalCount -lt $pageEnd) { [void]$selected.Add($item) }
+            $totalCount++
+        }
     }
-    $totalCount = $selected.Count
-    $upperBound = [Math]::Min([int64]$totalCount, ([int64]$Offset + [int64]$MaximumItems))
     $returned = [System.Collections.Generic.List[object]]::new()
-    for ($index = $Offset; $index -lt $upperBound; $index++) { [void]$returned.Add($selected[$index]) }
+    for ($index = 0; $index -lt $selected.Count; $index++) {
+        $item = $selected[$index]
+        $itemStatus = [string]$item.Status
+        if ($UseCatalogue) {
+            $itemStatus = if ([long]$item.StartUtcTicks -le $evaluation.UtcTicks -and [long]$item.StopUtcTicks -gt $evaluation.UtcTicks) { 'Live' }
+                elseif ([long]$item.StartUtcTicks -gt $evaluation.UtcTicks -and [long]$item.StartUtcTicks -le $startingSoonEnd.UtcTicks) { 'StartingSoon' }
+                elseif ([long]$item.StartUtcTicks -gt $evaluation.UtcTicks) { 'Upcoming' }
+                else { 'Past' }
+            $categorySet = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+            foreach ($category in $item.CategoryKeys) {
+                if ($category -notin @('live-now', 'starting-soon')) { [void]$categorySet.Add([string]$category) }
+            }
+            if ($itemStatus -eq 'Live') { [void]$categorySet.Add('live-now') }
+            elseif ($itemStatus -eq 'StartingSoon') { [void]$categorySet.Add('starting-soon') }
+            $categoriesForItem = @($taxonomyOrder | Where-Object { $categorySet.Contains($_) })
+            $copy = [ordered]@{}
+            foreach ($property in $item.PSObject.Properties) {
+                if ($property.Name -notin @('StartUtcTicks', 'StopUtcTicks')) { $copy[$property.Name] = $property.Value }
+            }
+            $copy.Status = $itemStatus
+            $copy.CategoryKeys = $categoriesForItem
+            $item = [pscustomobject]$copy
+        }
+        [void]$returned.Add($item)
+    }
     $result = [ordered]@{
         Version = 'one-guide/v1'
         EvaluationTimeUtc = $evaluation.ToString('o', [Globalization.CultureInfo]::InvariantCulture)

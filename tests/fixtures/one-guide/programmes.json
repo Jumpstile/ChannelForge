@@ -4,6 +4,8 @@
     "Start": "2026-10-01T12:30:00Z",
     "End": "2026-10-01T14:00:00Z",
     "Title": "Championship Main Event",
+    "CanonicalEventId": "sample-event:championship-main-event-2026",
+    "Kind": "Event",
     "Categories": ["Wrestling"],
     "SourceId": "provider-a",
     "SourceLabel": "Provider A",
@@ -18,6 +20,8 @@
     "Start": "2026-10-01T12:30:00Z",
     "End": "2026-10-01T14:00:00Z",
     "Title": "Championship Main Event",
+    "CanonicalEventId": "sample-event:championship-main-event-2026",
+    "Kind": "Event",
     "Categories": [],
     "SourceId": "provider-b",
     "SourceLabel": "Provider B"

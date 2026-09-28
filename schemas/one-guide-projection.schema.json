@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://channelforge.invalid/schemas/one-guide-projection.schema.json",
   "title": "ChannelForge One Guide read projection",
-  "description": "Bounded, deterministic, read-only projection for future guide clients.",
+  "description": "Bounded, deterministic, read-only projection of accepted XMLTV. Cross-channel grouping, source provenance, and programme Kind are exposed only when preserved by input evidence.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -108,7 +108,7 @@
               "properties": {
                 "Id": {
                   "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                  "pattern": "^cf-[a-f0-9]{64}$"
                 },
                 "Name": { "type": "string", "minLength": 1, "maxLength": 128 }
               }
@@ -138,7 +138,7 @@
               "OfferingId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
               "SourceId": {
                 "type": "string",
-                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                "pattern": "^cf-[a-f0-9]{64}$"
               },
               "SourceLabel": {
                 "type": "string",
@@ -155,7 +155,7 @@
                   "Kind": { "const": "Channel" },
                   "ChannelReference": {
                     "type": "string",
-                    "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                    "pattern": "^cf-[a-f0-9]{64}$"
                   }
                 }
               },

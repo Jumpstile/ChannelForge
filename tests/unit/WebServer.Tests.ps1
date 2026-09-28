@@ -274,18 +274,20 @@ BeforeAll {
 
             $statusMatch = [regex]::Match($headerText, '^HTTP/\d\.\d\s+(?<Status>\d+)', [Text.RegularExpressions.RegexOptions]::Multiline)
             $lengthMatch = [regex]::Match($headerText, '(?im)^Content-Length:\s*(?<Length>\d+)')
-            if (-not $statusMatch.Success -or -not $lengthMatch.Success) { throw 'The HTTP response omitted a status or Content-Length.' }
+            $requestMethodMatch = [regex]::Match($Headers, '^(?<Method>[A-Z]+)\s')
+            if (-not $statusMatch.Success -or -not $lengthMatch.Success -or -not $requestMethodMatch.Success) { throw 'The HTTP response omitted a status, Content-Length, or request method.' }
             $contentLength = [int]$lengthMatch.Groups['Length'].Value
-            $responseBytes = [byte[]]::new($contentLength)
+            $responseBytes = [byte[]]::new($(if ($requestMethodMatch.Groups['Method'].Value -eq 'HEAD') { 0 } else { $contentLength }))
             $offset = 0
-            while ($offset -lt $contentLength) {
-                $read = $stream.Read($responseBytes, $offset, $contentLength - $offset)
+            while ($offset -lt $contentLength -and $offset -lt $responseBytes.Length) {
+                $read = $stream.Read($responseBytes, $offset, [Math]::Min($contentLength - $offset, $responseBytes.Length - $offset))
                 if ($read -le 0) { throw 'The HTTP response ended before its declared body length.' }
                 $offset += $read
             }
             return [pscustomobject]@{
-                StatusCode = [int]$statusMatch.Groups['Status'].Value
-                Body       = [Text.Encoding]::UTF8.GetString($responseBytes)
+                StatusCode    = [int]$statusMatch.Groups['Status'].Value
+                ContentLength = $contentLength
+                Body          = [Text.Encoding]::UTF8.GetString($responseBytes)
             }
         }
         finally {
@@ -512,16 +514,47 @@ Describe 'ChannelForge web server foundation' {
         $accepted.StatusCode | Should -Be 200
         $before = Get-TestTreeSnapshot -Root $root
 
-        $live = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $root
-        $live.StatusCode | Should -Be 200
+        $global:ChannelForgeOneGuideXmltvReadCount = 0
+        $global:ChannelForgeOneGuideCacheCheckArmed = $false
+        $originalGenerationReader = (Get-Module ChannelForge).Invoke({ (Get-Command Read-ChannelForgeGenerationFile).ScriptBlock })[0]
+        $live = & (Get-Module ChannelForge) {
+            param($RepositoryRoot)
+            Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $RepositoryRoot
+        } $root
         $payload = $live.Body | ConvertFrom-Json
-        @($payload.Items).Count | Should -BeGreaterThan 0
-        $details = Get-TestWebResponse -Method HEAD -Path ("/api/one-guide/items/{0}" -f $payload.Items[0].ItemId) -RepositoryRoot $root
-        $category = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/news' -RepositoryRoot $root
-        $invalidCategory = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/unsupported' -RepositoryRoot $root
-        $post = Get-TestWebResponse -Method POST -Path '/api/one-guide/live-now' -RepositoryRoot $root
-        $paged = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now?limit=1&offset=0' -RepositoryRoot $root
-        $invalidQuery = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now?limit=101' -RepositoryRoot $root
+        @($payload.Items).Count | Should -Be 1
+        $payload.Items[0].ItemId | Should -Match '^[a-f0-9]{64}$'
+        Mock -CommandName Read-ChannelForgeGenerationFile -ModuleName ChannelForge -MockWith {
+            if ($global:ChannelForgeOneGuideCacheCheckArmed -and [IO.Path]::GetFileName($Path) -ceq 'merged.xml') {
+                $global:ChannelForgeOneGuideXmltvReadCount++
+                throw 'A warm One Guide request reread accepted XMLTV bytes.'
+            }
+            & $originalGenerationReader -RepositoryRoot $RepositoryRoot -Path $Path -Domain $Domain
+        }
+        $global:ChannelForgeOneGuideCacheCheckArmed = $true
+        $responses = & (Get-Module ChannelForge) {
+            param($RepositoryRoot)
+            $live = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $RepositoryRoot
+            $payload = $live.Body | ConvertFrom-Json
+            $details = Get-ChannelForgeWebResponse -Method HEAD -Path ("/api/one-guide/items/{0}" -f $payload.Items[0].ItemId) -RepositoryRoot $RepositoryRoot
+            $category = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/news' -RepositoryRoot $RepositoryRoot
+            $invalidCategory = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/unsupported' -RepositoryRoot $RepositoryRoot
+            $post = Get-ChannelForgeWebResponse -Method POST -Path '/api/one-guide/live-now' -RepositoryRoot $RepositoryRoot
+            $paged = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now?limit=1&offset=0' -RepositoryRoot $RepositoryRoot
+            $invalidQuery = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now?limit=101' -RepositoryRoot $RepositoryRoot
+            [pscustomobject]@{ Live = $live; Payload = $payload; Details = $details; Category = $category; InvalidCategory = $invalidCategory; Post = $post; Paged = $paged; InvalidQuery = $invalidQuery }
+        } $root
+        $global:ChannelForgeOneGuideCacheCheckArmed = $false
+        $live = $responses.Live
+        $payload = $responses.Payload
+        $details = $responses.Details
+        $category = $responses.Category
+        $invalidCategory = $responses.InvalidCategory
+        $post = $responses.Post
+        $paged = $responses.Paged
+        $invalidQuery = $responses.InvalidQuery
+        $global:ChannelForgeOneGuideXmltvReadCount | Should -Be 0
+        Remove-Variable -Name ChannelForgeOneGuideXmltvReadCount, ChannelForgeOneGuideCacheCheckArmed -Scope Global -ErrorAction SilentlyContinue
         $after = Get-TestTreeSnapshot -Root $root
 
         $payload.Version | Should -Be 'one-guide/v1'
@@ -536,6 +569,40 @@ Describe 'ChannelForge web server foundation' {
         ($paged.Body | ConvertFrom-Json).Items.Count | Should -Be 1
         $invalidQuery.StatusCode | Should -Be 400
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+    }
+    It 'rebuilds the cached One Guide projection when the accepted generation changes' {
+        $root = Join-Path $TestDrive 'one-guide-cache-invalidation'
+        $publishGuide = {
+            param([string]$Title)
+            $start = [datetimeoffset]::UtcNow.AddMinutes(-10)
+            $stop = $start.AddHours(1)
+            $startText = $start.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+            $stopText = $stop.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+            $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><programme start=`"$startText`" stop=`"$stopText`" channel=`"one`"><title>$Title</title><category>News</category></programme></tv>"
+            $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+            $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $proposalBody -ContentType 'application/json' -ContentLength $proposalBody.Length
+            $proposalPayload = $proposal.Body | ConvertFrom-Json
+            $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+            $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+            $accepted.StatusCode | Should -Be 200
+        }
+
+        & $publishGuide 'Accepted First News'
+        $first = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $root
+        $firstPayload = $first.Body | ConvertFrom-Json
+        $firstGenerationId = (Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json).GenerationId
+        & $publishGuide 'Accepted Replacement News'
+        $secondGenerationId = (Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json).GenerationId
+        $second = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $root
+        $secondPayload = $second.Body | ConvertFrom-Json
+        $category = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/news' -RepositoryRoot $root
+
+        $firstGenerationId | Should -Not -Be $secondGenerationId
+        $firstPayload.Items[0].Title | Should -Be 'Accepted First News'
+        $second.StatusCode | Should -Be 200
+        $secondPayload.Items[0].Title | Should -Be 'Accepted Replacement News'
+        $secondPayload.Items[0].ItemId | Should -Not -Be $firstPayload.Items[0].ItemId
+        ($category.Body | ConvertFrom-Json).Items[0].Title | Should -Be 'Accepted Replacement News'
     }
 
     # Status may read validated accepted metadata; it must not write any state.
@@ -868,8 +935,9 @@ Describe 'ChannelForge web server foundation' {
             $guideStop = $guideStart.AddMinutes(30)
             $guideStartText = $guideStart.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
             $guideStopText = $guideStop.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
-            $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><programme start=`"$guideStartText`" stop=`"$guideStopText`" channel=`"one`"><title>HTTP Smoke News</title><category>News</category></programme></tv>"
-            $body = New-TestProposalBody -GuideText $guide -WithGuide
+            $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><channel id=`"two`"><display-name>Two</display-name></channel><programme start=`"$guideStartText`" stop=`"$guideStopText`" channel=`"one`"><title>HTTP Smoke News</title><category>News</category></programme><programme start=`"$guideStartText`" stop=`"$guideStopText`" channel=`"two`"><title>HTTP Smoke News</title><category>News</category></programme></tv>"
+            $playlistText = "#EXTM3U`n#EXTINF:-1 tvg-id=one,One`nhttps://example.invalid/one`n#EXTINF:-1 tvg-id=two,Two`nhttps://example.invalid/two`n"
+            $body = New-TestProposalBody -PlaylistText $playlistText -GuideText $guide -WithGuide
             $proposalHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $($body.Length)"
             $proposalResponse = Invoke-TestRawHttpRequest -Port $port -Headers $proposalHeaders -BodyBytes $body
             $proposalResponse.StatusCode | Should -Be 200
@@ -882,13 +950,45 @@ Describe 'ChannelForge web server foundation' {
             $acceptResponse.StatusCode | Should -Be 200
             ($acceptResponse.Body | ConvertFrom-Json).Status | Should -Be 'ACCEPTED'
             Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
+            $pointerPath = Join-Path $root 'state\accepted-lineup.json'
+            $pointerHashBefore = (Get-FileHash -LiteralPath $pointerPath -Algorithm SHA256).Hash
+            $acceptedGenerationId = (Get-Content -LiteralPath $pointerPath -Raw | ConvertFrom-Json).GenerationId
+            $acceptedGuidePath = Join-Path $root "state\generations\$acceptedGenerationId\merged.xml"
+            $guideHashBefore = (Get-FileHash -LiteralPath $acceptedGuidePath -Algorithm SHA256).Hash
+            $internalChannelId = [regex]::Match([IO.File]::ReadAllText($acceptedGuidePath), '<channel id="(?<Id>[^"]+)"').Groups['Id'].Value
+            $internalChannelId | Should -Not -BeNullOrEmpty
             $oneGuideHeaders = "GET /api/one-guide/live-now?limit=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
             $oneGuideResponse = Invoke-TestRawHttpRequest -Port $port -Headers $oneGuideHeaders
             $oneGuideResponse.StatusCode | Should -Be 200
             $oneGuidePayload = $oneGuideResponse.Body | ConvertFrom-Json
             $oneGuidePayload.Version | Should -Be 'one-guide/v1'
             @($oneGuidePayload.Items).Count | Should -Be 1
+            $oneGuidePayload.TotalCount | Should -Be 2
             $oneGuidePayload.Items[0].Title | Should -Be 'HTTP Smoke News'
+            $oneGuidePayload.Items[0].Kind | Should -Be 'Programme'
+            $oneGuidePayload.Items[0].Promotion | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].Sport | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].League | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].HomeParticipant | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].AwayParticipant | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].EpisodeNumber | Should -BeNullOrEmpty
+            $oneGuidePayload.Items[0].Offerings[0].SourceLabel | Should -Be 'Accepted guide'
+            $oneGuidePayload.Items[0].Offerings[0].SourceId | Should -Match '^cf-[a-f0-9]{64}$'
+            $oneGuidePayload.Items[0].Offerings[0].Launch.ChannelReference | Should -Match '^cf-[a-f0-9]{64}$'
+            $secondPageHeaders = "GET /api/one-guide/live-now?limit=1&offset=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
+            $secondPageResponse = Invoke-TestRawHttpRequest -Port $port -Headers $secondPageHeaders
+            $secondPageResponse.StatusCode | Should -Be 200
+            ($secondPageResponse.Body | ConvertFrom-Json).Items.Count | Should -Be 1
+            $headHeaders = "HEAD /api/one-guide/live-now?limit=1&offset=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
+            $headResponse = Invoke-TestRawHttpRequest -Port $port -Headers $headHeaders
+            $headResponse.StatusCode | Should -Be 200
+            $headResponse.Body | Should -Be ''
+            $headResponse.ContentLength | Should -Be ([Text.Encoding]::UTF8.GetByteCount($secondPageResponse.Body))
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /api/one-guide/live-now?limit=nope HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive").StatusCode | Should -Be 400
+            (Invoke-TestRawHttpRequest -Port $port -Headers "HEAD /api/one-guide/live-now?offset=2147483648 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive").StatusCode | Should -Be 400
+            $oneGuideResponse.Body | Should -Not -Contain $internalChannelId
+            (Get-FileHash -LiteralPath $pointerPath -Algorithm SHA256).Hash | Should -Be $pointerHashBefore
+            (Get-FileHash -LiteralPath $acceptedGuidePath -Algorithm SHA256).Hash | Should -Be $guideHashBefore
 
             $shortHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close`r`nContent-Type: application/json`r`nContent-Length: 3"
             $shortResponse = Invoke-TestRawHttpRequest -Port $port -Headers $shortHeaders -BodyBytes ([Text.Encoding]::UTF8.GetBytes('{}')) -ShutdownSend -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds
