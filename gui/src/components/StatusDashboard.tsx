@@ -8,6 +8,7 @@ type StatusDashboardProps = {
   fetchStatus?: WebStatusFetcher
   refreshSources?: SourceRefreshAction
   onReplaceSources?: () => void
+  onSnapshotChange?: (snapshot: WebStatusSnapshot | null) => void
 }
 
 function sourceStatusLabel(status: WebStatusSnapshot['sourcesStatus']): string {
@@ -36,6 +37,7 @@ export function StatusDashboard({
   fetchStatus = fetchWebStatus,
   refreshSources = refreshSavedSources,
   onReplaceSources,
+  onSnapshotChange,
 }: StatusDashboardProps) {
   const [state, setState] = useState<DashboardState>('loading')
   const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null)
@@ -48,19 +50,24 @@ export function StatusDashboard({
       .then((next) => {
         if (!mounted) return
         if (next === null) {
+          onSnapshotChange?.(null)
           setState('unavailable')
           return
         }
         setSnapshot(next)
+        onSnapshotChange?.(next)
         setState('ready')
       })
       .catch(() => {
-        if (mounted) setState('unavailable')
+        if (mounted) {
+          onSnapshotChange?.(null)
+          setState('unavailable')
+        }
       })
     return () => {
       mounted = false
     }
-  }, [fetchStatus])
+  }, [fetchStatus, onSnapshotChange])
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -73,7 +80,10 @@ export function StatusDashboard({
     }
     setRefreshMessage(result.status === 'UP_TO_DATE' ? 'Sources are up to date.' : 'Changes found. Review before replacing sources.')
     const next = await fetchStatus()
-    if (next !== null) setSnapshot(next)
+    if (next !== null) {
+      setSnapshot(next)
+      onSnapshotChange?.(next)
+    }
     setRefreshing(false)
   }
 
