@@ -158,9 +158,30 @@ Describe 'durable source enrollment' {
         $guideId = [string]$one.Guides[0].SourceId; $playlistId = [string]$one.Playlists[0].SourceId
         $selected = & (Get-Module ChannelForge) { param($root,$p,$g,$gid,$selectedPlaylistId) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p -GuideSources @($g) -Bindings @([pscustomobject]@{ GuideId=$gid; PlaylistIds=@($selectedPlaylistId); AppliesToAll=$false }) } $script:Project @($p1,$p2) $g $guideId $playlistId
         $selected.Bindings[0].PlaylistIds | Should -Be $playlistId
+        $reloaded = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $script:Project
+        $reloaded.Bindings.Count | Should -Be 1
+        $reloaded.Bindings[0].GuideId | Should -Be $guideId
+        $reloaded.Bindings[0].PlaylistIds | Should -Be @($playlistId)
         $all = & (Get-Module ChannelForge) { param($root,$p,$g,$gid) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p -GuideSources @($g) -Bindings @([pscustomobject]@{ GuideId=$gid; AppliesToAll=$true }) } $script:Project @($p1,$p2) $g $guideId
         $all.Bindings[0].AppliesToAll | Should -BeTrue
         $all.Bindings[0].PlaylistIds.Count | Should -Be 0
+    }
+    It 'persists an explicit unbound binding without applying the one-playlist default' {
+        $playlist = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; SourceKey = 'unbound-playlist'; Url = 'https://example.invalid/one.m3u' }
+        $guide = [pscustomobject]@{ Kind = 'XMLTV'; SourceKind = 'public-https'; SourceKey = 'unbound-guide'; Url = 'https://example.invalid/guide.xml' }
+        $saved = & (Get-Module ChannelForge) {
+            param($root, $p, $g)
+            $guideId = Get-ChannelForgeSourceSetSourceId -Kind 'XMLTV' -SourceKind 'public-https' -SourceKey 'unbound-guide'
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($p) -GuideSources @($g) -PreserveUnboundGuides -Bindings @([pscustomobject]@{ GuideId = $guideId; PlaylistIds = @(); AppliesToAll = $false; ExplicitlyUnbound = $true })
+        } $script:Project $playlist $guide
+
+        $saved.Bindings.Count | Should -Be 1
+        $saved.Bindings[0].ExplicitlyUnbound | Should -BeTrue
+        @($saved.Bindings[0].PlaylistIds).Count | Should -Be 0
+        $inputs = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $script:Project
+        $inputs.Bindings.Count | Should -Be 1
+        $inputs.Bindings[0].ExplicitlyUnbound | Should -BeTrue
+        Test-Json -Path (Join-Path $script:Project 'state/source-enrollment.json') -SchemaFile (Join-Path $script:Root 'schemas/source-enrollment.schema.json') | Should -BeTrue
     }
 
     It 'rejects duplicate source and effective binding identities on write' {
@@ -307,5 +328,28 @@ Describe 'durable source enrollment' {
         $raw | Should -Not -Match 'managed-sources|example.invalid|AcceptedStateHash'
         $record = Get-Content -LiteralPath (Join-Path $script:Project 'state/source-enrollment.json') -Raw | ConvertFrom-Json
         $record.AcceptedWorkflow.AcceptedStateHash | Should -BeNullOrEmpty
+    }
+    It 'persists validated public HTTPS bytes as a restart-safe last-known-good snapshot' {
+        $source = [pscustomobject]@{
+            Kind = 'M3U'
+            SourceKind = 'public-https'
+            SourceKey = 'remote-playlist'
+            Label = 'Remote playlist'
+            Url = 'https://example.invalid/playlist.m3u'
+            Bytes = $script:M3U
+        }
+        $saved = & (Get-Module ChannelForge) {
+            param($root, $source)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($source)
+        } $script:Project $source
+        $record = Get-Content -LiteralPath (Join-Path $script:Project 'state/source-enrollment.json') -Raw | ConvertFrom-Json
+        $record.Playlists[0].SourceKind | Should -Be 'public-https'
+        $record.Playlists[0].ManagedPath | Should -Match '^state/managed-sources/[0-9a-f]{64}\.m3u$'
+        $record.Playlists[0].ContentHash | Should -Match '^[0-9a-f]{64}$'
+        $record.Playlists[0].ByteLength | Should -Be $script:M3U.Length
+        $record.Playlists[0].Refresh.State | Should -Be 'up-to-date'
+        $input = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $script:Project
+        Test-Path -LiteralPath $input.M3UPath -PathType Leaf | Should -BeTrue
+        $saved.Playlists[0].Url | Should -Be 'https://example.invalid/playlist.m3u'
     }
 }

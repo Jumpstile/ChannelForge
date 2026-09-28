@@ -27,9 +27,12 @@ $healthUrl = "http://127.0.0.1:$Port/health"
 if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
     $existingPid = 0
     [int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$existingPid) | Out-Null
+    $existing = $null
     if ($existingPid -gt 0) {
+        try { $existing = Get-Process -Id $existingPid -ErrorAction Stop } catch { }
+    }
+    if ($null -ne $existing) {
         try {
-            $existing = Get-Process -Id $existingPid -ErrorAction Stop
             $health = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
             if ($health.StatusCode -eq 200) {
                 if (-not $NoBrowser) { Start-Process $url | Out-Null }
@@ -37,8 +40,23 @@ if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
                 exit 0
             }
         } catch { }
+        throw "ChannelForge already has a running server process (PID $existingPid). Stop it before starting on port $Port."
     }
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+}
+
+$portInUse = $false
+$portProbe = [Net.Sockets.TcpClient]::new()
+try {
+    try {
+        $connect = $portProbe.ConnectAsync([Net.IPAddress]::Loopback, $Port)
+        if ($connect.Wait(250)) { $portInUse = $portProbe.Connected }
+    } catch { }
+} finally {
+    $portProbe.Dispose()
+}
+if ($portInUse) {
+    throw "ChannelForge could not start. Port $Port is already in use by another process."
 }
 
 $arguments = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $serverScript, '-Port', $Port, '-BindAddress', '127.0.0.1')

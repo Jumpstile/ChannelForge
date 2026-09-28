@@ -2,11 +2,15 @@ BeforeAll {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $repoRoot 'tools\ChannelForgeAutoUpdate.Core.psm1') -Force
     $script:UninstallPath = Join-Path $repoRoot 'scripts\Uninstall-ChannelForgeWindowsBundle.ps1'
+    $script:StartPath = Join-Path $repoRoot 'scripts\Start-ChannelForge.ps1'
 
     function New-TestWindowsPackage {
         $root = Join-Path $TestDrive ('package-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'src') | Out-Null
         Set-Content -LiteralPath (Join-Path $root 'src\app.ps1') -Value 'Write-Output app' -NoNewline
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'data\rules'), (Join-Path $root 'data\lineup') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Value '{"aliases":[]}' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root 'data\lineup\numbering_blocks.json') -Value '{"blocks":[]}' -NoNewline
         Set-Content -LiteralPath (Join-Path $root 'VERSION') -Value '0.1.0' -NoNewline
         $files = foreach ($item in @(Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName)) {
             [ordered]@{
@@ -33,7 +37,18 @@ Describe 'Test-ChannelForgeWindowsPackage' {
     It 'accepts a complete package manifest and hashes' {
         $root = New-TestWindowsPackage
         $result = Test-ChannelForgeWindowsPackage -PackageRoot $root
-        $result.FileCount | Should -Be 2
+        $result.FileCount | Should -Be 4
+        @($result.Manifest.Files.Path) | Should -Contain 'data/rules/aliases.json'
+        @($result.Manifest.Files.Path) | Should -Contain 'data/lineup/numbering_blocks.json'
+        @($result.Manifest.Files.Path) | Should -Not -Contain 'data/providers/mybunny.json'
+    }
+
+    It 'rejects a package missing either required runtime data file' {
+        foreach ($relativePath in @('data\rules\aliases.json', 'data\lineup\numbering_blocks.json')) {
+            $root = New-TestWindowsPackage
+            Remove-Item -LiteralPath (Join-Path $root $relativePath) -Force
+            { Test-ChannelForgeWindowsPackage -PackageRoot $root } | Should -Throw '*Required package runtime data is missing*'
+        }
     }
 
     It 'rejects a tampered manifest file' {
@@ -75,6 +90,66 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
             Test-Path -LiteralPath $root | Should -BeFalse
         } finally {
             $env:LOCALAPPDATA = $oldLocalAppData
+        }
+    }
+}
+
+Describe 'Start-ChannelForge' {
+    It 'preserves a live server ownership record when another port is requested' {
+        $root = Join-Path $TestDrive ('live-owner-' + [guid]::NewGuid().ToString('N'))
+        $requiredFiles = @(
+            (Join-Path $root 'runtime/pwsh/pwsh.exe')
+            (Join-Path $root 'scripts/Start-ChannelForgeWebServer.ps1')
+            (Join-Path $root 'src/ChannelForge/ChannelForge.psd1')
+            (Join-Path $root 'gui/dist/index.html')
+        )
+        foreach ($file in $requiredFiles) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null
+            Set-Content -LiteralPath $file -Value 'test' -NoNewline
+        }
+
+        $runtimeState = Join-Path $root 'state/runtime'
+        New-Item -ItemType Directory -Force -Path $runtimeState | Out-Null
+        $pidPath = Join-Path $runtimeState 'server.pid'
+        Set-Content -LiteralPath $pidPath -Value ([string]$PID) -NoNewline
+
+        $portProbe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        $portProbe.Start()
+        $port = ([Net.IPEndPoint]$portProbe.LocalEndpoint).Port
+        $portProbe.Stop()
+
+        {
+            & $script:StartPath -InstallRoot $root -Port $port -NoBrowser
+        } | Should -Throw "*already has a running server process*"
+
+        (Get-Content -LiteralPath $pidPath -Raw).Trim() | Should -Be ([string]$PID)
+    }
+
+    It 'fails without taking over a requested loopback port held by another process' {
+        $root = Join-Path $TestDrive ('occupied-port-' + [guid]::NewGuid().ToString('N'))
+        $requiredFiles = @(
+            (Join-Path $root 'runtime\pwsh\pwsh.exe')
+            (Join-Path $root 'scripts\Start-ChannelForgeWebServer.ps1')
+            (Join-Path $root 'src\ChannelForge\ChannelForge.psd1')
+            (Join-Path $root 'gui\dist\index.html')
+        )
+        foreach ($file in $requiredFiles) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) | Out-Null
+            Set-Content -LiteralPath $file -Value 'test' -NoNewline
+        }
+
+        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        try {
+            $listener.Start()
+            $port = ([Net.IPEndPoint]$listener.LocalEndpoint).Port
+            {
+                & $script:StartPath -InstallRoot $root -Port $port -NoBrowser
+            } | Should -Throw "*Port $port is already in use by another process*"
+
+            Test-Path -LiteralPath (Join-Path $root 'state\runtime\server.pid') | Should -BeFalse
+            $listener.Server.IsBound | Should -BeTrue
+        } finally {
+            $listener.Stop()
         }
     }
 }

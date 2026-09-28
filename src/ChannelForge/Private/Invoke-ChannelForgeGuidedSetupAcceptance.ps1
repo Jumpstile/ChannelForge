@@ -160,10 +160,10 @@ function ConvertFrom-ChannelForgeGuidedSetupAcceptanceRequest {
             }
         }
         $version = 0
-        if ($null -eq $schema -or $schema.ValueKind -ne [Text.Json.JsonValueKind]::Number -or -not $schema.TryGetInt32([ref]$version) -or $version -ne 1 -or $null -eq $proposal -or $proposal.ValueKind -ne [Text.Json.JsonValueKind]::String -or $null -eq $acknowledged -or $acknowledged.ValueKind -ne [Text.Json.JsonValueKind]::True) { throw [ArgumentException]::new('invalid-request') }
+        if ($null -eq $schema -or $schema.ValueKind -ne [Text.Json.JsonValueKind]::Number -or -not $schema.TryGetInt32([ref]$version) -or $version -notin @(1, 2) -or $null -eq $proposal -or $proposal.ValueKind -ne [Text.Json.JsonValueKind]::String -or $null -eq $acknowledged -or $acknowledged.ValueKind -ne [Text.Json.JsonValueKind]::True) { throw [ArgumentException]::new('invalid-request') }
         $proposalId = $proposal.GetString()
         Assert-ChannelForgeWebProposalId -ProposalId $proposalId
-        return [pscustomobject][ordered]@{ SchemaVersion = 1; ProposalId = $proposalId; Acknowledged = $true }
+        return [pscustomobject][ordered]@{ SchemaVersion = $version; ProposalId = $proposalId; Acknowledged = $true }
     }
     finally { $document.Dispose() }
 }
@@ -220,6 +220,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
                     -PlaylistSources $sourceInputs.PlaylistSources `
                     -GuideSources $sourceInputs.GuideSources `
                     -Bindings $sourceInputs.Bindings `
+                    -PreserveUnboundGuides `
                     -AcceptedGenerationManifestHash ([string]$accepted.GenerationManifest.GenerationManifestHash) `
                     -AcceptedStateHash ([string]$accepted.AcceptedState.AcceptedStateHash) `
                     -AcceptedOutputManifestHash ([string]$accepted.AcceptedOutputManifest.OutputManifestHash)

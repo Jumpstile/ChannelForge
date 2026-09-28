@@ -4,7 +4,6 @@ import { demoWorkspaceIdentity } from './workspaceIdentity'
 import type { NavigationId } from './navigation'
 import { SideNav } from '../components/SideNav'
 import { WorkspaceIdentity } from '../components/WorkspaceIdentity'
-import { StatusBadge } from '../components/StatusBadge'
 import { TopBar } from '../components/TopBar'
 
 type AppShellProps = {
@@ -21,8 +20,7 @@ export function AppShell({ activePage, onNavigate, navigationAvailability, child
       <div className="app-content">
         <TopBar>
           <WorkspaceIdentity identity={demoWorkspaceIdentity} />
-          <div className="top-bar-status" aria-label="Workspace status">
-            <StatusBadge status="Not configured" />
+          <div className="top-bar-status" aria-label="Workspace actions">
             <button className="icon-button" type="button" aria-label="Open help">
               <CircleHelp size={18} aria-hidden="true" />
             </button>
@@ -32,7 +30,7 @@ export function AppShell({ activePage, onNavigate, navigationAvailability, child
         <footer className="app-footer">
           <span className="privacy-note">
             <ShieldCheck size={16} aria-hidden="true" />
-            Local workspace · safe identity display
+            Local workspace
           </span>
           <span>ChannelForge GUI foundation</span>
         </footer>

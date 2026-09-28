@@ -37,18 +37,23 @@ function Get-ChannelForgeSourceRefreshPlan {
             $sourceState = if ($states.ContainsKey([string]$record.SourceId)) { [string]$states[[string]$record.SourceId].State } else { 'Unavailable' }
             $isRemote = [string]$record.SourceKind -eq 'public-https'
             if ($isRemote) {
-                $action = 'REVIEW'
-                $reason = 'Public source refresh is not part of this enrollment slice; review the source before acquisition.'
-                $cacheState = 'PUBLIC_SOURCE_REVIEW'
+                $action = 'FULL_REFRESH'
+                $reason = if ($sourceState -eq 'Ready') {
+                    'Public HTTPS source is refreshed with bounded transport; unchanged content may reuse the saved snapshot.'
+                } else {
+                    'Public HTTPS source requires bounded acquisition; failures preserve the saved last-known-good snapshot.'
+                }
+                $cacheState = 'REMOTE_SNAPSHOT_' + $sourceState.ToUpperInvariant()
             }
             else {
                 $action = if ($sourceState -eq 'Ready') { 'USE_VALID_CACHE' } elseif ($sourceState -eq 'Changed') { 'FULL_REFRESH' } else { 'REVIEW' }
                 $reason = if ($sourceState -eq 'Ready') { 'Saved source bytes are unchanged; no source acquisition is required.' } elseif ($sourceState -eq 'Changed') { 'Saved source bytes changed; a candidate refresh is required for review.' } else { 'Saved source is unavailable or failed integrity checks.' }
                 $cacheState = 'MANAGED_SOURCE_' + $sourceState.ToUpperInvariant()
             }
-            $managedPath = if ($isRemote -or [string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) { $null } else { [System.IO.Path]::GetFullPath((Join-Path $enrollmentRoot ([string]$record.ManagedPath -replace '/', '\'))) }
+            $managedPath = if ([string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) { $null } else { [System.IO.Path]::GetFullPath((Join-Path $enrollmentRoot ([string]$record.ManagedPath -replace '/', '\'))) }
             $enrollmentRows.Add([pscustomobject][ordered]@{
                 SourceId = 'enrollment-' + ([string]$record.Kind).ToLowerInvariant() + '-' + ([string]$record.SourceId).Substring(0, 16)
+                EnrollmentSourceId = [string]$record.SourceId
                 Name = [string]$record.Label
                 Kind = if ($isRemote) { 'remote' } else { 'local' }
                 SourceKind = 'enrolled'
