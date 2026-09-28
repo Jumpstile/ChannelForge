@@ -82,17 +82,40 @@ boundary; the engine remains responsible for configuration, source acquisition,
 candidate generation, review, immutable acceptance, reports, and generated
 outputs.
 
-The foundation slice provides a read-only loopback HTTP server with a beginner
-status shell and safe health/status JSON. When `gui/dist` contains a Vite build,
-the server serves only its `index.html` and allowlisted static asset types.
-Without that build output, `/` falls back to the safe placeholder shell. Static
-requests are confined to the configured `gui/dist` subtree, do not list
-directories, and do not expose accepted-generation contents or provider files.
-The built landing surface consumes `GET /api/status` from the same origin and
-projects only its validated running, lineup, next-action, and read-only facts
-into beginner copy. The browser retains no raw status payload and has no
-state-changing API capability; unavailable, failed, or invalid status responses
-render a safe degraded message.
+The local server provides a beginner status shell and safe health/status JSON.
+The landing surface consumes `GET /api/status` from the same origin and
+projects validated running, lineup, next-action, and read-only facts into
+beginner copy. It retains no raw status payload. The server also has explicit
+guided-setup proposal/acceptance and source-refresh routes; those state-changing
+operations remain engine-owned and are not part of the read-only guide contract.
+The loopback listener serves only its `index.html` and allowlisted static asset
+types when `gui/dist` contains a Vite build. Otherwise `/` falls back to the
+safe placeholder shell. Static requests are confined to the configured
+`gui/dist` subtree, do not list directories, and do not expose private files.
+
+The One Guide API (`GET`/`HEAD /api/one-guide/...`) returns the versioned
+`one-guide/v1` projection defined by
+[`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json).
+It reads the verified immutable accepted XMLTV artifact directly; it does not
+run recovery, enumerate configured sources, fetch the network, or mutate
+accepted/source/evidence state. Live Now and Starting Soon are evaluated in UTC
+at request time; the public query function takes an explicit evaluation instant.
+The fixed category keys are Live Now, Starting Soon, Wrestling, Football,
+Baseball, Soccer, Movies, and News. Item identity is content-derived and
+independent of source enumeration; distinct channel references remain distinct
+safe offerings. The accepted merged XMLTV artifact does not retain provider
+per-programme provenance, entitlement, or launch URLs, so this slice reports
+the accepted guide as its source and leaves entitlement, freshness, confidence,
+DVR, and timeshift unknown. Structured promotion metadata is included only
+when explicitly supplied; no promotion is guessed from a title.
+
+List routes use `limit` and `offset` for bounded enumeration (maximum 100
+items); each item reports the number of offerings and whether its 16-offering
+summary is truncated.
+
+The read API exposes a bounded safe projection, not the accepted generation's
+raw M3U/XMLTV bytes, hashes, credentials, private paths, or stream URLs. The
+current server remains loopback-only; authenticated LAN access is not provided.
 
 The primary deployment modes are:
 
@@ -110,8 +133,9 @@ commands, accepted-generation contract, and safety boundaries. A native wrapper
 is optional future packaging only; it is not a second product UI or a second
 state authority.
 
-Docker, Windows service, full HTTP/API behavior, and appearance modes remain
-future work. The local server foundation does not change those deployment claims.
+Docker, Windows service, authenticated LAN access, appearance modes, and the
+distributed client contract remain future work. The local server does not
+change those deployment claims.
 
 #### Reuse existing GUI work
 

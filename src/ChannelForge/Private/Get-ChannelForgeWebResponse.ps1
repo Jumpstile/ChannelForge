@@ -198,6 +198,7 @@ function Get-ChannelForgeWebResponse {
     $contentType = 'application/json; charset=utf-8'
     $methodName = if ($null -eq $Method) { '' } else { $Method.ToUpperInvariant() }
     $requestPath = if ([string]::IsNullOrWhiteSpace($Path)) { '/' } else { ($Path -split '\?', 2)[0] }
+    $requestQuery = if ($Path -match '\?') { [string](($Path -split '\?', 2)[1]) } else { '' }
     $acceptPath = '/api/guided-setup/accept'
     if ($requestPath.ToLowerInvariant() -eq $acceptPath) {
         if ($methodName -ne 'POST') {
@@ -254,6 +255,34 @@ function Get-ChannelForgeWebResponse {
             Error   = 'method-not-allowed'
             Message = 'Only read-only GET and HEAD requests are supported.'
         } | ConvertTo-Json -Compress) -Headers $headers
+    }
+    $oneGuideRoute = [regex]::Match($requestPath, '^/api/one-guide/(live-now|starting-soon|category/([^/]+)|items/([^/]+))$', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($oneGuideRoute.Success) {
+        try {
+            $paging = Get-ChannelForgeWebOneGuidePaging -QueryString $requestQuery
+        }
+        catch {
+            return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-query'; Message = 'One Guide query parameters are invalid.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
+        }
+        $routeValue = $oneGuideRoute.Groups[1].Value
+        if ($routeValue -ieq 'live-now') {
+            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query LiveNow -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+        }
+        if ($routeValue -ieq 'starting-soon') {
+            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query StartingSoon -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+        }
+        if ($oneGuideRoute.Groups[2].Success) {
+            $categoryKey = $oneGuideRoute.Groups[2].Value.ToLowerInvariant()
+            if ($categoryKey -notin @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')) {
+                return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-category'; Message = 'The guide category is not supported.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
+            }
+            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query Category -CategoryKey $categoryKey -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+        }
+        $itemId = $oneGuideRoute.Groups[3].Value
+        if ($itemId -notmatch '^[A-Fa-f0-9]{64}$') {
+            return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-item-id'; Message = 'The guide item identifier is invalid.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
+        }
+        return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query Details -ItemId $itemId.ToLowerInvariant() -MaximumItems $paging.MaximumItems -Offset $paging.Offset
     }
 
     switch ($requestPath.ToLowerInvariant()) {

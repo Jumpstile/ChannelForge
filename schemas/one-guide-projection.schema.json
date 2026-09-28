@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/one-guide-projection.schema.json",
+  "title": "ChannelForge One Guide read projection",
+  "description": "Bounded, deterministic, read-only projection for future guide clients.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Version",
+    "EvaluationTimeUtc",
+    "Query",
+    "Offset",
+    "MaximumItems",
+    "TotalCount",
+    "ItemsTruncated",
+    "Items"
+  ],
+  "properties": {
+    "Version": { "const": "one-guide/v1" },
+    "EvaluationTimeUtc": { "type": "string", "format": "date-time" },
+    "Query": { "enum": ["LiveNow", "StartingSoon", "Category", "Details"] },
+    "CategoryKey": {
+      "enum": [
+        "live-now",
+        "starting-soon",
+        "wrestling",
+        "football",
+        "baseball",
+        "soccer",
+        "movies",
+        "news"
+      ]
+    },
+    "Offset": { "type": "integer", "minimum": 0 },
+    "MaximumItems": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "TotalCount": { "type": "integer", "minimum": 0 },
+    "ItemsTruncated": { "type": "boolean" },
+    "Items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "categoryKey": {
+      "enum": [
+        "live-now",
+        "starting-soon",
+        "wrestling",
+        "football",
+        "baseball",
+        "soccer",
+        "movies",
+        "news"
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ItemId",
+        "Kind",
+        "Title",
+        "StartUtc",
+        "StopUtc",
+        "Status",
+        "CategoryKeys",
+        "Sport",
+        "League",
+        "HomeParticipant",
+        "AwayParticipant",
+        "Promotion",
+        "Offerings",
+        "OfferingCount",
+        "OfferingsTruncated",
+        "FreshnessState",
+        "ConfidenceState",
+        "ConfidenceScore"
+      ],
+      "properties": {
+        "ItemId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "Kind": {
+          "enum": ["Programme", "Event", "Movie", "SeriesEpisode", "Other"]
+        },
+        "Title": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "Subtitle": { "type": ["string", "null"], "maxLength": 256 },
+        "Description": { "type": ["string", "null"], "maxLength": 512 },
+        "EpisodeNumber": { "type": ["string", "null"], "maxLength": 128 },
+        "StartUtc": { "type": "string", "format": "date-time" },
+        "StopUtc": { "type": "string", "format": "date-time" },
+        "Status": { "enum": ["Live", "StartingSoon", "Upcoming", "Past"] },
+        "CategoryKeys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/categoryKey" }
+        },
+        "Sport": { "type": ["string", "null"], "maxLength": 128 },
+        "League": { "type": ["string", "null"], "maxLength": 128 },
+        "HomeParticipant": { "type": ["string", "null"], "maxLength": 128 },
+        "AwayParticipant": { "type": ["string", "null"], "maxLength": 128 },
+        "Promotion": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["Id", "Name"],
+              "properties": {
+                "Id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                },
+                "Name": { "type": "string", "minLength": 1, "maxLength": 128 }
+              }
+            }
+          ]
+        },
+        "OfferingCount": { "type": "integer", "minimum": 1 },
+        "OfferingsTruncated": { "type": "boolean" },
+        "Offerings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "OfferingId",
+              "SourceId",
+              "SourceLabel",
+              "Availability",
+              "Entitlement",
+              "Launch",
+              "DvrSupported",
+              "TimeshiftSupported"
+            ],
+            "properties": {
+              "OfferingId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "SourceId": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              },
+              "SourceLabel": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "Availability": { "const": "GuideOnly" },
+              "Entitlement": { "const": "Unknown" },
+              "Launch": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["Kind", "ChannelReference"],
+                "properties": {
+                  "Kind": { "const": "Channel" },
+                  "ChannelReference": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                  }
+                }
+              },
+              "DvrSupported": { "type": ["boolean", "null"] },
+              "TimeshiftSupported": { "type": ["boolean", "null"] }
+            }
+          }
+        },
+        "FreshnessState": {
+          "enum": ["Current", "Stale", "Unavailable", "Unknown"]
+        },
+        "ConfidenceState": { "enum": ["Confirmed", "NeedsReview", "Unknown"] },
+        "ConfidenceScore": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}

@@ -18,18 +18,38 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Browser Guided Setup remains a one-playlist flow with an optional XMLTV upload through `/api/guided-setup/proposal` and `/api/guided-setup/accept`; it requires explicit acknowledgement, reuses immutable accepted-state publication, and leaves provider, downstream, and scheduler state unchanged.
 - Durable local source enrollment after browser acceptance, including optional XMLTV, no-guide mode, managed-root integrity checks, restart-safe redacted status, manual review-only refresh, and preservation of accepted lineup state when source refresh fails.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
+- A bounded, read-only One Guide API for Live Now, Starting Soon, fixed categories, and item details. It projects only the verified accepted XMLTV guide, makes no network requests, and does not change saved state. Query results use stable item IDs, safe channel references, and a fixed eight-key taxonomy.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
 The primary UI architecture is a browser-based local web UI served by the
-ChannelForge engine. The React/Vite application consumes same-origin
-`GET /api/status` and, from Guided Setup, sends browser-selected bytes to
-`POST /api/guided-setup/proposal`. The proposal response is candidate-only:
-it reports aggregate channel/guide coverage, an opaque review handle, and fixed
-safety classifications. It does not expose raw source values or candidate
-hashes. A separate acknowledgement request to
-`POST /api/guided-setup/accept` commits only the exact server-owned reviewed
-candidate through the engine acceptance boundary.
+ChannelForge engine. The current landing UI consumes same-origin
+`GET /api/status`. Guided Setup sends browser-selected bytes to
+`POST /api/guided-setup/proposal` and requires separate explicit acceptance.
+
+The proposal response is candidate-only: it reports aggregate channel/guide
+coverage, an opaque review handle, and fixed safety classifications. It does
+not expose raw source values or candidate hashes. A separate acknowledgement
+request to `POST /api/guided-setup/accept` commits only the exact server-owned
+reviewed candidate through the engine acceptance boundary.
+The engine also offers read-only `GET`/`HEAD` routes:
+`/api/one-guide/live-now`, `/api/one-guide/starting-soon`,
+`/api/one-guide/category/{key}`, and `/api/one-guide/items/{item-id}`.
+Responses follow the versioned
+[`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json)
+contract. The landing UI does not yet show One Guide pages.
+
+One Guide reads only the verified accepted XMLTV artifact. It does not fetch
+providers, enumerate current source configuration, or repair accepted state.
+Starting Soon means a programme starts after now and within two hours; Live Now
+includes its start but excludes its stop. The eight category keys are
+`live-now`, `starting-soon`, `wrestling`, `football`, `baseball`, `soccer`,
+`movies`, and `news`. Results are paged with `limit` (1–100) and `offset`;
+titles and optional metadata are redacted and bounded. The merged accepted
+guide does not preserve source identity per programme, so offerings identify
+the accepted guide and a safe channel reference. Entitlement, freshness,
+confidence, DVR, timeshift, and playback are not available in this slice. The
+local server is loopback-only and does not provide authenticated LAN access.
 
 ![Accepted browser Guided Setup review](assets/guided-browser-accepted.png)
 
@@ -76,7 +96,7 @@ The following describes preserved prototype/reference work, not a primary deploy
 
 | Area                                      | Status                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Built UI with read-only `/api/status`, durable review sessions, and explicit immutable acceptance |
+| Browser web UI served by engine           | Status dashboard; engine offers read-only One Guide API; Guided Setup acceptance remains explicit |
 | Docker deployment                         | Architecture recorded; implementation pending                                                     |
 | Windows server/service install            | Future deployment mode; not implemented                                                           |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
@@ -100,7 +120,8 @@ The following describes preserved prototype/reference work, not a primary deploy
 - **No fuzzy or target-specific guide assignment.** The build reports exact, unambiguous M3U `tvg-id` to XMLTV channel-id bindings, plus unbound, ambiguous, and XMLTV-only identities. It does not guess, perform fuzzy matching, or rewrite the separate canonical M3U/XMLTV outputs for a downstream target.
 - **No automatic Plex target configuration or refresh.** The generated XMLTV file and exact identity-binding report are separate outputs that downstream Plex configuration must consume explicitly.
 - **No automatic Plex refresh.** Re-running the build regenerates `output/merged.m3u`; pointing Plex at the new file or refreshing its channel list is a manual step.
-- **The complete event-guide workflow is not implemented yet.** Stage D provides the beginner workflow's report-only event-pattern preview, and Stage E provides a read-only future-acceptance plan. Stable title/time/pattern identity is separated from volatile statistics, game summaries, standings, and roster/player facts; those details are omitted or marked for review unless freshness, season context, provenance, and contradiction checks prove them current. The current Stage A/B path does not synthesize those volatile facts; Stage E only evaluates optional safe metadata when a producer supplies it. Neither stage accepts or adopts rules, publishes guides, mutates provider/downstream/accepted state, or creates a learned-rule store. Schedule-source adapters, documented AED-definition JSON import, expert regex/date/time overrides, unattended event refresh, automatic relearning/adoption, beginner GUI integration, and guide publication remain future work.
+- **The complete event-guide workflow is not implemented yet.** The One Guide read slice provides a safe schedule projection and basic category queries, not a learned event model or full discovery experience. Stage D still provides the report-only event-pattern preview, and Stage E a read-only future-acceptance plan. Volatile statistics, game summaries, standings, and roster/player facts remain omitted or review-only unless freshness, season context, provenance, and contradiction checks prove them current. Neither stage accepts or adopts rules, publishes guides, mutates provider/downstream/accepted state, or creates a learned-rule store. Schedule-source adapters, documented AED-definition JSON import, expert regex/date/time overrides, unattended event refresh, automatic relearning/adoption, beginner GUI integration, and guide publication remain future work.
+  Stable title/time/pattern identity remains separate from volatile facts. Stage A/B does not synthesize those facts; Stage E evaluates safe metadata only when a producer supplies it.
 
 ## Repository and product release status
 

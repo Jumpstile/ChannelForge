@@ -497,6 +497,47 @@ Describe 'ChannelForge web server foundation' {
         $notFoundResponse.StatusCode | Should -Be 404
     }
 
+    It 'serves bounded One Guide reads from accepted XMLTV without mutating the store' {
+        $root = Join-Path $TestDrive 'one-guide-read-api'
+        $start = [datetimeoffset]::UtcNow.AddMinutes(-10)
+        $stop = $start.AddHours(1)
+        $startText = $start.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+        $stopText = $stop.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+        $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><programme start=`"$startText`" stop=`"$stopText`" channel=`"one`"><title>Accepted Live News</title><category>News</category><desc>password=private-value</desc></programme></tv>"
+        $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $proposalBody -ContentType 'application/json' -ContentLength $proposalBody.Length
+        $proposalPayload = $proposal.Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 200
+        $before = Get-TestTreeSnapshot -Root $root
+
+        $live = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $root
+        $live.StatusCode | Should -Be 200
+        $payload = $live.Body | ConvertFrom-Json
+        @($payload.Items).Count | Should -BeGreaterThan 0
+        $details = Get-TestWebResponse -Method HEAD -Path ("/api/one-guide/items/{0}" -f $payload.Items[0].ItemId) -RepositoryRoot $root
+        $category = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/news' -RepositoryRoot $root
+        $invalidCategory = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/unsupported' -RepositoryRoot $root
+        $post = Get-TestWebResponse -Method POST -Path '/api/one-guide/live-now' -RepositoryRoot $root
+        $paged = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now?limit=1&offset=0' -RepositoryRoot $root
+        $invalidQuery = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now?limit=101' -RepositoryRoot $root
+        $after = Get-TestTreeSnapshot -Root $root
+
+        $payload.Version | Should -Be 'one-guide/v1'
+        $payload.Query | Should -Be 'LiveNow'
+        $payload.Items[0].Title | Should -Be 'Accepted Live News'
+        $live.Body | Should -Not -Match 'private-value|https?://'
+        $details.StatusCode | Should -Be 200
+        ($details.Body | ConvertFrom-Json).Query | Should -Be 'Details'
+        ($category.Body | ConvertFrom-Json).TotalCount | Should -Be 1
+        $invalidCategory.StatusCode | Should -Be 400
+        $post.StatusCode | Should -Be 405
+        ($paged.Body | ConvertFrom-Json).Items.Count | Should -Be 1
+        $invalidQuery.StatusCode | Should -Be 400
+        $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+    }
+
     # Status may read validated accepted metadata; it must not write any state.
     It 'does not mutate provider, downstream, guide, or accepted state' {
         $root = Join-Path $TestDrive 'state-boundary'
@@ -823,7 +864,12 @@ Describe 'ChannelForge web server foundation' {
             }
             $ready | Should -BeTrue
 
-            $body = New-TestProposalBody
+            $guideStart = [datetimeoffset]::UtcNow.AddMinutes(-1)
+            $guideStop = $guideStart.AddMinutes(30)
+            $guideStartText = $guideStart.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+            $guideStopText = $guideStop.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+            $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><programme start=`"$guideStartText`" stop=`"$guideStopText`" channel=`"one`"><title>HTTP Smoke News</title><category>News</category></programme></tv>"
+            $body = New-TestProposalBody -GuideText $guide -WithGuide
             $proposalHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive`r`nContent-Type: application/json`r`nContent-Length: $($body.Length)"
             $proposalResponse = Invoke-TestRawHttpRequest -Port $port -Headers $proposalHeaders -BodyBytes $body
             $proposalResponse.StatusCode | Should -Be 200
@@ -836,6 +882,13 @@ Describe 'ChannelForge web server foundation' {
             $acceptResponse.StatusCode | Should -Be 200
             ($acceptResponse.Body | ConvertFrom-Json).Status | Should -Be 'ACCEPTED'
             Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeTrue
+            $oneGuideHeaders = "GET /api/one-guide/live-now?limit=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
+            $oneGuideResponse = Invoke-TestRawHttpRequest -Port $port -Headers $oneGuideHeaders
+            $oneGuideResponse.StatusCode | Should -Be 200
+            $oneGuidePayload = $oneGuideResponse.Body | ConvertFrom-Json
+            $oneGuidePayload.Version | Should -Be 'one-guide/v1'
+            @($oneGuidePayload.Items).Count | Should -Be 1
+            $oneGuidePayload.Items[0].Title | Should -Be 'HTTP Smoke News'
 
             $shortHeaders = "POST /api/guided-setup/proposal HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: close`r`nContent-Type: application/json`r`nContent-Length: 3"
             $shortResponse = Invoke-TestRawHttpRequest -Port $port -Headers $shortHeaders -BodyBytes ([Text.Encoding]::UTF8.GetBytes('{}')) -ShutdownSend -ResponseTimeoutMilliseconds $malformedResponseTimeoutMilliseconds
