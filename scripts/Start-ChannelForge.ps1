@@ -27,9 +27,12 @@ $healthUrl = "http://127.0.0.1:$Port/health"
 if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
     $existingPid = 0
     [int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$existingPid) | Out-Null
+    $existing = $null
     if ($existingPid -gt 0) {
+        try { $existing = Get-Process -Id $existingPid -ErrorAction Stop } catch { }
+    }
+    if ($null -ne $existing) {
         try {
-            $existing = Get-Process -Id $existingPid -ErrorAction Stop
             $health = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
             if ($health.StatusCode -eq 200) {
                 if (-not $NoBrowser) { Start-Process $url | Out-Null }
@@ -37,6 +40,7 @@ if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
                 exit 0
             }
         } catch { }
+        throw "ChannelForge already has a running server process (PID $existingPid). Stop it before starting on port $Port."
     }
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
 }
