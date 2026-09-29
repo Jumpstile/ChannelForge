@@ -145,19 +145,32 @@ Describe 'One Guide read projection' {
         $lowercaseResult.Items[0].Kind | Should -Be 'Programme'
     }
 
-    It 'selects repeated-offering metadata deterministically when source rows disagree' {
-        $first = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 's01e01' -Description 'Zulu description'
-        $second = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Alpha description'
-        $first | Add-Member -NotePropertyName SourceLabel -NotePropertyValue 'Zulu Source'
-        $second | Add-Member -NotePropertyName SourceLabel -NotePropertyValue 'Alpha Source'
-        $forward = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($first, $second) -EvaluationTimeUtc $Evaluation
-        $reverse = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($second, $first) -EvaluationTimeUtc $Evaluation
-
+    It 'keeps conflicting same-source programme rows separate and stable under permutation' {
+        $first = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $second = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Wrestling') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Wrestling description'
+        $third = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $third | Add-Member -NotePropertyName League -NotePropertyValue 'League B'
+        $duplicate = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $newFlag = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $newFlag.IsNew = $true
+        $liveFlag = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $liveFlag.IsLive = $true
+        $premiereFlag = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Football') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $premiereFlag.IsPremiere = $true
+        $unknownDrama = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Drama') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $unknownDocumentary = New-OneGuideTestProgramme 'shared-channel' ($Evaluation.AddMinutes(20)) ($Evaluation.AddHours(1)) 'Episode Event' @('Documentary') 'provider-a' -EpisodeNumber 'S01E01' -Description 'Football description'
+        $allRows = @($first, $second, $third, $duplicate, $newFlag, $liveFlag, $premiereFlag, $unknownDrama, $unknownDocumentary)
+        $reverseRows = @($unknownDocumentary, $unknownDrama, $premiereFlag, $liveFlag, $newFlag, $duplicate, $third, $second, $first)
+        $forward = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $allRows -EvaluationTimeUtc $Evaluation
+        $reverse = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $reverseRows -EvaluationTimeUtc $Evaluation
+        $forward.TotalCount | Should -Be 8
         ($forward | ConvertTo-Json -Depth 10 -Compress) | Should -Be ($reverse | ConvertTo-Json -Depth 10 -Compress)
-        $forward.Items[0].Description | Should -Be 'Alpha description'
-        $forward.Items[0].EpisodeNumber | Should -Be 'S01E01'
-        $forward.Items[0].Offerings.Count | Should -Be 1
-        $forward.Items[0].Offerings[0].SourceLabel | Should -Be 'Alpha Source'
+        @($forward.Items.ItemId | Select-Object -Unique).Count | Should -Be 8
+        @($forward.Items | Where-Object { $_.CategoryKeys -contains 'football' -and $_.Description -eq 'Wrestling description' }).Count | Should -Be 0
+        @($forward.Items | Where-Object { $_.CategoryKeys -contains 'wrestling' -and $_.Description -eq 'Football description' }).Count | Should -Be 0
+        @($forward.Items | Where-Object { $_.Description -eq 'Football description' -and $_.League -eq 'League B' }).Count | Should -Be 1
+        @($forward.Items | Where-Object { $_.Description -eq 'Football description' -and $null -eq $_.League }).Count | Should -Be 6
+        @($forward.Items | Where-Object { $_.OfferingCount -ne 1 }).Count | Should -Be 0
     }
 
     It 'bounds large offering sets while reporting their full count' {

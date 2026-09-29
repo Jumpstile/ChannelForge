@@ -52,12 +52,15 @@ out-of-range values fail with HTTP 400, while an offset beyond the list result
 count returns an empty page.
 
 The accepted XMLTV path does not preserve a cross-channel `CanonicalEventId` or
-provider attribution for each programme. Matching titles and times on separate
-source/channel occurrences therefore remain separate items; the API does not
-guess that they are one event. The source label is `Accepted guide`, public
-source/channel/promotion identifiers are opaque, and `Kind` remains
-`Programme` unless the input explicitly supplies a recognized value. Optional
-metadata appears only when preserved by the accepted guide; entitlement,
+provider attribution for each programme. Separate source/channel occurrences
+are not grouped by matching title and time alone. Conflicting descriptions,
+categories (including categories the API omits), XMLTV new/live/premiere flags,
+or other sanitized source-row evidence on the same source/channel remain
+separate items; only matching row evidence shares an item. The API does not
+infer event identity from titles or categories. The source label is
+`Accepted guide`, public source/channel/promotion identifiers are opaque, and
+`Kind` remains `Programme` unless input explicitly supplies a recognized value.
+Optional metadata appears only when preserved by the accepted guide; entitlement,
 freshness, confidence, DVR, timeshift, and playback remain unavailable. The
 local server is loopback-only and does not provide authenticated LAN access.
 

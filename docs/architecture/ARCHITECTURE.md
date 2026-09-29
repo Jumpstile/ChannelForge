@@ -105,14 +105,15 @@ The Slice 1 built-in category registry contains only Live Now, Starting Soon,
 Wrestling, Football, Baseball, Soccer, Movies, and News. It maps only those
 recognized XMLTV categories to stable keys; unrecognized categories are omitted.
 Cross-channel grouping requires an explicit `CanonicalEventId` in projection
-input; the generated item identity also
-includes the normalized title, subtitle, episode number, and schedule. Without
-the explicit ID, generated identities are scoped to a source/channel occurrence,
-so matching title and time on distinct pairs remain separate. Accepted XMLTV
-does not preserve `CanonicalEventId` or provider attribution per programme. The
-HTTP projection keeps those channel occurrences separate and labels their
-source `Accepted guide`. It reports
-`Kind` as `Programme` unless the input explicitly carries a recognized kind.
+input; the generated item identity also includes the normalized title, subtitle,
+episode number, and schedule. Without that explicit ID, rows are scoped to a
+source/channel and sanitized source-row evidence, including descriptions,
+categories (recognized or not), and XMLTV new/live/premiere flags. Conflicting
+evidence remains separate; exact equivalent rows share an item. The fixed
+category registry still omits unrecognized categories from output. Accepted
+XMLTV does not preserve `CanonicalEventId` or provider attribution per
+programme. The HTTP projection labels its source `Accepted guide`. It reports
+`Kind` as `Programme` unless input explicitly carries a recognized kind.
 Sport, league, participant, promotion, entitlement, and launch metadata are
 reported only when actually supplied; title text is never used to invent them.
 Source, channel, and promotion identifiers are opaque domain-separated hashes.

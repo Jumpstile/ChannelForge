@@ -88,12 +88,17 @@ function Get-ChannelForgeOneGuide {
         $description = Get-SafeOptionalText (Get-InputValue $programme 'Description') 512
         $episodeNumber = Get-SafeOptionalText (Get-InputValue $programme 'EpisodeNumber') 128
         $categories = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+        $sourceCategories = [System.Collections.Generic.List[string]]::new()
         foreach ($rawCategory in @(Get-InputValue $programme 'Categories')) {
             if ($null -eq $rawCategory) { continue }
             $categoryText = ConvertTo-ChannelForgeGuideSafeText -Value $rawCategory -MaximumLength 128
+            [void]$sourceCategories.Add([string]$categoryText)
             $key = $categoryText.Trim().ToLowerInvariant()
             if ($taxonomy.ContainsKey($key)) { [void]$categories.Add([string]$taxonomy[$key]) }
         }
+        $sourceCategories.Sort([System.StringComparer]::Ordinal)
+        $sourceCategoryEvidence = $sourceCategories.ToArray()
+        $sourceCategoryKeys = @($categories)
         $declaredKind = [string](Get-InputValue $programme 'Kind')
         if ($declaredKind -cnotin @('Programme', 'Event', 'Movie', 'SeriesEpisode', 'Other')) { $declaredKind = $null }
         $sport = Get-SafeOptionalText (Get-InputValue $programme 'Sport') 128
@@ -124,6 +129,8 @@ function Get-ChannelForgeOneGuide {
         $canonicalEventId = [string](Get-InputValue $programme 'CanonicalEventId')
         if ([string]::IsNullOrWhiteSpace($canonicalEventId)) { $canonicalEventId = $null }
         else { $canonicalEventId = $canonicalEventId.Trim() }
+        $sourceLabel = Get-SafeOptionalText (Get-InputValue $programme 'SourceLabel') 128
+        if ($null -eq $sourceLabel) { $sourceLabel = if ($rawSourceId -ceq 'accepted-guide') { 'Accepted guide' } else { 'Source' } }
         $identity = [ordered]@{
             Correlation = if ($null -ne $canonicalEventId) { 'ExplicitEvent' } else { 'ChannelOccurrence' }
             CanonicalEventId = if ($null -ne $canonicalEventId) { $canonicalEventId } else { '' }
@@ -134,6 +141,26 @@ function Get-ChannelForgeOneGuide {
             EpisodeNumber = if ($null -eq $episodeNumber) { '' } else { $episodeNumber.ToLowerInvariant() }
             StartUtc = $startText
             StopUtc = $stopText
+            RowEvidence = if ($null -eq $canonicalEventId) {
+                [ordered]@{
+                    Title = $title
+                    Subtitle = $subtitle
+                    EpisodeNumber = $episodeNumber
+                    Description = $description
+                    RecognizedCategoryKeys = $sourceCategoryKeys
+                    SourceCategories = $sourceCategoryEvidence
+                    Kind = $declaredKind
+                    Sport = $sport
+                    League = $league
+                    HomeParticipant = $homeParticipant
+                    AwayParticipant = $awayParticipant
+                    Promotion = $promotion
+                    IsNew = [bool](Get-InputValue $programme 'IsNew')
+                    IsLive = [bool](Get-InputValue $programme 'IsLive')
+                    IsPremiere = [bool](Get-InputValue $programme 'IsPremiere')
+                    SourceLabel = $sourceLabel
+                }
+            } else { $null }
         }
         $itemId = Get-ChannelForgeDomainHash -Domain 'one-guide-item/v1' -InputObject $identity
         if ($sourceReferences.ContainsKey($rawSourceId)) { $sourceId = $sourceReferences[$rawSourceId] }
@@ -141,8 +168,6 @@ function Get-ChannelForgeOneGuide {
             $sourceId = Get-OpaqueIdentifier $rawSourceId 'one-guide-source/v1' 'accepted-guide'
             $sourceReferences[$rawSourceId] = $sourceId
         }
-        $sourceLabel = Get-SafeOptionalText (Get-InputValue $programme 'SourceLabel') 128
-        if ($null -eq $sourceLabel) { $sourceLabel = if ($rawSourceId -ceq 'accepted-guide') { 'Accepted guide' } else { 'Source' } }
         if ($channelReferences.ContainsKey($rawChannelId)) { $channelReference = $channelReferences[$rawChannelId] }
         else {
             $channelReference = Get-OpaqueIdentifier $rawChannelId 'one-guide-channel/v1'

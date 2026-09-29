@@ -468,13 +468,17 @@ offerings and reports `OfferingCount` and `OfferingsTruncated`.
 
 The accepted merged XMLTV does not retain provider attribution or a
 `CanonicalEventId` per programme. Cross-channel grouping requires the same
-explicit identity and normalized title, subtitle, episode number, and schedule;
-matching title and time alone never merge separate source/channel occurrences.
-Accepted-guide HTTP responses use the display label `Accepted guide` and opaque
-domain-separated source, channel, and promotion identifiers. They report `Kind`
-as `Programme` unless the input explicitly supplies a recognized kind. Sport,
-promotion, entitlement, and launch metadata are emitted only when the input
-actually contains them; the title is never used to infer those fields.
+explicit identity and normalized title, subtitle, episode number, and schedule.
+Without explicit identity, rows on a source/channel correlate only when their
+sanitized source-row evidence also matches, including descriptions, recognized
+or unrecognized categories, and XMLTV new/live/premiere flags. Conflicts remain
+separate; the fixed registry still omits unrecognized categories from output.
+Accepted-guide HTTP responses use
+the display label `Accepted guide` and opaque domain-separated source, channel,
+and promotion identifiers. They report `Kind` as `Programme` unless input
+explicitly supplies a recognized kind. Sport, promotion, entitlement, and
+launch metadata are emitted only when input actually contains them; title text
+is never used to infer those fields.
 
 The server holds a one-entry in-memory projection cache keyed by the current
 accepted pointer and manifest identity. Catalogue construction parses and
