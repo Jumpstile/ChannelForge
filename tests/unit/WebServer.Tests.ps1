@@ -526,6 +526,19 @@ Describe 'ChannelForge web server foundation' {
         $payload = $live.Body | ConvertFrom-Json
         @($payload.Items).Count | Should -Be 1
         $payload.Items[0].ItemId | Should -Match '^[a-f0-9]{64}$'
+        $currentPaths = & (Get-Module ChannelForge) {
+            param($RepositoryRoot)
+            Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
+        } $root
+        $alternateRoot = Join-Path $TestDrive 'one-guide-unverified-cache-root'
+        $alternatePaths = & (Get-Module ChannelForge) {
+            param($RepositoryRoot)
+            Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
+        } $alternateRoot
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $alternatePaths.Current) | Out-Null
+        Copy-Item -LiteralPath $currentPaths.Current -Destination $alternatePaths.Current
+        $alternateRootResponse = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $alternateRoot
+        $alternateRootResponse.StatusCode | Should -Be 503
         Mock -CommandName Read-ChannelForgeGenerationFile -ModuleName ChannelForge -MockWith {
             if ($global:ChannelForgeOneGuideCacheCheckArmed -and [IO.Path]::GetFileName($Path) -ceq 'merged.xml') {
                 $global:ChannelForgeOneGuideXmltvReadCount++

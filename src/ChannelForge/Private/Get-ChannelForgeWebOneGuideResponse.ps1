@@ -14,7 +14,9 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     Assert-ChannelForgeGenerationHash $pointer.Object.PointerHash 'PointerHash'
     Assert-ChannelForgeGenerationId ([string]$pointer.Object.GenerationId)
     if (-not (Test-ChannelForgeGenerationProjectionHash $pointer.Object 'pointer/v2' 'PointerHash')) { throw 'FAIL_CLOSED: current pointer hash is invalid.' }
+    $repositoryRootKey = [IO.Path]::GetFullPath($RepositoryRoot)
     $cacheKey = @(
+        $repositoryRootKey,
         [string]$pointer.Object.GenerationId,
         [string]$pointer.Object.GenerationManifestHash,
         [string]$pointer.Object.AcceptedStateHash,
@@ -33,6 +35,7 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     }
     $snapshotPointer = $snapshot.Pointer.Object
     $snapshotKey = @(
+        $repositoryRootKey,
         [string]$snapshotPointer.GenerationId,
         [string]$snapshotPointer.GenerationManifestHash,
         [string]$snapshotPointer.AcceptedStateHash,

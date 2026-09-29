@@ -101,9 +101,11 @@ derived in-memory catalogue; it does not run recovery, enumerate configured
 sources, fetch the network, or mutate accepted/source/evidence state. Live Now
 and Starting Soon are evaluated in UTC at request time; the public query
 function takes an explicit evaluation instant.
-The fixed category keys are Live Now, Starting Soon, Wrestling, Football,
-Baseball, Soccer, Movies, and News. Cross-channel grouping requires an explicit
-`CanonicalEventId` in projection input; the generated item identity also
+The Slice 1 built-in category registry contains only Live Now, Starting Soon,
+Wrestling, Football, Baseball, Soccer, Movies, and News. It maps only those
+recognized XMLTV categories to stable keys; unrecognized categories are omitted.
+Cross-channel grouping requires an explicit `CanonicalEventId` in projection
+input; the generated item identity also
 includes the normalized title, subtitle, episode number, and schedule. Without
 the explicit ID, generated identities are scoped to a source/channel occurrence,
 so matching title and time on distinct pairs remain separate. Accepted XMLTV
@@ -116,7 +118,7 @@ reported only when actually supplied; title text is never used to invent them.
 Source, channel, and promotion identifiers are opaque domain-separated hashes.
 
 The server keeps one bounded in-memory projection for the current accepted
-generation, keyed by its pointer and manifest identity. Catalogue construction
+generation per repository root, keyed by its pointer and manifest identity. Catalogue construction
 precomputes parsed UTC interval ticks and a direct item-ID lookup. Warm list
 requests validate the current pointer, scan the cached records, and clone only
 the returned page (maximum 100); Details uses the ID lookup. Warm requests do

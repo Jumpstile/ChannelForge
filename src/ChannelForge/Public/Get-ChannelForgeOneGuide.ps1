@@ -4,7 +4,7 @@ function Get-ChannelForgeOneGuide {
         [Parameter(Mandatory)][ValidateSet('LiveNow', 'StartingSoon', 'Category', 'Details')][string]$Query,
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Programmes,
         [Parameter(Mandatory)][datetimeoffset]$EvaluationTimeUtc,
-        [ValidateSet('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')][string]$CategoryKey,
+        [string]$CategoryKey,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ItemId,
         [ValidateRange(1, 100)][int]$MaximumItems = 100,
         [ValidateRange(0, 2147483647)][int]$Offset = 0,
@@ -16,7 +16,8 @@ function Get-ChannelForgeOneGuide {
 
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
     $startingSoonEnd = $evaluation.AddHours(2)
-    $taxonomyOrder = @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')
+    $categoryRegistry = @(Get-ChannelForgeOneGuideCategoryRegistry)
+    $taxonomyOrder = @($categoryRegistry | ForEach-Object { $_.Key })
     if ($UseCatalogue) {
         if ($Query -eq 'Details' -and $null -ne $CatalogueById) {
             if ($CatalogueById.ContainsKey($ItemId)) { $orderedItems = @($CatalogueById[$ItemId]) }
@@ -26,15 +27,14 @@ function Get-ChannelForgeOneGuide {
     }
     else {
         $itemGroups = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
-    $taxonomy = @{
-        wrestling = 'wrestling'
-        football = 'football'
-        baseball = 'baseball'
-        soccer = 'soccer'
-        movies = 'movies'
-        movie = 'movies'
-        news = 'news'
-    }
+        $sourceReferences = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+        $channelReferences = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+        $taxonomy = @{}
+        foreach ($categoryDefinition in $categoryRegistry) {
+            foreach ($alias in @($categoryDefinition.Aliases)) {
+                $taxonomy[[string]$alias.ToLowerInvariant()] = [string]$categoryDefinition.Key
+            }
+        }
 
     function Get-InputValue {
         param([AllowNull()][object]$InputObject, [Parameter(Mandatory)][string]$Name)
@@ -136,10 +136,18 @@ function Get-ChannelForgeOneGuide {
             StopUtc = $stopText
         }
         $itemId = Get-ChannelForgeDomainHash -Domain 'one-guide-item/v1' -InputObject $identity
-        $sourceId = Get-OpaqueIdentifier $rawSourceId 'one-guide-source/v1' 'accepted-guide'
+        if ($sourceReferences.ContainsKey($rawSourceId)) { $sourceId = $sourceReferences[$rawSourceId] }
+        else {
+            $sourceId = Get-OpaqueIdentifier $rawSourceId 'one-guide-source/v1' 'accepted-guide'
+            $sourceReferences[$rawSourceId] = $sourceId
+        }
         $sourceLabel = Get-SafeOptionalText (Get-InputValue $programme 'SourceLabel') 128
         if ($null -eq $sourceLabel) { $sourceLabel = if ($rawSourceId -ceq 'accepted-guide') { 'Accepted guide' } else { 'Source' } }
-        $channelReference = Get-OpaqueIdentifier $rawChannelId 'one-guide-channel/v1'
+        if ($channelReferences.ContainsKey($rawChannelId)) { $channelReference = $channelReferences[$rawChannelId] }
+        else {
+            $channelReference = Get-OpaqueIdentifier $rawChannelId 'one-guide-channel/v1'
+            $channelReferences[$rawChannelId] = $channelReference
+        }
         if ([string]::IsNullOrWhiteSpace($channelReference)) { continue }
         $offeringId = Get-ChannelForgeDomainHash -Domain 'one-guide-offering/v1' -InputObject ([ordered]@{
             ItemId = $itemId
@@ -169,6 +177,8 @@ function Get-ChannelForgeOneGuide {
                 EpisodeNumber = $episodeNumber
                 StartUtc = $startText
                 StopUtc = $stopText
+                StartUtcTicks = $start.UtcTicks
+                StopUtcTicks = $stop.UtcTicks
                 Status = $status
                 CategoryKeys = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
                 Sport = $sport
@@ -202,18 +212,10 @@ function Get-ChannelForgeOneGuide {
         if ($null -ne $episodeNumber -and ($null -eq $group.EpisodeNumber -or [StringComparer]::Ordinal.Compare($episodeNumber, [string]$group.EpisodeNumber) -lt 0)) { $group.EpisodeNumber = $episodeNumber }
         foreach ($category in $categories) { [void]$group.CategoryKeys.Add($category) }
 
-        foreach ($metadata in @(
-                @{ Name = 'Sport'; Value = $sport },
-                @{ Name = 'League'; Value = $league },
-                @{ Name = 'HomeParticipant'; Value = $homeParticipant },
-                @{ Name = 'AwayParticipant'; Value = $awayParticipant }
-            )) {
-            $candidate = $metadata.Value
-            $current = $group.($metadata.Name)
-            if ($null -ne $candidate -and ($null -eq $current -or [StringComparer]::Ordinal.Compare([string]$candidate, [string]$current) -lt 0)) {
-                $group.($metadata.Name) = $candidate
-            }
-        }
+        if ($null -ne $sport -and ($null -eq $group.Sport -or [StringComparer]::Ordinal.Compare($sport, [string]$group.Sport) -lt 0)) { $group.Sport = $sport }
+        if ($null -ne $league -and ($null -eq $group.League -or [StringComparer]::Ordinal.Compare($league, [string]$group.League) -lt 0)) { $group.League = $league }
+        if ($null -ne $homeParticipant -and ($null -eq $group.HomeParticipant -or [StringComparer]::Ordinal.Compare($homeParticipant, [string]$group.HomeParticipant) -lt 0)) { $group.HomeParticipant = $homeParticipant }
+        if ($null -ne $awayParticipant -and ($null -eq $group.AwayParticipant -or [StringComparer]::Ordinal.Compare($awayParticipant, [string]$group.AwayParticipant) -lt 0)) { $group.AwayParticipant = $awayParticipant }
         if ($null -ne $promotion) {
             $candidatePromotionKey = "$($promotion.Id)::$($promotion.Name)"
             $currentPromotionKey = if ($null -eq $group.Promotion) { $null } else { "$($group.Promotion.Id)::$($group.Promotion.Name)" }
@@ -240,15 +242,21 @@ function Get-ChannelForgeOneGuide {
     }
     $items = [System.Collections.Generic.List[object]]::new()
     foreach ($group in $itemGroups.Values) {
-        $allOfferings = @($group.Offerings.Values)
-        [Array]::Sort($allOfferings, $offeringComparison)
-        $offerings = @($allOfferings | Select-Object -First 16)
+        $allOfferings = [object[]]@($group.Offerings.Values)
+        if ($allOfferings.Count -gt 1) { [Array]::Sort($allOfferings, $offeringComparison) }
+        $offeringCount = $allOfferings.Count
+        $offeringLimit = [Math]::Min($offeringCount, 16)
+        if ($offeringCount -gt $offeringLimit) {
+            $offerings = [object[]]::new($offeringLimit)
+            [Array]::Copy($allOfferings, $offerings, $offeringLimit)
+        }
+        else { $offerings = $allOfferings }
         $orderedCategories = [System.Collections.Generic.List[string]]::new()
         foreach ($taxonomyKey in $taxonomyOrder) {
-            if (@($group.CategoryKeys) -contains $taxonomyKey) { [void]$orderedCategories.Add($taxonomyKey) }
+            if ($group.CategoryKeys.Contains($taxonomyKey)) { [void]$orderedCategories.Add($taxonomyKey) }
         }
         $finalKind = if ($group.HasExplicitKind -and -not $group.KindConflict) { $group.Kind } else { 'Programme' }
-        $items.Add([pscustomobject][ordered]@{
+        $itemProjection = [ordered]@{
             ItemId = $group.ItemId
             Kind = $finalKind
             Title = $group.Title
@@ -265,26 +273,26 @@ function Get-ChannelForgeOneGuide {
             AwayParticipant = $group.AwayParticipant
             Promotion = $group.Promotion
             Offerings = $offerings
-            OfferingCount = $allOfferings.Count
-            OfferingsTruncated = ($allOfferings.Count -gt $offerings.Count)
+            OfferingCount = $offeringCount
+            OfferingsTruncated = ($offeringCount -gt $offeringLimit)
             FreshnessState = 'Unknown'
             ConfidenceState = 'Unknown'
             ConfidenceScore = $null
-        })
+        }
+        if ($ReturnCatalogue) {
+            $itemProjection.StartUtcTicks = $group.StartUtcTicks
+            $itemProjection.StopUtcTicks = $group.StopUtcTicks
+        }
+        $items.Add([pscustomobject]$itemProjection)
     }
     $orderedItems = $items.ToArray()
     [Array]::Sort($orderedItems, $itemComparison)
     }
-    if ($ReturnCatalogue) {
-        foreach ($item in $orderedItems) {
-            $item | Add-Member -NotePropertyName StartUtcTicks -NotePropertyValue ([datetimeoffset]::Parse([string]$item.StartUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).UtcTicks)
-            $item | Add-Member -NotePropertyName StopUtcTicks -NotePropertyValue ([datetimeoffset]::Parse([string]$item.StopUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).UtcTicks)
-        }
-        return $orderedItems
-    }
+    if ($ReturnCatalogue) { return $orderedItems }
     if ($Query -eq 'Category') {
         if ([string]::IsNullOrWhiteSpace($CategoryKey)) { throw 'CategoryKey is required for a category query.' }
         $CategoryKey = $CategoryKey.ToLowerInvariant()
+        if ($taxonomyOrder -cnotcontains $CategoryKey) { throw "Unsupported One Guide category '$CategoryKey'." }
     }
     if ($Query -eq 'Details' -and [string]::IsNullOrWhiteSpace($ItemId)) { throw 'ItemId is required for a details query.' }
 

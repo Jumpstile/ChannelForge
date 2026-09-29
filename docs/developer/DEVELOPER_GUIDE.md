@@ -545,8 +545,9 @@ The read endpoints are:
 | `GET`, `HEAD` | `/api/one-guide/category/{key}`  | Bounded items in a fixed One Guide category     |
 | `GET`, `HEAD` | `/api/one-guide/items/{item-id}` | One deterministic item detail                   |
 
-Category keys: `live-now`, `starting-soon`, `wrestling`, `football`, `baseball`,
-`soccer`, `movies`, `news`. Responses use UTC timestamps and contain no raw
+Slice 1 built-in category keys: `live-now`, `starting-soon`, `wrestling`,
+`football`, `baseball`, `soccer`, `movies`, and `news`. Category aliases map
+deterministically; other XMLTV categories are omitted. Responses use UTC timestamps and contain no raw
 URLs, credentials, private paths, accepted hashes, or parser diagnostics. The
 server remains loopback-only; authentication and LAN access are not implemented.
 

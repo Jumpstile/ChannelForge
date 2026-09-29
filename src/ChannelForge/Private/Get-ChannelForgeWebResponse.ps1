@@ -273,7 +273,8 @@ function Get-ChannelForgeWebResponse {
         }
         if ($oneGuideRoute.Groups[2].Success) {
             $categoryKey = $oneGuideRoute.Groups[2].Value.ToLowerInvariant()
-            if ($categoryKey -notin @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')) {
+            $supportedCategoryKeys = @(Get-ChannelForgeOneGuideCategoryRegistry | ForEach-Object { $_.Key })
+            if ($supportedCategoryKeys -cnotcontains $categoryKey) {
                 return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-category'; Message = 'The guide category is not supported.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
             }
             return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query Category -CategoryKey $categoryKey -MaximumItems $paging.MaximumItems -Offset $paging.Offset

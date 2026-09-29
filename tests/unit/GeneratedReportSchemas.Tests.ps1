@@ -8,6 +8,7 @@ BeforeAll {
     $script:AcceptancePlanSchema = Join-Path $script:RepoRoot 'schemas\guide-pattern-acceptance-plan.schema.json'
     $script:WorkflowPath = Join-Path $script:RepoRoot 'scripts\Build-My-Lineup.ps1'
     $script:PlaylistFixture = Join-Path $script:RepoRoot 'tests\fixtures\identity-binding\playlist.m3u'
+    $script:GuideFixture = Join-Path $script:RepoRoot 'tests\fixtures\identity-binding\guide.xml'
 
     function New-InferenceFixture {
         param([string[]]$Examples = @(
@@ -119,6 +120,7 @@ Describe 'Generated report JSON schemas' {
         & $script:WorkflowPath `
             -Root $root `
             -M3UPath $script:PlaylistFixture `
+            -XMLTVPath $script:GuideFixture `
             -EventPatternPreview `
             -EventPatternExamples @(
                 'UFC 01: Fight Night // UTC Sat 13 Apr 5:00pm'

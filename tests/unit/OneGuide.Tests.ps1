@@ -59,9 +59,25 @@ Describe 'One Guide read projection' {
         $live.EvaluationTimeUtc | Should -Be $Evaluation.ToString('o')
     }
 
-    It 'emits only the fixed taxonomy and keeps wrestling promotion structured' {
-        $programmes = Get-OneGuideFixtureProgrammes
+    It 'exposes only the eight Slice 1 categories and keeps wrestling promotion structured' {
+        $fixtureProgrammes = Get-OneGuideFixtureProgrammes
         $expectedTaxonomy = @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')
+        $registryTaxonomy = @(& (Get-Module ChannelForge) { Get-ChannelForgeOneGuideCategoryRegistry } | ForEach-Object { $_.Key })
+        $registryTaxonomy | Should -Be $expectedTaxonomy
+        $categoryAliases = [ordered]@{
+            wrestling = 'Professional Wrestling'
+            football = 'Football'
+            baseball = 'Baseball'
+            soccer = 'Association Football'
+            movies = 'Film'
+            news = 'Current Affairs'
+        }
+        $categoryProgrammes = @(
+            foreach ($entry in $categoryAliases.GetEnumerator()) {
+                New-OneGuideTestProgramme "category-$($entry.Key)" ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) "Category $($entry.Key)" @([string]$entry.Value)
+            }
+        )
+        $programmes = @($fixtureProgrammes) + @($categoryProgrammes)
 
         foreach ($key in $expectedTaxonomy) {
             $result = Get-ChannelForgeOneGuide -Query Category -CategoryKey $key -Programmes $programmes -EvaluationTimeUtc $Evaluation
@@ -69,8 +85,10 @@ Describe 'One Guide read projection' {
             $result.CategoryKey | Should -Be $key
             $result.TotalCount | Should -BeGreaterThan 0
         }
-        $items = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $programmes -EvaluationTimeUtc $Evaluation
-        $wrestling = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $programmes -EvaluationTimeUtc $Evaluation
+
+        { Get-ChannelForgeOneGuide -Query Category -CategoryKey hockey -Programmes $programmes -EvaluationTimeUtc $Evaluation } | Should -Throw '*Unsupported One Guide category*'
+        $items = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $fixtureProgrammes -EvaluationTimeUtc $Evaluation
+        $wrestling = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $fixtureProgrammes -EvaluationTimeUtc $Evaluation
         $items.Items[0].Promotion | Should -BeNullOrEmpty
         $wrestling.Items[0].Promotion.Id | Should -Match '^cf-[a-f0-9]{64}$'
         $wrestling.Items[0].Promotion.Name | Should -Be 'WWE'

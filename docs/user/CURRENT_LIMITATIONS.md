@@ -18,7 +18,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Browser Guided Setup exposes the source-set contract through `/api/guided-setup/proposal` and `/api/guided-setup/accept`: multiple local/public-HTTPS playlists, optional multiple guides, an automatic sole-playlist default when no prior decision exists, persistent explicit unbind, explicit selected/all bindings, and explicit no-guide mode. It requires acknowledgement, reuses immutable accepted-state publication, and leaves provider, downstream, and scheduler state unchanged.
 - Durable source enrollment after browser acceptance includes local and public HTTPS sources, optional XMLTV, no-guide mode, managed-root integrity checks, restart-safe redacted per-source status, manual review-only refresh, last-known-good preservation, and no automatic acceptance.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
-- A bounded, read-only One Guide API for Live Now, Starting Soon, fixed categories, and item details. It projects only the verified accepted XMLTV guide, makes no network requests, and does not change saved state. Query results use stable item IDs, safe channel references, and a fixed eight-key taxonomy.
+- A bounded, read-only One Guide API for Live Now, Starting Soon, a versioned built-in category registry, and item details. It projects only the verified accepted XMLTV guide, makes no network requests, and does not change saved state. Query results use stable item IDs, safe channel references, and deterministic category keys.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
@@ -42,9 +42,10 @@ contract. The landing UI does not yet show One Guide pages.
 One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
 Starting Soon means a programme starts after now and within two hours; Live Now
-includes its start but excludes its stop. The eight category keys are
+includes its start but excludes its stop. The built-in category keys are
 `live-now`, `starting-soon`, `wrestling`, `football`, `baseball`, `soccer`,
-`movies`, and `news`.
+`movies`, and `news`. Category aliases are deterministic; other XMLTV
+categories are omitted.
 List `GET` and `HEAD` requests support `limit` (1–100) and `offset`
 (0–2,147,483,647); item Details does not accept an offset. Malformed or
 out-of-range values fail with HTTP 400, while an offset beyond the list result
