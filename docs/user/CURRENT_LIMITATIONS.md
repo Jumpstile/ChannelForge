@@ -41,6 +41,10 @@ contract. The landing UI does not yet show One Guide pages.
 
 One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
+If accepted state is missing or its XMLTV guide was not generated, a One Guide
+request reports HTTP 503 `one-guide-unavailable`. This is different from a
+valid accepted guide with no programmes matching the requested query, which
+returns HTTP 200 with an empty result.
 Starting Soon means a programme starts after now and within two hours; Live Now
 includes its start but excludes its stop. The built-in category keys are
 `live-now`, `starting-soon`, `wrestling`, `football`, `baseball`, `soccer`,

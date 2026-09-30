@@ -101,6 +101,11 @@ derived in-memory catalogue; it does not run recovery, enumerate configured
 sources, fetch the network, or mutate accepted/source/evidence state. Live Now
 and Starting Soon are evaluated in UTC at request time; the public query
 function takes an explicit evaluation instant.
+If no accepted generation exists, or accepted XMLTV is unavailable/not
+generated, these routes return HTTP 503 with `one-guide-unavailable`. An
+accepted guide that has no programmes matching a query remains a successful
+HTTP 200 response with an empty result; unavailable source state is never
+represented as a valid empty guide.
 The Slice 1 built-in category registry contains only Live Now, Starting Soon,
 Wrestling, Football, Baseball, Soccer, Movies, and News. It maps only those
 recognized XMLTV categories to stable keys; unrecognized categories are omitted.

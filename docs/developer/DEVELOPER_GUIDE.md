@@ -465,6 +465,10 @@ Live intervals are half-open: start is included, stop is excluded. List routes
 accept `limit` (1–100) and `offset` (nonnegative decimal integer); responses
 include total counts and truncation flags. Each item returns at most 16
 offerings and reports `OfferingCount` and `OfferingsTruncated`.
+If there is no accepted generation, or accepted XMLTV is unavailable/not
+generated, the HTTP route returns 503 `one-guide-unavailable`. A valid guide
+with no matching programmes still returns 200 and an empty result; this
+distinguishes source unavailability from a genuine empty query.
 
 The accepted merged XMLTV does not retain provider attribution or a
 `CanonicalEventId` per programme. Cross-channel grouping requires the same
