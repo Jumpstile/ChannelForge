@@ -37,7 +37,8 @@ The engine also offers read-only `GET`/`HEAD` routes:
 `/api/one-guide/category/{key}`, and `/api/one-guide/items/{item-id}`.
 Responses follow the versioned
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json)
-contract. The browser now includes a Live Now view and bounded programme details; it does not display raw API identifiers, paths, hashes, or provenance.
+contract. The browser now includes a Live Now view and bounded programme
+details; it does not display raw API identifiers, paths, hashes, or provenance.
 
 One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
@@ -111,22 +112,22 @@ state-changing behavior.
 
 The following describes preserved prototype/reference work, not a primary deployment surface:
 
-| Area                                      | Status                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Status dashboard and read-only Live Now view; Guided Setup acceptance remains explicit |
-| Docker deployment                         | Architecture recorded; implementation pending                                                     |
-| Windows server/service install            | Future deployment mode; not implemented                                                           |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
-| Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work        |
-| Native file-picker bridge                 | Works now (prototype)                                                                             |
-| Display-safe selection state              | Works now (prototype)                                                                             |
-| Pre-parse selection checks                | Works now (prototype)                                                                             |
-| Playlist structural validation            | Works now — structural only (prototype)                                                           |
-| Guide structural validation               | Works now — structural only (prototype)                                                           |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                     |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                     |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                    |
-| Automatic updates                         | Planned / not built yet                                                                           |
+| Area                                      | Status                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Browser web UI served by engine           | Status dashboard and read-only Live Now view; Guided Setup acceptance remains explicit     |
+| Docker deployment                         | Architecture recorded; implementation pending                                              |
+| Windows server/service install            | Future deployment mode; not implemented                                                    |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                      |
+| Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work |
+| Native file-picker bridge                 | Works now (prototype)                                                                      |
+| Display-safe selection state              | Works now (prototype)                                                                      |
+| Pre-parse selection checks                | Works now (prototype)                                                                      |
+| Playlist structural validation            | Works now — structural only (prototype)                                                    |
+| Guide structural validation               | Works now — structural only (prototype)                                                    |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                              |
+| Lineup review                             | Implemented — local checks passed (prototype)                                              |
+| Saved lineup                              | Implemented — native acceptance + local checks                                             |
+| Automatic updates                         | Planned / not built yet                                                                    |
 
 ## Not implemented yet
 

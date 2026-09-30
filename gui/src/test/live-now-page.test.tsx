@@ -6,14 +6,23 @@ import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
 
 const first: OneGuideItem = {
   ItemId: 'a'.repeat(64), Kind: 'Programme', Title: 'Evening News', Subtitle: 'Local edition', Description: 'Top stories',
-  StartUtc: '2026-09-30T10:00:00Z', StopUtc: '2026-09-30T11:00:00Z', Status: 'Live', CategoryKeys: ['live-now', 'news'],
-  Offerings: [{ SourceLabel: 'Accepted guide', Availability: 'GuideOnly', Launch: { Kind: 'Channel', ChannelReference: 'cf-' + 'b'.repeat(64) } }],
-  OfferingCount: 1, OfferingsTruncated: false,
+  EpisodeNumber: null, StartUtc: '2026-09-30T10:00:00Z', StopUtc: '2026-09-30T11:00:00Z', Status: 'Live',
+  CategoryKeys: ['live-now', 'news'], Sport: null, League: null, HomeParticipant: null, AwayParticipant: null, Promotion: null,
+  Offerings: [{
+    OfferingId: 'b'.repeat(64), SourceId: 'cf-' + 'c'.repeat(64), SourceLabel: 'Accepted guide',
+    Availability: 'GuideOnly', Entitlement: 'Unknown',
+    Launch: { Kind: 'Channel', ChannelReference: 'cf-' + 'd'.repeat(64) },
+    DvrSupported: null, TimeshiftSupported: null,
+  }],
+  OfferingCount: 1, OfferingsTruncated: false, FreshnessState: 'Unknown', ConfidenceState: 'Unknown', ConfidenceScore: null,
 }
-const second = { ...first, ItemId: 'c'.repeat(64), Title: 'Afternoon Film', CategoryKeys: ['live-now', 'movies'] }
+const second: OneGuideItem = { ...first, ItemId: 'c'.repeat(64), Title: 'Afternoon Film', CategoryKeys: ['live-now', 'movies'] }
 
 function detailsResponse(item: OneGuideItem) {
-  return new Response(JSON.stringify({ Version: 'one-guide/v1', EvaluationTimeUtc: '2026-09-30T10:30:00Z', Query: 'Details', Offset: 0, MaximumItems: 100, TotalCount: 1, ItemsTruncated: false, Items: [item] }))
+  return new Response(JSON.stringify({
+    Version: 'one-guide/v1', EvaluationTimeUtc: '2026-09-30T10:30:00Z', Query: 'Details', Offset: 0,
+    MaximumItems: 100, TotalCount: 1, ItemsTruncated: false, Items: [item],
+  }))
 }
 
 describe('Live Now page', () => {

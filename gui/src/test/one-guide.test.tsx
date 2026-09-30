@@ -4,15 +4,24 @@ import type { OneGuideItem } from '../app/oneGuide'
 
 function item(id: string, itemId = id.repeat(64)): OneGuideItem {
   return {
-    ItemId: itemId, Kind: 'Programme', Title: `Programme ${id}`, Subtitle: null, Description: null,
+    ItemId: itemId, Kind: 'Programme', Title: `Programme ${id}`, Subtitle: null, Description: null, EpisodeNumber: null,
     StartUtc: '2026-09-30T10:00:00Z', StopUtc: '2026-09-30T11:00:00Z', Status: 'Live', CategoryKeys: ['live-now'],
-    Offerings: [{ SourceLabel: 'Accepted guide', Availability: 'GuideOnly', Launch: { Kind: 'Channel', ChannelReference: 'cf-' + 'd'.repeat(64) } }],
-    OfferingCount: 1, OfferingsTruncated: false,
+    Sport: null, League: null, HomeParticipant: null, AwayParticipant: null, Promotion: null,
+    Offerings: [{
+      OfferingId: 'e'.repeat(64), SourceId: 'cf-' + 'c'.repeat(64), SourceLabel: 'Accepted guide',
+      Availability: 'GuideOnly', Entitlement: 'Unknown',
+      Launch: { Kind: 'Channel', ChannelReference: 'cf-' + 'd'.repeat(64) },
+      DvrSupported: null, TimeshiftSupported: null,
+    }],
+    OfferingCount: 1, OfferingsTruncated: false, FreshnessState: 'Unknown', ConfidenceState: 'Unknown', ConfidenceScore: null,
   }
 }
 
-function page(items: OneGuideItem[], offset: number, totalCount: number, query: 'LiveNow' | 'Details' = 'LiveNow') {
-  return { Version: 'one-guide/v1', EvaluationTimeUtc: '2026-09-30T10:30:00Z', Query: query, Offset: offset, MaximumItems: 100, TotalCount: totalCount, ItemsTruncated: false, Items: items }
+function page(items: unknown[], offset: number, totalCount: number, query: 'LiveNow' | 'Details' = 'LiveNow') {
+  return {
+    Version: 'one-guide/v1', EvaluationTimeUtc: '2026-09-30T10:30:00Z', Query: query, Offset: offset, MaximumItems: 100,
+    TotalCount: totalCount, ItemsTruncated: offset + items.length < totalCount, Items: items,
+  }
 }
 
 describe('Live Now API client', () => {
@@ -61,6 +70,59 @@ describe('Live Now API client', () => {
     expect(wrongQuery).toHaveBeenCalledTimes(1)
   })
 
+
+  it('fails closed on malformed nullable, enum, count, and nested offering fields', async () => {
+    const valid = item('a')
+    const offering = valid.Offerings[0]
+    const malformedItems: Record<string, unknown>[] = [
+      { Subtitle: {} },
+      { Description: [] },
+      { EpisodeNumber: false },
+      { Kind: 'Unknown' },
+      { Status: 'Unknown' },
+      { CategoryKeys: ['unregistered'] },
+      { Sport: [] },
+      { League: 7 },
+      { HomeParticipant: {} },
+      { AwayParticipant: false },
+      { Promotion: { Id: 'not-an-opaque-id', Name: 'Source' } },
+      { Offerings: [{ ...offering, Availability: 'Playable' }] },
+      { Offerings: [{ ...offering, SourceLabel: null }] },
+      { Offerings: [{ ...offering, Launch: { Kind: 'Channel', ChannelReference: {} } }] },
+      { Offerings: [{ ...offering, DvrSupported: 'false' }] },
+      { Offerings: [{ ...offering, TimeshiftSupported: 0 }] },
+      { OfferingCount: '1' },
+      { OfferingsTruncated: 'false' },
+      { FreshnessState: 'Fresh' },
+      { ConfidenceState: 'Certain' },
+      { ConfidenceScore: 101 },
+      { UnexpectedField: 'not-in-the-schema' },
+    ]
+
+    for (const malformed of malformedItems) {
+      const response = vi.fn().mockResolvedValue(new Response(JSON.stringify(page([{ ...valid, ...malformed }], 0, 1))))
+      await expect(fetchLiveNow(response)).resolves.toBeNull()
+    }
+  })
+
+  it('fails closed on malformed page metadata and unsupported date-time values', async () => {
+    const validPage = page([item('a')], 0, 1)
+    const malformedPages = [
+      { ...validPage, EvaluationTimeUtc: 'not-a-date' },
+      { ...validPage, Offset: -1 },
+      { ...validPage, MaximumItems: 101 },
+      { ...validPage, TotalCount: -1 },
+      { ...validPage, ItemsTruncated: true },
+      { ...validPage, CategoryKey: 'unregistered' },
+      { ...validPage, Items: null },
+      { ...validPage, UnexpectedField: true },
+    ]
+
+    for (const malformed of malformedPages) {
+      const response = vi.fn().mockResolvedValue(new Response(JSON.stringify(malformed)))
+      await expect(fetchLiveNow(response)).resolves.toBeNull()
+    }
+  })
 
   it('requests the bounded details route and rejects unsafe identifiers', async () => {
     const id = 'a'.repeat(64)

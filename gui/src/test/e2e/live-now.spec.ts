@@ -9,13 +9,31 @@ function item(index: number): OneGuideItem {
     Title: index === 0 ? 'Evening News' : `Local programme ${index}`,
     Subtitle: index === 0 ? 'Local edition' : null,
     Description: index === 0 ? 'Top stories from the region.' : null,
+    EpisodeNumber: null,
     StartUtc: '2026-09-30T10:00:00Z',
     StopUtc: '2026-09-30T11:00:00Z',
     Status: 'Live',
     CategoryKeys: ['live-now', 'news'],
-    Offerings: [{ SourceLabel: 'Accepted guide', Availability: 'GuideOnly', Launch: { Kind: 'Channel', ChannelReference: `cf-${'a'.repeat(64)}` } }],
+    Sport: null,
+    League: null,
+    HomeParticipant: null,
+    AwayParticipant: null,
+    Promotion: null,
+    Offerings: [{
+      OfferingId: 'b'.repeat(64),
+      SourceId: `cf-${'c'.repeat(64)}`,
+      SourceLabel: 'Accepted guide',
+      Availability: 'GuideOnly',
+      Entitlement: 'Unknown',
+      Launch: { Kind: 'Channel', ChannelReference: `cf-${'a'.repeat(64)}` },
+      DvrSupported: null,
+      TimeshiftSupported: null,
+    }],
     OfferingCount: 1,
     OfferingsTruncated: false,
+    FreshnessState: 'Unknown',
+    ConfidenceState: 'Unknown',
+    ConfidenceScore: null,
   }
 }
 
@@ -27,7 +45,7 @@ function response(query: 'LiveNow' | 'Details', offset: number, items: OneGuideI
     Offset: offset,
     MaximumItems: 100,
     TotalCount: totalCount,
-    ItemsTruncated: false,
+    ItemsTruncated: offset + items.length < totalCount,
     Items: items,
   }
 }
