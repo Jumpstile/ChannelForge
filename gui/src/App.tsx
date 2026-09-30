@@ -1,3 +1,4 @@
+import { LiveNowPage } from './pages/LiveNowPage'
 import { useState } from 'react'
 import { AppShell } from './app/AppShell'
 import { acceptSavedLineup, prepareSavedLineupPlan } from './app/setupPicker'
@@ -69,6 +70,8 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
     <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate}>
       {activePage === 'gallery' ? (
         <StateGalleryPage onBack={() => setActivePage('workbench')} />
+      ) : activePage === 'live-now' ? (
+        <LiveNowPage />
       ) : activePage === 'setup' ? (
         <GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable={pickerAvailable} matchState={matchState} onMatchStateChange={handleMatchStateChange} onOpenReview={() => setActivePage('build')} />
       ) : activePage === 'build' && reviewAvailable ? (

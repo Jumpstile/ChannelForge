@@ -40,6 +40,22 @@ BeforeAll {
 }
 
 Describe 'Windows Task Scheduler registration contract' {
+    It 'detects Windows without relying on the OS environment variable' {
+        $isWindowsHost = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+        $previousOs = [System.Environment]::GetEnvironmentVariable('OS', 'Process')
+        try {
+            [System.Environment]::SetEnvironmentVariable('OS', $null, 'Process')
+            if ($isWindowsHost) {
+                { Assert-ChannelForgeTaskSchedulerAvailable } | Should -Not -Throw
+            }
+            else {
+                { Assert-ChannelForgeTaskSchedulerAvailable } | Should -Throw 'WindowsTaskSchedulerUnavailable'
+            }
+        }
+        finally {
+            [System.Environment]::SetEnvironmentVariable('OS', $previousOs, 'Process')
+        }
+    }
     It 'uses the same root digest for case variants of a canonical Windows root' {
         $project = New-RegistrationProject
         $first = Resolve-ChannelForgeScheduledOperationRoot -Root $project.Root

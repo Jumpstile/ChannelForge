@@ -559,13 +559,29 @@ deterministically; other XMLTV categories are omitted. Responses use UTC timesta
 URLs, credentials, private paths, accepted hashes, or parser diagnostics. The
 server remains loopback-only; authentication and LAN access are not implemented.
 
-The dashboard remains presentation-only and currently consumes `/api/status`;
-it does not yet render the One Guide routes. Guided Setup and refresh requests
-remain engine-owned operations. The browser has no direct filesystem or
-provider-file access. The safe One Guide DTO is a deliberate projection of
-accepted guide content, not the raw accepted-generation bytes. Stop the
-foreground server with `Ctrl+C`. Docker, Windows service, packaging, release,
-deployment, and tester-build behavior remain unavailable.
+The browser includes a read-only Live Now page backed only by the versioned
+One Guide endpoints. It fetches bounded pages until the API's `TotalCount` is
+complete; loading, empty, unavailable, and populated states are distinct.
+Programme cards work with keyboard arrows and Enter; Escape and Back return
+from item details to the invoking card. Focus is visibly outlined. The view
+shows safe guide text only, uses UTC times, and does not launch playback or
+change accepted/source state. Guided Setup and refresh remain separate
+engine-owned operations. The browser has no direct filesystem or provider-file
+access. Stop the foreground server with `Ctrl+C`. Docker, Windows service,
+packaging, release, deployment, and tester-build behavior remain unavailable.
+
+The browser contract in `gui/src/test/e2e/live-now.spec.ts` uses a 101-programme
+fixture and records first-visible, complete-render, and browser API-resource
+timings. In one local production-preview run, first content appeared in 173.7 ms
+and the full list rendered in 179.2 ms; the two intercepted API responses took
+6.6 ms and 5.4 ms. These API timings measure the browser fixture route, not the
+accepted-guide backend. This is not SER8 hardware evidence.
+
+A separate warm API-route measurement invoked `Get-ChannelForgeWebResponse`
+against an isolated accepted 101-programme XMLTV fixture (40 samples per page):
+offset 0 returned 100 items at p50 80.00 ms / p95 89.48 ms; offset 100 returned
+1 item at p50 18.10 ms / p95 22.52 ms. These are in-process route timings, not
+HTTP-socket or SER8 measurements. The temporary accepted fixture was removed.
 
 ### Reusable existing GUI work
 

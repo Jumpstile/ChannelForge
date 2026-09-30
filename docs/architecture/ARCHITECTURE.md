@@ -83,11 +83,13 @@ candidate generation, review, immutable acceptance, reports, and generated
 outputs.
 
 The local server provides a beginner status shell and safe health/status JSON.
-The landing surface consumes `GET /api/status` from the same origin and
-projects validated running, lineup, next-action, and read-only facts into
-beginner copy. It retains no raw status payload. The server also has explicit
-guided-setup proposal/acceptance and source-refresh routes; those state-changing
-operations remain engine-owned and are not part of the read-only guide contract.
+The landing surface consumes `GET /api/status`. The browser also provides a
+read-only Live Now view over `/api/one-guide/live-now`, follows bounded API
+pages, and opens a bounded item-details view through the item route. Both views
+project only validated same-origin API data; neither reads guide files or
+creates a second state authority. The server also has explicit guided-setup
+proposal/acceptance and source-refresh routes; those state-changing operations
+remain engine-owned and are not part of the read-only guide contract.
 The loopback listener serves only its `index.html` and allowlisted static asset
 types when `gui/dist` contains a Vite build. Otherwise `/` falls back to the
 safe placeholder shell. Static requests are confined to the configured
