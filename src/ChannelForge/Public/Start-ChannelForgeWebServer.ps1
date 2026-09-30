@@ -31,6 +31,7 @@ function Start-ChannelForgeWebServer {
 
             try {
                 $requestPath = $context.Request.Url.AbsolutePath
+                $requestPathAndQuery = $context.Request.Url.PathAndQuery
                 $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh')
                 if ($isBodyPost) {
                     try {
@@ -54,7 +55,7 @@ function Start-ChannelForgeWebServer {
                     }
                 }
                 else {
-                    $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPath -RepositoryRoot $server.RepositoryRoot -StaticRoot $server.StaticRoot
+                    $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPathAndQuery -RepositoryRoot $server.RepositoryRoot -StaticRoot $server.StaticRoot
                 }
                 Write-ChannelForgeWebResponse -Context $context -Response $response
             }

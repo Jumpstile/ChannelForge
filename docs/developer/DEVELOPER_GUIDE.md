@@ -449,7 +449,49 @@ Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for the branch, commit, and revi
 
 ChannelForge's primary UI is a browser-based local web UI served by the ChannelForge engine. The browser consumes the engine's documented HTTP/API boundary; it does not host a second state authority or receive direct access to provider files, accepted generations, private paths, or local processes.
 
-The first web-server foundation is a read-only loopback server. It provides a beginner-facing placeholder shell and safe health/status responses. Status reads validated accepted-generation metadata only to derive lineup status; it does not read provider data or change any lineup state.
+The local server is loopback-only. It provides a beginner-facing shell and safe
+health/status responses; status reads validated accepted-generation metadata
+only. Guided Setup proposal/acceptance and source-refresh operations are
+separate engine-owned routes. Reads never trigger source acquisition.
+
+The One Guide read API projects the verified accepted XMLTV artifact to the
+versioned `one-guide/v1` contract in
+[`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json).
+The projection does not run accepted-state recovery, enumerate configured
+sources, fetch the network, or mutate state. Query functions require an
+explicit `EvaluationTimeUtc`; HTTP requests evaluate at request time. Starting
+Soon means starts strictly after evaluation and no more than two hours later.
+Live intervals are half-open: start is included, stop is excluded. List routes
+accept `limit` (1–100) and `offset` (nonnegative decimal integer); responses
+include total counts and truncation flags. Each item returns at most 16
+offerings and reports `OfferingCount` and `OfferingsTruncated`.
+If there is no accepted generation, or accepted XMLTV is unavailable/not
+generated, the HTTP route returns 503 `one-guide-unavailable`. A valid guide
+with no matching programmes still returns 200 and an empty result; this
+distinguishes source unavailability from a genuine empty query.
+
+The accepted merged XMLTV does not retain provider attribution or a
+`CanonicalEventId` per programme. Cross-channel grouping requires the same
+explicit identity and normalized title, subtitle, episode number, and schedule.
+Without explicit identity, rows on a source/channel correlate only when their
+sanitized source-row evidence also matches, including descriptions, recognized
+or unrecognized categories, and XMLTV new/live/premiere flags. Conflicts remain
+separate; the fixed registry still omits unrecognized categories from output.
+Accepted-guide HTTP responses use
+the display label `Accepted guide` and opaque domain-separated source, channel,
+and promotion identifiers. They report `Kind` as `Programme` unless input
+explicitly supplies a recognized kind. Sport, promotion, entitlement, and
+launch metadata are emitted only when input actually contains them; title text
+is never used to infer those fields.
+
+The server holds a one-entry in-memory projection cache keyed by the current
+accepted pointer and manifest identity. Catalogue construction parses and
+stores UTC interval ticks once and builds a direct item-ID lookup. Warm list
+requests validate the pointer and scan the cached records without rereading or
+reparsing XMLTV; they create response objects only for the returned page of at
+most 100 items. Details uses the direct lookup. A generation change replaces
+the entry; the cache is disposable and introduces no persisted state or second
+authority.
 
 The primary deployment modes are:
 
@@ -499,22 +541,31 @@ protected, served without directory listings, and unsupported asset types
 return `404`. There is no SPA fallback: an unknown static path returns `404`.
 `GET` and `HEAD` return the same status and content metadata.
 
-The read-only endpoints remain:
+The read endpoints are:
 
-| Method        | Path          | Purpose                                         |
-| ------------- | ------------- | ----------------------------------------------- |
-| `GET`, `HEAD` | `/`           | Built UI or safe placeholder shell              |
-| `GET`, `HEAD` | `/health`     | Safe health/status JSON                         |
-| `GET`, `HEAD` | `/api/status` | Safe status contract consumed by the browser UI |
+| Method        | Path                             | Purpose                                         |
+| ------------- | -------------------------------- | ----------------------------------------------- |
+| `GET`, `HEAD` | `/`                              | Built UI or safe placeholder shell              |
+| `GET`, `HEAD` | `/health`                        | Safe health/status JSON                         |
+| `GET`, `HEAD` | `/api/status`                    | Safe status contract consumed by the browser UI |
+| `GET`, `HEAD` | `/api/one-guide/live-now`        | Accepted programmes live at request evaluation  |
+| `GET`, `HEAD` | `/api/one-guide/starting-soon`   | Accepted programmes starting within two hours   |
+| `GET`, `HEAD` | `/api/one-guide/category/{key}`  | Bounded items in a fixed One Guide category     |
+| `GET`, `HEAD` | `/api/one-guide/items/{item-id}` | One deterministic item detail                   |
 
-The dashboard is presentation-only. It makes one same-origin `GET` request and
-never sends `POST`, `PUT`, `PATCH`, or `DELETE`. Setup and review actions remain
-future until their engine/API contracts are implemented. Only the engine may
-own candidate generation, review, acceptance, reports, and output publication.
-The server and browser expose no provider URLs, credentials, private paths,
-hashes, generation IDs, accepted-generation contents, or parser details.
-Stop the foreground server with `Ctrl+C`. The server has no Docker, Windows
-service, packaging, release, deployment, or tester-build behavior.
+Slice 1 built-in category keys: `live-now`, `starting-soon`, `wrestling`,
+`football`, `baseball`, `soccer`, `movies`, and `news`. Category aliases map
+deterministically; other XMLTV categories are omitted. Responses use UTC timestamps and contain no raw
+URLs, credentials, private paths, accepted hashes, or parser diagnostics. The
+server remains loopback-only; authentication and LAN access are not implemented.
+
+The dashboard remains presentation-only and currently consumes `/api/status`;
+it does not yet render the One Guide routes. Guided Setup and refresh requests
+remain engine-owned operations. The browser has no direct filesystem or
+provider-file access. The safe One Guide DTO is a deliberate projection of
+accepted guide content, not the raw accepted-generation bytes. Stop the
+foreground server with `Ctrl+C`. Docker, Windows service, packaging, release,
+deployment, and tester-build behavior remain unavailable.
 
 ### Reusable existing GUI work
 

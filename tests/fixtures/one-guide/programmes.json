@@ -1,0 +1,77 @@
+[
+  {
+    "ChannelId": "channel-wwe-a",
+    "Start": "2026-10-01T12:30:00Z",
+    "End": "2026-10-01T14:00:00Z",
+    "Title": "Championship Main Event",
+    "CanonicalEventId": "sample-event:championship-main-event-2026",
+    "Kind": "Event",
+    "Categories": ["Wrestling"],
+    "SourceId": "provider-a",
+    "SourceLabel": "Provider A",
+    "Sport": "Wrestling",
+    "League": "WWE",
+    "HomeParticipant": "Rhea Ripley",
+    "AwayParticipant": "Bianca Belair",
+    "Promotion": { "Id": "wwe", "Name": "WWE" }
+  },
+  {
+    "ChannelId": "channel-wwe-b",
+    "Start": "2026-10-01T12:30:00Z",
+    "End": "2026-10-01T14:00:00Z",
+    "Title": "Championship Main Event",
+    "CanonicalEventId": "sample-event:championship-main-event-2026",
+    "Kind": "Event",
+    "Categories": [],
+    "SourceId": "provider-b",
+    "SourceLabel": "Provider B"
+  },
+  {
+    "ChannelId": "channel-football",
+    "Start": "2026-10-01T13:00:00Z",
+    "End": "2026-10-01T15:00:00Z",
+    "Title": "Football Match",
+    "Categories": ["Football"],
+    "SourceId": "provider-a"
+  },
+  {
+    "ChannelId": "channel-baseball",
+    "Start": "2026-10-01T14:00:00Z",
+    "End": "2026-10-01T17:00:00Z",
+    "Title": "Baseball Game",
+    "Categories": ["Baseball"],
+    "SourceId": "provider-a"
+  },
+  {
+    "ChannelId": "channel-soccer",
+    "Start": "2026-10-01T13:15:00Z",
+    "End": "2026-10-01T15:00:00Z",
+    "Title": "Soccer Match",
+    "Categories": ["Soccer"],
+    "SourceId": "provider-b"
+  },
+  {
+    "ChannelId": "channel-movie",
+    "Start": "2026-10-01T15:00:00Z",
+    "End": "2026-10-01T17:00:00Z",
+    "Title": "Feature Film",
+    "Categories": ["Movies"],
+    "SourceId": "provider-b"
+  },
+  {
+    "ChannelId": "channel-news-live",
+    "Start": "2026-10-01T11:30:00Z",
+    "End": "2026-10-01T12:30:00Z",
+    "Title": "Live News Bulletin",
+    "Categories": ["News"],
+    "SourceId": "provider-a"
+  },
+  {
+    "ChannelId": "channel-news-soon",
+    "Start": "2026-10-01T12:15:00Z",
+    "End": "2026-10-01T13:00:00Z",
+    "Title": "News Update",
+    "Categories": ["News"],
+    "SourceId": "provider-b"
+  }
+]
