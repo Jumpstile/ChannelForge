@@ -59,40 +59,63 @@ Describe 'One Guide read projection' {
         $live.EvaluationTimeUtc | Should -Be $Evaluation.ToString('o')
     }
 
-    It 'exposes only the eight Slice 1 categories and keeps wrestling promotion structured' {
+    It 'exposes the centralized category taxonomy and keeps wrestling promotion structured' {
         $fixtureProgrammes = Get-OneGuideFixtureProgrammes
-        $expectedTaxonomy = @('live-now', 'starting-soon', 'wrestling', 'football', 'baseball', 'soccer', 'movies', 'news')
-        $registryTaxonomy = @(& (Get-Module ChannelForge) { Get-ChannelForgeOneGuideCategoryRegistry } | ForEach-Object { $_.Key })
+        $expectedTaxonomy = @('live-now', 'starting-soon', 'football', 'baseball', 'basketball', 'hockey', 'soccer', 'wrestling', 'motorsports', 'boxing', 'mma', 'tennis', 'golf', 'rugby', 'cricket', 'lacrosse', 'other-sports', 'movies', 'news', 'kids', 'entertainment', 'documentary', 'comedy')
+        $registry = @(& (Get-Module ChannelForge) { Get-ChannelForgeOneGuideCategoryRegistry })
+        $registryTaxonomy = @($registry | ForEach-Object { $_.Key })
         $registryTaxonomy | Should -Be $expectedTaxonomy
-        $categoryAliases = [ordered]@{
+        $aliasCases = [ordered]@{
             wrestling = 'Professional Wrestling'
             football = 'Football'
             baseball = 'Baseball'
             soccer = 'Association Football'
             movies = 'Film'
             news = 'Current Affairs'
+            hockey = 'Ice Hockey'
+            motorsports = 'Auto Racing'
+            mma = 'Mixed Martial Arts'
+            kids = "Children's"
         }
-        $categoryProgrammes = @(
-            foreach ($entry in $categoryAliases.GetEnumerator()) {
+        $programmes = @(
+            foreach ($entry in $aliasCases.GetEnumerator()) {
                 New-OneGuideTestProgramme "category-$($entry.Key)" ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) "Category $($entry.Key)" @([string]$entry.Value)
             }
         )
-        $programmes = @($fixtureProgrammes) + @($categoryProgrammes)
-
+        $programmes += New-OneGuideTestProgramme 'generic-sport' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Generic Sport' @('Sports', 'Unknown category')
+        $programmes += New-OneGuideTestProgramme 'specific-and-generic' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Specific and generic' @('Sports', 'Ice Hockey')
         foreach ($key in $expectedTaxonomy) {
             $result = Get-ChannelForgeOneGuide -Query Category -CategoryKey $key -Programmes $programmes -EvaluationTimeUtc $Evaluation
             $result.Query | Should -Be 'Category'
             $result.CategoryKey | Should -Be $key
-            $result.TotalCount | Should -BeGreaterThan 0
         }
-
-        { Get-ChannelForgeOneGuide -Query Category -CategoryKey hockey -Programmes $programmes -EvaluationTimeUtc $Evaluation } | Should -Throw '*Unsupported One Guide category*'
-        $items = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes $fixtureProgrammes -EvaluationTimeUtc $Evaluation
+        $hockey = Get-ChannelForgeOneGuide -Query Category -CategoryKey hockey -Programmes $programmes -EvaluationTimeUtc $Evaluation
+        $hockey.TotalCount | Should -Be 2
+        $otherSports = Get-ChannelForgeOneGuide -Query Category -CategoryKey other-sports -Programmes $programmes -EvaluationTimeUtc $Evaluation
+        @($otherSports.Items.Title) | Should -Be @('Generic Sport')
+        $unknownOnly = New-OneGuideTestProgramme 'unknown' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Unknown only' @('Unmapped category')
+        $unknownProjection = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($unknownOnly) -EvaluationTimeUtc $Evaluation
+        $unknownProjection.Items[0].CategoryKeys | Should -Be @('starting-soon')
         $wrestling = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $fixtureProgrammes -EvaluationTimeUtc $Evaluation
-        $items.Items[0].Promotion | Should -BeNullOrEmpty
         $wrestling.Items[0].Promotion.Id | Should -Match '^cf-[a-f0-9]{64}$'
         $wrestling.Items[0].Promotion.Name | Should -Be 'WWE'
         @($wrestling.Items[0].CategoryKeys | Where-Object { $_ -notin $expectedTaxonomy }) | Should -BeNullOrEmpty
+    }
+
+    It 'suppresses generic Sports for a canonical event with a specific sport on another offering' {
+        $genericRow = New-OneGuideTestProgramme 'generic-channel' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Cross-source event' @('Sports') 'provider-a'
+        $specificRow = New-OneGuideTestProgramme 'football-channel' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Cross-source event' @('Football') 'provider-b'
+        $genericRow | Add-Member -NotePropertyName CanonicalEventId -NotePropertyValue 'shared-sports-event'
+        $specificRow | Add-Member -NotePropertyName CanonicalEventId -NotePropertyValue 'shared-sports-event'
+
+        $football = Get-ChannelForgeOneGuide -Query Category -CategoryKey football -Programmes @($genericRow, $specificRow) -EvaluationTimeUtc $Evaluation
+        $otherSports = Get-ChannelForgeOneGuide -Query Category -CategoryKey other-sports -Programmes @($genericRow, $specificRow) -EvaluationTimeUtc $Evaluation
+
+        $football.TotalCount | Should -Be 1
+        $football.Items[0].OfferingCount | Should -Be 2
+        $football.Items[0].CategoryKeys | Should -Contain 'football'
+        $football.Items[0].CategoryKeys | Should -Not -Contain 'other-sports'
+        $otherSports.TotalCount | Should -Be 0
     }
 
     It 'groups offerings only when an explicit canonical event identity is present' {
