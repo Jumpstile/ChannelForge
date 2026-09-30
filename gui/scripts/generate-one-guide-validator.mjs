@@ -57,6 +57,7 @@ const generatedDeclaration = [
   '',
 ].join('\n')
 
+const normalizeLineEndings = (text) => text.replace(/\r\n/g, '\n')
 for (const [url, expected] of [[typesUrl, generatedTypes], [moduleUrl, generatedModule], [declarationUrl, generatedDeclaration]]) {
   if (process.argv.includes('--check')) {
     let actual
@@ -65,7 +66,7 @@ for (const [url, expected] of [[typesUrl, generatedTypes], [moduleUrl, generated
     } catch {
       throw new Error(`Generated One Guide types or validator is missing: ${url.pathname}`)
     }
-    if (actual !== expected) throw new Error(`Generated One Guide types or validator is stale: ${url.pathname}`)
+    if (normalizeLineEndings(actual) !== expected) throw new Error(`Generated One Guide types or validator is stale: ${url.pathname}`)
   } else {
     await writeFile(url, expected, 'utf8')
   }
