@@ -585,6 +585,38 @@ Describe 'ChannelForge web server foundation' {
         $invalidQuery.StatusCode | Should -Be 400
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
+    It 'returns unavailable for a missing accepted generation and accepted XMLTV that was not generated' {
+        $missingRoot = Join-Path $TestDrive 'one-guide-missing-accepted-generation'
+        $missing = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $missingRoot
+
+        $notGeneratedRoot = Join-Path $TestDrive 'one-guide-not-generated'
+        New-TestAcceptedState -RepositoryRoot $notGeneratedRoot
+        $notGenerated = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $notGeneratedRoot
+
+        $missing.StatusCode | Should -Be 503
+        ($missing.Body | ConvertFrom-Json).Error | Should -Be 'one-guide-unavailable'
+        $notGenerated.StatusCode | Should -Be 503
+        ($notGenerated.Body | ConvertFrom-Json).Error | Should -Be 'one-guide-unavailable'
+    }
+
+    It 'returns a valid empty result when accepted XMLTV contains no matching programmes' {
+        $root = Join-Path $TestDrive 'one-guide-valid-empty'
+        $guide = '<tv><channel id="empty"><display-name>Empty</display-name></channel><programme start="20000101000000 +0000" stop="20000101010000 +0000" channel="empty"><title>Expired Movie</title></programme></tv>'
+        $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $proposalBody -ContentType 'application/json' -ContentLength $proposalBody.Length
+        $proposalPayload = $proposal.Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $response = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $root
+        $payload = $response.Body | ConvertFrom-Json
+
+        $accepted.StatusCode | Should -Be 200
+        $response.StatusCode | Should -Be 200
+        $payload.Query | Should -Be 'LiveNow'
+        $payload.TotalCount | Should -Be 0
+        @($payload.Items).Count | Should -Be 0
+    }
+
     It 'rebuilds the cached One Guide projection when the accepted generation changes' {
         $root = Join-Path $TestDrive 'one-guide-cache-invalidation'
         $publishGuide = {

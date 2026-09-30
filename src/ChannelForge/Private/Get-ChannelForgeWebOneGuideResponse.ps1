@@ -7,7 +7,7 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     $paths = Get-ChannelForgeGenerationPaths -RepositoryRoot $RepositoryRoot
     if (-not [IO.File]::Exists($paths.Current)) {
         $script:ChannelForgeOneGuideAcceptedProjectionCache = $null
-        return @()
+        throw 'Accepted guide is unavailable because no accepted generation exists.'
     }
     $pointer = Read-ChannelForgeGenerationDocument -RepositoryRoot $RepositoryRoot -Path $paths.Current -Domain 'pointer/v2'
     Assert-ChannelForgeGenerationPropertySequence $pointer.Object @('Version', 'GenerationId', 'GenerationManifestHash', 'AcceptedStateHash', 'AcceptedOutputManifestHash', 'PointerHash') 'Pointer'
@@ -31,7 +31,7 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     $snapshot = Get-ChannelForgeGenerationCurrentSnapshot -RepositoryRoot $RepositoryRoot -Paths $paths
     if ($null -eq $snapshot) {
         $script:ChannelForgeOneGuideAcceptedProjectionCache = $null
-        return @()
+        throw 'Accepted guide is unavailable because the accepted generation could not be loaded.'
     }
     $snapshotPointer = $snapshot.Pointer.Object
     $snapshotKey = @(
@@ -44,22 +44,23 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     ) -join '|'
     if ($snapshotKey -cne $cacheKey) { throw 'Accepted generation changed while the One Guide projection was loading.' }
 
-    $programmes = @()
-    if ($null -ne $snapshot.XMLTV) {
-        $bytes = [byte[]]$snapshot.XMLTV.Bytes
-        if ($bytes.Length -gt 268435456) { throw 'Accepted guide exceeds the read projection limit.' }
-        $stream = [System.IO.MemoryStream]::new($bytes, $false)
-        try {
-            $programmes = @(Read-ChannelForgeXmltvDocument `
-                -Stream $stream `
-                -SourceId 'accepted-guide' `
-                -SourcePath $snapshot.XMLTV.Path `
-                -SourceKind local `
-                -MaxDocumentBytes 268435456 `
-                -CandidateContractVersion 'blocker-2-contract/v8')
-        }
-        finally { $stream.Dispose() }
+    if ($null -eq $snapshot.XMLTV) {
+        throw 'Accepted guide is unavailable because accepted XMLTV was not generated.'
     }
+    $programmes = @()
+    $bytes = [byte[]]$snapshot.XMLTV.Bytes
+    if ($bytes.Length -gt 268435456) { throw 'Accepted guide exceeds the read projection limit.' }
+    $stream = [System.IO.MemoryStream]::new($bytes, $false)
+    try {
+        $programmes = @(Read-ChannelForgeXmltvDocument `
+            -Stream $stream `
+            -SourceId 'accepted-guide' `
+            -SourcePath $snapshot.XMLTV.Path `
+            -SourceKind local `
+            -MaxDocumentBytes 268435456 `
+            -CandidateContractVersion 'blocker-2-contract/v8')
+    }
+    finally { $stream.Dispose() }
     $minimumEvaluationTimeUtc = [datetimeoffset]::MinValue
     $catalogue = @(Get-ChannelForgeOneGuide -Query LiveNow -Programmes $programmes -EvaluationTimeUtc $minimumEvaluationTimeUtc -ReturnCatalogue)
     $itemsById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
