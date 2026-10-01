@@ -50,6 +50,8 @@ function response(query: 'LiveNow' | 'Details', offset: number, items: OneGuideI
   }
 }
 
+const generation = '7'.repeat(64)
+
 test('renders the paged Live Now view, supports keyboard details, and stays read-only', async ({ page }) => {
   const apiRequests: string[] = []
   await page.route('**/api/**', async (route) => {
@@ -69,9 +71,13 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
     if (url.pathname === '/api/one-guide/live-now') {
       const offset = Number(url.searchParams.get('offset'))
       expect(url.searchParams.get('limit')).toBe('100')
+      if (offset > 0) {
+        expect(url.searchParams.get('at')).toBe(String(Date.parse('2026-09-30T10:30:00Z')))
+        expect(url.searchParams.get('generation')).toBe(generation)
+      }
       const items = Array.from({ length: 101 }, (_, index) => item(index))
       const pageItems = items.slice(offset, offset + 100)
-      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(response('LiveNow', offset, pageItems, items.length)) })
+      await route.fulfill({ contentType: 'application/json', headers: { 'X-ChannelForge-Generation': generation }, body: JSON.stringify(response('LiveNow', offset, pageItems, items.length)) })
       return
     }
 
@@ -82,7 +88,13 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
 
   await page.goto('/')
   await page.evaluate(() => performance.mark('live-now-navigation-start'))
-  await page.getByRole('button', { name: 'Live Now' }).click()
+  // Remote D-pad path from launch: first arrow lands on the active page, Down reaches Live Now, OK opens it.
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('button', { name: 'Workbench' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  const liveNowNav = page.getByRole('button', { name: 'Live Now' })
+  await expect(liveNowNav).toBeFocused()
+  await page.keyboard.press('Enter')
   const firstCard = page.getByRole('button', { name: /Evening News/ })
   await expect(firstCard).toBeVisible()
   await expect(firstCard).toContainText('10:00–11:00 UTC')
@@ -103,7 +115,12 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
   const listA11y = await new AxeBuilder({ page }).analyze()
   expect(listA11y.violations).toEqual([])
 
-  await firstCard.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(firstCard).toBeFocused()
+  await page.keyboard.press('ArrowLeft')
+  await expect(liveNowNav).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(firstCard).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('listitem').nth(2).getByRole('button')).toBeFocused()
   await page.keyboard.press('ArrowUp')
@@ -120,7 +137,7 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
   await expect(firstCard).toBeFocused()
   const expectedGuideReads = [
     'GET /api/one-guide/live-now?limit=100&offset=0',
-    'GET /api/one-guide/live-now?limit=100&offset=100',
+    `GET /api/one-guide/live-now?limit=100&offset=100&at=${Date.parse('2026-09-30T10:30:00Z')}&generation=${generation}`,
     `GET /api/one-guide/items/${item(0).ItemId}`,
   ]
   expect(new Set(apiRequests.filter((request) => request !== 'GET /api/status'))).toEqual(new Set(expectedGuideReads))

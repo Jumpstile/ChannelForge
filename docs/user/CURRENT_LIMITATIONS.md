@@ -52,9 +52,13 @@ includes its start but excludes its stop. The built-in category keys are
 `movies`, and `news`. Category aliases are deterministic; other XMLTV
 categories are omitted.
 List `GET` and `HEAD` requests support `limit` (1–100) and `offset`
-(0–2,147,483,647); item Details does not accept an offset. Malformed or
-out-of-range values fail with HTTP 400, while an offset beyond the list result
-count returns an empty page.
+(0–2,147,483,647); item Details does not accept an offset. A nonzero offset
+also requires `at` (the first page's `EvaluationTimeUtc` in Unix milliseconds)
+and `generation` (the opaque `X-ChannelForge-Generation` token from the first
+page), so every page shares one evaluation instant and accepted generation; if
+the accepted guide changed, the request returns HTTP 409 `generation-changed`.
+Malformed, missing, or out-of-range values fail with HTTP 400, while an
+offset beyond the list result count returns an empty page.
 
 The accepted XMLTV path does not preserve a cross-channel `CanonicalEventId` or
 provider attribution for each programme. Separate source/channel occurrences

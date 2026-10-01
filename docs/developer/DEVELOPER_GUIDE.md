@@ -561,9 +561,19 @@ server remains loopback-only; authentication and LAN access are not implemented.
 
 The browser includes a read-only Live Now page backed only by the versioned
 One Guide endpoints. It fetches bounded pages until the API's `TotalCount` is
-complete; loading, empty, unavailable, and populated states are distinct.
-Programme cards work with keyboard arrows and Enter; Escape and Back return
-from item details to the invoking card. Focus is visibly outlined. The view
+complete. Every list `200` carries an opaque `X-ChannelForge-Generation` token
+(derived, not an accepted hash); later pages send `at` (the first page's
+`EvaluationTimeUtc` in Unix milliseconds) and `generation` so all pages share
+one evaluation instant and accepted generation. A changed generation returns
+HTTP 409 `generation-changed` and the browser restarts from offset 0 (at most
+three attempts). Loading, empty, unavailable, and populated states are distinct.
+Remote D-pad use needs no Tab key: the first arrow press after launch focuses
+the active navigation item, Up/Down move through navigation, OK opens a page,
+Right enters page content, and Left from the first card column returns to
+navigation. Programme cards work with arrows and Enter; Escape and Back return
+from item details to the invoking card. Only the newest details request may
+open the dialog: choosing another programme, Escape, or Back aborts a pending
+request so late responses are discarded. Focus is visibly outlined. The view
 shows safe guide text only, uses UTC times, and does not launch playback or
 change accepted/source state. Guided Setup and refresh remain separate
 engine-owned operations. The browser has no direct filesystem or provider-file

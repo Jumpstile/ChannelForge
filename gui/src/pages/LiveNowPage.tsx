@@ -3,6 +3,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNow, fetchLiveNowItem } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
 import { PageHeader } from '../components/PageHeader'
+import { focusActiveNavItem } from '../components/SideNav'
 
 type LiveNowPageProps = { fetchItems?: OneGuideFetcher }
 
@@ -13,11 +14,14 @@ function formatTime(value: string): string {
 export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
   const [items, setItems] = useState<OneGuideItem[] | null | undefined>(undefined)
   const [selected, setSelected] = useState<OneGuideItem | null>(null)
+  const [detailsPending, setDetailsPending] = useState(false)
   const [detailError, setDetailError] = useState(false)
   const [retry, setRetry] = useState(0)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
   const returnFocus = useRef<HTMLButtonElement | null>(null)
   const detailBackRef = useRef<HTMLButtonElement | null>(null)
+  // Only the newest details request owns the dialog; superseding, dismissing, or unmounting aborts the rest.
+  const detailsRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
     let active = true
@@ -30,10 +34,25 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
     if (selected) detailBackRef.current?.focus()
   }, [selected])
 
+  useEffect(() => () => detailsRequest.current?.abort(), [])
+
+  const cancelDetailsRequest = () => {
+    detailsRequest.current?.abort()
+    detailsRequest.current = null
+    setDetailsPending(false)
+  }
+
   const openDetails = async (item: OneGuideItem, button: HTMLButtonElement) => {
+    cancelDetailsRequest()
+    const controller = new AbortController()
+    detailsRequest.current = controller
     returnFocus.current = button
     setDetailError(false)
-    const detail = await fetchLiveNowItem(item.ItemId)
+    setDetailsPending(true)
+    const detail = await fetchLiveNowItem(item.ItemId, (input, init) => fetch(input, { ...init, signal: controller.signal }))
+    if (detailsRequest.current !== controller) return
+    detailsRequest.current = null
+    setDetailsPending(false)
     if (detail) setSelected(detail)
     else setDetailError(true)
   }
@@ -41,6 +60,11 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
   const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
     const lastIndex = cardRefs.current.length - 1
     const verticalStep = window.innerWidth <= 840 ? 1 : 2
+    if (event.key === 'ArrowLeft' && index % verticalStep === 0) {
+      event.preventDefault()
+      focusActiveNavItem()
+      return
+    }
     let nextIndex: number | null = null
     if (event.key === 'ArrowDown') nextIndex = Math.min(index + verticalStep, lastIndex)
     if (event.key === 'ArrowRight') nextIndex = Math.min(index + 1, lastIndex)
@@ -53,25 +77,26 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
   }
 
   const closeDetails = () => {
+    cancelDetailsRequest()
     setSelected(null)
     window.setTimeout(() => returnFocus.current?.focus(), 0)
   }
 
   useEffect(() => {
-    if (!selected) return
+    if (!selected && !detailsPending) return
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape' || event.key === 'Backspace') {
+      if (event.key === 'Escape' || event.key === 'Backspace' || event.key === 'BrowserBack') {
         event.preventDefault()
         closeDetails()
       }
-      if (event.key === 'Tab') {
+      if (selected && event.key === 'Tab') {
         event.preventDefault()
         detailBackRef.current?.focus()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selected])
+  }, [selected, detailsPending])
 
   return (
     <div className="page-stack live-now-page">

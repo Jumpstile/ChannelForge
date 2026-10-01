@@ -24,39 +24,85 @@ function page(items: unknown[], offset: number, totalCount: number, query: 'Live
   }
 }
 
+const firstGeneration = '1'.repeat(64)
+const secondGeneration = '2'.repeat(64)
+
+function pageResponse(body: unknown, generation = firstGeneration) {
+  return new Response(JSON.stringify(body), { headers: { 'X-ChannelForge-Generation': generation } })
+}
+
+const pinnedSecondPage = `/api/one-guide/live-now?limit=100&offset=100&at=${Date.parse('2026-09-30T10:30:00Z')}&generation=${firstGeneration}`
+
 describe('Live Now API client', () => {
-  it('follows bounded offsets until every API page is loaded', async () => {
+  it('pins later pages to the first page evaluation time and accepted generation', async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
     const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(page(firstPage, 0, 101))))
-      .mockResolvedValueOnce(new Response(JSON.stringify(page([item('b')], 100, 101))))
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse(page([item('b')], 100, 101)))
 
     const result = await fetchLiveNow(request)
 
     expect(result).toHaveLength(101)
     expect(result?.[0].Title).toBe('Programme 1')
     expect(result?.[100].Title).toBe('Programme b')
+    expect(request.mock.calls.map(([url]) => url)).toEqual(['/api/one-guide/live-now?limit=100&offset=0', pinnedSecondPage])
+  })
+
+  it('restarts from the first page when the accepted generation changes with an unchanged count', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
+    const request = vi.fn()
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(new Response('{}', { status: 409 }))
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101), secondGeneration))
+      .mockResolvedValueOnce(pageResponse(page([item('f')], 100, 101), secondGeneration))
+
+    const result = await fetchLiveNow(request)
+
+    expect(result?.[100].Title).toBe('Programme f')
     expect(request.mock.calls.map(([url]) => url)).toEqual([
       '/api/one-guide/live-now?limit=100&offset=0',
-      '/api/one-guide/live-now?limit=100&offset=100',
+      pinnedSecondPage,
+      '/api/one-guide/live-now?limit=100&offset=0',
+      pinnedSecondPage.replace(firstGeneration, secondGeneration),
     ])
   })
 
-  it('fails closed when a page sequence is inconsistent or the API is unavailable', async () => {
+  it('fails closed when a later page is from another snapshot even though the count is unchanged', async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
+    const otherGeneration = vi.fn()
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse(page([item('b')], 100, 101), secondGeneration))
+    const otherEvaluation = vi.fn()
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse({ ...page([item('b')], 100, 101), EvaluationTimeUtc: '2026-09-30T10:31:00Z' }))
     const changedCount = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(page(firstPage, 0, 101))))
-      .mockResolvedValueOnce(new Response(JSON.stringify(page([item('b')], 100, 102))))
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse(page([item('b')], 100, 102)))
+    const missingGeneration = vi.fn().mockResolvedValue(new Response(JSON.stringify(page([item('a')], 0, 1))))
     const unavailable = vi.fn().mockResolvedValue(new Response('{}', { status: 503 }))
 
+    await expect(fetchLiveNow(otherGeneration)).resolves.toBeNull()
+    await expect(fetchLiveNow(otherEvaluation)).resolves.toBeNull()
     await expect(fetchLiveNow(changedCount)).resolves.toBeNull()
+    await expect(fetchLiveNow(missingGeneration)).resolves.toBeNull()
     await expect(fetchLiveNow(unavailable)).resolves.toBeNull()
   })
+
+  it('gives up after repeated generation changes', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
+    const request = vi.fn((url: string) => Promise.resolve(url.includes('offset=0')
+      ? pageResponse(page(firstPage, 0, 101))
+      : new Response('{}', { status: 409 })))
+
+    await expect(fetchLiveNow(request)).resolves.toBeNull()
+    expect(request).toHaveBeenCalledTimes(6)
+  })
+
   it('rejects a page sequence that does not cover the advertised result count', async () => {
     const firstPage = Array.from({ length: 99 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
     const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(page(firstPage, 0, 101))))
-      .mockResolvedValueOnce(new Response(JSON.stringify(page([item('b')], 100, 101))))
+      .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse(page([item('b')], 100, 101)))
 
     await expect(fetchLiveNow(request)).resolves.toBeNull()
     expect(request).toHaveBeenCalledTimes(2)
@@ -64,7 +110,7 @@ describe('Live Now API client', () => {
 
 
   it('rejects a valid-version response for a different query', async () => {
-    const wrongQuery = vi.fn().mockResolvedValue(new Response(JSON.stringify(page([item('a')], 0, 1, 'Details'))))
+    const wrongQuery = vi.fn().mockResolvedValue(pageResponse(page([item('a')], 0, 1, 'Details')))
 
     await expect(fetchLiveNow(wrongQuery)).resolves.toBeNull()
     expect(wrongQuery).toHaveBeenCalledTimes(1)
@@ -100,7 +146,7 @@ describe('Live Now API client', () => {
     ]
 
     for (const malformed of malformedItems) {
-      const response = vi.fn().mockResolvedValue(new Response(JSON.stringify(page([{ ...valid, ...malformed }], 0, 1))))
+      const response = vi.fn().mockResolvedValue(pageResponse(page([{ ...valid, ...malformed }], 0, 1)))
       await expect(fetchLiveNow(response)).resolves.toBeNull()
     }
   })
@@ -119,7 +165,7 @@ describe('Live Now API client', () => {
     ]
 
     for (const malformed of malformedPages) {
-      const response = vi.fn().mockResolvedValue(new Response(JSON.stringify(malformed)))
+      const response = vi.fn().mockResolvedValue(pageResponse(malformed))
       await expect(fetchLiveNow(response)).resolves.toBeNull()
     }
   })
