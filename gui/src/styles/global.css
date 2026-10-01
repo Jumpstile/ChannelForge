@@ -197,3 +197,30 @@ a { color: var(--cf-color-brand); }
 @media (max-width: 720px) {
   .saved-lineup-action-row, .saved-lineup-dialog-actions { align-items: stretch; flex-direction: column; }
 }
+.live-now-page { gap: var(--cf-space-5); }
+.live-now-page .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
+.live-now-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cf-space-4); }
+.live-now-card-wrap { min-width: 0; }
+.live-now-card { display: grid; width: 100%; min-height: 13rem; gap: var(--cf-space-2); padding: var(--cf-space-6); border: 2px solid var(--cf-color-border); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); color: var(--cf-color-ink); text-align: left; box-shadow: var(--cf-shadow-panel); }
+.live-now-card:hover, .live-now-card:focus-visible { border-color: var(--cf-color-focus); background: #fafaff; }
+.live-now-card-status { display: inline-flex; align-items: center; gap: var(--cf-space-2); color: var(--cf-color-error); font-size: 1rem; font-weight: var(--cf-font-weight-bold); letter-spacing: 0.06em; }
+.live-now-indicator { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: currentColor; }
+.live-now-card-title { overflow: hidden; color: var(--cf-color-ink); font-size: clamp(1.6rem, 2.6vw, 2.5rem); font-weight: var(--cf-font-weight-bold); line-height: 1.15; text-overflow: ellipsis; }
+.live-now-card-subtitle, .live-now-card-meta, .live-now-card-time { overflow: hidden; color: var(--cf-color-ink-muted); font-size: 1.15rem; text-overflow: ellipsis; white-space: nowrap; }
+.live-now-card-time { font-weight: var(--cf-font-weight-semibold); }
+.live-now-card-action { color: var(--cf-color-brand); font-size: 1rem; font-weight: var(--cf-font-weight-semibold); }
+.live-now-count { margin: 0; color: var(--cf-color-ink-muted); font-size: 1.25rem; }
+.live-now-message { display: grid; justify-items: start; gap: var(--cf-space-3); min-height: 16rem; align-content: center; padding: var(--cf-space-8); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); }
+.live-now-message h2, .live-now-message p { margin: 0; }
+.live-now-message h2 { font-size: 2rem; }
+.live-now-message p { color: var(--cf-color-ink-muted); font-size: 1.15rem; }
+.live-now-error { border-color: var(--cf-color-error); }
+.live-now-inline-error { color: var(--cf-color-error); font-weight: var(--cf-font-weight-semibold); }
+.live-now-dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: var(--cf-space-8); background: rgb(23 32 42 / 0.62); }
+.live-now-dialog { display: grid; gap: var(--cf-space-5); width: min(52rem, 100%); max-height: 90vh; overflow: auto; padding: var(--cf-space-8); border: 2px solid var(--cf-color-border-strong); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); box-shadow: var(--cf-shadow-dialog); font-size: 1.2rem; }
+.live-now-dialog h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.1; }
+.live-now-dialog p { margin: 0; color: var(--cf-color-ink-muted); }
+.live-now-dialog .live-now-card-status { color: var(--cf-color-error); }
+.live-now-back { display: inline-flex; width: fit-content; min-height: 3rem; align-items: center; gap: var(--cf-space-2); padding: 0 var(--cf-space-3); border: 1px solid var(--cf-color-border-strong); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); color: var(--cf-color-brand); font-size: 1.15rem; font-weight: var(--cf-font-weight-semibold); }
+.live-now-detail-note { padding-top: var(--cf-space-3); border-top: 1px solid var(--cf-color-border); }
+@media (max-width: 840px) { .live-now-list { grid-template-columns: 1fr; } }

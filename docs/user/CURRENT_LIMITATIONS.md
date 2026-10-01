@@ -18,7 +18,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - Browser Guided Setup exposes the source-set contract through `/api/guided-setup/proposal` and `/api/guided-setup/accept`: multiple local/public-HTTPS playlists, optional multiple guides, an automatic sole-playlist default when no prior decision exists, persistent explicit unbind, explicit selected/all bindings, and explicit no-guide mode. It requires acknowledgement, reuses immutable accepted-state publication, and leaves provider, downstream, and scheduler state unchanged.
 - Durable source enrollment after browser acceptance includes local and public HTTPS sources, optional XMLTV, no-guide mode, managed-root integrity checks, restart-safe redacted per-source status, manual review-only refresh, last-known-good preservation, and no automatic acceptance.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
-- A bounded, read-only One Guide API for Live Now, Starting Soon, a versioned built-in category registry, and item details. It projects only the verified accepted XMLTV guide, makes no network requests, and does not change saved state. Query results use stable item IDs, safe channel references, and deterministic category keys.
+- A browser-based, read-only Live Now view that consumes the versioned One Guide API, paginates its results, and shows programme details without playback or state changes.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
@@ -37,7 +37,11 @@ The engine also offers read-only `GET`/`HEAD` routes:
 `/api/one-guide/category/{key}`, and `/api/one-guide/items/{item-id}`.
 Responses follow the versioned
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json)
-contract. The landing UI does not yet show One Guide pages.
+contract. The browser now includes a Live Now view and bounded programme
+details; it does not display raw API identifiers, paths, hashes, or provenance.
+With a TV remote or arrow keys, press any arrow to start on the menu, move
+Up/Down to **Live Now**, press OK, then press Right to reach the programmes;
+Left from the first column goes back to the menu, and Back closes details.
 
 One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
@@ -51,9 +55,13 @@ includes its start but excludes its stop. The built-in category keys are
 `movies`, and `news`. Category aliases are deterministic; other XMLTV
 categories are omitted.
 List `GET` and `HEAD` requests support `limit` (1–100) and `offset`
-(0–2,147,483,647); item Details does not accept an offset. Malformed or
-out-of-range values fail with HTTP 400, while an offset beyond the list result
-count returns an empty page.
+(0–2,147,483,647); item Details does not accept an offset. A nonzero offset
+also requires `at` (the first page's `EvaluationTimeUtc` in Unix milliseconds)
+and `generation` (the opaque `X-ChannelForge-Generation` token from the first
+page), so every page shares one evaluation instant and accepted generation; if
+the accepted guide changed, the request returns HTTP 409 `generation-changed`.
+Malformed, missing, or out-of-range values fail with HTTP 400, while an
+offset beyond the list result count returns an empty page.
 
 The accepted XMLTV path does not preserve a cross-channel `CanonicalEventId` or
 provider attribution for each programme. Separate source/channel occurrences
@@ -111,22 +119,22 @@ state-changing behavior.
 
 The following describes preserved prototype/reference work, not a primary deployment surface:
 
-| Area                                      | Status                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Browser web UI served by engine           | Status dashboard; engine offers read-only One Guide API; Guided Setup acceptance remains explicit |
-| Docker deployment                         | Architecture recorded; implementation pending                                                     |
-| Windows server/service install            | Future deployment mode; not implemented                                                           |
-| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                             |
-| Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work        |
-| Native file-picker bridge                 | Works now (prototype)                                                                             |
-| Display-safe selection state              | Works now (prototype)                                                                             |
-| Pre-parse selection checks                | Works now (prototype)                                                                             |
-| Playlist structural validation            | Works now — structural only (prototype)                                                           |
-| Guide structural validation               | Works now — structural only (prototype)                                                           |
-| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                                     |
-| Lineup review                             | Implemented — local checks passed (prototype)                                                     |
-| Saved lineup                              | Implemented — native acceptance + local checks                                                    |
-| Automatic updates                         | Planned / not built yet                                                                           |
+| Area                                      | Status                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Browser web UI served by engine           | Status dashboard and read-only Live Now view; Guided Setup acceptance remains explicit     |
+| Docker deployment                         | Architecture recorded; implementation pending                                              |
+| Windows server/service install            | Future deployment mode; not implemented                                                    |
+| Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                      |
+| Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work |
+| Native file-picker bridge                 | Works now (prototype)                                                                      |
+| Display-safe selection state              | Works now (prototype)                                                                      |
+| Pre-parse selection checks                | Works now (prototype)                                                                      |
+| Playlist structural validation            | Works now — structural only (prototype)                                                    |
+| Guide structural validation               | Works now — structural only (prototype)                                                    |
+| Playlist/guide exact matching             | Implemented — local checks passed (prototype)                                              |
+| Lineup review                             | Implemented — local checks passed (prototype)                                              |
+| Saved lineup                              | Implemented — native acceptance + local checks                                             |
+| Automatic updates                         | Planned / not built yet                                                                    |
 
 ## Not implemented yet
 

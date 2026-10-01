@@ -1,4 +1,4 @@
-export type NavigationId = 'workbench' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'schedule' | 'learn' | 'gallery'
+export type NavigationId = 'workbench' | 'live-now' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'schedule' | 'learn' | 'gallery'
 
 export type NavigationItem = {
   id: NavigationId
@@ -17,6 +17,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: 'Workspace',
     items: [
       { id: 'workbench', label: 'Workbench', description: 'See the safest next step', available: true },
+      { id: 'live-now', label: 'Live Now', description: 'See what is on now', available: true },
     ],
   },
   {
