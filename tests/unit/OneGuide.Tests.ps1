@@ -88,6 +88,9 @@ Describe 'One Guide read projection' {
             $result = Get-ChannelForgeOneGuide -Query Category -CategoryKey $key -Programmes $programmes -EvaluationTimeUtc $Evaluation
             $result.Query | Should -Be 'Category'
             $result.CategoryKey | Should -Be $key
+            if ($aliasCases.Contains($key)) {
+                @($result.Items.Title) | Should -Contain "Category $key"
+            }
         }
         $hockey = Get-ChannelForgeOneGuide -Query Category -CategoryKey hockey -Programmes $programmes -EvaluationTimeUtc $Evaluation
         $hockey.TotalCount | Should -Be 2
