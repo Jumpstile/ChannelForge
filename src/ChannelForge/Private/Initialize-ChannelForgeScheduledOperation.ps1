@@ -10,7 +10,7 @@ function Get-ChannelForgeScheduledOperationSha256Hex {
 }
 
 function Assert-ChannelForgeTaskSchedulerAvailable {
-    if ($env:OS -ne 'Windows_NT') {
+    if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) {
         throw 'WindowsTaskSchedulerUnavailable'
     }
     foreach ($commandName in @('Get-ScheduledTask', 'Register-ScheduledTask', 'Unregister-ScheduledTask', 'New-ScheduledTaskTrigger', 'New-ScheduledTaskAction', 'New-ScheduledTaskPrincipal', 'New-ScheduledTaskSettingsSet', 'New-ScheduledTask', 'Export-ScheduledTask')) {

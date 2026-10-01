@@ -658,6 +658,29 @@ Describe 'ChannelForge web server foundation' {
         $secondPayload.Items[0].Title | Should -Be 'Accepted Replacement News'
         $secondPayload.Items[0].ItemId | Should -Not -Be $firstPayload.Items[0].ItemId
         ($category.Body | ConvertFrom-Json).Items[0].Title | Should -Be 'Accepted Replacement News'
+
+        # Same TotalCount (1) across the transition: only the generation pin can reveal the change.
+        $firstGeneration = $first.Headers['X-ChannelForge-Generation']
+        $secondGeneration = $second.Headers['X-ChannelForge-Generation']
+        $firstGeneration | Should -Match '^[a-f0-9]{64}$'
+        $secondGeneration | Should -Match '^[a-f0-9]{64}$'
+        $secondGeneration | Should -Not -Be $firstGeneration
+        $firstPayload.TotalCount | Should -Be $secondPayload.TotalCount
+        $stale = Get-TestWebResponse -Method GET -Path ("/api/one-guide/live-now?limit=1&offset=1&at={0}&generation={1}" -f ([datetimeoffset]$firstPayload.EvaluationTimeUtc).ToUnixTimeMilliseconds(), $firstGeneration) -RepositoryRoot $root
+        $stale.StatusCode | Should -Be 409
+        ($stale.Body | ConvertFrom-Json).Error | Should -Be 'generation-changed'
+        $secondGeneration | Should -Not -Be (Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json).PointerHash
+
+        $atMs = ([datetimeoffset]$secondPayload.EvaluationTimeUtc).ToUnixTimeMilliseconds()
+        $pinned = Get-TestWebResponse -Method GET -Path "/api/one-guide/live-now?limit=1&offset=0&at=$atMs&generation=$secondGeneration" -RepositoryRoot $root
+        $pinned.StatusCode | Should -Be 200
+        ($pinned.Body | ConvertFrom-Json).EvaluationTimeUtc | Should -Be $secondPayload.EvaluationTimeUtc
+        ($pinned.Body | ConvertFrom-Json).TotalCount | Should -Be 1
+        $beforeAiring = Get-TestWebResponse -Method GET -Path ("/api/one-guide/live-now?at={0}" -f [datetimeoffset]::UtcNow.AddDays(-1).ToUnixTimeMilliseconds()) -RepositoryRoot $root
+        ($beforeAiring.Body | ConvertFrom-Json).TotalCount | Should -Be 0
+        foreach ($invalid in @('generation=ABC', ('generation=' + ('A' * 64)), 'at=-1', 'at=253402300800000', 'at=now')) {
+            (Get-TestWebResponse -Method GET -Path "/api/one-guide/live-now?$invalid" -RepositoryRoot $root).StatusCode | Should -Be 400
+        }
     }
 
     # Status may read validated accepted metadata; it must not write any state.
@@ -1030,11 +1053,17 @@ Describe 'ChannelForge web server foundation' {
             $oneGuidePayload.Items[0].Offerings[0].SourceLabel | Should -Be 'Accepted guide'
             $oneGuidePayload.Items[0].Offerings[0].SourceId | Should -Match '^cf-[a-f0-9]{64}$'
             $oneGuidePayload.Items[0].Offerings[0].Launch.ChannelReference | Should -Match '^cf-[a-f0-9]{64}$'
-            $secondPageHeaders = "GET /api/one-guide/live-now?limit=1&offset=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
+            (Invoke-TestRawHttpRequest -Port $port -Headers "GET /api/one-guide/live-now?limit=1&offset=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive").StatusCode | Should -Be 400
+            $generationToken = (& (Get-Module ChannelForge) { param($Root) Get-ChannelForgeWebOneGuideCatalogue -RepositoryRoot $Root } $root).GenerationToken
+            $cursor = 'at={0}&generation={1}' -f ([datetimeoffset]$oneGuidePayload.EvaluationTimeUtc).ToUnixTimeMilliseconds(), $generationToken
+            $secondPageHeaders = "GET /api/one-guide/live-now?limit=1&offset=1&$cursor HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
             $secondPageResponse = Invoke-TestRawHttpRequest -Port $port -Headers $secondPageHeaders
             $secondPageResponse.StatusCode | Should -Be 200
-            ($secondPageResponse.Body | ConvertFrom-Json).Items.Count | Should -Be 1
-            $headHeaders = "HEAD /api/one-guide/live-now?limit=1&offset=1 HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
+            $secondPagePayload = $secondPageResponse.Body | ConvertFrom-Json
+            @($secondPagePayload.Items).Count | Should -Be 1
+            $secondPagePayload.EvaluationTimeUtc | Should -Be $oneGuidePayload.EvaluationTimeUtc
+            $secondPagePayload.TotalCount | Should -Be $oneGuidePayload.TotalCount
+            $headHeaders = "HEAD /api/one-guide/live-now?limit=1&offset=1&$cursor HTTP/1.1`r`nHost: 127.0.0.1`r`nConnection: keep-alive"
             $headResponse = Invoke-TestRawHttpRequest -Port $port -Headers $headHeaders
             $headResponse.StatusCode | Should -Be 200
             $headResponse.Body | Should -Be ''

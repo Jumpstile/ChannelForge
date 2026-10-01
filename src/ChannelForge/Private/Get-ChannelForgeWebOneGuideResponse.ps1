@@ -25,7 +25,7 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     ) -join '|'
     if ($null -ne $script:ChannelForgeOneGuideAcceptedProjectionCache -and
         [string]$script:ChannelForgeOneGuideAcceptedProjectionCache.Key -ceq $cacheKey) {
-        return @($script:ChannelForgeOneGuideAcceptedProjectionCache.Items)
+        return $script:ChannelForgeOneGuideAcceptedProjectionCache
     }
 
     $snapshot = Get-ChannelForgeGenerationCurrentSnapshot -RepositoryRoot $RepositoryRoot -Paths $paths
@@ -65,20 +65,25 @@ function Get-ChannelForgeWebOneGuideCatalogue {
     $catalogue = @(Get-ChannelForgeOneGuide -Query LiveNow -Programmes $programmes -EvaluationTimeUtc $minimumEvaluationTimeUtc -ReturnCatalogue)
     $itemsById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
     foreach ($item in $catalogue) { $itemsById[[string]$item.ItemId] = $item }
-    $script:ChannelForgeOneGuideAcceptedProjectionCache = [pscustomobject]@{
+    $projectionCache = [pscustomobject]@{
         Key = $cacheKey
+        # Opaque snapshot token for paging pins; derived so the accepted pointer hash itself is never exposed.
+        GenerationToken = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes("one-guide-page-snapshot/v1|$cacheKey"))).ToLowerInvariant()
         Items = $catalogue
         ItemsById = $itemsById
     }
-    return $catalogue
+    $script:ChannelForgeOneGuideAcceptedProjectionCache = $projectionCache
+    return $projectionCache
 }
 
 function Get-ChannelForgeWebOneGuidePaging {
     param([AllowEmptyString()][string]$QueryString = '')
 
-    if ($QueryString.Length -gt 128) { throw 'One Guide query is too long.' }
+    if ($QueryString.Length -gt 160) { throw 'One Guide query is too long.' }
     $maximumItems = 100
     $offset = 0
+    $evaluationTimeUtc = $null
+    $generation = $null
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     if (-not [string]::IsNullOrEmpty($QueryString)) {
         foreach ($part in $QueryString.Split('&')) {
@@ -86,21 +91,37 @@ function Get-ChannelForgeWebOneGuidePaging {
             if ($pair.Length -ne 2 -or [string]::IsNullOrWhiteSpace($pair[0]) -or -not $seen.Add($pair[0])) {
                 throw 'One Guide query parameters are invalid.'
             }
-            $value = 0
-            if (-not [int]::TryParse($pair[1], [Globalization.NumberStyles]::None, [Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
+            $name = $pair[0].ToLowerInvariant()
+            if ($name -ceq 'generation') {
+                if ($pair[1] -cnotmatch '^[a-f0-9]{64}$') { throw 'One Guide generation is invalid.' }
+                $generation = $pair[1]
+                continue
+            }
+            $value = [long]0
+            if (-not [long]::TryParse($pair[1], [Globalization.NumberStyles]::None, [Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
                 throw 'One Guide query values must be decimal integers.'
             }
-            switch ($pair[0].ToLowerInvariant()) {
+            switch ($name) {
                 'limit' {
                     if ($value -lt 1 -or $value -gt 100) { throw 'One Guide limit is outside the supported range.' }
-                    $maximumItems = $value
+                    $maximumItems = [int]$value
                 }
-                'offset' { $offset = $value }
+                'offset' {
+                    if ($value -gt [int]::MaxValue) { throw 'One Guide offset is outside the supported range.' }
+                    $offset = [int]$value
+                }
+                'at' {
+                    if ($value -gt 253402300799999) { throw 'One Guide evaluation time is outside the supported range.' }
+                    $evaluationTimeUtc = [datetimeoffset]::FromUnixTimeMilliseconds($value)
+                }
                 default { throw 'One Guide query parameters are unsupported.' }
             }
         }
     }
-    return [pscustomobject][ordered]@{ MaximumItems = $maximumItems; Offset = $offset }
+    if ($offset -gt 0 -and ($null -eq $evaluationTimeUtc -or $null -eq $generation)) {
+        throw 'One Guide pages after the first require the at and generation snapshot cursor.'
+    }
+    return [pscustomobject][ordered]@{ MaximumItems = $maximumItems; Offset = $offset; EvaluationTimeUtc = $evaluationTimeUtc; Generation = $generation }
 }
 
 function Get-ChannelForgeWebOneGuideResponse {
@@ -113,24 +134,31 @@ function Get-ChannelForgeWebOneGuideResponse {
         [AllowNull()][string]$CategoryKey,
         [AllowNull()][string]$ItemId,
         [ValidateRange(1, 100)][int]$MaximumItems = 100,
-        [ValidateRange(0, 2147483647)][int]$Offset = 0
+        [ValidateRange(0, 2147483647)][int]$Offset = 0,
+        [AllowNull()][Nullable[datetimeoffset]]$EvaluationTimeUtc,
+        [AllowNull()][string]$Generation
     )
 
     try {
         if ($Query -eq 'Details' -and $Offset -ne 0) {
             return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $ContentType -Body (@{ Error = 'invalid-query'; Message = 'Item detail does not support an offset.' } | ConvertTo-Json -Compress) -Headers $Headers
         }
-        $catalogue = Get-ChannelForgeWebOneGuideCatalogue -RepositoryRoot $RepositoryRoot
+        $projectionCache = Get-ChannelForgeWebOneGuideCatalogue -RepositoryRoot $RepositoryRoot
+        if (-not [string]::IsNullOrEmpty($Generation) -and $Generation -cne $projectionCache.GenerationToken) {
+            return New-ChannelForgeWebResponse -StatusCode 409 -ContentType $ContentType -Body (@{ Error = 'generation-changed'; Message = 'The accepted guide changed; reload from the first page.' } | ConvertTo-Json -Compress) -Headers $Headers
+        }
+        # One evaluation instant at millisecond precision so clients can echo it exactly via ?at= on later pages.
+        $evaluation = if ($null -ne $EvaluationTimeUtc) { [datetimeoffset]$EvaluationTimeUtc } else { [datetimeoffset]::FromUnixTimeMilliseconds([datetimeoffset]::UtcNow.ToUnixTimeMilliseconds()) }
         $arguments = @{
             Query = $Query
             Programmes = @()
-            Catalogue = $catalogue
+            Catalogue = @($projectionCache.Items)
             UseCatalogue = $true
-            EvaluationTimeUtc = [datetimeoffset]::UtcNow
+            EvaluationTimeUtc = $evaluation
             MaximumItems = $MaximumItems
             Offset = $Offset
         }
-        if ($Query -eq 'Details') { $arguments.CatalogueById = $script:ChannelForgeOneGuideAcceptedProjectionCache.ItemsById }
+        if ($Query -eq 'Details') { $arguments.CatalogueById = $projectionCache.ItemsById }
         if (-not [string]::IsNullOrWhiteSpace($CategoryKey)) { $arguments.CategoryKey = $CategoryKey }
         if (-not [string]::IsNullOrWhiteSpace($ItemId)) { $arguments.ItemId = $ItemId }
         $projection = Get-ChannelForgeOneGuide @arguments
@@ -138,7 +166,10 @@ function Get-ChannelForgeWebOneGuideResponse {
             return New-ChannelForgeWebResponse -StatusCode 404 -ContentType $ContentType -Body (@{ Error = 'not-found'; Message = 'Guide item not found.' } | ConvertTo-Json -Compress) -Headers $Headers
         }
         $body = ConvertTo-Json -InputObject $projection -Depth 10 -Compress
-        return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $ContentType -Body $body -Headers $Headers
+        $responseHeaders = [ordered]@{}
+        foreach ($key in $Headers.Keys) { $responseHeaders[$key] = $Headers[$key] }
+        $responseHeaders['X-ChannelForge-Generation'] = [string]$projectionCache.GenerationToken
+        return New-ChannelForgeWebResponse -StatusCode 200 -ContentType $ContentType -Body $body -Headers $responseHeaders
     }
     catch {
         return New-ChannelForgeWebResponse -StatusCode 503 -ContentType $ContentType -Body (@{

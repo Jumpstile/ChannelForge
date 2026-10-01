@@ -459,11 +459,14 @@ versioned `one-guide/v1` contract in
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json).
 The projection does not run accepted-state recovery, enumerate configured
 sources, fetch the network, or mutate state. Query functions require an
-explicit `EvaluationTimeUtc`; HTTP requests evaluate at request time. Starting
-Soon means starts strictly after evaluation and no more than two hours later.
-Live intervals are half-open: start is included, stop is excluded. List routes
-accept `limit` (1–100) and `offset` (nonnegative decimal integer); responses
-include total counts and truncation flags. Each item returns at most 16
+explicit `EvaluationTimeUtc`; an HTTP first page evaluates at request time
+(millisecond precision). Starting Soon means starts strictly after evaluation
+and no more than two hours later. Live intervals are half-open: start is
+included, stop is excluded. List routes accept `limit` (1–100) and `offset`
+(nonnegative decimal integer); a nonzero offset also requires the `at` and
+`generation` cursor from the first page (HTTP 400 if missing, 409
+`generation-changed` if the accepted generation moved); responses include
+total counts and truncation flags. Each item returns at most 16
 offerings and reports `OfferingCount` and `OfferingsTruncated`.
 If there is no accepted generation, or accepted XMLTV is unavailable/not
 generated, the HTTP route returns 503 `one-guide-unavailable`. A valid guide
@@ -564,13 +567,39 @@ timestamps and contain no raw URLs, credentials, private paths, accepted
 hashes, or parser diagnostics. The local server remains loopback-only;
 authentication and LAN access are not implemented.
 
-The dashboard remains presentation-only and currently consumes `/api/status`;
-it does not yet render the One Guide routes. Guided Setup and refresh requests
-remain engine-owned operations. The browser has no direct filesystem or
-provider-file access. The safe One Guide DTO is a deliberate projection of
-accepted guide content, not the raw accepted-generation bytes. Stop the
-foreground server with `Ctrl+C`. Docker, Windows service, packaging, release,
-deployment, and tester-build behavior remain unavailable.
+The browser includes a read-only Live Now page backed only by the versioned
+One Guide endpoints. It fetches bounded pages until the API's `TotalCount` is
+complete. Every list `200` carries an opaque `X-ChannelForge-Generation` token
+(derived, not an accepted hash); later pages send `at` (the first page's
+`EvaluationTimeUtc` in Unix milliseconds) and `generation` so all pages share
+one evaluation instant and accepted generation. A changed generation returns
+HTTP 409 `generation-changed` and the browser restarts from offset 0 (at most
+three attempts). Loading, empty, unavailable, and populated states are distinct.
+Remote D-pad use needs no Tab key: the first arrow press after launch focuses
+the active navigation item, Up/Down move through navigation, OK opens a page,
+Right enters page content, and Left from the first card column returns to
+navigation. Programme cards work with arrows and Enter; Escape and Back return
+from item details to the invoking card. Only the newest details request may
+open the dialog: choosing another programme, Escape, or Back aborts a pending
+request so late responses are discarded. Focus is visibly outlined. The view
+shows safe guide text only, uses UTC times, and does not launch playback or
+change accepted/source state. Guided Setup and refresh remain separate
+engine-owned operations. The browser has no direct filesystem or provider-file
+access. Stop the foreground server with `Ctrl+C`. Docker, Windows service,
+packaging, release, deployment, and tester-build behavior remain unavailable.
+
+The browser contract in `gui/src/test/e2e/live-now.spec.ts` uses a 101-programme
+fixture and records first-visible, complete-render, and browser API-resource
+timings. In one local production-preview run, first content appeared in 173.7 ms
+and the full list rendered in 179.2 ms; the two intercepted API responses took
+6.6 ms and 5.4 ms. These API timings measure the browser fixture route, not the
+accepted-guide backend. This is not SER8 hardware evidence.
+
+A separate warm API-route measurement invoked `Get-ChannelForgeWebResponse`
+against an isolated accepted 101-programme XMLTV fixture (40 samples per page):
+offset 0 returned 100 items at p50 80.00 ms / p95 89.48 ms; offset 100 returned
+1 item at p50 18.10 ms / p95 22.52 ms. These are in-process route timings, not
+HTTP-socket or SER8 measurements. The temporary accepted fixture was removed.
 
 ### Reusable existing GUI work
 

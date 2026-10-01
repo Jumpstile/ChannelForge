@@ -265,11 +265,16 @@ function Get-ChannelForgeWebResponse {
             return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-query'; Message = 'One Guide query parameters are invalid.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
         }
         $routeValue = $oneGuideRoute.Groups[1].Value
+        $oneGuideArguments = @{
+            RepositoryRoot = $RepositoryRoot; Headers = $commonHeaders; ContentType = $contentType
+            MaximumItems = $paging.MaximumItems; Offset = $paging.Offset
+            EvaluationTimeUtc = $paging.EvaluationTimeUtc; Generation = $paging.Generation
+        }
         if ($routeValue -ieq 'live-now') {
-            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query LiveNow -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+            return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query LiveNow
         }
         if ($routeValue -ieq 'starting-soon') {
-            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query StartingSoon -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+            return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query StartingSoon
         }
         if ($oneGuideRoute.Groups[2].Success) {
             $categoryKey = $oneGuideRoute.Groups[2].Value.ToLowerInvariant()
@@ -277,13 +282,13 @@ function Get-ChannelForgeWebResponse {
             if ($supportedCategoryKeys -cnotcontains $categoryKey) {
                 return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-category'; Message = 'The guide category is not supported.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
             }
-            return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query Category -CategoryKey $categoryKey -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+            return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query Category -CategoryKey $categoryKey
         }
         $itemId = $oneGuideRoute.Groups[3].Value
         if ($itemId -notmatch '^[A-Fa-f0-9]{64}$') {
             return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-item-id'; Message = 'The guide item identifier is invalid.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
         }
-        return Get-ChannelForgeWebOneGuideResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -Query Details -ItemId $itemId.ToLowerInvariant() -MaximumItems $paging.MaximumItems -Offset $paging.Offset
+        return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query Details -ItemId $itemId.ToLowerInvariant()
     }
 
     switch ($requestPath.ToLowerInvariant()) {
