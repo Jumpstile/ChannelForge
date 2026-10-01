@@ -103,6 +103,7 @@ function Get-ChannelForgeOneGuide {
             if ($key -in @('sport', 'sports')) { $hasGenericSports = $true; continue }
             if ($taxonomy.ContainsKey($key)) {
                 $mappedCategoryKey = [string]$taxonomy[$key]
+                if ($mappedCategoryKey -ceq 'other-sports') { $hasGenericSports = $true; continue }
                 [void]$categories.Add($mappedCategoryKey)
                 if ($specificSportKeys.ContainsKey($mappedCategoryKey)) { $hasSpecificSport = $true }
             }

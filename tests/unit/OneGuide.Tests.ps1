@@ -84,6 +84,8 @@ Describe 'One Guide read projection' {
         )
         $programmes += New-OneGuideTestProgramme 'generic-sport' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Generic Sport' @('Sports', 'Unknown category')
         $programmes += New-OneGuideTestProgramme 'specific-and-generic' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Specific and generic' @('Sports', 'Ice Hockey')
+        $programmes += New-OneGuideTestProgramme 'other-sports-label' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Other Sports label' @('Other Sports')
+        $programmes += New-OneGuideTestProgramme 'other-sports-and-specific' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Other Sports and specific' @('Other Sports', 'Football')
         foreach ($key in $expectedTaxonomy) {
             $result = Get-ChannelForgeOneGuide -Query Category -CategoryKey $key -Programmes $programmes -EvaluationTimeUtc $Evaluation
             $result.Query | Should -Be 'Category'
@@ -95,7 +97,9 @@ Describe 'One Guide read projection' {
         $hockey = Get-ChannelForgeOneGuide -Query Category -CategoryKey hockey -Programmes $programmes -EvaluationTimeUtc $Evaluation
         $hockey.TotalCount | Should -Be 2
         $otherSports = Get-ChannelForgeOneGuide -Query Category -CategoryKey other-sports -Programmes $programmes -EvaluationTimeUtc $Evaluation
-        @($otherSports.Items.Title) | Should -Be @('Generic Sport')
+        @($otherSports.Items.Title) | Should -Be @('Generic Sport', 'Other Sports label')
+        $football = Get-ChannelForgeOneGuide -Query Category -CategoryKey football -Programmes $programmes -EvaluationTimeUtc $Evaluation
+        @($football.Items.Title) | Should -Contain 'Other Sports and specific'
         $unknownOnly = New-OneGuideTestProgramme 'unknown' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Unknown only' @('Unmapped category')
         $unknownProjection = Get-ChannelForgeOneGuide -Query StartingSoon -Programmes @($unknownOnly) -EvaluationTimeUtc $Evaluation
         $unknownProjection.Items[0].CategoryKeys | Should -Be @('starting-soon')
