@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LiveNowPage } from '../pages/LiveNowPage'
@@ -80,8 +80,7 @@ describe('Live Now page', () => {
     expect(signals[0].aborted).toBe(true)
     pending.get(`/api/one-guide/items/${second.ItemId}`)?.(detailsResponse(second))
     expect(await screen.findByRole('dialog', { name: 'Afternoon Film' })).toBeVisible()
-    pending.get(`/api/one-guide/items/${first.ItemId}`)?.(detailsResponse(first))
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await act(async () => pending.get(`/api/one-guide/items/${first.ItemId}`)?.(detailsResponse(first)))
     expect(screen.getByRole('dialog', { name: 'Afternoon Film' })).toBeVisible()
     expect(screen.queryByRole('dialog', { name: 'Evening News' })).toBeNull()
   })
@@ -103,8 +102,7 @@ describe('Live Now page', () => {
     await user.keyboard('{Enter}')
     await user.keyboard(key)
     expect(signal?.aborted).toBe(true)
-    resolveDetails(detailsResponse(first))
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await act(async () => resolveDetails(detailsResponse(first)))
     expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(card).toHaveFocus())
   })

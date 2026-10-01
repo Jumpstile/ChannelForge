@@ -459,11 +459,14 @@ versioned `one-guide/v1` contract in
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json).
 The projection does not run accepted-state recovery, enumerate configured
 sources, fetch the network, or mutate state. Query functions require an
-explicit `EvaluationTimeUtc`; HTTP requests evaluate at request time. Starting
-Soon means starts strictly after evaluation and no more than two hours later.
-Live intervals are half-open: start is included, stop is excluded. List routes
-accept `limit` (1–100) and `offset` (nonnegative decimal integer); responses
-include total counts and truncation flags. Each item returns at most 16
+explicit `EvaluationTimeUtc`; an HTTP first page evaluates at request time
+(millisecond precision). Starting Soon means starts strictly after evaluation
+and no more than two hours later. Live intervals are half-open: start is
+included, stop is excluded. List routes accept `limit` (1–100) and `offset`
+(nonnegative decimal integer); a nonzero offset also requires the `at` and
+`generation` cursor from the first page (HTTP 400 if missing, 409
+`generation-changed` if the accepted generation moved); responses include
+total counts and truncation flags. Each item returns at most 16
 offerings and reports `OfferingCount` and `OfferingsTruncated`.
 If there is no accepted generation, or accepted XMLTV is unavailable/not
 generated, the HTTP route returns 503 `one-guide-unavailable`. A valid guide

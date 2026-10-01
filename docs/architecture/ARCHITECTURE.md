@@ -101,8 +101,10 @@ The One Guide API (`GET`/`HEAD /api/one-guide/...`) returns the versioned
 It reads the verified immutable accepted XMLTV artifact through a disposable
 derived in-memory catalogue; it does not run recovery, enumerate configured
 sources, fetch the network, or mutate accepted/source/evidence state. Live Now
-and Starting Soon are evaluated in UTC at request time; the public query
-function takes an explicit evaluation instant.
+and Starting Soon first pages are evaluated in UTC at request time; later pages
+must carry the first page's `at` instant and opaque `generation` token, so a
+paged listing is one coherent snapshot (a changed accepted generation returns
+HTTP 409). The public query function takes an explicit evaluation instant.
 If no accepted generation exists, or accepted XMLTV is unavailable/not
 generated, these routes return HTTP 503 with `one-guide-unavailable`. An
 accepted guide that has no programmes matching a query remains a successful

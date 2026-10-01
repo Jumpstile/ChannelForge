@@ -39,6 +39,9 @@ Responses follow the versioned
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json)
 contract. The browser now includes a Live Now view and bounded programme
 details; it does not display raw API identifiers, paths, hashes, or provenance.
+With a TV remote or arrow keys, press any arrow to start on the menu, move
+Up/Down to **Live Now**, press OK, then press Right to reach the programmes;
+Left from the first column goes back to the menu, and Back closes details.
 
 One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
