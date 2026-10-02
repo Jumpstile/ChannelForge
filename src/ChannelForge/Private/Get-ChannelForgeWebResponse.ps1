@@ -269,6 +269,10 @@ function Get-ChannelForgeWebResponse {
             RepositoryRoot = $RepositoryRoot; Headers = $commonHeaders; ContentType = $contentType
             MaximumItems = $paging.MaximumItems; Offset = $paging.Offset
             EvaluationTimeUtc = $paging.EvaluationTimeUtc; Generation = $paging.Generation
+            CurrentAndUpcomingOnly = $paging.CurrentAndUpcomingOnly
+        }
+        if ($paging.CurrentAndUpcomingOnly -and -not $oneGuideRoute.Groups[2].Success) {
+            return New-ChannelForgeWebResponse -StatusCode 400 -ContentType $contentType -Body (@{ Error = 'invalid-query'; Message = 'The active window is supported only for category queries.' } | ConvertTo-Json -Compress) -Headers $commonHeaders
         }
         if ($routeValue -ieq 'live-now') {
             return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query LiveNow

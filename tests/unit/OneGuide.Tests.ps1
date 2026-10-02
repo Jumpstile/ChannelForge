@@ -109,6 +109,24 @@ Describe 'One Guide read projection' {
         @($wrestling.Items[0].CategoryKeys | Where-Object { $_ -notin $expectedTaxonomy }) | Should -BeNullOrEmpty
     }
 
+    It 'filters past category entries only when the active window is requested' {
+        $programmes = @(
+            (New-OneGuideTestProgramme 'past' ($Evaluation.AddHours(-2)) ($Evaluation.AddHours(-1)) 'Past Wrestling' @('Wrestling')),
+            (New-OneGuideTestProgramme 'live' ($Evaluation.AddHours(-1)) ($Evaluation.AddHours(1)) 'Live Wrestling' @('Wrestling')),
+            (New-OneGuideTestProgramme 'soon' ($Evaluation.AddHours(1)) ($Evaluation.AddHours(2)) 'Soon Wrestling' @('Wrestling')),
+            (New-OneGuideTestProgramme 'upcoming' ($Evaluation.AddHours(3)) ($Evaluation.AddHours(4)) 'Upcoming Wrestling' @('Wrestling'))
+        )
+
+        $all = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $programmes -EvaluationTimeUtc $Evaluation
+        $active = Get-ChannelForgeOneGuide -Query Category -CategoryKey wrestling -Programmes $programmes -EvaluationTimeUtc $Evaluation -CurrentAndUpcomingOnly
+
+        $all.TotalCount | Should -Be 4
+        $active.TotalCount | Should -Be 3
+        @($active.Items.Title) | Should -Be @('Live Wrestling', 'Soon Wrestling', 'Upcoming Wrestling')
+        @($active.Items.Status) | Should -Be @('Live', 'StartingSoon', 'Upcoming')
+        { Get-ChannelForgeOneGuide -Query LiveNow -Programmes @() -EvaluationTimeUtc $Evaluation -CurrentAndUpcomingOnly } | Should -Throw
+    }
+
     It 'suppresses generic Sports for a canonical event with a specific sport on another offering' {
         $genericRow = New-OneGuideTestProgramme 'generic-channel' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Cross-source event' @('Sports') 'provider-a'
         $specificRow = New-OneGuideTestProgramme 'football-channel' ($Evaluation.AddMinutes(30)) ($Evaluation.AddHours(1)) 'Cross-source event' @('Football') 'provider-b'

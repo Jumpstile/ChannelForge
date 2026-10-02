@@ -200,6 +200,11 @@ a { color: var(--cf-color-brand); }
 .live-now-page { gap: var(--cf-space-5); }
 .live-now-page .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
 .live-now-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cf-space-4); }
+.category-section { display: grid; gap: var(--cf-space-4); }
+.category-section h2 { display: flex; align-items: center; gap: var(--cf-space-3); margin: 0; font-size: clamp(1.75rem, 3vw, 2.5rem); }
+.category-section-count { display: inline-grid; min-width: 2.5rem; min-height: 2.5rem; place-items: center; border: 1px solid var(--cf-color-border); border-radius: 999px; color: var(--cf-color-ink-muted); font-size: 1.2rem; }
+.category-section-empty { margin: 0; color: var(--cf-color-ink-muted); font-size: 1.15rem; }
+.category-page .live-now-list { grid-template-columns: 1fr; }
 .live-now-card-wrap { min-width: 0; }
 .live-now-card { display: grid; width: 100%; min-height: 13rem; gap: var(--cf-space-2); padding: var(--cf-space-6); border: 2px solid var(--cf-color-border); border-radius: var(--cf-radius-lg); background: var(--cf-color-surface); color: var(--cf-color-ink); text-align: left; box-shadow: var(--cf-shadow-panel); }
 .live-now-card:hover, .live-now-card:focus-visible { border-color: var(--cf-color-focus); background: #fafaff; }
