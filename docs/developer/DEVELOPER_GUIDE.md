@@ -556,11 +556,16 @@ The read endpoints are:
 | `GET`, `HEAD` | `/api/one-guide/category/{key}`  | Bounded items in a fixed One Guide category     |
 | `GET`, `HEAD` | `/api/one-guide/items/{item-id}` | One deterministic item detail                   |
 
-Slice 1 built-in category keys: `live-now`, `starting-soon`, `wrestling`,
-`football`, `baseball`, `soccer`, `movies`, and `news`. Category aliases map
-deterministically; other XMLTV categories are omitted. Responses use UTC timestamps and contain no raw
-URLs, credentials, private paths, accepted hashes, or parser diagnostics. The
-server remains loopback-only; authentication and LAN access are not implemented.
+Built-in category keys: `live-now`, `starting-soon`, `football`, `baseball`,
+`basketball`, `hockey`, `soccer`, `wrestling`, `motorsports`, `boxing`, `mma`,
+`tennis`, `golf`, `rugby`, `cricket`, `lacrosse`, `other-sports`, `movies`,
+`news`, `kids`, `entertainment`, `documentary`, and `comedy`. The `motorsports`
+display label is “Auto Racing & Motorsports.” Category aliases map deterministically.
+Generic Sports maps to `other-sports` only when no specific recognized sport
+category is present; unknown XMLTV categories are omitted. Responses use UTC
+timestamps and contain no raw URLs, credentials, private paths, accepted
+hashes, or parser diagnostics. The local server remains loopback-only;
+authentication and LAN access are not implemented.
 
 The browser includes a read-only Live Now page backed only by the versioned
 One Guide endpoints. It fetches bounded pages until the API's `TotalCount` is

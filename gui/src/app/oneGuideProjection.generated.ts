@@ -1,7 +1,29 @@
 // Generated from schemas/one-guide-projection.schema.json. Do not edit.
 
 export type CategoryKey =
-  'live-now' | 'starting-soon' | 'wrestling' | 'football' | 'baseball' | 'soccer' | 'movies' | 'news'
+  | 'live-now'
+  | 'starting-soon'
+  | 'football'
+  | 'baseball'
+  | 'basketball'
+  | 'hockey'
+  | 'soccer'
+  | 'wrestling'
+  | 'motorsports'
+  | 'boxing'
+  | 'mma'
+  | 'tennis'
+  | 'golf'
+  | 'rugby'
+  | 'cricket'
+  | 'lacrosse'
+  | 'other-sports'
+  | 'movies'
+  | 'news'
+  | 'kids'
+  | 'entertainment'
+  | 'documentary'
+  | 'comedy'
 
 /**
  * Bounded, deterministic, read-only projection of accepted XMLTV. Cross-channel grouping, source provenance, and programme Kind are exposed only when preserved by input evidence.
@@ -10,7 +32,30 @@ export interface ChannelForgeOneGuideReadProjection {
   Version: 'one-guide/v1'
   EvaluationTimeUtc: string
   Query: 'LiveNow' | 'StartingSoon' | 'Category' | 'Details'
-  CategoryKey?: 'live-now' | 'starting-soon' | 'wrestling' | 'football' | 'baseball' | 'soccer' | 'movies' | 'news'
+  CategoryKey?:
+    | 'live-now'
+    | 'starting-soon'
+    | 'football'
+    | 'baseball'
+    | 'basketball'
+    | 'hockey'
+    | 'soccer'
+    | 'wrestling'
+    | 'motorsports'
+    | 'boxing'
+    | 'mma'
+    | 'tennis'
+    | 'golf'
+    | 'rugby'
+    | 'cricket'
+    | 'lacrosse'
+    | 'other-sports'
+    | 'movies'
+    | 'news'
+    | 'kids'
+    | 'entertainment'
+    | 'documentary'
+    | 'comedy'
   Offset: number
   MaximumItems: number
   TotalCount: number

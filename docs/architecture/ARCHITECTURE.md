@@ -110,9 +110,13 @@ generated, these routes return HTTP 503 with `one-guide-unavailable`. An
 accepted guide that has no programmes matching a query remains a successful
 HTTP 200 response with an empty result; unavailable source state is never
 represented as a valid empty guide.
-The Slice 1 built-in category registry contains only Live Now, Starting Soon,
-Wrestling, Football, Baseball, Soccer, Movies, and News. It maps only those
-recognized XMLTV categories to stable keys; unrecognized categories are omitted.
+The built-in category registry is centralized and data-driven. It defines
+`live-now`, `starting-soon`, football, baseball, basketball, hockey, soccer,
+wrestling, motorsports, boxing, MMA, tennis, golf, rugby, cricket, lacrosse,
+`other-sports`, movies, news, kids, entertainment, documentary, and comedy.
+Deterministic aliases map recognized XMLTV labels; generic Sports maps to
+`other-sports` only when no specific sport category is also present. Unknown
+categories remain omitted.
 Cross-channel grouping requires an explicit `CanonicalEventId` in projection
 input; the generated item identity also includes the normalized title, subtitle,
 episode number, and schedule. Without that explicit ID, rows are scoped to a

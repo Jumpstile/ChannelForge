@@ -30,9 +30,13 @@ function Get-ChannelForgeOneGuide {
         $sourceReferences = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
         $channelReferences = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
         $taxonomy = @{}
+        $specificSportKeys = @{}
         foreach ($categoryDefinition in $categoryRegistry) {
             foreach ($alias in @($categoryDefinition.Aliases)) {
                 $taxonomy[[string]$alias.ToLowerInvariant()] = [string]$categoryDefinition.Key
+            }
+            if ($categoryDefinition.Group -eq 'sports' -and $categoryDefinition.Key -ne 'other-sports') {
+                $specificSportKeys[[string]$categoryDefinition.Key] = $true
             }
         }
 
@@ -89,12 +93,23 @@ function Get-ChannelForgeOneGuide {
         $episodeNumber = Get-SafeOptionalText (Get-InputValue $programme 'EpisodeNumber') 128
         $categories = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
         $sourceCategories = [System.Collections.Generic.List[string]]::new()
+        $hasGenericSports = $false
+        $hasSpecificSport = $false
         foreach ($rawCategory in @(Get-InputValue $programme 'Categories')) {
             if ($null -eq $rawCategory) { continue }
             $categoryText = ConvertTo-ChannelForgeGuideSafeText -Value $rawCategory -MaximumLength 128
             [void]$sourceCategories.Add([string]$categoryText)
             $key = $categoryText.Trim().ToLowerInvariant()
-            if ($taxonomy.ContainsKey($key)) { [void]$categories.Add([string]$taxonomy[$key]) }
+            if ($key -in @('sport', 'sports')) { $hasGenericSports = $true; continue }
+            if ($taxonomy.ContainsKey($key)) {
+                $mappedCategoryKey = [string]$taxonomy[$key]
+                if ($mappedCategoryKey -ceq 'other-sports') { $hasGenericSports = $true; continue }
+                [void]$categories.Add($mappedCategoryKey)
+                if ($specificSportKeys.ContainsKey($mappedCategoryKey)) { $hasSpecificSport = $true }
+            }
+        }
+        if ($hasGenericSports -and -not $hasSpecificSport) {
+            [void]$categories.Add('other-sports')
         }
         $sourceCategories.Sort([System.StringComparer]::Ordinal)
         $sourceCategoryEvidence = $sourceCategories.ToArray()
@@ -205,6 +220,8 @@ function Get-ChannelForgeOneGuide {
                 StartUtcTicks = $start.UtcTicks
                 StopUtcTicks = $stop.UtcTicks
                 Status = $status
+                HasGenericSports = $hasGenericSports
+                HasSpecificSport = $hasSpecificSport
                 CategoryKeys = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
                 Sport = $sport
                 League = $league
@@ -225,6 +242,8 @@ function Get-ChannelForgeOneGuide {
                 $group.KindConflict = $true
             }
         }
+        if ($hasGenericSports) { $group.HasGenericSports = $true }
+        if ($hasSpecificSport) { $group.HasSpecificSport = $true }
         if (-not $group.Offerings.ContainsKey($offeringId)) {
             $group.Offerings[$offeringId] = $offering
         }
@@ -276,6 +295,9 @@ function Get-ChannelForgeOneGuide {
             [Array]::Copy($allOfferings, $offerings, $offeringLimit)
         }
         else { $offerings = $allOfferings }
+        if ($group.HasGenericSports -and $group.HasSpecificSport) {
+            [void]$group.CategoryKeys.Remove('other-sports')
+        }
         $orderedCategories = [System.Collections.Generic.List[string]]::new()
         foreach ($taxonomyKey in $taxonomyOrder) {
             if ($group.CategoryKeys.Contains($taxonomyKey)) { [void]$orderedCategories.Add($taxonomyKey) }

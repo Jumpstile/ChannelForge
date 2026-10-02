@@ -553,16 +553,20 @@ Describe 'ChannelForge web server foundation' {
             $payload = $live.Body | ConvertFrom-Json
             $details = Get-ChannelForgeWebResponse -Method HEAD -Path ("/api/one-guide/items/{0}" -f $payload.Items[0].ItemId) -RepositoryRoot $RepositoryRoot
             $category = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/news' -RepositoryRoot $RepositoryRoot
+            $hockeyCategory = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/hockey' -RepositoryRoot $RepositoryRoot
+            $motorsportsCategory = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/motorsports' -RepositoryRoot $RepositoryRoot
             $invalidCategory = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/category/unsupported' -RepositoryRoot $RepositoryRoot
             $post = Get-ChannelForgeWebResponse -Method POST -Path '/api/one-guide/live-now' -RepositoryRoot $RepositoryRoot
             $paged = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now?limit=1&offset=0' -RepositoryRoot $RepositoryRoot
             $invalidQuery = Get-ChannelForgeWebResponse -Method GET -Path '/api/one-guide/live-now?limit=101' -RepositoryRoot $RepositoryRoot
-            [pscustomobject]@{ Live = $live; Payload = $payload; Details = $details; Category = $category; InvalidCategory = $invalidCategory; Post = $post; Paged = $paged; InvalidQuery = $invalidQuery }
+            [pscustomobject]@{ Live = $live; Payload = $payload; Details = $details; Category = $category; HockeyCategory = $hockeyCategory; MotorsportsCategory = $motorsportsCategory; InvalidCategory = $invalidCategory; Post = $post; Paged = $paged; InvalidQuery = $invalidQuery }
         } $root
         $global:ChannelForgeOneGuideCacheCheckArmed = $false
         $live = $responses.Live
         $payload = $responses.Payload
         $details = $responses.Details
+        $hockeyCategory = $responses.HockeyCategory
+        $motorsportsCategory = $responses.MotorsportsCategory
         $category = $responses.Category
         $invalidCategory = $responses.InvalidCategory
         $post = $responses.Post
@@ -577,6 +581,10 @@ Describe 'ChannelForge web server foundation' {
         $payload.Items[0].Title | Should -Be 'Accepted Live News'
         $live.Body | Should -Not -Match 'private-value|https?://'
         $details.StatusCode | Should -Be 200
+        $hockeyCategory.StatusCode | Should -Be 200
+        ($hockeyCategory.Body | ConvertFrom-Json).CategoryKey | Should -Be 'hockey'
+        $motorsportsCategory.StatusCode | Should -Be 200
+        ($motorsportsCategory.Body | ConvertFrom-Json).CategoryKey | Should -Be 'motorsports'
         ($details.Body | ConvertFrom-Json).Query | Should -Be 'Details'
         ($category.Body | ConvertFrom-Json).TotalCount | Should -Be 1
         $invalidCategory.StatusCode | Should -Be 400

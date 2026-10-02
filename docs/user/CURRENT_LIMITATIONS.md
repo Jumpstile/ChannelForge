@@ -50,10 +50,13 @@ request reports HTTP 503 `one-guide-unavailable`. This is different from a
 valid accepted guide with no programmes matching the requested query, which
 returns HTTP 200 with an empty result.
 Starting Soon means a programme starts after now and within two hours; Live Now
-includes its start but excludes its stop. The built-in category keys are
-`live-now`, `starting-soon`, `wrestling`, `football`, `baseball`, `soccer`,
-`movies`, and `news`. Category aliases are deterministic; other XMLTV
-categories are omitted.
+includes its start but excludes its stop. Built-in category keys are `live-now`,
+`starting-soon`, `football`, `baseball`, `basketball`, `hockey`, `soccer`,
+`wrestling`, `motorsports`, `boxing`, `mma`, `tennis`, `golf`, `rugby`,
+`cricket`, `lacrosse`, `other-sports`, `movies`, `news`, `kids`,
+`entertainment`, `documentary`, and `comedy`. Category aliases are
+deterministic; Generic Sports maps to `other-sports` only when no specific
+sport category is present. Unknown XMLTV categories are omitted.
 List `GET` and `HEAD` requests support `limit` (1–100) and `offset`
 (0–2,147,483,647); item Details does not accept an offset. A nonzero offset
 also requires `at` (the first page's `EvaluationTimeUtc` in Unix milliseconds)
