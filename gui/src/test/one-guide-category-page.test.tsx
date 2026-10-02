@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OneGuideCategoryPage } from '../pages/OneGuideCategoryPage'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
+import { SideNav } from '../components/SideNav'
 
 function item(id: string, title: string, status: OneGuideItem['Status'], start: string, stop: string): OneGuideItem {
   return {
@@ -59,6 +60,25 @@ describe('Wrestling category page', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('button', { name: /Wrestling Now/ })).toBeVisible()
     expect(fetchItems).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns D-pad focus from Retry to the active navigation item', async () => {
+    const user = userEvent.setup()
+    const fetchItems = vi.fn<OneGuideFetcher>().mockResolvedValue(null)
+    render(
+      <>
+        <SideNav activePage="wrestling" onNavigate={vi.fn()} />
+        <main className="main-content"><OneGuideCategoryPage fetchItems={fetchItems} /></main>
+      </>,
+    )
+
+    const navButton = screen.getByRole('button', { name: 'Wrestling' })
+    navButton.focus()
+    await user.keyboard('{ArrowRight}')
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    expect(retry).toHaveFocus()
+    await user.keyboard('{ArrowLeft}')
+    expect(navButton).toHaveFocus()
   })
 
   it('supports D-pad movement, Enter details, and Back restoring focus without a playback action', async () => {

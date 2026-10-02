@@ -108,7 +108,12 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
       {items === undefined ? <p className="live-now-message" role="status">Loading Wrestling…</p> :
         items === null ? <section className="live-now-message live-now-error" role="alert">
           <h2>Wrestling is unavailable</h2><p>The guide could not be loaded. Check that ChannelForge is running, then try again.</p>
-          <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
+          <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)} onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') {
+              event.preventDefault()
+              focusActiveNavItem()
+            }
+          }}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
         </section> : visibleItems.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>No wrestling programmes are coming up</h2><p>Your accepted guide has no current or future Wrestling programmes.</p>
         </section> : <>
