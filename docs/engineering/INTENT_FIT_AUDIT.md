@@ -378,3 +378,61 @@ checked for transient Playwright references and private-path leakage.
 Disposition: `PASS_WITH_GAPS`. Hosted exact-head quality-gates and secret-scan
 pass on PR #174, but ARCADE clean-machine validation and its final packaged
 screenshots remain required before merge, release, or tester distribution.
+
+## Issue #191 read-only Wrestling One Guide slice
+
+The intended behavior is a read-only browser hub for Wrestling programmes
+already present in the accepted One Guide projection. `GET
+/api/one-guide/category/wrestling?window=active` excludes `Past` entries before
+pagination; every page remains pinned to the first page's evaluation instant
+and accepted-generation token. The UI uses API status values for On Now,
+Starting Soon, and Coming Up, opens bounded guide details, and exposes no
+playback, provider, acceptance, or state-mutation action.
+
+This is a presentation dependency, not complete Wrestling discovery support.
+The page reflects only the accepted XMLTV projection; it does not independently
+acquire event schedules or fill gaps caused by absent or poor provider EPG.
+The owner-provided source matrix is recorded in
+[#191 comment #5958323753](https://github.com/Jumpstile/ChannelForge/issues/191#issuecomment-5958323753)
+and crosslinked to #29/#30/#175. It identifies official promotion-owned pages
+and source-specific fields but establishes neither a documented public API nor
+permission for automated access, caching, or redistribution. No fetch method
+or provider adapter is selected here.
+
+The next source/guide-quality slice must meet this acceptance before being
+called complete: when provider EPG is absent or insufficient, independently
+verified Wrestling events and announced match cards remain discoverable; every
+field, identifier, access method, rights constraint, freshness signal, and
+fallback is supported by the verified source matrix; offerings are matched
+only when identity evidence is sufficient; availability remains unknown or
+unavailable when evidence does not establish it; no schedule fact or
+entitlement is fabricated. The matrix proposes AEW first and WWE next, with
+TNA, NJPW, ROH, and MLW still required. This is the explicit continuation
+boundary for #175/#191/#28–30, not work performed by this UI slice.
+
+| Area                     | Entry points                               | Evidence                                               | Status         |
+| ------------------------ | ------------------------------------------ | ------------------------------------------------------ | -------------- |
+| Active category window   | PowerShell One Guide API and route         | 14 OneGuide + 50 WebServer focused tests               | PASS           |
+| Category GUI             | Wrestling page and category fetch          | 14 GUI unit tests + 1 Chromium e2e                     | PASS           |
+| Read-only boundary       | Catalogue and item-details routes          | No provider reads, state writes, publication, playback | PASS           |
+| Independent event source | #175/#191/#28–30 schedule/card acquisition | #191 source matrix; automated access/rights unverified | PASS_WITH_GAPS |
+| Responsiveness           | Catalogue evaluation and rendering         | No target-device latency measurement                   | PASS_WITH_GAPS |
+
+Inspected files include the One Guide PowerShell projection and web response
+routes; `gui/src/app/oneGuide.ts`, navigation, app shell, category page and
+styles; category unit/e2e tests; and developer, architecture, and user
+limitations documentation. The UI does not render opaque item/source IDs or
+provenance and does not infer cross-channel event identity or promotion
+grouping from titles. The focused backend run passed 64 tests (14 OneGuide and
+50 WebServer); GUI unit tests passed 14 tests; the Chromium category e2e passed
+1 test; and GUI TypeScript typechecking passed. A separate hidden-Chromium
+smoke against the built UI and loopback engine rendered all three sections
+from an isolated accepted-guide fixture, opened item details, and restored
+focus with Escape without browser errors or visible identifiers. The fixture's
+accepted state remained under a fresh `C:\Temp` repository, outside the
+ChannelForge worktree.
+
+The view is an optional browser feature and does not select or require a
+reference client, platform, SER8, or Harmony. No target-device performance
+claim is made; measure the warm category path against the applicable latency
+budget before treating responsiveness as proven.

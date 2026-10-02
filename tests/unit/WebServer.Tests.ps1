@@ -593,6 +593,51 @@ Describe 'ChannelForge web server foundation' {
         $invalidQuery.StatusCode | Should -Be 400
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
+    It 'filters past category items before pagination in one pinned active window' {
+        $root = Join-Path $TestDrive 'one-guide-category-active-window'
+        $evaluation = [datetimeoffset]::Parse('2026-10-01T12:00:00Z')
+        $programmeSpecs = @(
+            @{ Start = $evaluation.AddHours(-2); Stop = $evaluation.AddHours(-1); Title = 'Past Wrestling' }
+            @{ Start = $evaluation.AddHours(-1); Stop = $evaluation.AddHours(1); Title = 'Live Wrestling' }
+            @{ Start = $evaluation.AddHours(3); Stop = $evaluation.AddHours(4); Title = 'Upcoming Wrestling' }
+        )
+        $programmeXml = @(
+            foreach ($spec in $programmeSpecs) {
+                $startText = $spec.Start.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+                $stopText = $spec.Stop.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000'
+                "<programme start=`"$startText`" stop=`"$stopText`" channel=`"wrestling`"><title>$($spec.Title)</title><category>Wrestling</category></programme>"
+            }
+        ) -join ''
+        $guide = '<tv><channel id="wrestling"><display-name>Wrestling</display-name></channel>' + $programmeXml + '</tv>'
+        $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $proposalBody -ContentType 'application/json' -ContentLength $proposalBody.Length
+        $proposalPayload = $proposal.Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 200
+        $before = Get-TestTreeSnapshot -Root $root
+        $at = $evaluation.ToUnixTimeMilliseconds()
+
+        $all = Get-TestWebResponse -Method GET -Path "/api/one-guide/category/wrestling?limit=1&offset=0&at=$at" -RepositoryRoot $root
+        $activeFirst = Get-TestWebResponse -Method GET -Path "/api/one-guide/category/wrestling?window=active&limit=1&offset=0&at=$at" -RepositoryRoot $root
+        $activeFirstPayload = $activeFirst.Body | ConvertFrom-Json
+        $generation = $activeFirst.Headers['X-ChannelForge-Generation']
+        $activeSecond = Get-TestWebResponse -Method GET -Path "/api/one-guide/category/wrestling?window=active&limit=1&offset=1&at=$at&generation=$generation" -RepositoryRoot $root
+        $invalidWindow = Get-TestWebResponse -Method GET -Path '/api/one-guide/category/wrestling?window=all' -RepositoryRoot $root
+        $invalidRoute = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now?window=active' -RepositoryRoot $root
+        $after = Get-TestTreeSnapshot -Root $root
+
+        ($all.Body | ConvertFrom-Json).TotalCount | Should -Be 3
+        $activeFirst.StatusCode | Should -Be 200
+        $activeFirstPayload.TotalCount | Should -Be 2
+        $activeFirstPayload.Items[0].Title | Should -Be 'Live Wrestling'
+        $activeFirstPayload.Items[0].Status | Should -Be 'Live'
+        ($activeSecond.Body | ConvertFrom-Json).Items[0].Title | Should -Be 'Upcoming Wrestling'
+        ($activeSecond.Body | ConvertFrom-Json).Items[0].Status | Should -Be 'Upcoming'
+        $invalidWindow.StatusCode | Should -Be 400
+        $invalidRoute.StatusCode | Should -Be 400
+        $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+    }
     It 'returns unavailable for a missing accepted generation and accepted XMLTV that was not generated' {
         $missingRoot = Join-Path $TestDrive 'one-guide-missing-accepted-generation'
         $missing = Get-TestWebResponse -Method GET -Path '/api/one-guide/live-now' -RepositoryRoot $missingRoot

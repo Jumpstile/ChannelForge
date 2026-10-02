@@ -11,7 +11,8 @@ function Get-ChannelForgeOneGuide {
         [Parameter(DontShow)][AllowNull()][object]$CatalogueById,
         [Parameter(DontShow)][AllowNull()][AllowEmptyCollection()][object[]]$Catalogue = @(),
         [Parameter(DontShow)][switch]$UseCatalogue,
-        [Parameter(DontShow)][switch]$ReturnCatalogue
+        [Parameter(DontShow)][switch]$ReturnCatalogue,
+        [Parameter(DontShow)][switch]$CurrentAndUpcomingOnly
     )
 
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
@@ -341,6 +342,7 @@ function Get-ChannelForgeOneGuide {
         $CategoryKey = $CategoryKey.ToLowerInvariant()
         if ($taxonomyOrder -cnotcontains $CategoryKey) { throw "Unsupported One Guide category '$CategoryKey'." }
     }
+    if ($CurrentAndUpcomingOnly -and $Query -ne 'Category') { throw 'CurrentAndUpcomingOnly is valid only for a category query.' }
     if ($Query -eq 'Details' -and [string]::IsNullOrWhiteSpace($ItemId)) { throw 'ItemId is required for a details query.' }
 
     $selected = [System.Collections.Generic.List[object]]::new()
@@ -362,6 +364,7 @@ function Get-ChannelForgeOneGuide {
             'Category' {
                 if ($CategoryKey -ceq 'live-now') { $status -ceq 'Live' }
                 elseif ($CategoryKey -ceq 'starting-soon') { $status -ceq 'StartingSoon' }
+                elseif ($CurrentAndUpcomingOnly -and $status -ceq 'Past') { $false }
                 else { $item.CategoryKeys -ccontains $CategoryKey }
             }
             'Details' { [string]$item.ItemId -ceq $ItemId }

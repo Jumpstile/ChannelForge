@@ -546,15 +546,15 @@ return `404`. There is no SPA fallback: an unknown static path returns `404`.
 
 The read endpoints are:
 
-| Method        | Path                             | Purpose                                         |
-| ------------- | -------------------------------- | ----------------------------------------------- |
-| `GET`, `HEAD` | `/`                              | Built UI or safe placeholder shell              |
-| `GET`, `HEAD` | `/health`                        | Safe health/status JSON                         |
-| `GET`, `HEAD` | `/api/status`                    | Safe status contract consumed by the browser UI |
-| `GET`, `HEAD` | `/api/one-guide/live-now`        | Accepted programmes live at request evaluation  |
-| `GET`, `HEAD` | `/api/one-guide/starting-soon`   | Accepted programmes starting within two hours   |
-| `GET`, `HEAD` | `/api/one-guide/category/{key}`  | Bounded items in a fixed One Guide category     |
-| `GET`, `HEAD` | `/api/one-guide/items/{item-id}` | One deterministic item detail                   |
+| Method        | Path                             | Purpose                                                     |
+| ------------- | -------------------------------- | ----------------------------------------------------------- |
+| `GET`, `HEAD` | `/`                              | Built UI or safe placeholder shell                          |
+| `GET`, `HEAD` | `/health`                        | Safe health/status JSON                                     |
+| `GET`, `HEAD` | `/api/status`                    | Safe status contract consumed by the browser UI             |
+| `GET`, `HEAD` | `/api/one-guide/live-now`        | Accepted programmes live at request evaluation              |
+| `GET`, `HEAD` | `/api/one-guide/starting-soon`   | Accepted programmes starting within two hours               |
+| `GET`, `HEAD` | `/api/one-guide/category/{key}`  | Items in a fixed category; `window=active` omits past items |
+| `GET`, `HEAD` | `/api/one-guide/items/{item-id}` | One deterministic item detail                               |
 
 Built-in category keys: `live-now`, `starting-soon`, `football`, `baseball`,
 `basketball`, `hockey`, `soccer`, `wrestling`, `motorsports`, `boxing`, `mma`,
@@ -567,26 +567,34 @@ timestamps and contain no raw URLs, credentials, private paths, accepted
 hashes, or parser diagnostics. The local server remains loopback-only;
 authentication and LAN access are not implemented.
 
-The browser includes a read-only Live Now page backed only by the versioned
-One Guide endpoints. It fetches bounded pages until the API's `TotalCount` is
-complete. Every list `200` carries an opaque `X-ChannelForge-Generation` token
-(derived, not an accepted hash); later pages send `at` (the first page's
-`EvaluationTimeUtc` in Unix milliseconds) and `generation` so all pages share
-one evaluation instant and accepted generation. A changed generation returns
-HTTP 409 `generation-changed` and the browser restarts from offset 0 (at most
-three attempts). Loading, empty, unavailable, and populated states are distinct.
-Remote D-pad use needs no Tab key: the first arrow press after launch focuses
-the active navigation item, Up/Down move through navigation, OK opens a page,
-Right enters page content, and Left from the first card column returns to
-navigation. Programme cards work with arrows and Enter; Escape and Back return
-from item details to the invoking card. Only the newest details request may
-open the dialog: choosing another programme, Escape, or Back aborts a pending
-request so late responses are discarded. Focus is visibly outlined. The view
-shows safe guide text only, uses UTC times, and does not launch playback or
-change accepted/source state. Guided Setup and refresh remain separate
-engine-owned operations. The browser has no direct filesystem or provider-file
-access. Stop the foreground server with `Ctrl+C`. Docker, Windows service,
-packaging, release, deployment, and tester-build behavior remain unavailable.
+`window=active` is an optional category-list query parameter. It evaluates each
+item's status at the request's pinned `at` instant and excludes `Past` items
+before pagination; it is rejected on other routes and for unsupported values.
+
+The browser includes read-only Live Now and Wrestling views backed only by the
+versioned One Guide endpoints. Both fetch bounded pages until the API's
+`TotalCount` is complete. Wrestling requests `window=active`, then uses the
+canonical API `Status` values for On Now, Starting Soon, and Coming Up; past
+items are not returned for that view. Every list `200` carries an opaque
+`X-ChannelForge-Generation` token (derived, not an accepted hash); later pages
+send `at` (the first page's `EvaluationTimeUtc` in Unix milliseconds) and
+`generation` so all pages share one evaluation instant and accepted generation.
+A changed generation returns HTTP 409 `generation-changed` and the browser
+restarts from offset 0 (at most three attempts). Loading, empty, unavailable,
+and populated states are distinct. Remote D-pad use needs no Tab key: the
+first arrow press after launch focuses the active navigation item, Up/Down move
+through navigation, OK opens a page, and Right enters page content. Wrestling
+uses a vertical event list; Up/Down move between cards and Left returns to
+navigation. Live Now Left from the first card column returns to navigation.
+Escape and Back return from item details to the invoking card. Only the newest
+details request may open the dialog: choosing another programme, Escape, or
+Back aborts a pending request so late responses are discarded. Focus is
+visibly outlined. The views show safe guide text only and do not launch
+playback or change accepted/source state. Guided Setup and refresh remain
+separate engine-owned operations. The browser has no direct filesystem or
+provider-file access. Stop the foreground server with `Ctrl+C`. Docker,
+Windows service, packaging, release, deployment, and tester-build behavior
+remain unavailable.
 
 The browser contract in `gui/src/test/e2e/live-now.spec.ts` uses a 101-programme
 fixture and records first-visible, complete-render, and browser API-resource

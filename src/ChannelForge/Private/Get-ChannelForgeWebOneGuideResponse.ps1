@@ -84,6 +84,7 @@ function Get-ChannelForgeWebOneGuidePaging {
     $offset = 0
     $evaluationTimeUtc = $null
     $generation = $null
+    $currentAndUpcomingOnly = $false
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     if (-not [string]::IsNullOrEmpty($QueryString)) {
         foreach ($part in $QueryString.Split('&')) {
@@ -95,6 +96,11 @@ function Get-ChannelForgeWebOneGuidePaging {
             if ($name -ceq 'generation') {
                 if ($pair[1] -cnotmatch '^[a-f0-9]{64}$') { throw 'One Guide generation is invalid.' }
                 $generation = $pair[1]
+                continue
+            }
+            if ($name -ceq 'window') {
+                if ($pair[1] -cne 'active') { throw 'One Guide category window is unsupported.' }
+                $currentAndUpcomingOnly = $true
                 continue
             }
             $value = [long]0
@@ -121,7 +127,7 @@ function Get-ChannelForgeWebOneGuidePaging {
     if ($offset -gt 0 -and ($null -eq $evaluationTimeUtc -or $null -eq $generation)) {
         throw 'One Guide pages after the first require the at and generation snapshot cursor.'
     }
-    return [pscustomobject][ordered]@{ MaximumItems = $maximumItems; Offset = $offset; EvaluationTimeUtc = $evaluationTimeUtc; Generation = $generation }
+    return [pscustomobject][ordered]@{ MaximumItems = $maximumItems; Offset = $offset; EvaluationTimeUtc = $evaluationTimeUtc; Generation = $generation; CurrentAndUpcomingOnly = $currentAndUpcomingOnly }
 }
 
 function Get-ChannelForgeWebOneGuideResponse {
@@ -136,7 +142,8 @@ function Get-ChannelForgeWebOneGuideResponse {
         [ValidateRange(1, 100)][int]$MaximumItems = 100,
         [ValidateRange(0, 2147483647)][int]$Offset = 0,
         [AllowNull()][Nullable[datetimeoffset]]$EvaluationTimeUtc,
-        [AllowNull()][string]$Generation
+        [AllowNull()][string]$Generation,
+        [switch]$CurrentAndUpcomingOnly
     )
 
     try {
@@ -161,6 +168,7 @@ function Get-ChannelForgeWebOneGuideResponse {
         if ($Query -eq 'Details') { $arguments.CatalogueById = $projectionCache.ItemsById }
         if (-not [string]::IsNullOrWhiteSpace($CategoryKey)) { $arguments.CategoryKey = $CategoryKey }
         if (-not [string]::IsNullOrWhiteSpace($ItemId)) { $arguments.ItemId = $ItemId }
+        if ($CurrentAndUpcomingOnly) { $arguments.CurrentAndUpcomingOnly = $true }
         $projection = Get-ChannelForgeOneGuide @arguments
         if ($Query -eq 'Details' -and $projection.TotalCount -eq 0) {
             return New-ChannelForgeWebResponse -StatusCode 404 -ContentType $ContentType -Body (@{ Error = 'not-found'; Message = 'Guide item not found.' } | ConvertTo-Json -Compress) -Headers $Headers

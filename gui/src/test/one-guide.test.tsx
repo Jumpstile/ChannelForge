@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fetchLiveNow, fetchLiveNowItem } from '../app/oneGuide'
+import { fetchLiveNow, fetchLiveNowItem, fetchOneGuideCategory } from '../app/oneGuide'
 import type { OneGuideItem } from '../app/oneGuide'
 
 function item(id: string, itemId = id.repeat(64)): OneGuideItem {
@@ -17,11 +17,14 @@ function item(id: string, itemId = id.repeat(64)): OneGuideItem {
   }
 }
 
-function page(items: unknown[], offset: number, totalCount: number, query: 'LiveNow' | 'Details' = 'LiveNow') {
+function page(items: unknown[], offset: number, totalCount: number, query: 'LiveNow' | 'Category' | 'Details' = 'LiveNow') {
   return {
     Version: 'one-guide/v1', EvaluationTimeUtc: '2026-09-30T10:30:00Z', Query: query, Offset: offset, MaximumItems: 100,
     TotalCount: totalCount, ItemsTruncated: offset + items.length < totalCount, Items: items,
   }
+}
+function categoryPage(items: unknown[], offset: number, totalCount: number, categoryKey = 'wrestling') {
+  return { ...page(items, offset, totalCount, 'Category'), CategoryKey: categoryKey }
 }
 
 const firstGeneration = '1'.repeat(64)
@@ -46,6 +49,27 @@ describe('Live Now API client', () => {
     expect(result?.[0].Title).toBe('Programme 1')
     expect(result?.[100].Title).toBe('Programme b')
     expect(request.mock.calls.map(([url]) => url)).toEqual(['/api/one-guide/live-now?limit=100&offset=0', pinnedSecondPage])
+  })
+
+  it('pins active Wrestling category pages to one time and accepted generation', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => item(String(index + 1), (index + 1).toString(16).padStart(64, '0')))
+    const request = vi.fn()
+      .mockResolvedValueOnce(pageResponse(categoryPage(firstPage, 0, 101)))
+      .mockResolvedValueOnce(pageResponse(categoryPage([item('b')], 100, 101)))
+
+    const result = await fetchOneGuideCategory('wrestling', request)
+
+    expect(result).toHaveLength(101)
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      '/api/one-guide/category/wrestling?limit=100&offset=0&window=active',
+      `/api/one-guide/category/wrestling?limit=100&offset=100&at=${Date.parse('2026-09-30T10:30:00Z')}&generation=${firstGeneration}&window=active`,
+    ])
+  })
+
+  it('fails closed if the category response does not match the requested key', async () => {
+    const request = vi.fn().mockResolvedValueOnce(pageResponse(categoryPage([item('a')], 0, 1, 'football')))
+
+    await expect(fetchOneGuideCategory('wrestling', request)).resolves.toBeNull()
   })
 
   it('restarts from the first page when the accepted generation changes with an unchanged count', async () => {
