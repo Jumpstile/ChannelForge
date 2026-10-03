@@ -128,11 +128,17 @@
       "required": ["Enabled"],
       "properties": {
         "Enabled": { "type": "boolean" },
-        "PlaylistId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+        "PlaylistId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "Enabled": { "const": true } }, "required": ["Enabled"] },
+          "if": {
+            "properties": { "Enabled": { "const": true } },
+            "required": ["Enabled"]
+          },
           "then": { "required": ["PlaylistId"] },
           "else": { "not": { "required": ["PlaylistId"] } }
         }
