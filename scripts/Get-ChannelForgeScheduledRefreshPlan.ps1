@@ -186,6 +186,12 @@ function Get-PolicyDocument {
             MaxAgeDays = [int]$policy.Retention.MaxAgeDays
         }
     }
+    if ($null -ne $policy.PSObject.Properties['GuideComparison'] -and [bool]$policy.GuideComparison.Enabled) {
+        $canonical.GuideComparison = [ordered]@{
+            Enabled = $true
+            PlaylistId = [string]$policy.GuideComparison.PlaylistId
+        }
+    }
     $canonicalJson = $canonical | ConvertTo-Json -Depth 10 -Compress
     return [pscustomobject][ordered]@{
         Raw = $policy

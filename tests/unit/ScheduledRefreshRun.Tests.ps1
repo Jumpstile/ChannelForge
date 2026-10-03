@@ -176,6 +176,26 @@ New-Item -ItemType Directory -Force -Path `$OutputRoot | Out-Null
 }
 
 Describe 'manual scheduled refresh run wrapper' {
+    It 'preserves legacy policy digests when guide comparison is omitted or disabled' {
+        $policy = Get-Content -LiteralPath $script:PolicyExample -Raw | ConvertFrom-Json
+        $canonical = Get-ChannelForgeScheduledOperationPolicyCanonical -Policy $policy
+        $canonical.Contains('GuideComparison') | Should -BeTrue
+        $legacyCanonical = [ordered]@{}
+        foreach ($key in $canonical.Keys) { if ($key -cne 'GuideComparison') { $legacyCanonical[$key] = $canonical[$key] } }
+        $legacyJson = $legacyCanonical | ConvertTo-Json -Depth 10 -Compress
+        $expectedDigest = ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($legacyJson)))).ToLowerInvariant()
+
+        $omittedPath = Join-Path $TestDrive 'legacy-policy.json'
+        Write-TestJson -Value $policy -Path $omittedPath
+        (Get-ChannelForgeScheduledOperationPolicyInfo -Path $omittedPath -SchemaPath $script:PolicySchema).Digest | Should -Be $expectedDigest
+
+        $withDisabledComparison = ConvertFrom-Json -InputObject ($policy | ConvertTo-Json -Depth 10)
+        $withDisabledComparison | Add-Member -NotePropertyName GuideComparison -NotePropertyValue ([pscustomobject]@{ Enabled = $false })
+        $disabledPath = Join-Path $TestDrive 'disabled-policy-digest.json'
+        Write-TestJson -Value $withDisabledComparison -Path $disabledPath
+        (Get-ChannelForgeScheduledOperationPolicyInfo -Path $disabledPath -SchemaPath $script:PolicySchema).Digest | Should -Be $expectedDigest
+    }
+
     It 'calls the existing source executor exactly once for an eligible manual plan' {
         $project = New-TestProject -Mode success
         $result = Invoke-TestWrapper -Project $project
@@ -187,6 +207,13 @@ Describe 'manual scheduled refresh run wrapper' {
         $result.LockEvidence.Path | Should -Be 'output/operations/scheduled-refresh.lock'
         Test-Path -LiteralPath (Join-Path $project.Root 'state/lineup-operation.lock') | Should -BeFalse
         Test-Json -Path (Join-Path $project.Root 'output/reports/scheduled-refresh-run.json') -SchemaFile $script:RunSchema | Should -BeTrue
+        $legacyRun = Get-Content -LiteralPath (Join-Path $project.Root 'output/reports/scheduled-refresh-run.json') -Raw | ConvertFrom-Json
+        foreach ($propertyName in @('GuideComparisonJson','GuideComparisonMarkdown','GuideComparisonStatus','GuideComparisonDigest')) {
+            $legacyRun.Reports.PSObject.Properties.Remove($propertyName)
+        }
+        $legacyPath = Join-Path $TestDrive 'legacy-scheduled-refresh-run.json'
+        Write-TestJson -Value $legacyRun -Path $legacyPath
+        Test-Json -Path $legacyPath -SchemaFile $script:RunSchema | Should -BeTrue
     }
 
     It 'does not call the executor for an ineligible plan' {
@@ -194,10 +221,12 @@ Describe 'manual scheduled refresh run wrapper' {
         $policyPath = Join-Path $project.Root 'config/scheduled-refresh.example.json'
         $policy = Get-Content -LiteralPath $policyPath -Raw | ConvertFrom-Json
         $policy.ManualOverride.Allowed = $false
+        $policy | Add-Member -NotePropertyName GuideComparison -NotePropertyValue ([pscustomobject]@{ Enabled = $true; PlaylistId = 'playlist-one' })
         Write-TestJson -Value $policy -Path $policyPath
         $result = Invoke-TestWrapper -Project $project
         $result.Status | Should -Be 'BLOCKED'
         $result.FailureCode | Should -Be 'PlanNotEligible'
+        $result.Reports.GuideComparisonStatus | Should -Be 'Failed'
         Test-Path -LiteralPath $project.Calls | Should -BeFalse
     }
 
