@@ -1,0 +1,353 @@
+{
+  "ProposalStatus": "UnapprovedArchitectureProposal",
+  "ProposalVersion": "ChannelForgeExternalEvidenceObservation/v2-proposal",
+  "BaseEventObservationReference": {
+    "ContractVersion": "ChannelForgeExternalEvidenceObservation/v1",
+    "ObservationId": "7595383d31e2a98d26ad1b8fb27b028fe9be45875db17fb553fea12725792abc",
+    "SourceRecordReference": "aew.fixture.event-revision-2",
+    "ProvisionalSubjectKey": "aew:fixture:event-001"
+  },
+  "SourceRecords": [
+    {
+      "SourceRecordReference": "aew.fixture.event-revision-2",
+      "DocumentKind": "CanonicalEventPage",
+      "SourceRevisionReference": "synthetic-event-revision-2",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "FetchTimeUtc": "2026-01-02T12:00:00Z"
+    },
+    {
+      "SourceRecordReference": "aew.fixture.card-revision-0",
+      "DocumentKind": "DatedCardArticle",
+      "SourceRevisionReference": "synthetic-card-revision-0",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T09:00:00Z",
+      "FetchTimeUtc": "2026-01-01T09:00:00Z"
+    },
+    {
+      "SourceRecordReference": "aew.fixture.card-revision-1",
+      "DocumentKind": "DatedCardArticle",
+      "SourceRevisionReference": "synthetic-card-revision-1",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+      "FetchTimeUtc": "2026-01-01T10:00:00Z"
+    },
+    {
+      "SourceRecordReference": "aew.fixture.card-revision-2",
+      "DocumentKind": "DatedCardArticle",
+      "SourceRevisionReference": "synthetic-card-revision-2",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+      "FetchTimeUtc": "2026-01-02T10:00:00Z"
+    },
+    {
+      "SourceRecordReference": "aew.fixture.card-revision-3",
+      "DocumentKind": "DatedCardArticle",
+      "SourceRevisionReference": "synthetic-card-revision-3",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+      "FetchTimeUtc": "2026-01-02T11:00:00Z"
+    }
+  ],
+  "SourceClockObservations": [
+    {
+      "ClockRole": "EventLocalStart",
+      "RawDisplayValue": "7:00 PM (synthetic)",
+      "ZoneResolution": "Unknown",
+      "TimeZoneId": null,
+      "NormalizedUtc": null,
+      "Evidence": {
+        "SourceRecordReference": "aew.fixture.event-revision-2",
+        "SourceDataTimeUtc": null,
+        "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+        "FetchTimeUtc": "2026-01-02T12:00:00Z"
+      }
+    },
+    {
+      "ClockRole": "BroadcastStart",
+      "RawDisplayValue": "8:00 PM ET (synthetic)",
+      "ZoneResolution": "Unknown",
+      "TimeZoneId": null,
+      "NormalizedUtc": null,
+      "Evidence": {
+        "SourceRecordReference": "aew.fixture.event-revision-2",
+        "SourceDataTimeUtc": null,
+        "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+        "FetchTimeUtc": "2026-01-02T12:00:00Z"
+      }
+    }
+  ],
+  "CardRevisionObservations": [
+    {
+      "RevisionId": "synthetic-card-revision-0",
+      "SourceRecordReference": "aew.fixture.card-revision-0",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T09:00:00Z",
+      "FetchTimeUtc": "2026-01-01T09:00:00Z",
+      "CardDisclosure": {
+        "State": "ExplicitlyUnannounced",
+        "Assertion": "ExplicitSourceStatement",
+        "EvidenceSourceRecordReference": "aew.fixture.card-revision-0"
+      },
+      "Completeness": {
+        "Value": "Unknown",
+        "EvidenceSourceRecordReference": null
+      },
+      "MatchObservations": []
+    },
+    {
+      "RevisionId": "synthetic-card-revision-1",
+      "SourceRecordReference": "aew.fixture.card-revision-1",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+      "FetchTimeUtc": "2026-01-01T10:00:00Z",
+      "CardDisclosure": {
+        "State": "ItemsObserved",
+        "Assertion": "ObservedContent",
+        "EvidenceSourceRecordReference": "aew.fixture.card-revision-1"
+      },
+      "Completeness": {
+        "Value": "Unknown",
+        "EvidenceSourceRecordReference": null
+      },
+      "MatchObservations": [
+        {
+          "SourceMatchReference": "aew.fixture.match-1",
+          "SourceMatchReferenceEvidence": {
+            "SourceRecordReference": "aew.fixture.card-revision-1",
+            "SourceDataTimeUtc": null,
+            "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+            "FetchTimeUtc": "2026-01-01T10:00:00Z"
+          },
+          "Status": {
+            "Value": "Advertised",
+            "Assertion": "ObservedContent",
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-1",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+              "FetchTimeUtc": "2026-01-01T10:00:00Z"
+            }
+          },
+          "Participants": [
+            {
+              "SourceParticipantReference": "aew.fixture.participant-a",
+              "DisplayName": "Example Wrestler A",
+              "Role": "Competitor",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-1",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+                "FetchTimeUtc": "2026-01-01T10:00:00Z"
+              }
+            },
+            {
+              "SourceParticipantReference": "aew.fixture.participant-b",
+              "DisplayName": "Example Wrestler B",
+              "Role": "Competitor",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-1",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+                "FetchTimeUtc": "2026-01-01T10:00:00Z"
+              }
+            }
+          ],
+          "Stipulations": [
+            {
+              "Text": "Best of Three Falls (synthetic)",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-1",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+                "FetchTimeUtc": "2026-01-01T10:00:00Z"
+              }
+            }
+          ],
+          "CardPosition": {
+            "Value": 1,
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-1",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+              "FetchTimeUtc": "2026-01-01T10:00:00Z"
+            }
+          }
+        },
+        {
+          "SourceMatchReference": "aew.fixture.match-2",
+          "SourceMatchReferenceEvidence": {
+            "SourceRecordReference": "aew.fixture.card-revision-1",
+            "SourceDataTimeUtc": null,
+            "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+            "FetchTimeUtc": "2026-01-01T10:00:00Z"
+          },
+          "Status": {
+            "Value": "Advertised",
+            "Assertion": "ObservedContent",
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-1",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+              "FetchTimeUtc": "2026-01-01T10:00:00Z"
+            }
+          },
+          "Participants": [],
+          "Stipulations": [],
+          "CardPosition": {
+            "Value": 2,
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-1",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-01T10:00:00Z",
+              "FetchTimeUtc": "2026-01-01T10:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "RevisionId": "synthetic-card-revision-2",
+      "SourceRecordReference": "aew.fixture.card-revision-2",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+      "FetchTimeUtc": "2026-01-02T10:00:00Z",
+      "CardDisclosure": {
+        "State": "ItemsObserved",
+        "Assertion": "ObservedContent",
+        "EvidenceSourceRecordReference": "aew.fixture.card-revision-2"
+      },
+      "Completeness": {
+        "Value": "Unknown",
+        "EvidenceSourceRecordReference": null
+      },
+      "MatchObservations": [
+        {
+          "SourceMatchReference": "aew.fixture.match-1",
+          "SourceMatchReferenceEvidence": {
+            "SourceRecordReference": "aew.fixture.card-revision-2",
+            "SourceDataTimeUtc": null,
+            "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+            "FetchTimeUtc": "2026-01-02T10:00:00Z"
+          },
+          "Status": {
+            "Value": "Advertised",
+            "Assertion": "ObservedContent",
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-2",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+              "FetchTimeUtc": "2026-01-02T10:00:00Z"
+            }
+          },
+          "Participants": [
+            {
+              "SourceParticipantReference": "aew.fixture.participant-a",
+              "DisplayName": "Example Wrestler A",
+              "Role": "Competitor",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-2",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+                "FetchTimeUtc": "2026-01-02T10:00:00Z"
+              }
+            },
+            {
+              "SourceParticipantReference": "aew.fixture.participant-c",
+              "DisplayName": "Example Wrestler C",
+              "Role": "Competitor",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-2",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+                "FetchTimeUtc": "2026-01-02T10:00:00Z"
+              }
+            }
+          ],
+          "Stipulations": [
+            {
+              "Text": "No Disqualification (synthetic)",
+              "Evidence": {
+                "SourceRecordReference": "aew.fixture.card-revision-2",
+                "SourceDataTimeUtc": null,
+                "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+                "FetchTimeUtc": "2026-01-02T10:00:00Z"
+              }
+            }
+          ],
+          "CardPosition": {
+            "Value": 2,
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-2",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-02T10:00:00Z",
+              "FetchTimeUtc": "2026-01-02T10:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "RevisionId": "synthetic-card-revision-3",
+      "SourceRecordReference": "aew.fixture.card-revision-3",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+      "FetchTimeUtc": "2026-01-02T11:00:00Z",
+      "CardDisclosure": {
+        "State": "ItemsObserved",
+        "Assertion": "ObservedContent",
+        "EvidenceSourceRecordReference": "aew.fixture.card-revision-3"
+      },
+      "Completeness": {
+        "Value": "Unknown",
+        "EvidenceSourceRecordReference": null
+      },
+      "MatchObservations": [
+        {
+          "SourceMatchReference": "aew.fixture.match-1",
+          "SourceMatchReferenceEvidence": {
+            "SourceRecordReference": "aew.fixture.card-revision-3",
+            "SourceDataTimeUtc": null,
+            "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+            "FetchTimeUtc": "2026-01-02T11:00:00Z"
+          },
+          "Status": {
+            "Value": "Advertised",
+            "Assertion": "ObservedContent",
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-3",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+              "FetchTimeUtc": "2026-01-02T11:00:00Z"
+            }
+          },
+          "Participants": [],
+          "Stipulations": [],
+          "CardPosition": null
+        },
+        {
+          "SourceMatchReference": "aew.fixture.match-2",
+          "SourceMatchReferenceEvidence": {
+            "SourceRecordReference": "aew.fixture.card-revision-3",
+            "SourceDataTimeUtc": null,
+            "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+            "FetchTimeUtc": "2026-01-02T11:00:00Z"
+          },
+          "Status": {
+            "Value": "ExplicitlyCancelled",
+            "Assertion": "ExplicitSourceStatement",
+            "Evidence": {
+              "SourceRecordReference": "aew.fixture.card-revision-3",
+              "SourceDataTimeUtc": null,
+              "ObservationTimeUtc": "2026-01-02T11:00:00Z",
+              "FetchTimeUtc": "2026-01-02T11:00:00Z"
+            }
+          },
+          "Participants": [],
+          "Stipulations": [],
+          "CardPosition": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "ProposalStatus": "UnapprovedDesignProposal",
+  "ProposalVersion": "AEWEventEvidenceProposal/0.1",
+  "FixtureKind": "SyntheticOfflineOnly",
+  "Promotion": "AEW",
+  "SourceRecords": [
+    {
+      "SourceRecordId": "aew.fixture.calendar.1",
+      "DocumentKind": "OfficialCalendar",
+      "RevisionId": "aew.fixture.revision.1",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T12:00:00Z",
+      "FetchTimeUtc": "2026-01-01T12:00:00Z"
+    },
+    {
+      "SourceRecordId": "aew.fixture.event.1",
+      "DocumentKind": "CanonicalEventPage",
+      "RevisionId": "aew.fixture.revision.1",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T12:00:00Z",
+      "FetchTimeUtc": "2026-01-01T12:00:00Z"
+    },
+    {
+      "SourceRecordId": "aew.fixture.event.2",
+      "DocumentKind": "CanonicalEventPage",
+      "RevisionId": "aew.fixture.revision.2",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "FetchTimeUtc": "2026-01-02T12:00:00Z"
+    },
+    {
+      "SourceRecordId": "aew.fixture.card.1",
+      "DocumentKind": "DatedCardArticle",
+      "RevisionId": "aew.fixture.revision.1",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-01T12:00:00Z",
+      "FetchTimeUtc": "2026-01-01T12:00:00Z"
+    },
+    {
+      "SourceRecordId": "aew.fixture.card.2",
+      "DocumentKind": "DatedCardArticle",
+      "RevisionId": "aew.fixture.revision.2",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "FetchTimeUtc": "2026-01-02T12:00:00Z"
+    }
+  ],
+  "EventRevisions": [
+    {
+      "RevisionId": "aew.fixture.revision.1",
+      "SourceRecordId": "aew.fixture.event.1",
+      "EventStatus": {
+        "Value": "Scheduled",
+        "Assertion": "Listing",
+        "EvidenceSourceRecordId": "aew.fixture.event.1"
+      },
+      "StartClock": {
+        "RawDisplayValue": "7:00 PM",
+        "ZoneResolution": "Unknown",
+        "TimeZoneId": null,
+        "NormalizedUtc": null
+      }
+    },
+    {
+      "RevisionId": "aew.fixture.revision.2",
+      "SourceRecordId": "aew.fixture.event.2",
+      "EventStatus": {
+        "Value": "Cancelled",
+        "Assertion": "ExplicitSourceStatement",
+        "EvidenceSourceRecordId": "aew.fixture.event.2"
+      },
+      "StartClock": {
+        "RawDisplayValue": "7:00 PM",
+        "ZoneResolution": "Unknown",
+        "TimeZoneId": null,
+        "NormalizedUtc": null
+      }
+    }
+  ],
+  "CardRevisions": [
+    {
+      "RevisionId": "aew.fixture.revision.1",
+      "SourceRecordId": "aew.fixture.card.1",
+      "Matches": [
+        {
+          "MatchKey": "example-match-1",
+          "State": "Advertised",
+          "ParticipantNames": ["Example Wrestler A", "Example Wrestler B"],
+          "EvidenceSourceRecordId": "aew.fixture.card.1"
+        }
+      ]
+    },
+    {
+      "RevisionId": "aew.fixture.revision.2",
+      "SourceRecordId": "aew.fixture.card.2",
+      "Matches": [
+        {
+          "MatchKey": "example-match-1",
+          "State": "ExplicitlyCancelled",
+          "ParticipantNames": ["Example Wrestler A", "Example Wrestler B"],
+          "EvidenceSourceRecordId": "aew.fixture.card.2"
+        }
+      ]
+    }
+  ],
+  "Availability": {
+    "State": "Unknown",
+    "EvidenceSourceRecordIds": []
+  }
+}
