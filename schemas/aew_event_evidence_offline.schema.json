@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/aew-event-evidence-offline.schema.json",
+  "title": "UNAPPROVED AEW card/revision design proposal",
+  "description": "Research experiment only. Not an accepted production contract or live adapter interface; requires normal architecture review.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ProposalStatus",
+    "ProposalVersion",
+    "FixtureKind",
+    "Promotion",
+    "SourceRecords",
+    "EventRevisions",
+    "CardRevisions",
+    "Availability"
+  ],
+  "properties": {
+    "ProposalStatus": { "const": "UnapprovedDesignProposal" },
+    "ProposalVersion": { "const": "AEWEventEvidenceProposal/0.1" },
+    "FixtureKind": { "const": "SyntheticOfflineOnly" },
+    "Promotion": { "const": "AEW" },
+    "SourceRecords": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "SourceRecordId",
+          "DocumentKind",
+          "RevisionId",
+          "SourceDataTimeUtc",
+          "ObservationTimeUtc",
+          "FetchTimeUtc"
+        ],
+        "properties": {
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "DocumentKind": {
+            "enum": [
+              "OfficialCalendar",
+              "CanonicalEventPage",
+              "DatedCardArticle"
+            ]
+          },
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceDataTimeUtc": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "ObservationTimeUtc": { "type": "string", "format": "date-time" },
+          "FetchTimeUtc": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "EventRevisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "RevisionId",
+          "SourceRecordId",
+          "EventStatus",
+          "StartClock"
+        ],
+        "properties": {
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "EventStatus": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Value", "Assertion", "EvidenceSourceRecordId"],
+            "properties": {
+              "Value": {
+                "enum": [
+                  "Scheduled",
+                  "Postponed",
+                  "Rescheduled",
+                  "Cancelled",
+                  "Completed",
+                  "Unknown"
+                ]
+              },
+              "Assertion": {
+                "enum": ["ExplicitSourceStatement", "Listing", "NotObserved"]
+              },
+              "EvidenceSourceRecordId": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "Value": { "enum": ["Cancelled"] },
+                  "Assertion": { "enum": ["ExplicitSourceStatement"] }
+                }
+              },
+              {
+                "properties": {
+                  "Value": {
+                    "enum": [
+                      "Scheduled",
+                      "Postponed",
+                      "Rescheduled",
+                      "Completed",
+                      "Unknown"
+                    ]
+                  },
+                  "Assertion": {
+                    "enum": [
+                      "ExplicitSourceStatement",
+                      "Listing",
+                      "NotObserved"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "StartClock": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "RawDisplayValue",
+              "ZoneResolution",
+              "TimeZoneId",
+              "NormalizedUtc"
+            ],
+            "properties": {
+              "RawDisplayValue": {
+                "type": ["string", "null"],
+                "maxLength": 128
+              },
+              "ZoneResolution": {
+                "enum": [
+                  "ExplicitOffset",
+                  "NamedZone",
+                  "Unknown",
+                  "NotPublished"
+                ]
+              },
+              "TimeZoneId": { "type": ["string", "null"], "maxLength": 128 },
+              "NormalizedUtc": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "ZoneResolution": { "enum": ["Unknown", "NotPublished"] },
+                  "TimeZoneId": { "type": "null" },
+                  "NormalizedUtc": { "type": "null" }
+                }
+              },
+              {
+                "properties": {
+                  "ZoneResolution": { "enum": ["NamedZone"] },
+                  "TimeZoneId": { "type": "string", "minLength": 1 },
+                  "NormalizedUtc": { "type": "string", "format": "date-time" }
+                }
+              },
+              {
+                "properties": {
+                  "ZoneResolution": { "enum": ["ExplicitOffset"] },
+                  "NormalizedUtc": { "type": "string", "format": "date-time" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "CardRevisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["RevisionId", "SourceRecordId", "Matches"],
+        "properties": {
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "Matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "MatchKey",
+                "State",
+                "ParticipantNames",
+                "EvidenceSourceRecordId"
+              ],
+              "properties": {
+                "MatchKey": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                },
+                "State": {
+                  "enum": [
+                    "Advertised",
+                    "Changed",
+                    "ExplicitlyCancelled",
+                    "Completed"
+                  ]
+                },
+                "ParticipantNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "EvidenceSourceRecordId": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["State", "EvidenceSourceRecordIds"],
+      "properties": {
+        "State": { "enum": ["Corroborated", "Unknown"] },
+        "EvidenceSourceRecordIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "State": { "enum": ["Unknown"] },
+            "EvidenceSourceRecordIds": { "maxItems": 0 }
+          }
+        },
+        {
+          "properties": {
+            "State": { "enum": ["Corroborated"] },
+            "EvidenceSourceRecordIds": { "minItems": 1 }
+          }
+        }
+      ]
+    }
+  }
+}
