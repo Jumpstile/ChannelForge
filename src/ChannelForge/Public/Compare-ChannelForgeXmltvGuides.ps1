@@ -15,6 +15,7 @@ function Compare-ChannelForgeXmltvGuides {
 
     $contractVersion = 'ChannelForgeExternalEvidenceObservation/v1'
     $safeIdentifierPattern = '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
+    $generatedReportIdentifierProperties = @('ObservationId', 'ObservationIds', 'FindingId', 'CorrelationId', 'AliasId', 'EvidenceObservationIds', 'InputArtifactFingerprint')
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
     $observedRows = [System.Collections.Generic.List[object]]::new()
     $unboundRows = [System.Collections.Generic.List[object]]::new()
@@ -88,6 +89,61 @@ function Compare-ChannelForgeXmltvGuides {
         param([Parameter(Mandatory)][object]$Row, [Parameter(Mandatory)][string]$Name)
         if ($Row.Fields.Contains($Name)) { return $Row.Fields[$Name] }
         return $null
+    }
+
+    function ConvertTo-SafeComparisonText {
+        param([AllowNull()][object]$Value)
+        if ($null -eq $Value) { return $null }
+        $text = ConvertTo-ChannelForgeGuideSafeText -Value $Value -MaximumLength 512
+        $secretValuePattern = '(?:"[^"]*"|''[^'']*''|[^\s,;]+)'
+        $text = [regex]::Replace($text, '(?i)\b(?:[A-Z0-9]+_)*(?:password|passwd|secret|token|credential|api[_-]?key|access[_-]?key|client[_-]?secret)(?:_[A-Z0-9]+)*\s*[:=]\s*' + $secretValuePattern, '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?i)\bAuthorization\s*[:=]\s*(?:(?:Bearer|Basic)\s+)?' + $secretValuePattern, '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*', '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?<![A-Z0-9])/(?:home|users|var|tmp|etc|opt|root|mnt|media|srv|private|workspace|workspaces)/[^\s,;]+', '[redacted-path]', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        $text = [regex]::Replace($text, '\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[redacted-contact]')
+        return $text
+    }
+
+    function ConvertTo-SafeComparisonProjection {
+        param([AllowNull()][object]$Value, [string]$PropertyName = '')
+        if ($null -eq $Value) { return $null }
+        if ($Value -is [string]) {
+            if ($PropertyName -in $generatedReportIdentifierProperties -and [string]$Value -match '^[a-f0-9]{64}$') { return [string]$Value }
+            if ($PropertyName -ceq 'CorrelationId' -and [string]$Value -match '^(?:[a-f0-9]{64}:)+[a-f0-9]{64}$') { return [string]$Value }
+            return ConvertTo-SafeComparisonText -Value $Value
+        }
+        if ($Value -is [System.Collections.IDictionary]) {
+            $safeObject = [ordered]@{}
+            foreach ($key in $Value.Keys) {
+                $safeObject[[string]$key] = ConvertTo-SafeComparisonProjection -Value $Value[$key] -PropertyName ([string]$key)
+            }
+            return $safeObject
+        }
+        if ($Value -is [pscustomobject]) {
+            $safeObject = [ordered]@{}
+            foreach ($property in $Value.PSObject.Properties) {
+                $safeObject[$property.Name] = ConvertTo-SafeComparisonProjection -Value $property.Value -PropertyName $property.Name
+            }
+            return $safeObject
+        }
+        if ($Value -is [System.Collections.IEnumerable]) {
+            $safeItems = [System.Collections.Generic.List[object]]::new()
+            foreach ($item in $Value) {
+                [void]$safeItems.Add((ConvertTo-SafeComparisonProjection -Value $item -PropertyName $PropertyName))
+            }
+            return ,$safeItems.ToArray()
+        }
+        return $Value
+    }
+
+    function ConvertTo-ComparisonMarkdownText {
+        param([AllowNull()][object]$Value)
+        if ($null -eq $Value) { return '' }
+        $text = (ConvertTo-SafeComparisonText -Value $Value).Replace('&', '&amp;')
+        foreach ($character in @('\', [char]0x60, '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!', '|', '~', '<', '>')) {
+            $text = $text.Replace([string]$character, [string]::Concat('\', [string]$character))
+        }
+        return $text
     }
 
     function Add-ComparisonFinding {
@@ -759,11 +815,12 @@ function Compare-ChannelForgeXmltvGuides {
         AcceptedStateMutation = 'None'
         AcceptedKnowledgeMutation = 'None'
     }
+    $report = ConvertTo-SafeComparisonProjection -Value $report
     $json = ConvertTo-ChannelForgeCanonicalJson -InputObject $report
     $markdown = @(
         '# ChannelForge guide comparison',
         '',
-        ('**Playlist:** {0}' -f $PlaylistId),
+        ('**Playlist:** {0}' -f (ConvertTo-ComparisonMarkdownText $report.PlaylistId)),
         ('**Evaluation time (UTC):** {0}' -f $report.EvaluationTimeUtc),
         ('**Observations:** {0}' -f $report.ObservationCount),
         ('**Same-channel correlations:** {0}' -f $report.Summary.CorrelationCount),
@@ -775,19 +832,19 @@ function Compare-ChannelForgeXmltvGuides {
         '',
         '## Cross-channel candidates',
         ''
-    ) + @($crossChannelAssessment.Correlations | ForEach-Object { '- {0} — {1}; confidence {2}/100; {3}; merge disabled.' -f ($_.Titles -join ' / '), ($_.ChannelIds -join ', '), $_.ConfidenceScore, $_.ConfidenceState }) + @(
+    ) + @($report.CrossChannelCorrelations | ForEach-Object { '- {0} — {1}; confidence {2}/100; {3}; merge disabled.' -f (ConvertTo-ComparisonMarkdownText ($_.Titles -join ' / ')), (ConvertTo-ComparisonMarkdownText ($_.ChannelIds -join ', ')), $_.ConfidenceScore, (ConvertTo-ComparisonMarkdownText $_.ConfidenceState) }) + @(
         '',
         '## Contextual alias proposals',
         ''
-    ) + @($crossChannelAssessment.ContextualAliasProposals | ForEach-Object { '- {0} — confidence {1}/100; proposed, reversible, not accepted.' -f ($_.Aliases -join ' / '), $_.ConfidenceScore }) + @(
+    ) + @($report.ContextualAliasProposals | ForEach-Object { '- {0} — confidence {1}/100; proposed, reversible, not accepted.' -f (ConvertTo-ComparisonMarkdownText ($_.Aliases -join ' / ')), $_.ConfidenceScore }) + @(
         '',
         '## Channel profiles and enrichment gaps',
         ''
-    ) + @($channelProfiles.ToArray() | ForEach-Object { '- {0} — {1}; {2} programmes; categories: {3}.' -f $_.ChannelId, $_.GuideState, $_.ObservedProgrammeCount, (@($_.EnrichmentCategoryKeys) -join ', ') }) + @(
+    ) + @($report.ChannelEvidenceProfiles | ForEach-Object { '- {0} — {1}; {2} programmes; categories: {3}.' -f (ConvertTo-ComparisonMarkdownText $_.ChannelId), (ConvertTo-ComparisonMarkdownText $_.GuideState), $_.ObservedProgrammeCount, (ConvertTo-ComparisonMarkdownText (@($_.EnrichmentCategoryKeys) -join ', ')) }) + @(
         '',
         '## Findings',
         ''
-    ) + @($orderedFindings | ForEach-Object { '- **{0}** ({1}) — {2}' -f $_.Kind, $_.Status, (ConvertTo-ChannelForgeCanonicalJson -InputObject $_.Details) })
+    ) + @($report.Findings | ForEach-Object { '- **{0}** ({1}) — {2}' -f (ConvertTo-ComparisonMarkdownText $_.Kind), (ConvertTo-ComparisonMarkdownText $_.Status), (ConvertTo-ComparisonMarkdownText (ConvertTo-ChannelForgeCanonicalJson -InputObject $_.Details)) })
     $report['Json'] = $json
     $report['Markdown'] = [string]::Join("`n", $markdown)
     return [pscustomobject]$report

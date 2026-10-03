@@ -26,7 +26,7 @@ BeforeAll {
             [string]$SourceRelationship = 'Independent',
             [string]$ObservationStatus = 'Observed',
             [string]$Network = '',
-            [string]$ChannelAssignment = '',
+            [string[]]$ReasonCodes = @(),
             [bool]$RedactTimeFields = $false
         )
         $fields = [System.Collections.Generic.List[object]]::new()
@@ -83,7 +83,7 @@ BeforeAll {
             ObservationTimeUtc = $FetchTimeUtc
             FetchTimeUtc = $FetchTimeUtc
             InputArtifactFingerprint = $null
-            ReasonCodes = @()
+            ReasonCodes = @($ReasonCodes)
             RedactedFields = @()
         }
         ConvertTo-ChannelForgeExternalEvidenceObservation -InputObject $input
@@ -112,6 +112,21 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
         @($report.Findings.Kind) | Should -Contain 'ExactAgreement'
         $report.Correlations.Count | Should -Be 1
         $report.EvidenceContractVersion | Should -Be 'ChannelForgeExternalEvidenceObservation/v1'
+    }
+
+    It 'preserves distinct generated IDs for same-channel correlations' {
+        $observations = @(
+            (New-TestObservation -SourceId 'guide-a' -Title 'News' -SourceRecordReference 'news-a'),
+            (New-TestObservation -SourceId 'guide-b' -Title 'News' -SourceRecordReference 'news-b'),
+            (New-TestObservation -SourceId 'guide-a' -Title 'Movie' -StartUtc '2026-01-01T14:00:00Z' -StopUtc '2026-01-01T15:00:00Z' -SourceRecordReference 'movie-a'),
+            (New-TestObservation -SourceId 'guide-b' -Title 'Movie' -StartUtc '2026-01-01T14:00:00Z' -StopUtc '2026-01-01T15:00:00Z' -SourceRecordReference 'movie-b')
+        )
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations $observations -EvaluationTimeUtc $script:EvaluationTime
+        $correlationIds = @($report.Correlations | ForEach-Object CorrelationId)
+
+        $correlationIds.Count | Should -Be 2
+        @($correlationIds | Sort-Object -Unique).Count | Should -Be 2
+        @($correlationIds | Where-Object { $_ -notmatch '^[a-f0-9]{64}:[a-f0-9]{64}$' }).Count | Should -Be 0
     }
 
     It 'reports harmless subtitle variation without calling it a contradiction' {
@@ -453,6 +468,21 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
         @($ppv.EnrichmentCategoryKeys) | Should -Contain 'documentary'
         @($report.EnrichmentCandidates | Where-Object { $_.ChannelId -eq 'channel-ppv' -and $_.Kind -eq 'MissingXmltv' }).Count | Should -Be 1
         @($report.EnrichmentCandidates | Where-Object { $_.SourceAccess -ne 'NotEvaluated' -or $_.CanFetch }).Count | Should -Be 0
+    }
+
+    It 'redacts sensitive report values and escapes untrusted Markdown content' {
+        $hostileTitle = '[click](https://attacker.invalid) <img src=x onerror=alert(1)> Regional Championship Final'
+        $left = New-TestObservation -SourceId 'guide-a' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'Shared details' -SourceRecordReference 'API_KEY=provenanceSecret file=/home/private/provenance.xml'
+        $variant = New-TestObservation -SourceId 'guide-a' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'api_key=fieldSecret' -SourceRecordReference 'event-a-variant'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'Shared details'
+        $rejected = New-TestObservation -SourceId 'guide-c' -ObservationStatus 'Rejected' -ReasonCodes @('password=reasonSecret', 'Authorization: Bearer authSecret')
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $variant, $right, $rejected) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.Json | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|reasonSecret|authSecret|attacker\.invalid'
+        $report.Markdown | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|reasonSecret|authSecret|attacker\.invalid|(?<!\\)<img|!\[|\]\('
+        $report.Markdown | Should -Match '\\<img'
+        @($report.Findings.Kind) | Should -Contain 'RejectedObservation'
     }
 
     It 'keeps every assessment report-only and never changes accepted-state authority' {
