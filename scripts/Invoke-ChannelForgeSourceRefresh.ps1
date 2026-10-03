@@ -6,7 +6,9 @@ param(
     [string]$CacheRoot,
     [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
     [string]$OutputRoot,
-    [string]$EnrollmentPath
+    [string]$EnrollmentPath,
+    [switch]$GuideComparisonEnabled,
+    [string]$GuideComparisonPlaylistId
 )
 
 $ErrorActionPreference = 'Stop'
@@ -397,6 +399,19 @@ if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
      $mdPath,
      (($md -join [Environment]::NewLine) + [Environment]::NewLine),
      [Text.UTF8Encoding]::new($false))
+if ($GuideComparisonEnabled) {
+    foreach ($comparisonArtifactName in @('scheduled-guide-comparison.json','scheduled-guide-comparison.md')) {
+        $comparisonArtifactPath = Join-Path $reportRoot $comparisonArtifactName
+        if ([IO.File]::Exists($comparisonArtifactPath)) { [IO.File]::Delete($comparisonArtifactPath) }
+    }
+    try {
+        $comparisonScript = Join-Path $PSScriptRoot 'Invoke-ChannelForgeScheduledGuideComparison.ps1'
+        & $comparisonScript -Root $rootFull -OutputRoot $reportRoot -EpgConfigPath $EpgConfigPath -CacheRoot $CacheRoot -SourceResultPath $jsonPath -PlaylistId $GuideComparisonPlaylistId -EvaluationTimeUtc $EvaluationTimeUtc | Out-Null
+    }
+    catch {
+        # Comparison evidence is independent of the validated source result.
+    }
+}
  [pscustomobject][ordered]@{
      JsonPath     = $jsonPath
      MarkdownPath = $mdPath

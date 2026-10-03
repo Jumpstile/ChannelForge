@@ -50,7 +50,15 @@ function Get-ChannelForgeScheduledOperationTaskIdentity {
 
 function Get-ChannelForgeScheduledOperationPolicyCanonical {
     param([Parameter(Mandatory)][object]$Policy)
-    [ordered]@{
+    $comparisonPolicy = $null
+    if ($Policy -is [System.Collections.IDictionary]) {
+        if ($Policy.Contains('GuideComparison')) { $comparisonPolicy = $Policy['GuideComparison'] }
+    }
+    elseif ($null -ne $Policy.PSObject.Properties['GuideComparison']) {
+        $comparisonPolicy = $Policy.GuideComparison
+    }
+    $comparisonEnabled = $null -ne $comparisonPolicy -and [bool]$comparisonPolicy.Enabled
+    $canonical = [ordered]@{
         SchemaVersion = 'scheduled-refresh-policy/v1'
         Enabled = [bool]$Policy.Enabled
         TimeZoneId = 'UTC'
@@ -82,7 +90,12 @@ function Get-ChannelForgeScheduledOperationPolicyCanonical {
             MaxRunRecords = [int]$Policy.Retention.MaxRunRecords
             MaxAgeDays = [int]$Policy.Retention.MaxAgeDays
         }
+        GuideComparison = [ordered]@{
+            Enabled = $comparisonEnabled
+            PlaylistId = if ($comparisonEnabled) { [string]$comparisonPolicy.PlaylistId } else { $null }
+        }
     }
+    return $canonical
 }
 
 function Get-ChannelForgeScheduledOperationPolicyInfo {
@@ -108,7 +121,12 @@ function Get-ChannelForgeScheduledOperationPolicyInfo {
     if (([int]$policy.StaleRunThresholdMinutes * 60) -lt ([int]$policy.HeartbeatIntervalSeconds * 2)) { throw 'PolicyStaleThresholdInvalid' }
     if ([int]$policy.Notification.RepeatedFailureEscalationAfterConsecutiveRuns -lt [int]$policy.Notification.DegradedWarningAfterConsecutiveRuns) { throw 'PolicyNotificationThresholdInvalid' }
     $canonical = Get-ChannelForgeScheduledOperationPolicyCanonical -Policy $policy
-    $canonicalJson = $canonical | ConvertTo-Json -Depth 10 -Compress
+    $digestCanonical = $canonical
+    if (-not [bool]$canonical.GuideComparison.Enabled) {
+        $digestCanonical = [ordered]@{}
+        foreach ($key in $canonical.Keys) { if ($key -cne 'GuideComparison') { $digestCanonical[$key] = $canonical[$key] } }
+    }
+    $canonicalJson = $digestCanonical | ConvertTo-Json -Depth 10 -Compress
     [pscustomobject][ordered]@{
         Path = $Path
         Raw = $policy

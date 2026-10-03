@@ -2,8 +2,21 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Rows,
-        [Parameter(Mandatory)][timespan]$NearTimeWindow
+        [Parameter(Mandatory)][timespan]$NearTimeWindow,
+        [Parameter(Mandatory)][datetimeoffset]$EvaluationTimeUtc,
+        [AllowEmptyCollection()][object[]]$ContextualProgrammeAliases = @()
     )
+
+    $contextualAliasesByKey = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
+    foreach ($alias in @($ContextualProgrammeAliases)) {
+        if ($null -eq $alias) { continue }
+        $key = [string]$alias.ContextKey
+        if ([string]::IsNullOrEmpty($key)) { continue }
+        if (-not $contextualAliasesByKey.ContainsKey($key)) {
+            $contextualAliasesByKey[$key] = [System.Collections.Generic.List[object]]::new()
+        }
+        $contextualAliasesByKey[$key].Add($alias)
+    }
 
     function Normalize-ProgrammeText {
         param([AllowNull()][object]$Value)
@@ -40,6 +53,69 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
         if ($null -eq $Value) { return $false }
         return ([string]$Value).Trim() -match '(?i)(?:Z|[+-]\d{2}:?\d{2})$'
     }
+    function Get-ContextualAliasSides {
+        param([Parameter(Mandatory)][object]$Left,[Parameter(Mandatory)][object]$Right)
+        $orderedRows = if ([string]::CompareOrdinal([string]$Left.ChannelId,[string]$Right.ChannelId) -lt 0) { @($Left,$Right) } else { @($Right,$Left) }
+        return @($orderedRows | ForEach-Object {
+            [pscustomobject][ordered]@{
+                ChannelId = [string]$_.ChannelId
+                Title = [string]$_.Title
+                Subtitle = if ($_.Subtitle) { [string]$_.Subtitle } else { $null }
+                EventStatus = if ($_.EventStatus) { [string]$_.EventStatus } else { $null }
+                ObservationId = [string]$_.ObservationId
+                SourceId = [string]$_.SourceId
+                SourceFamily = [string]$_.SourceFamily
+                SourceRelationship = [string]$_.SourceRelationship
+                EvidenceClass = [string]$_.EvidenceClass
+                ChannelReference = if ($_.ChannelReference) { [string]$_.ChannelReference } else { $null }
+                Description = if ($_.Description) { ConvertTo-ChannelForgeGuideSafeText -Value $_.Description -MaximumLength 512 } else { $null }
+                CategoryKeys = @($_.CategoryKeys)
+                Participants = @($_.Participants)
+                EpisodeNumber = if ($_.EpisodeNumber) { [string]$_.EpisodeNumber } else { $null }
+                Competition = if ($_.Competition) { [string]$_.Competition } else { $null }
+                StartUtc = $_.StartUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'",[Globalization.CultureInfo]::InvariantCulture)
+                StopUtc = $_.StopUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'",[Globalization.CultureInfo]::InvariantCulture)
+                SourceRecordReference = if ($_.SourceRecordReference) { [string]$_.SourceRecordReference } else { $null }
+                SourceDataTimeUtc = if ($_.SourceDataTimeUtc) { [string]$_.SourceDataTimeUtc } else { $null }
+                ObservationTimeUtc = if ($_.ObservationTimeUtc) { [string]$_.ObservationTimeUtc } else { $null }
+                FetchTimeUtc = if ($_.FetchTimeUtc) { [string]$_.FetchTimeUtc } else { $null }
+            }
+        })
+    }
+    function Get-ContextualAliasContextKey {
+        param([Parameter(Mandatory)][object[]]$Sides)
+        $projectionSides = @($Sides | ForEach-Object {
+            [ordered]@{
+                ChannelId = [string]$_.ChannelId
+                Title = Normalize-ProgrammeText $_.Title
+                Subtitle = Normalize-ProgrammeText $_.Subtitle
+                EventStatus = Normalize-ProgrammeText $_.EventStatus
+                CategoryKeys = @($_.CategoryKeys | ForEach-Object { Normalize-ProgrammeText $_ } | Where-Object { $_ } | Sort-Object -Unique)
+                Participants = @($_.Participants | ForEach-Object { Normalize-ProgrammeText $_ } | Where-Object { $_ } | Sort-Object -Unique)
+                EpisodeNumber = Normalize-ProgrammeText $_.EpisodeNumber
+                Competition = Normalize-ProgrammeText $_.Competition
+                StartUtc = $_.StartUtc
+                StopUtc = $_.StopUtc
+            }
+        })
+        return Get-ChannelForgeDomainHash -Domain 'contextual-programme-alias-context/v1' -InputObject ([ordered]@{ Sides = $projectionSides })
+    }
+
+    function Get-ContextualAliasMatch {
+        param([Parameter(Mandatory)][object]$Left,[Parameter(Mandatory)][object]$Right)
+        $sides = @(Get-ContextualAliasSides -Left $Left -Right $Right)
+        $key = Get-ContextualAliasContextKey -Sides $sides
+        if (-not $contextualAliasesByKey.ContainsKey($key)) { return $null }
+        $matches = $contextualAliasesByKey[$key]
+        if ($matches.Count -gt 1) { throw 'FAIL_CLOSED: duplicate contextual programme alias keys were supplied.' }
+        $alias = $matches[0]
+        if ([string]$alias.EntryId -cne $key -or [string]$alias.ScopeKind -cne 'Contextual') { throw 'FAIL_CLOSED: contextual programme alias identity is inconsistent.' }
+        if ([string]$alias.ApprovalStatus -notin @('Proposed','Probationary','Approved','Rejected','Revoked')) { throw 'FAIL_CLOSED: contextual programme alias status is invalid.' }
+        $from = if ($alias.EffectiveFromUtc) { [datetimeoffset]$alias.EffectiveFromUtc } else { [datetimeoffset]::MinValue }
+        $to = if ($alias.EffectiveToUtc) { [datetimeoffset]$alias.EffectiveToUtc } else { [datetimeoffset]::MaxValue }
+        if ($EvaluationTimeUtc.ToUniversalTime() -lt $from -or $EvaluationTimeUtc.ToUniversalTime() -ge $to) { return $null }
+        return $alias
+    }
 
 
     function Get-ProgrammeCandidate {
@@ -66,7 +142,8 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
         $leftReplay = $leftStatus -match 'replay|repeat|rerun'
         $rightReplay = $rightStatus -match 'replay|repeat|rerun'
         if (($leftLive -and $rightReplay) -or ($rightLive -and $leftReplay)) { return $null }
-
+        $contextualAlias = Get-ContextualAliasMatch -Left $Left -Right $Right
+        if ($null -ne $contextualAlias -and $contextualAlias.ApprovalStatus -eq 'Rejected') { return [pscustomobject]@{ Left = $Left; Right = $Right; RejectedAliasContext = $contextualAlias } }
         $similarity = Get-ProgrammeTitleSimilarity -Left $Left.Title -Right $Right.Title
         $basis = [System.Collections.Generic.List[string]]::new()
         $score = 0
@@ -107,26 +184,40 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
             $matchingDescription -or $lowTitleStrongContext -or
             ($similarity -ge 0.98 -and $movieCategory -and $startShift -le 3)
         if (-not $strongEvidence -or $score -lt 70) { return $null }
-
+        if ($null -ne $contextualAlias -and $contextualAlias.ApprovalStatus -eq 'Approved') { $score += 10; [void]$basis.Add('ApprovedContextualAlias') }
+        elseif ($null -ne $contextualAlias -and $contextualAlias.ApprovalStatus -eq 'Probationary') { $score += 5; [void]$basis.Add('ProbationaryContextualAlias') }
         return [pscustomobject][ordered]@{
             Left = $Left
             Right = $Right
             ConfidenceScore = [Math]::Min(100, $score)
             TitleSimilarity = $similarity
             FreshForLearning = $freshForLearning
+            ContextualAlias = $contextualAlias
             Basis = @($basis | Sort-Object -Unique)
         }
     }
 
     $orderedRows = @($Rows | Where-Object { $null -ne $_.StartUtc -and $null -ne $_.StopUtc } | Sort-Object @{Expression={$_.StartUtc}}, @{Expression={$_.StopUtc}}, @{Expression={$_.ObservationId}})
     $edges = [System.Collections.Generic.List[object]]::new()
+    $candidateCount = 0
+    $rejectedAliases = [System.Collections.Generic.List[object]]::new()
     for ($leftIndex = 0; $leftIndex -lt $orderedRows.Count; $leftIndex++) {
         $left = $orderedRows[$leftIndex]
         for ($rightIndex = $leftIndex + 1; $rightIndex -lt $orderedRows.Count; $rightIndex++) {
             $right = $orderedRows[$rightIndex]
             if ($right.StartUtc -gt ($left.StopUtc + $NearTimeWindow)) { break }
             $candidate = Get-ProgrammeCandidate -Left $left -Right $right
-            if ($null -ne $candidate) { [void]$edges.Add($candidate) }
+            if ($null -ne $candidate) {
+                if ($candidateCount -ge 256) { throw 'ComparisonCandidateLimitExceeded: cross-channel candidate limit exceeded.' }
+                $candidateCount++
+                if ($candidate.PSObject.Properties['RejectedAliasContext']) {
+                    $pairIds = @(@($left.ObservationId,$right.ObservationId) | Sort-Object -Unique)
+                    $channelIds = @(@($left.ChannelId,$right.ChannelId) | Sort-Object -Unique)
+                    $titles = @(@($left.Title,$right.Title) | Sort-Object -Unique)
+                    $sourceIds = @(@($left.SourceId,$right.SourceId) | Sort-Object -Unique)
+                    [void]$rejectedAliases.Add([pscustomobject][ordered]@{ EntryId = [string]$candidate.RejectedAliasContext.EntryId; ContextKey = [string]$candidate.RejectedAliasContext.ContextKey; ObservationIds = $pairIds; SourceIds = $sourceIds; ChannelIds = $channelIds; Titles = $titles })
+                } else { [void]$edges.Add($candidate) }
+            }
         }
     }
 
@@ -187,24 +278,29 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
             Provenance = $provenance
             TimeEvidence = $timeEvidence
         }) | Out-Null
-        if (-not $ambiguous -and $edge.FreshForLearning -and $edge.TitleSimilarity -lt 0.98) {
+        if (-not $ambiguous -and $edge.FreshForLearning -and $edge.TitleSimilarity -lt 0.98 -and ($null -eq $edge.ContextualAlias -or $edge.ContextualAlias.ApprovalStatus -eq 'Proposed')) {
+            $sides = @(Get-ContextualAliasSides -Left $edge.Left -Right $edge.Right)
+            $contextKey = Get-ContextualAliasContextKey -Sides $sides
+            if ($null -eq $edge.ContextualAlias -and $contextualAliasesByKey.ContainsKey($contextKey)) { continue }
             $aliasProjection = [ordered]@{
-                Version = 1
-                Titles = @(@($edge.Left.Title, $edge.Right.Title) | Sort-Object -Unique)
-                ChannelIds = @(@($edge.Left.ChannelId, $edge.Right.ChannelId) | Sort-Object -Unique)
-                CategoryKeys = @(@($edge.Left.CategoryKeys) + @($edge.Right.CategoryKeys) | Where-Object { $_ } | Sort-Object -Unique)
-                Participants = @(@($edge.Left.Participants) + @($edge.Right.Participants) | Where-Object { $_ } | Sort-Object -Unique)
-                EpisodeNumber = if ($edge.Left.EpisodeNumber) { $edge.Left.EpisodeNumber } else { $edge.Right.EpisodeNumber }
-                Competition = Normalize-ProgrammeText $(if ($edge.Left.Competition) { $edge.Left.Competition } else { $edge.Right.Competition })
+                Titles = @($sides | ForEach-Object Title | Sort-Object -Unique)
+                ChannelIds = @($sides | ForEach-Object ChannelId | Sort-Object -Unique)
+                CategoryKeys = @($sides | ForEach-Object CategoryKeys | Sort-Object -Unique)
+                Participants = @($sides | ForEach-Object Participants | Sort-Object -Unique)
+                EpisodeNumbers = @($sides | ForEach-Object EpisodeNumber | Where-Object { $_ } | Sort-Object -Unique)
+                Competitions = @($sides | ForEach-Object Competition | Where-Object { $_ } | Sort-Object -Unique)
             }
-            $aliasId = Get-ChannelForgeDomainHash -Domain 'contextual-programme-alias/v1' -InputObject $aliasProjection
             $observedTimes = @(@($edge.Left.ObservationTimeUtc, $edge.Right.ObservationTimeUtc) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object)
             $sourceDataTimes = @(@($edge.Left.SourceDataTimeUtc, $edge.Right.SourceDataTimeUtc) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object)
+            $evidenceRecord = [pscustomobject][ordered]@{ ObservationIds = $observationIds; Sides = $sides; ConfidenceScore = $edge.ConfidenceScore; CorrelationBasis = $edge.Basis }
             $aliases.Add([pscustomobject][ordered]@{
-                AliasId = $aliasId
-                Version = 1
+                AliasId = $contextKey
+                ContextKey = $contextKey
+                Version = 2
                 Status = 'Proposed'
+                ApprovalStatus = 'Proposed'
                 ApprovalState = 'Pending'
+                ScopeKind = 'Contextual'
                 EvidenceCount = $observationIds.Count
                 FirstSeenAtUtc = if ($observedTimes.Count -gt 0) { $observedTimes[0] } else { $null }
                 LastSeenAtUtc = if ($observedTimes.Count -gt 0) { $observedTimes[$observedTimes.Count - 1] } else { $null }
@@ -212,16 +308,19 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
                 LastSourceDataTimeUtc = if ($sourceDataTimes.Count -gt 0) { $sourceDataTimes[$sourceDataTimes.Count - 1] } else { $null }
                 CanonicalTitle = $null
                 Aliases = $aliasProjection.Titles
+                Sides = $sides
+                EvidenceRecords = @($evidenceRecord)
                 Context = [ordered]@{
                     ChannelIds = $aliasProjection.ChannelIds
                     CategoryKeys = $aliasProjection.CategoryKeys
                     Participants = $aliasProjection.Participants
-                    EpisodeNumber = $aliasProjection.EpisodeNumber
-                    Competition = if ($edge.Left.Competition) { $edge.Left.Competition } else { $edge.Right.Competition }
-                    EffectiveStartUtc = if ($edge.Left.StartUtc -le $edge.Right.StartUtc) { $edge.Left.StartUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) } else { $edge.Right.StartUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) }
-                    EffectiveStopUtc = if ($edge.Left.StopUtc -ge $edge.Right.StopUtc) { $edge.Left.StopUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) } else { $edge.Right.StopUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) }
+                    EpisodeNumbers = $aliasProjection.EpisodeNumbers
+                    Competitions = $aliasProjection.Competitions
+                    EventStartUtc = @($sides | Sort-Object StartUtc | Select-Object -First 1).StartUtc
+                    EventStopUtc = @($sides | Sort-Object StopUtc -Descending | Select-Object -First 1).StopUtc
                 }
                 ConfidenceScore = $edge.ConfidenceScore
+                CorrelationBasis = $edge.Basis
                 EvidenceObservationIds = $observationIds
                 Provenance = $provenance
                 Reversible = $true
@@ -235,5 +334,6 @@ function Get-ChannelForgeCrossChannelProgrammeCorrelation {
     return [pscustomobject][ordered]@{
         Correlations = @($correlations | Sort-Object CorrelationId)
         ContextualAliasProposals = @($aliases | Sort-Object AliasId)
+        RejectedAliasMatches = @($rejectedAliases | Sort-Object EntryId, ContextKey, @{Expression={ $_.ObservationIds -join '|' }})
     }
 }

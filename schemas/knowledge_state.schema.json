@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/knowledge_state.schema.json",
+  "title": "ChannelForge Identity and Matching knowledge state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["Version", "Revision", "Entries", "AuditTrail", "StateHash"],
+  "properties": {
+    "Version": { "const": "knowledge-state/v1" },
+    "Revision": { "type": "integer", "minimum": 0 },
+    "Entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
+    "AuditTrail": { "type": "array", "items": { "$ref": "#/$defs/audit" } },
+    "StateHash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["EntryId", "Kind", "ApprovalStatus", "ScopeKind", "Reason", "ObservationIds", "FirstSeenAtUtc", "LastSeenAtUtc", "EffectiveFromUtc", "EffectiveToUtc", "Revision", "History"],
+      "properties": {
+        "EntryId": { "$ref": "#/$defs/hash" },
+        "Kind": { "enum": ["ProgrammeAlias", "ChannelIdentity", "ChannelBinding"] },
+        "ApprovalStatus": { "enum": ["Proposed", "Probationary", "Approved", "Rejected", "Revoked"] },
+        "ScopeKind": { "enum": ["ExplicitIdentity", "SourceScoped", "Contextual"] },
+        "Reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "ObservationIds": { "type": "array", "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true },
+        "EvidenceCount": { "type": "integer", "minimum": 0 },
+        "ConfidenceScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "FirstSeenAtUtc": { "$ref": "#/$defs/timestamp" },
+        "LastSeenAtUtc": { "$ref": "#/$defs/timestamp" },
+        "EffectiveFromUtc": { "type": ["string", "null"], "format": "date-time" },
+        "EffectiveToUtc": { "type": ["string", "null"], "format": "date-time" },
+        "Revision": { "type": "integer", "minimum": 1 },
+        "History": { "type": "array", "items": { "$ref": "#/$defs/transition" } },
+        "ChannelId": { "$ref": "#/$defs/id" },
+        "PlaylistId": { "$ref": "#/$defs/id" },
+        "SourceId": { "$ref": "#/$defs/id" },
+        "SourceChannelReference": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+        "ContextKey": { "$ref": "#/$defs/hash" },
+        "Sides": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/side" } },
+        "EvidenceRecords": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidencePair" } },
+        "Context": { "$ref": "#/$defs/context" }
+      },
+      "allOf": [
+        { "if": { "properties": { "Kind": { "const": "ChannelIdentity" } }, "required": ["Kind"] }, "then": { "required": ["ChannelId"], "properties": { "ScopeKind": { "const": "ExplicitIdentity" }, "ApprovalStatus": { "enum": ["Approved", "Revoked"] } } } },
+        { "if": { "properties": { "Kind": { "const": "ChannelBinding" } }, "required": ["Kind"] }, "then": { "required": ["ChannelId", "PlaylistId", "SourceId", "SourceChannelReference"], "properties": { "ScopeKind": { "const": "SourceScoped" }, "ApprovalStatus": { "enum": ["Proposed", "Approved", "Rejected", "Revoked"] } } } },
+        { "if": { "properties": { "Kind": { "const": "ProgrammeAlias" } }, "required": ["Kind"] }, "then": { "required": ["ContextKey", "Sides", "EvidenceRecords", "Context", "ConfidenceScore"], "properties": { "ScopeKind": { "const": "Contextual" } } } }
+      ]
+    },
+    "side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ChannelId", "Title", "Subtitle", "EventStatus", "ObservationId", "SourceId", "SourceFamily", "SourceRelationship", "EvidenceClass", "ChannelReference", "CategoryKeys", "Participants", "EpisodeNumber", "Competition", "StartUtc", "StopUtc", "SourceRecordReference", "SourceDataTimeUtc", "ObservationTimeUtc", "FetchTimeUtc"],
+      "properties": {
+        "ChannelId": { "$ref": "#/$defs/id" },
+        "Title": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "Subtitle": { "type": ["string", "null"], "maxLength": 512 },
+        "EventStatus": { "type": ["string", "null"], "maxLength": 128 },
+        "ObservationId": { "$ref": "#/$defs/hash" },
+        "SourceId": { "$ref": "#/$defs/id" },
+        "SourceFamily": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "SourceRelationship": { "enum": ["Authoritative", "Independent", "Mirror", "Unknown"] },
+        "EvidenceClass": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ChannelReference": { "type": ["string", "null"], "maxLength": 256 },
+        "CategoryKeys": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "Participants": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "EpisodeNumber": { "type": ["string", "null"] },
+        "Competition": { "type": ["string", "null"] },
+        "StartUtc": { "$ref": "#/$defs/timestamp" },
+        "StopUtc": { "$ref": "#/$defs/timestamp" },
+        "SourceRecordReference": { "type": ["string", "null"], "maxLength": 256 },
+        "Description": { "type": ["string", "null"], "maxLength": 512 },
+        "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+        "ObservationTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+        "FetchTimeUtc": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "evidencePair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ObservationIds", "Sides", "ConfidenceScore", "CorrelationBasis"],
+      "properties": {
+        "ObservationIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/hash" }, "uniqueItems": true },
+        "Sides": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/side" } },
+        "ConfidenceScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "CorrelationBasis": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["EventStartUtc", "EventStopUtc"],
+      "properties": {
+        "EventStartUtc": { "$ref": "#/$defs/timestamp" },
+        "EventStopUtc": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Revision", "Action", "AtUtc", "Reason", "PreviousStatus", "ApprovalStatus"],
+      "properties": {
+        "Revision": { "type": "integer", "minimum": 1 },
+        "OriginRevision": { "type": "integer", "minimum": 0 },
+        "OriginStateHash": { "$ref": "#/$defs/hash" },
+        "Action": { "enum": ["Register", "Bind", "Propose", "Observe", "MarkProbationary", "Approve", "Reject", "Revoke", "Restore", "Import"] },
+        "AtUtc": { "$ref": "#/$defs/timestamp" },
+        "Reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "PreviousStatus": { "type": ["string", "null"] },
+        "ApprovalStatus": { "enum": ["Proposed", "Probationary", "Approved", "Rejected", "Revoked"] }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Revision", "EntryId", "Action", "AtUtc", "Reason", "PreviousStatus", "ApprovalStatus"],
+      "properties": {
+        "Revision": { "type": "integer", "minimum": 1 },
+        "OriginRevision": { "type": "integer", "minimum": 0 },
+        "OriginStateHash": { "$ref": "#/$defs/hash" },
+        "EntryId": { "$ref": "#/$defs/hash" },
+        "Action": { "enum": ["Register", "Bind", "Propose", "Observe", "MarkProbationary", "Approve", "Reject", "Revoke", "Restore", "Import"] },
+        "AtUtc": { "$ref": "#/$defs/timestamp" },
+        "Reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "PreviousStatus": { "type": ["string", "null"] },
+        "ApprovalStatus": { "enum": ["Proposed", "Probationary", "Approved", "Rejected", "Revoked"] }
+      }
+    }
+  }
+}

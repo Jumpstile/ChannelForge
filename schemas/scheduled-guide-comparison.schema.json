@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/scheduled-guide-comparison.schema.json",
+  "title": "ChannelForge scheduled guide comparison report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["SchemaVersion", "Status", "PlaylistId", "EvaluationTimeUtc", "SourceResultDigest", "KnowledgeStateRevision", "SourceAssessments", "ObservationCount", "UnresolvedReferenceCount", "UnresolvedReasonCounts", "UnresolvedReferences", "Comparer", "KnowledgeChangePlan", "FailureCode"],
+  "properties": {
+    "SchemaVersion": { "const": "scheduled-guide-comparison/v1" },
+    "Status": { "enum": ["SUCCEEDED", "FAILED"] },
+    "PlaylistId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "EvaluationTimeUtc": { "type": "string", "format": "date-time" },
+    "SourceResultDigest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "KnowledgeStateRevision": { "type": ["integer", "null"], "minimum": 0 },
+    "SourceAssessments": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["Name", "Kind", "SourceId", "GateStatus", "ReasonCode"], "properties": { "Name": { "type": "string" }, "Kind": { "enum": ["local", "remote"] }, "SourceId": { "type": "string", "pattern": "^source-[0-9a-f]{16}$" }, "GateStatus": { "enum": ["Included", "Excluded"] }, "ReasonCode": { "type": "string" } } } },
+    "ObservationCount": { "type": "integer", "minimum": 0 },
+    "UnresolvedReferenceCount": { "type": "integer", "minimum": 0 },
+    "UnresolvedReasonCounts": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["Reason", "Count"], "properties": { "Reason": { "type": "string" }, "Count": { "type": "integer", "minimum": 1 } } } },
+    "UnresolvedReferences": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["SourceId", "RawReference", "Reason"], "properties": { "SourceId": { "type": "string", "pattern": "^source-[0-9a-f]{16}$" }, "RawReference": { "type": ["string", "null"], "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" }, "Reason": { "type": "string" } } } },
+    "Comparer": { "type": ["object", "null"] },
+    "KnowledgeChangePlan": { "type": ["object", "null"] },
+    "FailureCode": { "type": "string" }
+  },
+  "allOf": [
+    { "if": { "properties": { "Status": { "const": "SUCCEEDED" } }, "required": ["Status"] }, "then": { "properties": { "SourceResultDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "KnowledgeStateRevision": { "type": "integer" }, "Comparer": { "type": "object" }, "FailureCode": { "const": "None" } } }, "else": { "properties": { "FailureCode": { "const": "ComparisonFailed" } } } }
+  ]
+}

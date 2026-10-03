@@ -4,6 +4,7 @@ BeforeAll {
     $script:PolicySchema = Join-Path $script:Root 'schemas/scheduled-refresh-policy.schema.json'
     $script:PlanSchema = Join-Path $script:Root 'schemas/scheduled-refresh-plan.schema.json'
     $script:ResultSchema = Join-Path $script:Root 'schemas/source-refresh-result.schema.json'
+    $script:ComparisonSchema = Join-Path $script:Root 'schemas/scheduled-guide-comparison.schema.json'
 
     function New-SourceRow {
         param(
@@ -136,6 +137,52 @@ Describe 'scheduled refresh policy and plan schemas' {
     It 'accepts the tracked policy example' {
         Test-Json -Path (Join-Path $script:Root 'config/scheduled-refresh.example.json') -SchemaFile $script:PolicySchema | Should -BeTrue
     }
+    It 'accepts disabled contextual guide comparison and requires an explicit playlist when enabled' {
+        $disabled = New-Policy
+        $disabled.GuideComparison = [ordered]@{ Enabled = $false }
+        Save-Json -Value $disabled -Path (Join-Path $TestDrive 'disabled-policy.json')
+        Test-Json -Path (Join-Path $TestDrive 'disabled-policy.json') -SchemaFile $script:PolicySchema | Should -BeTrue
+
+        $enabledWithoutPlaylist = New-Policy
+        $enabledWithoutPlaylist.GuideComparison = [ordered]@{ Enabled = $true }
+        Save-Json -Value $enabledWithoutPlaylist -Path (Join-Path $TestDrive 'missing-playlist-policy.json')
+        Test-Json -Path (Join-Path $TestDrive 'missing-playlist-policy.json') -SchemaFile $script:PolicySchema | Should -BeFalse
+
+        $enabledUnsafePlaylist = New-Policy
+        $enabledUnsafePlaylist.GuideComparison = [ordered]@{ Enabled = $true; PlaylistId = '../unsafe' }
+        Save-Json -Value $enabledUnsafePlaylist -Path (Join-Path $TestDrive 'unsafe-playlist-policy.json')
+        $enabledSafePlaylist = New-Policy
+        $enabledSafePlaylist.GuideComparison = [ordered]@{ Enabled = $true; PlaylistId = 'primary.playlist:1' }
+        Save-Json -Value $enabledSafePlaylist -Path (Join-Path $TestDrive 'safe-playlist-policy.json')
+        Test-Json -Path (Join-Path $TestDrive 'safe-playlist-policy.json') -SchemaFile $script:PolicySchema | Should -BeTrue
+        Test-Json -Path (Join-Path $TestDrive 'unsafe-playlist-policy.json') -SchemaFile $script:PolicySchema | Should -BeFalse
+    }
+    It 'validates a closed scheduled guide comparison report' {
+        $report = [ordered]@{
+            SchemaVersion = 'scheduled-guide-comparison/v1'
+            Status = 'SUCCEEDED'
+            PlaylistId = 'main-playlist'
+            EvaluationTimeUtc = '2026-01-01T00:00:00Z'
+            SourceResultDigest = ('a' * 64)
+            KnowledgeStateRevision = 0
+            SourceAssessments = @()
+            ObservationCount = 0
+            UnresolvedReferenceCount = 0
+            UnresolvedReasonCounts = @()
+            UnresolvedReferences = @()
+            Comparer = [ordered]@{}
+            KnowledgeChangePlan = $null
+            FailureCode = 'None'
+        }
+        $path = Join-Path $TestDrive 'scheduled-guide-comparison.json'
+        Save-Json -Value $report -Path $path
+        Test-Json -Path $path -SchemaFile $script:ComparisonSchema | Should -BeTrue
+        $report.Unexpected = $true
+        Save-Json -Value $report -Path $path
+        Test-Json -Path $path -SchemaFile $script:ComparisonSchema | Should -BeFalse
+    }
+
+
 
     It 'rejects an overnight policy window' {
         $script:Project = Join-Path $TestDrive 'overnight'
@@ -187,6 +234,26 @@ Describe 'report-only scheduled refresh planner' {
         Assert-PlanSchema
         $plan.PolicyEnabled | Should -BeTrue
     }
+    It 'includes enabled comparison settings in the policy digest while preserving disabled legacy digests' {
+        Save-Inputs
+        $legacy = Invoke-Planner
+
+        $script:Policy.GuideComparison = [ordered]@{ Enabled = $false }
+        Save-Inputs
+        $disabled = Invoke-Planner
+        $disabled.PolicyDigest | Should -Be $legacy.PolicyDigest
+
+        $script:Policy.GuideComparison = [ordered]@{ Enabled = $true; PlaylistId = 'playlist-one' }
+        Save-Inputs
+        $firstEnabled = Invoke-Planner
+        $firstEnabled.PolicyDigest | Should -Not -Be $legacy.PolicyDigest
+
+        $script:Policy.GuideComparison.PlaylistId = 'playlist-two'
+        Save-Inputs
+        $secondEnabled = Invoke-Planner
+        $secondEnabled.PolicyDigest | Should -Not -Be $firstEnabled.PolicyDigest
+    }
+
 
     It 'rejects an invalid v2 schema version and emits an interrupt plan' {
         Save-Inputs -SchemaVersion 'source-refresh-result/v9'

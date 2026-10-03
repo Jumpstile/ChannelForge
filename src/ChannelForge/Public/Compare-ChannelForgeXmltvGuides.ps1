@@ -10,12 +10,14 @@ function Compare-ChannelForgeXmltvGuides {
         [timespan]$NearTimeWindow = ([timespan]::FromMinutes(15)),
         [AllowEmptyCollection()][object[]]$ExpectedCoverageWindows = @(),
         [AllowEmptyCollection()][object[]]$DurableChannelBindings = @(),
-        [AllowEmptyCollection()][object[]]$AcceptedKnowledge = @()
+        [AllowEmptyCollection()][object[]]$AcceptedKnowledge = @(),
+        [AllowEmptyCollection()][object[]]$ContextualProgrammeAliases = @()
     )
 
     $contractVersion = 'ChannelForgeExternalEvidenceObservation/v1'
     $safeIdentifierPattern = '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
-    $generatedReportIdentifierProperties = @('ObservationId', 'ObservationIds', 'FindingId', 'CorrelationId', 'AliasId', 'EvidenceObservationIds', 'InputArtifactFingerprint')
+    $generatedReportIdentifierProperties = @('ObservationId', 'ObservationIds', 'FindingId', 'CorrelationId', 'AliasId', 'ContextKey', 'EvidenceObservationIds', 'InputArtifactFingerprint')
+    if ($Observations.Count -gt 256) { throw 'ComparisonObservationLimitExceeded: at most 256 observations may be compared per call.' }
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
     $observedRows = [System.Collections.Generic.List[object]]::new()
     $unboundRows = [System.Collections.Generic.List[object]]::new()
@@ -454,7 +456,7 @@ function Compare-ChannelForgeXmltvGuides {
         }
         [void]$observedRows.Add($row)
     }
-    $crossChannelAssessment = Get-ChannelForgeCrossChannelProgrammeCorrelation -Rows @($observedRows.ToArray()) -NearTimeWindow $NearTimeWindow
+    $crossChannelAssessment = Get-ChannelForgeCrossChannelProgrammeCorrelation -Rows @($observedRows.ToArray()) -NearTimeWindow $NearTimeWindow -EvaluationTimeUtc $evaluation -ContextualProgrammeAliases $ContextualProgrammeAliases
 
     foreach ($candidate in @($crossChannelAssessment.Correlations | Where-Object ReviewRequired)) {
         Add-ComparisonFinding -Kind 'AmbiguousCrossChannelProgrammeCorrelation' -Status 'NeedsReview' -SourceIds $candidate.SourceIds -ObservationIds $candidate.ObservationIds -Details ([ordered]@{
@@ -466,13 +468,26 @@ function Compare-ChannelForgeXmltvGuides {
             CanMerge = $false
         })
     }
+    foreach ($rejected in @($crossChannelAssessment.RejectedAliasMatches)) {
+        Add-ComparisonFinding -Kind 'RejectedContextualProgrammeAliasMatch' -Status 'NeedsReview' -SourceIds $rejected.SourceIds -ObservationIds $rejected.ObservationIds -Details ([ordered]@{
+            EntryId = $rejected.EntryId
+            ContextKey = $rejected.ContextKey
+            ChannelIds = $rejected.ChannelIds
+            Titles = $rejected.Titles
+            IndependentCorrelation = $false
+            WinnerSelected = $false
+        })
+    }
 
 
     $candidateEdges = [System.Collections.Generic.List[object]]::new()
     for ($leftIndex = 0; $leftIndex -lt $observedRows.Count; $leftIndex++) {
         for ($rightIndex = $leftIndex + 1; $rightIndex -lt $observedRows.Count; $rightIndex++) {
             $candidate = Get-CorrelationCandidate -Left $observedRows[$leftIndex] -Right $observedRows[$rightIndex]
-            if ($null -ne $candidate) { [void]$candidateEdges.Add($candidate) }
+            if ($null -ne $candidate) {
+                if ($candidateEdges.Count -ge 256) { throw 'ComparisonCandidateLimitExceeded: at most 256 correlation candidates may be evaluated per call.' }
+                [void]$candidateEdges.Add($candidate)
+            }
         }
     }
 
@@ -792,6 +807,7 @@ function Compare-ChannelForgeXmltvGuides {
             CorrelationCount = $orderedCorrelations.Count
             CrossChannelCorrelationCount = @($crossChannelAssessment.Correlations).Count
             ContextualAliasProposalCount = @($crossChannelAssessment.ContextualAliasProposals).Count
+            RejectedAliasMatchCount = @($crossChannelAssessment.RejectedAliasMatches).Count
             ChannelEvidenceProfileCount = $channelProfiles.Count
             EnrichmentCandidateCount = $enrichmentCandidates.Count
             ContradictionCount = @($orderedFindings | Where-Object Status -eq 'Contradiction').Count
@@ -801,6 +817,7 @@ function Compare-ChannelForgeXmltvGuides {
         }
         CrossChannelCorrelations = @($crossChannelAssessment.Correlations)
         ContextualAliasProposals = @($crossChannelAssessment.ContextualAliasProposals)
+        RejectedAliasMatches = @($crossChannelAssessment.RejectedAliasMatches)
         ChannelEvidenceProfiles = @($channelProfiles.ToArray() | Sort-Object ChannelId)
         EnrichmentCandidates = @($enrichmentCandidates.ToArray() | Sort-Object ChannelId, Kind, @{Expression={ $_.ExpectedWindows[0].StartUtc }})
         Correlations = $orderedCorrelations
@@ -826,6 +843,7 @@ function Compare-ChannelForgeXmltvGuides {
         ('**Same-channel correlations:** {0}' -f $report.Summary.CorrelationCount),
         ('**Cross-channel candidates:** {0}' -f $report.Summary.CrossChannelCorrelationCount),
         ('**Contextual alias proposals (not accepted):** {0}' -f $report.Summary.ContextualAliasProposalCount),
+        ('**Rejected contextual alias matches:** {0}' -f $report.Summary.RejectedAliasMatchCount),
         ('**Channel evidence profiles:** {0}' -f $report.Summary.ChannelEvidenceProfileCount),
         ('**Enrichment candidates (fetch disabled):** {0}' -f $report.Summary.EnrichmentCandidateCount),
         ('**Findings:** {0}' -f $report.Summary.FindingCount),

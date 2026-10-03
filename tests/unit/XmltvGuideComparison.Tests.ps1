@@ -283,8 +283,8 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
     }
 
     It 'correlates differently named cross-channel events and proposes reversible contextual aliases' {
-        $left = New-TestObservation -SourceId 'guide-a' -Title 'Championship: Alpha vs Beta' -StartUtc '2026-01-01T08:00:00-05:00' -StopUtc '2026-01-01T09:00:00-05:00' -Participants @('Alpha', 'Beta') -Competition 'Regional Final' -Category 'Wrestling'
-        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha v Beta Championship' -StartUtc '2026-01-01T13:02:00Z' -StopUtc '2026-01-01T14:02:00Z' -Participants @('Beta', 'Alpha') -Competition 'Regional Final' -Category 'Wrestling'
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Championship: Alpha vs Beta' -StartUtc '2026-01-01T08:00:00-05:00' -StopUtc '2026-01-01T09:00:00-05:00' -Participants @('Alpha', 'Beta') -Competition 'Regional Final' -Category 'Wrestling' -Description 'Regional championship featuring Alpha and Beta.'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha v Beta Championship' -StartUtc '2026-01-01T13:02:00Z' -StopUtc '2026-01-01T14:02:00Z' -Participants @('Beta', 'Alpha') -Competition 'Regional Final' -Category 'Wrestling' -Description 'Regional championship featuring Alpha and Beta.'
         $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
         $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
         $reversed = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($right, $left) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
@@ -305,10 +305,83 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
         $report.ContextualAliasProposals[0].Accepted | Should -BeFalse
         $proposal = $report.ContextualAliasProposals[0]
         $proposal.EvidenceCount | Should -Be 2
+        @($proposal.EvidenceRecords[0].Sides.Description | Where-Object { $_ -eq 'Regional championship featuring Alpha and Beta.' }).Count | Should -Be 2
         $proposal.ApprovalState | Should -Be 'Pending'
         $proposal.FirstSeenAtUtc | Should -Be '2026-01-01T11:45:00Z'
         $proposal.LastSeenAtUtc | Should -Be '2026-01-01T11:45:00Z'
     }
+    It 'uses approved contextual aliases only for their exact airing context' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Alpha Beta Championship Final' -StartUtc '2026-01-01T08:00:00Z' -StopUtc '2026-01-01T09:00:00Z' -Participants @('Alpha', 'Beta') -Subtitle 'Quarterfinal 1' -EventStatus 'Live'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha Beta Championship' -StartUtc '2026-01-01T08:10:00Z' -StopUtc '2026-01-01T09:10:00Z' -Participants @('Beta', 'Alpha') -Subtitle 'Quarterfinal 1' -EventStatus 'Live'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $baseline = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $proposal = $baseline.ContextualAliasProposals[0]
+        $approved = [pscustomobject]@{
+            EntryId = $proposal.AliasId
+            ContextKey = $proposal.ContextKey
+            ScopeKind = 'Contextual'
+            ApprovalStatus = 'Approved'
+            EffectiveFromUtc = '2026-01-01T00:00:00Z'
+            EffectiveToUtc = $null
+        }
+        $withAlias = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings -ContextualProgrammeAliases @($approved)
+
+        $withAlias.CrossChannelCorrelations.Count | Should -Be 1
+        $withAlias.CrossChannelCorrelations[0].ConfidenceScore | Should -Be ($baseline.CrossChannelCorrelations[0].ConfidenceScore + 10)
+        $withAlias.CrossChannelCorrelations[0].CorrelationBasis | Should -Contain 'ApprovedContextualAlias'
+        $withAlias.ContextualAliasProposals.Count | Should -Be 0
+
+        $changedLeft = New-TestObservation -SourceId 'guide-a' -Title 'Alpha Beta Championship Final' -StartUtc '2026-01-01T08:00:00Z' -StopUtc '2026-01-01T09:00:00Z' -Participants @('Alpha', 'Beta') -Subtitle 'Semifinal 2' -EventStatus 'Replay'
+        $changedRight = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha Beta Championship' -StartUtc '2026-01-01T08:10:00Z' -StopUtc '2026-01-01T09:10:00Z' -Participants @('Beta', 'Alpha') -Subtitle 'Semifinal 2' -EventStatus 'Replay'
+        $changed = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($changedLeft, $changedRight) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings -ContextualProgrammeAliases @($approved)
+
+        $changed.CrossChannelCorrelations.Count | Should -Be 1
+        $changed.CrossChannelCorrelations[0].CorrelationBasis | Should -Not -Contain 'ApprovedContextualAlias'
+        $changed.ContextualAliasProposals.Count | Should -Be 1
+        $changed.ContextualAliasProposals[0].ContextKey | Should -Not -Be $proposal.ContextKey
+    }
+    It 'does not repropose an existing alias context outside its effective interval' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Alpha Beta Championship Final' -StartUtc '2026-01-01T08:00:00Z' -StopUtc '2026-01-01T09:00:00Z' -Participants @('Alpha', 'Beta') -Subtitle 'Quarterfinal 1' -EventStatus 'Live'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha Beta Championship' -StartUtc '2026-01-01T08:10:00Z' -StopUtc '2026-01-01T09:10:00Z' -Participants @('Beta', 'Alpha') -Subtitle 'Quarterfinal 1' -EventStatus 'Live'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $baseline = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $expired = [pscustomobject]@{
+            EntryId = $baseline.ContextualAliasProposals[0].ContextKey
+            ContextKey = $baseline.ContextualAliasProposals[0].ContextKey
+            ScopeKind = 'Contextual'
+            ApprovalStatus = 'Approved'
+            EffectiveFromUtc = '2025-01-01T00:00:00Z'
+            EffectiveToUtc = '2025-12-31T00:00:00Z'
+        }
+
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings -ContextualProgrammeAliases @($expired)
+
+        $report.CrossChannelCorrelations.Count | Should -Be 1
+        $report.ContextualAliasProposals.Count | Should -Be 0
+    }
+
+    It 'keeps a rejected exact context visible without proposing or correlating it' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Championship: Alpha vs Beta' -StartUtc '2026-01-01T08:00:00Z' -StopUtc '2026-01-01T09:00:00Z' -Participants @('Alpha', 'Beta') -Competition 'Regional Final'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha v Beta Championship' -StartUtc '2026-01-01T08:02:00Z' -StopUtc '2026-01-01T09:02:00Z' -Participants @('Beta', 'Alpha') -Competition 'Regional Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $baseline = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $proposal = $baseline.ContextualAliasProposals[0]
+        $rejected = [pscustomobject]@{
+            EntryId = $proposal.AliasId
+            ContextKey = $proposal.ContextKey
+            ScopeKind = 'Contextual'
+            ApprovalStatus = 'Rejected'
+            EffectiveFromUtc = '2026-01-01T00:00:00Z'
+            EffectiveToUtc = $null
+        }
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings -ContextualProgrammeAliases @($rejected)
+
+        $report.CrossChannelCorrelations.Count | Should -Be 0
+        $report.ContextualAliasProposals.Count | Should -Be 0
+        $report.Summary.RejectedAliasMatchCount | Should -Be 1
+        $report.RejectedAliasMatches[0].ContextKey | Should -Be $proposal.ContextKey
+    }
+
 
     It 'uses offset evidence from the effective updated start field' {
         $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -StartUtc '2026-01-01T12:00:00Z' -UpdatedStartUtc '2026-01-01T08:00:00-05:00' -StopUtc '2026-01-01T09:00:00-05:00' -Participants @('North', 'East') -Competition 'League Final'
@@ -469,18 +542,57 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
         @($report.EnrichmentCandidates | Where-Object { $_.ChannelId -eq 'channel-ppv' -and $_.Kind -eq 'MissingXmltv' }).Count | Should -Be 1
         @($report.EnrichmentCandidates | Where-Object { $_.SourceAccess -ne 'NotEvaluated' -or $_.CanFetch }).Count | Should -Be 0
     }
+    It 'bounds observation count before comparison work' {
+        $observations = @(for ($index = 0; $index -lt 256; $index++) {
+            $start = ([datetimeoffset]'2026-01-01T00:00:00Z').AddHours($index * 2)
+            $stop = $start.AddHours(1)
+            New-TestObservation -SourceId "guide-$index" -Title "Programme $index" -Participants @("Participant $index") -Competition "Competition $index" -ObservationStatus 'Rejected' -StartUtc $start.ToString('o') -StopUtc $stop.ToString('o')
+        })
+        $withinLimit = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations $observations -EvaluationTimeUtc $script:EvaluationTime
+        $withinLimit.ObservationCount | Should -Be 256
+
+        $overLimit = @($observations + (New-TestObservation -SourceId 'guide-over-limit' -Title 'Over-limit programme' -ObservationStatus 'Rejected'))
+        { Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations $overLimit -EvaluationTimeUtc $script:EvaluationTime } | Should -Throw '*ComparisonObservationLimitExceeded*'
+    }
+
+    It 'bounds correlation candidates for dense cross-channel evidence' {
+        $observations = [System.Collections.Generic.List[object]]::new()
+        $bindings = [System.Collections.Generic.List[object]]::new()
+        for ($index = 0; $index -lt 34; $index++) {
+            $sourceId = "guide-$index"
+            $title = if ($index % 2 -eq 0) { 'Championship: Alpha vs Beta' } else { 'Alpha v Beta Championship' }
+            $channelReference = if ($index % 2 -eq 0) { 'station.one' } else { 'station.two' }
+            $observations.Add((New-TestObservation -SourceId $sourceId -ChannelReference $channelReference -Title $title -Participants @('Alpha','Beta') -Competition 'Regional Final' -Category 'Wrestling' -Description 'A championship featuring Alpha and Beta.' -StartUtc '2026-01-01T12:00:00Z' -StopUtc '2026-01-01T13:00:00Z'))
+            $bindings.Add((New-TestBinding -SourceId $sourceId -Reference $channelReference -ChannelId 'channel-one'))
+        }
+        { Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($observations.ToArray()) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings @($bindings.ToArray()) } | Should -Throw '*ComparisonCandidateLimitExceeded*'
+    }
+    It 'bounds cross-channel correlation candidates independently of same-channel candidates' {
+        $observations = [System.Collections.Generic.List[object]]::new()
+        $bindings = [System.Collections.Generic.List[object]]::new()
+        for ($index = 0; $index -lt 34; $index++) {
+            $firstChannel = $index -lt 17
+            $sourceId = "cross-guide-$index"
+            $reference = if ($firstChannel) { 'station.one' } else { 'station.two' }
+            $channelId = if ($firstChannel) { 'channel-one' } else { 'channel-two' }
+            $observations.Add((New-TestObservation -SourceId $sourceId -ChannelReference $reference -Title 'Championship: Alpha vs Beta' -Participants @('Alpha','Beta') -Competition 'Regional Final' -Category 'Wrestling' -Description 'A championship featuring Alpha and Beta.' -StartUtc '2026-01-01T12:00:00Z' -StopUtc '2026-01-01T13:00:00Z'))
+            $bindings.Add((New-TestBinding -SourceId $sourceId -Reference $reference -ChannelId $channelId))
+        }
+
+        { Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($observations.ToArray()) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings @($bindings.ToArray()) } | Should -Throw '*ComparisonCandidateLimitExceeded*'
+    }
 
     It 'redacts sensitive report values and escapes untrusted Markdown content' {
         $hostileTitle = '[click](https://attacker.invalid) <img src=x onerror=alert(1)> Regional Championship Final'
-        $left = New-TestObservation -SourceId 'guide-a' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'Shared details' -SourceRecordReference 'API_KEY=provenanceSecret file=/home/private/provenance.xml'
+        $left = New-TestObservation -SourceId 'guide-a' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'Shared details' -SourceRecordReference 'API_KEY=provenanceSecret file=/home/private/provenance.xml Authorization="Bearer quotedSecret"'
         $variant = New-TestObservation -SourceId 'guide-a' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'api_key=fieldSecret' -SourceRecordReference 'event-a-variant'
         $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title $hostileTitle -Participants @('North', 'East') -Competition 'League Final' -Description 'Shared details'
         $rejected = New-TestObservation -SourceId 'guide-c' -ObservationStatus 'Rejected' -ReasonCodes @('password=reasonSecret', 'Authorization: Bearer authSecret')
         $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
         $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $variant, $right, $rejected) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
 
-        $report.Json | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|reasonSecret|authSecret|attacker\.invalid'
-        $report.Markdown | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|reasonSecret|authSecret|attacker\.invalid|(?<!\\)<img|!\[|\]\('
+        $report.Json | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|quotedSecret|reasonSecret|authSecret|attacker\.invalid'
+        $report.Markdown | Should -Not -Match 'fieldSecret|anotherSecret|provenanceSecret|provenance\.xml|quotedSecret|reasonSecret|authSecret|attacker\.invalid|(?<!\\)<img|!\[|\]\('
         $report.Markdown | Should -Match '\\<img'
         @($report.Findings.Kind) | Should -Contain 'RejectedObservation'
     }
