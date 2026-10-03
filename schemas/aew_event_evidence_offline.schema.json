@@ -5,7 +5,16 @@
   "description": "Research experiment only. Not an accepted production contract or live adapter interface; requires normal architecture review.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ProposalStatus", "ProposalVersion", "FixtureKind", "Promotion", "SourceRecords", "EventRevisions", "CardRevisions", "Availability"],
+  "required": [
+    "ProposalStatus",
+    "ProposalVersion",
+    "FixtureKind",
+    "Promotion",
+    "SourceRecords",
+    "EventRevisions",
+    "CardRevisions",
+    "Availability"
+  ],
   "properties": {
     "ProposalStatus": { "const": "UnapprovedDesignProposal" },
     "ProposalVersion": { "const": "AEWEventEvidenceProposal/0.1" },
@@ -17,12 +26,34 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["SourceRecordId", "DocumentKind", "RevisionId", "SourceDataTimeUtc", "ObservationTimeUtc", "FetchTimeUtc"],
+        "required": [
+          "SourceRecordId",
+          "DocumentKind",
+          "RevisionId",
+          "SourceDataTimeUtc",
+          "ObservationTimeUtc",
+          "FetchTimeUtc"
+        ],
         "properties": {
-          "SourceRecordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-          "DocumentKind": { "enum": ["OfficialCalendar", "CanonicalEventPage", "DatedCardArticle"] },
-          "RevisionId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-          "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "DocumentKind": {
+            "enum": [
+              "OfficialCalendar",
+              "CanonicalEventPage",
+              "DatedCardArticle"
+            ]
+          },
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceDataTimeUtc": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
           "ObservationTimeUtc": { "type": "string", "format": "date-time" },
           "FetchTimeUtc": { "type": "string", "format": "date-time" }
         }
@@ -34,18 +65,43 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["RevisionId", "SourceRecordId", "EventStatus", "StartClock"],
+        "required": [
+          "RevisionId",
+          "SourceRecordId",
+          "EventStatus",
+          "StartClock"
+        ],
         "properties": {
-          "RevisionId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-          "SourceRecordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
           "EventStatus": {
             "type": "object",
             "additionalProperties": false,
             "required": ["Value", "Assertion", "EvidenceSourceRecordId"],
             "properties": {
-              "Value": { "enum": ["Scheduled", "Postponed", "Rescheduled", "Cancelled", "Completed", "Unknown"] },
-              "Assertion": { "enum": ["ExplicitSourceStatement", "Listing", "NotObserved"] },
-              "EvidenceSourceRecordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" }
+              "Value": {
+                "enum": [
+                  "Scheduled",
+                  "Postponed",
+                  "Rescheduled",
+                  "Cancelled",
+                  "Completed",
+                  "Unknown"
+                ]
+              },
+              "Assertion": {
+                "enum": ["ExplicitSourceStatement", "Listing", "NotObserved"]
+              },
+              "EvidenceSourceRecordId": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              }
             },
             "oneOf": [
               {
@@ -56,8 +112,22 @@
               },
               {
                 "properties": {
-                  "Value": { "enum": ["Scheduled", "Postponed", "Rescheduled", "Completed", "Unknown"] },
-                  "Assertion": { "enum": ["ExplicitSourceStatement", "Listing", "NotObserved"] }
+                  "Value": {
+                    "enum": [
+                      "Scheduled",
+                      "Postponed",
+                      "Rescheduled",
+                      "Completed",
+                      "Unknown"
+                    ]
+                  },
+                  "Assertion": {
+                    "enum": [
+                      "ExplicitSourceStatement",
+                      "Listing",
+                      "NotObserved"
+                    ]
+                  }
                 }
               }
             ]
@@ -65,12 +135,30 @@
           "StartClock": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["RawDisplayValue", "ZoneResolution", "TimeZoneId", "NormalizedUtc"],
+            "required": [
+              "RawDisplayValue",
+              "ZoneResolution",
+              "TimeZoneId",
+              "NormalizedUtc"
+            ],
             "properties": {
-              "RawDisplayValue": { "type": ["string", "null"], "maxLength": 128 },
-              "ZoneResolution": { "enum": ["ExplicitOffset", "NamedZone", "Unknown", "NotPublished"] },
+              "RawDisplayValue": {
+                "type": ["string", "null"],
+                "maxLength": 128
+              },
+              "ZoneResolution": {
+                "enum": [
+                  "ExplicitOffset",
+                  "NamedZone",
+                  "Unknown",
+                  "NotPublished"
+                ]
+              },
               "TimeZoneId": { "type": ["string", "null"], "maxLength": 128 },
-              "NormalizedUtc": { "type": ["string", "null"], "format": "date-time" }
+              "NormalizedUtc": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
             },
             "oneOf": [
               {
@@ -105,19 +193,50 @@
         "additionalProperties": false,
         "required": ["RevisionId", "SourceRecordId", "Matches"],
         "properties": {
-          "RevisionId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-          "SourceRecordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+          "RevisionId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "SourceRecordId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
           "Matches": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["MatchKey", "State", "ParticipantNames", "EvidenceSourceRecordId"],
+              "required": [
+                "MatchKey",
+                "State",
+                "ParticipantNames",
+                "EvidenceSourceRecordId"
+              ],
               "properties": {
-                "MatchKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
-                "State": { "enum": ["Advertised", "Changed", "ExplicitlyCancelled", "Completed"] },
-                "ParticipantNames": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
-                "EvidenceSourceRecordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" }
+                "MatchKey": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                },
+                "State": {
+                  "enum": [
+                    "Advertised",
+                    "Changed",
+                    "ExplicitlyCancelled",
+                    "Completed"
+                  ]
+                },
+                "ParticipantNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "EvidenceSourceRecordId": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+                }
               }
             }
           }
@@ -130,7 +249,14 @@
       "required": ["State", "EvidenceSourceRecordIds"],
       "properties": {
         "State": { "enum": ["Corroborated", "Unknown"] },
-        "EvidenceSourceRecordIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" } }
+        "EvidenceSourceRecordIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+          }
+        }
       },
       "oneOf": [
         {
