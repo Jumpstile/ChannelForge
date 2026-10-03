@@ -91,6 +91,7 @@ infer event identity from titles or categories. The source label is
 Optional metadata appears only when preserved by the accepted guide; entitlement,
 freshness, confidence, DVR, timeshift, and playback remain unavailable. The
 local server is loopback-only and does not provide authenticated LAN access.
+The separate `Compare-ChannelForgeXmltvGuides` report can identify cross-channel fuzzy candidates from caller-supplied `ChannelForgeExternalEvidenceObservation/v1` evidence when title similarity is corroborated by matching event participants, episode/subtitle, detailed descriptions, or exact movie title/category/airtime evidence; compared display clocks must carry explicit offsets. Category aliases are canonicalized and unknown labels are omitted; a programme row with an unknown category is not treated as missing XMLTV. The report retains distinct channel offerings and emits reversible contextual alias proposals only as unaccepted review records. The accepted One Guide path and scheduled refresh do not invoke this comparison or apply its proposals; periodic enrichment, proposal acceptance/persistence, and new source acquisition are not enabled by this report.
 
 ![Accepted browser Guided Setup review](assets/guided-browser-accepted.png)
 

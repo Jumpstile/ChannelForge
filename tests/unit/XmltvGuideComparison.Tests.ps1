@@ -9,7 +9,12 @@ BeforeAll {
             [string]$Subtitle = '',
             [string]$StartUtc = '2026-01-01T12:00:00Z',
             [string]$StopUtc = '2026-01-01T13:00:00Z',
+            [string]$UpdatedStartUtc = '',
             [string[]]$Participants = @(),
+            [string]$Category = '',
+            [string]$Description = '',
+            [string]$Competition = '',
+            [string]$EventStatus = '',
             [string]$ChannelReference = 'station-one',
             [string]$Playlist = 'playlist-one',
             [string]$BindingKind = 'SourceScoped',
@@ -21,15 +26,21 @@ BeforeAll {
             [string]$SourceRelationship = 'Independent',
             [string]$ObservationStatus = 'Observed',
             [string]$Network = '',
-            [string]$ChannelAssignment = ''
+            [string]$ChannelAssignment = '',
+            [bool]$RedactTimeFields = $false
         )
         $fields = [System.Collections.Generic.List[object]]::new()
         foreach ($entry in @(
             @{ Name = 'Title'; Value = $Title; Type = 'String' },
             @{ Name = 'Subtitle'; Value = $Subtitle; Type = 'String' },
             @{ Name = 'ScheduledStartUtc'; Value = $StartUtc; Type = 'Instant' },
+            @{ Name = 'UpdatedStartUtc'; Value = $UpdatedStartUtc; Type = 'Instant' },
             @{ Name = 'StopUtc'; Value = $StopUtc; Type = 'Instant' },
             @{ Name = 'Participant'; Value = $Participants; Type = 'StringArray' },
+            @{ Name = 'Description'; Value = $Description; Type = 'String' },
+            @{ Name = 'Category'; Value = $Category; Type = 'String' },
+            @{ Name = 'Competition'; Value = $Competition; Type = 'String' },
+            @{ Name = 'EventStatus'; Value = $EventStatus; Type = 'String' },
             @{ Name = 'Network'; Value = $Network; Type = 'String' },
             @{ Name = 'ChannelAssignment'; Value = $ChannelAssignment; Type = 'String' }
         )) {
@@ -39,11 +50,11 @@ BeforeAll {
                 FieldName = $entry.Name
                 ValueType = $entry.Type
                 NormalizedValue = $entry.Value
-                OriginalValueOrFingerprint = if ($entry.Value -is [array]) { [string]::Join('|', $entry.Value) } else { [string]$entry.Value }
+                OriginalValueOrFingerprint = if ($RedactTimeFields -and $entry.Name -in @('ScheduledStartUtc', 'UpdatedStartUtc', 'StopUtc')) { 'redacted-clock-fingerprint' } elseif ($entry.Value -is [array]) { [string]::Join('|', $entry.Value) } else { [string]$entry.Value }
                 SourceDataTimeUtc = $SourceDataTimeUtc
                 ObservationTimeUtc = $FetchTimeUtc
                 ReasonCodes = @()
-                Redacted = $false
+                Redacted = ($RedactTimeFields -and ($entry.Name -in @('ScheduledStartUtc', 'UpdatedStartUtc', 'StopUtc')))
             })
         }
         $binding = [ordered]@{
@@ -254,6 +265,194 @@ Describe 'XMLTV guide comparison over ChannelForgeExternalEvidenceObservation/v1
         @($report.Findings | Where-Object Kind -eq 'AcceptedKnowledgeConflict').Details.AcceptedKnowledgeChanged | Should -Contain $false
         ($accepted | ConvertTo-Json -Depth 5 -Compress) | Should -Be $before
         $report.AcceptedKnowledgeMutation | Should -Be 'None'
+    }
+
+    It 'correlates differently named cross-channel events and proposes reversible contextual aliases' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Championship: Alpha vs Beta' -StartUtc '2026-01-01T08:00:00-05:00' -StopUtc '2026-01-01T09:00:00-05:00' -Participants @('Alpha', 'Beta') -Competition 'Regional Final' -Category 'Wrestling'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Alpha v Beta Championship' -StartUtc '2026-01-01T13:02:00Z' -StopUtc '2026-01-01T14:02:00Z' -Participants @('Beta', 'Alpha') -Competition 'Regional Final' -Category 'Wrestling'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $reversed = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($right, $left) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $reversed.Json | Should -Be $report.Json
+
+
+        $report.CrossChannelCorrelations.Count | Should -Be 1
+        $correlation = $report.CrossChannelCorrelations[0]
+        $correlation.ConfidenceScore | Should -BeGreaterThan 69
+        $correlation.ChannelIds | Should -Be @('channel-one', 'channel-two')
+        $correlation.SourceIds | Should -Be @('guide-a', 'guide-b')
+        $correlation.CanMerge | Should -BeFalse
+        $correlation.Provenance.Count | Should -Be 2
+        (@($correlation.TimeEvidence | Where-Object DisplayStart -eq '2026-01-01T08:00:00-05:00')[0]).CanonicalStartUtc | Should -Be '2026-01-01T13:00:00Z'
+        $report.ContextualAliasProposals.Count | Should -Be 1
+        $report.ContextualAliasProposals[0].Status | Should -Be 'Proposed'
+        $report.ContextualAliasProposals[0].Reversible | Should -BeTrue
+        $report.ContextualAliasProposals[0].Accepted | Should -BeFalse
+        $proposal = $report.ContextualAliasProposals[0]
+        $proposal.EvidenceCount | Should -Be 2
+        $proposal.ApprovalState | Should -Be 'Pending'
+        $proposal.FirstSeenAtUtc | Should -Be '2026-01-01T11:45:00Z'
+        $proposal.LastSeenAtUtc | Should -Be '2026-01-01T11:45:00Z'
+    }
+
+    It 'uses offset evidence from the effective updated start field' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -StartUtc '2026-01-01T12:00:00Z' -UpdatedStartUtc '2026-01-01T08:00:00-05:00' -StopUtc '2026-01-01T09:00:00-05:00' -Participants @('North', 'East') -Competition 'League Final'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -StartUtc '2026-01-01T13:00:00Z' -UpdatedStartUtc '2026-01-01T13:00:00Z' -StopUtc '2026-01-01T14:00:00Z' -Participants @('North', 'East') -Competition 'League Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 1
+        $leftTime = @($report.CrossChannelCorrelations[0].TimeEvidence | Where-Object ObservationId -eq $left.ObservationId)[0]
+        $leftTime.DisplayStart | Should -Be '2026-01-01T08:00:00-05:00'
+        $leftTime.CanonicalStartUtc | Should -Be '2026-01-01T13:00:00Z'
+    }
+    It 'does not infer cross-channel UTC from timezone-less display clocks' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -StartUtc '2026-01-01T12:00:00' -StopUtc '2026-01-01T13:00:00' -Participants @('North', 'East') -Competition 'League Final'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -StartUtc '2026-01-01T12:00:00Z' -StopUtc '2026-01-01T13:00:00Z' -Participants @('North', 'East') -Competition 'League Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 0
+    }
+
+    It 'never publishes redacted time fingerprints as display-clock evidence' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -RedactTimeFields $true
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 0
+        $report.ContextualAliasProposals.Count | Should -Be 0
+        $report.Json | Should -Not -Match 'redacted-clock-fingerprint'
+    }
+
+    It 'keeps stale and future rows diagnostic but ineligible for cross-channel aliases' {
+        $stale = New-TestObservation -SourceId 'guide-stale' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -SourceDataTimeUtc '2025-12-30T11:30:00Z'
+        $fresh = New-TestObservation -SourceId 'guide-fresh' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-stale' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-fresh' -Reference 'station-two' -ChannelId 'channel-two'))
+        $staleReport = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($stale, $fresh) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $future = New-TestObservation -SourceId 'guide-future' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -SourceDataTimeUtc '2026-01-02T11:30:00Z'
+        $futureReport = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($future, $fresh) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings @((New-TestBinding -SourceId 'guide-future' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-fresh' -Reference 'station-two' -ChannelId 'channel-two'))
+
+        ($staleReport.FreshnessAssessments | Where-Object SourceId -eq 'guide-stale').FreshnessState | Should -Be 'Stale'
+        @($staleReport.Findings.Kind) | Should -Contain 'StaleObservation'
+        $staleReport.CrossChannelCorrelations.Count | Should -Be 0
+        $staleReport.ContextualAliasProposals.Count | Should -Be 0
+        ($futureReport.FreshnessAssessments | Where-Object SourceId -eq 'guide-future').FreshnessState | Should -Be 'FutureDated'
+        @($futureReport.Findings.Kind) | Should -Contain 'FutureDatedObservation'
+        $futureReport.CrossChannelCorrelations.Count | Should -Be 0
+        $futureReport.ContextualAliasProposals.Count | Should -Be 0
+    }
+
+
+    It 'does not cross-correlate nearby distinct events with conflicting participants' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('South', 'West') -Competition 'League Final'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 0
+        $report.ContextualAliasProposals.Count | Should -Be 0
+    }
+
+    It 'keeps live programming separate from replay observations' {
+        $live = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -EventStatus 'Live'
+        $replay = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -EventStatus 'Replay'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($live, $replay) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 0
+        $report.ContextualAliasProposals.Count | Should -Be 0
+    }
+    It 'uses corroborating descriptions for news and aligned title/category/time for movies' {
+        $description = 'A detailed report on the city council vote and the community response from local residents.'
+        $newsA = New-TestObservation -SourceId 'guide-a' -Title 'Evening News' -Description $description -Category 'News'
+        $newsB = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Evening News Broadcast' -Description $description -Category 'News'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $newsReport = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($newsA, $newsB) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $movieA = New-TestObservation -SourceId 'guide-a' -Title 'The Example Movie' -Category 'Film'
+        $movieB = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'The Example Movie' -Category 'Movies'
+        $movieReport = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($movieA, $movieB) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $newsReport.CrossChannelCorrelations.Count | Should -Be 1
+        $newsReport.CrossChannelCorrelations[0].CorrelationBasis | Should -Contain 'MatchingDescription'
+        $movieReport.CrossChannelCorrelations.Count | Should -Be 1
+        $movieReport.CrossChannelCorrelations[0].CorrelationBasis | Should -Contain 'MovieTitleAndAiring'
+        $movieReport.CrossChannelCorrelations[0].CorrelationBasis | Should -Contain 'MatchingCategory'
+    }
+
+    It 'preserves non-Latin programme and participant text during correlation' {
+        $title = 'نهائي بطولة المملكة'
+        $participants = @('الهلال', 'النصر')
+        $left = New-TestObservation -SourceId 'guide-a' -Title $title -Participants $participants -Competition 'دوري روشن'
+        $right = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title $title -Participants $participants -Competition 'دوري روشن'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $right) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $report.CrossChannelCorrelations.Count | Should -Be 1
+        $report.CrossChannelCorrelations[0].CorrelationBasis | Should -Contain 'MatchingParticipants'
+    }
+
+
+
+    It 'keeps episodic programmes distinct while correlating the same episode' {
+        $sameA = New-TestObservation -SourceId 'guide-a' -Title 'The Long Running Show' -Subtitle 'S01E03' -Category 'Entertainment'
+        $sameB = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'The Long Running Show' -Subtitle 'S01E03' -Category 'Entertainment'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $same = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($sameA, $sameB) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+        $differentB = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'The Long Running Show' -Subtitle 'S01E04' -Category 'Entertainment'
+        $different = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($sameA, $differentB) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        $same.CrossChannelCorrelations.Count | Should -Be 1
+        $same.ContextualAliasProposals.Count | Should -Be 0
+        $different.CrossChannelCorrelations.Count | Should -Be 0
+    }
+
+    It 'marks one-to-many cross-channel matches for review without selecting a winner' {
+        $left = New-TestObservation -SourceId 'guide-a' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final'
+        $rightOne = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -SourceRecordReference 'event-b1'
+        $rightTwo = New-TestObservation -SourceId 'guide-b' -ChannelReference 'station-two' -Title 'Regional Championship Final' -Participants @('North', 'East') -Competition 'League Final' -SourceRecordReference 'event-b2'
+        $bindings = @((New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-one'), (New-TestBinding -SourceId 'guide-b' -Reference 'station-two' -ChannelId 'channel-two'))
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($left, $rightOne, $rightTwo) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings
+
+        @($report.CrossChannelCorrelations | Where-Object ReviewRequired).Count | Should -Be 2
+        @($report.Findings.Kind) | Should -Contain 'AmbiguousCrossChannelProgrammeCorrelation'
+        $report.ContextualAliasProposals.Count | Should -Be 0
+        @($report.CrossChannelCorrelations | Where-Object CanMerge).Count | Should -Be 0
+    }
+
+    It 'builds category-wide channel profiles and gap candidates, including missing XMLTV' {
+        $observation = New-TestObservation -SourceId 'guide-a' -Category 'Movies'
+        $unknownObservation = New-TestObservation -SourceId 'guide-unknown' -Category 'unregistered-category'
+        $bindings = @(
+            (New-TestBinding -SourceId 'guide-a' -ChannelId 'channel-known'),
+            (New-TestBinding -SourceId 'guide-ppv' -Reference 'ppv-reference' -ChannelId 'channel-ppv'),
+            (New-TestBinding -SourceId 'guide-temporary' -Reference 'temporary-reference' -ChannelId 'channel-temporary'),
+            (New-TestBinding -SourceId 'guide-unknown' -ChannelId 'channel-unknown'),
+            (New-TestBinding -SourceId 'guide-obscure' -Reference 'obscure-reference' -ChannelId 'channel-obscure')
+        )
+        $windows = @(
+            (New-TestCoverageWindow -SourceId 'guide-a' -ChannelId 'channel-known' -StartUtc '2026-01-01T11:00:00Z' -StopUtc '2026-01-01T14:00:00Z'),
+            (New-TestCoverageWindow -SourceId 'guide-ppv' -ChannelId 'channel-ppv' -StartUtc '2026-01-01T12:00:00Z' -StopUtc '2026-01-01T13:00:00Z')
+        )
+        $report = Compare-ChannelForgeXmltvGuides -PlaylistId 'playlist-one' -Observations @($observation, $unknownObservation) -EvaluationTimeUtc $script:EvaluationTime -DurableChannelBindings $bindings -ExpectedCoverageWindows $windows
+
+        $known = @($report.ChannelEvidenceProfiles | Where-Object ChannelId -eq 'channel-known')[0]
+        $known.GuideState | Should -Be 'CoverageGap'
+        $known.CategoryKeys | Should -Contain 'movies'
+        $ppv = @($report.ChannelEvidenceProfiles | Where-Object ChannelId -eq 'channel-ppv')[0]
+        $unknown = @($report.ChannelEvidenceProfiles | Where-Object ChannelId -eq 'channel-unknown')[0]
+        $unknown.CategoryKeys.Count | Should -Be 0
+        $unknown.EnrichmentCategoryKeys.Count | Should -Be 0
+        $ppv.GuideState | Should -Be 'MissingXmltv'
+        @($ppv.EnrichmentCategoryKeys) | Should -Contain 'wrestling'
+        @($ppv.EnrichmentCategoryKeys) | Should -Contain 'movies'
+        @($ppv.EnrichmentCategoryKeys) | Should -Contain 'news'
+        $expectedCategories = @('football', 'baseball', 'basketball', 'hockey', 'soccer', 'wrestling', 'motorsports', 'boxing', 'mma', 'tennis', 'golf', 'rugby', 'cricket', 'lacrosse', 'other-sports', 'movies', 'news', 'kids', 'entertainment', 'documentary', 'comedy')
+        (@($ppv.EnrichmentCategoryKeys | Sort-Object) -join ',') | Should -BeExactly (@($expectedCategories | Sort-Object) -join ',')
+        @($ppv.EnrichmentCategoryKeys) | Should -Contain 'documentary'
+        @($report.EnrichmentCandidates | Where-Object { $_.ChannelId -eq 'channel-ppv' -and $_.Kind -eq 'MissingXmltv' }).Count | Should -Be 1
+        @($report.EnrichmentCandidates | Where-Object { $_.SourceAccess -ne 'NotEvaluated' -or $_.CanFetch }).Count | Should -Be 0
     }
 
     It 'keeps every assessment report-only and never changes accepted-state authority' {
