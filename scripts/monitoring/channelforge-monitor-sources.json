@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "monitorId": "channelforge-ecosystem",
+  "targetRepository": "Jumpstile/ChannelForge",
+  "targetIssueNumber": 35,
+  "sources": [
+    { "sourceId": "dispatcharr", "name": "Dispatcharr", "repository": "Dispatcharr/Dispatcharr" },
+    { "sourceId": "threadfin", "name": "Threadfin", "repository": "Threadfin/Threadfin" },
+    { "sourceId": "tvheadend", "name": "TVHeadend", "repository": "tvheadend/tvheadend" },
+    { "sourceId": "teamarr", "name": "Teamarr", "repository": "Pharaoh-Labs/teamarr" },
+    { "sourceId": "stationarr", "name": "Stationarr", "repository": "rroy676/Stationarr" },
+    { "sourceId": "m3u-editor", "name": "M3U Editor", "repository": "m3ue/m3u-editor" },
+    { "sourceId": "cabernet", "name": "Cabernet", "repository": "cabernetwork/cabernet" },
+    { "sourceId": "tunarr", "name": "Tunarr", "repository": "chrisbenincasa/tunarr" },
+    { "sourceId": "iptvnator", "name": "IPTVnator", "repository": "4gray/iptvnator" }
+  ]
+}

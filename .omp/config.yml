@@ -1,0 +1,8 @@
+modelRoles:
+  default: openai-codex/gpt-6-luna
+  smol: deepseek/deepseek-flash
+  slow: openai-codex/gpt-6.1-sol:auto
+  plan: openai-codex/gpt-6-luna
+  advisor: deepseek/deepseek-flash
+advisor:
+  enabled: true

@@ -1,0 +1,62 @@
+name: Development monitor
+
+on:
+  schedule:
+    - cron: '37 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Queue and validate evidence without publishing comments'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: channelforge-development-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Restore durable monitor spool
+        id: restore
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./scripts/monitoring/Restore-MonitorArtifact.ps1 `
+            -SpoolRoot (Join-Path $env:RUNNER_TEMP 'channelforge-development-monitor-spool') `
+            -Repository $env:GITHUB_REPOSITORY `
+            -ArtifactName 'channelforge-development-monitor-spool' `
+            -MonitorId 'channelforge-ecosystem' `
+            -Token $env:GITHUB_TOKEN
+
+      - name: Run monitor and reconcile outbox
+        if: steps.restore.outcome == 'success'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $arguments = @{}
+          if ('${{ inputs.dry_run }}' -eq 'true') { $arguments.DryRun = $true }
+          ./scripts/monitoring/Invoke-ChannelForgeDevelopmentMonitor.ps1 @arguments
+
+      - name: Persist durable monitor spool
+        if: always() && steps.restore.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: channelforge-development-monitor-spool
+          path: ${{ runner.temp }}/channelforge-development-monitor-spool
+          if-no-files-found: error
+          retention-days: 90

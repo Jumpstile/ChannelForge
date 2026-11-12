@@ -1,0 +1,47 @@
+rules:
+  - id: channelforge.powershell.dynamic-evaluation
+    languages:
+      - generic
+    message: Do not execute PowerShell source text dynamically; validate a fixed command surface instead.
+    severity: ERROR
+    patterns:
+      - pattern-regex: "(?i)\\b(?:Invoke-Expression|iex)\\b"
+    paths:
+      include:
+        - "**/*.ps1"
+        - "**/*.psm1"
+
+  - id: channelforge.powershell.execution-policy-bypass
+    languages:
+      - generic
+    message: An execution-policy bypass in repository code requires an explicit security review.
+    severity: ERROR
+    patterns:
+      - pattern-regex: "(?i)\\b-ExecutionPolicy\\s+(?:Bypass|Unrestricted)\\b"
+    paths:
+      include:
+        - "**/*.ps1"
+        - "**/*.psm1"
+
+  - id: channelforge.powershell.variable-process-path
+    languages:
+      - generic
+    message: Do not start a native process from an unchecked variable path; validate the executable and arguments first.
+    severity: ERROR
+    patterns:
+      - pattern-regex: "(?im)^\\s*Start-Process\\b[^\\r\\n]*\\b-FilePath\\s+\\$"
+    paths:
+      include:
+        - "**/*.ps1"
+        - "**/*.psm1"
+
+  - id: channelforge.csharp.insecure-tls-acceptance
+    languages:
+      - generic
+    message: Never accept every TLS certificate; keep certificate validation fail-closed.
+    severity: ERROR
+    patterns:
+      - pattern-regex: "(?i)\\bDangerousAcceptAnyServerCertificateValidator\\b"
+    paths:
+      include:
+        - "**/*.cs"

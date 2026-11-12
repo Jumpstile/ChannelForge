@@ -45,6 +45,38 @@ File-format and output-target integrations: M3U, XMLTV, JSON, CSV, IPTVBoss, Dis
 
 Per ADR 0003, domain objects must not reference infrastructure-specific concepts. `Channel` and `BuildContext` have no IPTVBoss-, Dispatcharr-, or Plex-specific fields; provider- and playlist-specific values are stored as plain strings supplied by the infrastructure layer.
 
+### Development monitoring evidence recording
+
+Ecosystem monitoring is repository-owned development infrastructure. The
+scheduled workflow in `.github/workflows/development-monitor.yml` runs
+`scripts/monitoring/Invoke-ChannelForgeDevelopmentMonitor.ps1` against the
+approved source manifest in `scripts/monitoring/channelforge-monitor-sources.json`.
+It records source changes and source-fetch failures in a durable outbox before
+attempting an issue-comment write.
+
+Each finding has a deterministic idempotency key derived from its monitor,
+target issue, finding type, title, body, sources, confidence, and evidence;
+volatile observation time is excluded. Queue JSON is written through a
+same-directory temporary file, flushed, and atomically replaced. A finding is
+not considered recorded until the target issue is reread and its
+`<!-- monitor-idempotency:<KEY> -->` marker is present. Failed requests remain
+pending with bounded exponential backoff, and an uncertain POST is reconciled
+by rereading the marker before retrying.
+
+GitHub-hosted runners restore the newest non-expired spool artifact before a
+run and upload the resulting spool only when restore and validation succeeded.
+The artifact is a runner-replacement bridge, not a provider or ChannelForge
+source of truth. A self-hosted or local runner may set `MONITOR_SPOOL_ROOT` to
+a persistent local volume; the same runner then replays unresolved findings
+when connectivity returns. Restore ambiguity, invalid queue content, path
+traversal, or spool persistence failure fails closed. Hosted automations are
+secondary watchdogs for missed runs; they are not the authoritative recorder.
+
+The monitor does not write user installations, provider systems of record,
+runtime configuration, merges, tags, or releases. Its source-change output is
+a review-needed evidence lead. See
+[Durable monitor recording architecture](DURABLE_MONITOR_RECORDING_ARCHITECTURE.md).
+
 ### Write guardrails
 
 `scripts/Build-Lineup.ps1` and `scripts/Backup-IPTVBoss.ps1` sit outside the module (they're standalone entry points, not part of the public API) but import it to call `Assert-ChannelForgeWritePath` and `Assert-ChannelForgePathExists` before any filesystem write, copy, or archive operation. This keeps the "what's allowed to write where" decision in one place rather than re-implemented per script. The same principle covers reads of operator-supplied configuration paths: `Assert-ChannelForgeReadPath` confines a resolved `local_playlist` value to `data/playlists/` before `Build-Lineup.ps1` ever opens it. See the [Developer Guide](../developer/DEVELOPER_GUIDE.md#write-guardrails) for the current write/read sites and what each guardrail checks.

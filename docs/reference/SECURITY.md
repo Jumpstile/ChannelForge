@@ -62,9 +62,22 @@ Before committing configuration changes:
 - Check generated reports and logs for leaked values.
 - Prefer fixtures and placeholders over production data.
 
-## Automated Secret Scanning
+## Automated Security Testing
 
-GitHub Actions runs Gitleaks before the Pester test suite on every push and pull request to `main`.
+GitHub Actions runs the fast security checks on every push and pull request.
+That workflow runs Gitleaks against full history; pull-request comments are
+disabled so the read-only token cannot be used for a write. The repository also
+runs custom Semgrep rules and exact-byte checks for the frozen blocker-2 contract
+files.
+
+Pull requests additionally receive dependency review and an SPDX SBOM artifact.
+CodeQL analyzes the tracked C# transport and GitHub Actions workflows on pull
+requests, main, and a weekly schedule. A Windows gated workflow runs the
+contract-oracle, path/URL mutation, C# transport, and destructive-path tests.
+
+See the [security-testing roadmap](../developer/SECURITY-TESTING.md) for the
+complete matrix and local commands. These checks are validation evidence only;
+they do not authorize merge, release, or contract changes.
 
 The scan checks the repository contents and Git history available to the workflow for common secrets, including API keys, access tokens, private keys, passwords, and credential-like URLs. It is a read-only gate: it reports findings and fails CI, but it does not modify repository files.
 

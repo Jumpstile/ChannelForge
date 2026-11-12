@@ -1,0 +1,60 @@
+name: Dependency and SBOM checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Review changed dependencies
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate
+
+  sbom:
+    name: Repository SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare ignored SBOM output directory
+        run: mkdir -p output/security
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: output/security/channelforge.sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Upload SBOM as a short-lived CI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: channelforge-sbom-${{ github.sha }}
+          path: output/security/channelforge.sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14
