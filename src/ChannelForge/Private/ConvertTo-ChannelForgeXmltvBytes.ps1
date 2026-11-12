@@ -65,7 +65,8 @@ function ConvertTo-ChannelForgeXmltvBytes {
         }
 
         [System.Uri]$uri = $null
-        if ([System.Uri]::TryCreate($normalized, [System.UriKind]::Absolute, [ref]$uri)) {
+        # A real URL has no spaces; names like "USA: NFL NETWORK" only look like "scheme:rest".
+        if ($normalized -notmatch '\s' -and [System.Uri]::TryCreate($normalized, [System.UriKind]::Absolute, [ref]$uri)) {
             throw "XMLTV $FieldName cannot contain a URL."
         }
 

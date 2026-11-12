@@ -36,7 +36,7 @@ function Read-ChannelForgeM3UReader {
         }
 
         if (-not $sawHeader) {
-            if ($trimmed -cne '#EXTM3U') {
+            if ($trimmed -cnotmatch '^#EXTM3U(\s|$)') {
                 throw "M3U playlist must begin with #EXTM3U (line $lineNumber)."
             }
 

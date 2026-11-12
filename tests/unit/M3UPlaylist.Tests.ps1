@@ -54,4 +54,14 @@ Describe 'Import-ChannelForgeM3UPlaylist' {
                 Should -Throw
         }
     }
+
+    It 'accepts #EXTM3U followed by attributes but not a longer word' {
+        $path = Join-Path $TestDrive 'attrs.m3u'
+        [io.file]::WriteAllText($path, "#EXTM3U url-tvg=`"https://example.invalid/g.xml`"`n#EXTINF:-1,Chan`nhttps://example.invalid/live/c`n", [text.utf8encoding]::new($false))
+        @(Import-ChannelForgeM3UPlaylist -Path $path -Provider 'fixture' -Playlist 'attrs').Count | Should -Be 1
+
+        $bad = Join-Path $TestDrive 'bad.m3u'
+        [io.file]::WriteAllText($bad, "#EXTM3Ux`n#EXTINF:-1,Chan`nhttps://example.invalid/live/c`n", [text.utf8encoding]::new($false))
+        { Import-ChannelForgeM3UPlaylist -Path $bad -Provider 'fixture' -Playlist 'bad' } | Should -Throw
+    }
 }

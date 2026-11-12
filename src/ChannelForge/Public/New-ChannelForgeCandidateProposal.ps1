@@ -116,6 +116,7 @@ function New-ChannelForgeCandidateProposal {
      if (-not [string]::IsNullOrWhiteSpace($XMLTVPath)) {
          $xmlPath = [System.IO.Path]::GetFullPath($XMLTVPath)
          Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $Root
+        Write-Host 'Reading and checking the guide. A big guide can take several minutes; ChannelForge has not frozen.'
          $xmlStatus = [ordered]@{}
         $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion)
         $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes

@@ -63,14 +63,22 @@ function Merge-ChannelForgeXmltvProgrammes {
     }
 
     $records = [System.Collections.Generic.List[object]]::new()
+    $lastEvidence = $null
+    $lastEvidenceKey = $null
     foreach ($value in @($Programme)) {
         $binding = Resolve-ChannelForgeProgrammeBinding -Programme $value
         $programmeValue = [Programme]$value
+        # Programmes from one guide share one large evidence object; serialize it once, not per programme.
+        if ($null -eq $lastEvidenceKey -or -not [object]::ReferenceEquals($programmeValue.Evidence, $lastEvidence)) {
+            $lastEvidence = $programmeValue.Evidence
+            $lastEvidenceKey = Get-ProgrammeEvidenceKey -Evidence $lastEvidence
+        }
+        $evidenceKey = $lastEvidenceKey
         $records.Add([pscustomobject]@{
             Programme   = $programmeValue
             Binding     = $binding
             ContentKey  = Get-ProgrammeContentKey -Value $programmeValue
-            EvidenceKey = Get-ProgrammeEvidenceKey -Evidence $programmeValue.Evidence
+            EvidenceKey = $evidenceKey
             StartTicks  = $programmeValue.Start.ToUniversalTime().Ticks
             EndTicks    = $programmeValue.End.ToUniversalTime().Ticks
         })
