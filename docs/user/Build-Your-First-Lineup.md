@@ -288,8 +288,7 @@ pwsh -File scripts/Build-My-Lineup.ps1 `
   -XMLTVPath C:\private\guide.xml
 ```
 
-Review the proposal in `output/reports/guided-setup-plan.md`. Nothing is accepted yet. If it is correct, rerun with `-Accept`. For the CLI, a material ambiguous identity prompts whether to keep the channels but publish no guide or cancel; it never guesses which guide entry belongs to a channel. The GUI uses the native cancel-on-ambiguity boundary.
-If an accepted lineup already has a guide, the safe result for a later ambiguous guide is cancellation; the existing accepted guide remains unchanged.
+Review the proposal in `output/reports/guided-setup-plan.md`. Nothing is accepted yet. If it is correct, rerun with `-Accept`. ChannelForge never guesses which guide entry belongs to a channel. The GUI uses strict mode (see below).
 
 ```powershell
 pwsh -File scripts/Build-My-Lineup.ps1 `
@@ -305,6 +304,37 @@ pwsh -File scripts/Build-My-Lineup.ps1 `
   -M3UPath C:\private\playlist.m3u `
   -Accept
 ```
+
+### When channels share a guide ID
+
+Some playlist tools give many channels the same guide ID, or none. One ID can point at only one guide, so ChannelForge cannot tell which channel owns it. Every channel stays in your lineup either way. What changes is the guide:
+
+- **KeepWithoutGuide** (the default in normal mode): the channel plays and shows no program info.
+- **OwnPlaceholder**: the channel gets its own ID and a simple guide that shows its name, one block per day (days start at midnight in your computer's time zone).
+- **BindTrueMatch**: you name one real guide ID for the channel.
+- **ShareOnPurpose**: you say that these channels really do share one guide. It only counts when every channel in the group has this choice.
+
+**Normal mode** (the default) finishes the run. If you are at the keyboard, it asks once per shared ID: `K` keeps the group without a guide, `O` gives each channel its own name-only guide, `A` uses the default for everything left. With no keyboard it never waits and uses the default. It then prints a report: how many shared IDs, what happened to each group, where the decisions file is, and a line like "5 channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide."
+
+**Strict mode** is `-AmbiguousAction Cancel`. If any channel sharing a guide ID has no saved choice, the run stops and publishes nothing. Saved choices still count. The desktop app uses strict mode.
+
+Your answers are saved in `state/channel-decisions.json`, one record per channel, and used on every later run. A channel is remembered by its stream address, so renaming it does not lose the choice. Channels with the same stream address count as one channel. Edit or delete any record you like. `BindTrueMatch` and `ShareOnPurpose` are written by hand for now: answer `K` once at the prompt so each channel gets a record with its key, then change `choice` (and add `guideId`):
+
+```json
+[
+  {
+    "key": "<64-character key ChannelForge wrote for this channel>",
+    "name": "Channel name",
+    "choice": "BindTrueMatch",
+    "guideId": "real.guide.id",
+    "decidedAt": "2026-11-12T20:00:00Z"
+  }
+]
+```
+
+If a `BindTrueMatch` guide ID is not in your guide, normal mode keeps that channel without a guide and says why; strict mode stops. If the decisions file is damaged, every run stops with a message so nothing is silently ignored. The per-channel result (`guide` is `null` when a channel has no guide) is in `output/reports/guided-setup-summary.json`.
+
+Choices change the published lineup, so a rerun with new decisions publishes a new accepted version even when the playlist and guide did not change.
 
 ## What you'll have at the end
 

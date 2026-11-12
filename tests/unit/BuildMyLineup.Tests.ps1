@@ -20,6 +20,64 @@ BeforeAll {
         param([Parameter(Mandatory)][string]$Root)
         return Get-Content -LiteralPath (Join-Path $Root 'output\reports\guided-setup-summary.json') -Raw | ConvertFrom-Json
     }
+
+    Import-Module (Join-Path $script:RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Force
+    $script:Pwsh = (Get-Command -Name pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+
+    function Get-TestChannelKey {
+        param([Parameter(Mandatory)][string]$Url)
+        & (Get-Module ChannelForge) { param($u) Get-ChannelForgeChannelKey -Url $u } $Url
+    }
+
+    # Six channels: A One/A Two share a.us, B One/B Two/B Three share b.us, Real has a unique id.
+    function New-SharedIdFixture {
+        param([Parameter(Mandatory)][string]$Name, [hashtable]$Rename = @{})
+        $channels = @(
+            @('A One', 'a.us', 'a1'), @('A Two', 'a.us', 'a2'),
+            @('B One', 'b.us', 'b1'), @('B Two', 'b.us', 'b2'), @('B Three', 'b.us', 'b3'),
+            @('Real', 'real.us', 'real'))
+        $lines = @('#EXTM3U')
+        foreach ($channel in $channels) {
+            $title = if ($Rename.ContainsKey($channel[0])) { $Rename[$channel[0]] } else { $channel[0] }
+            $lines += "#EXTINF:-1 tvg-id=`"$($channel[1])`" tvg-name=`"$title`" group-title=`"News`",$title"
+            $lines += "https://example.invalid/live/$($channel[2])"
+        }
+        $playlist = Join-Path $TestDrive "$Name.m3u"
+        $lines -join "`n" | Set-Content -LiteralPath $playlist -Encoding utf8
+        $guide = Join-Path $TestDrive "$Name.xml"
+        $xml = @('<?xml version="1.0" encoding="UTF-8"?>', '<tv>')
+        foreach ($id in 'a.us', 'b.us', 'real.us') {
+            $xml += "  <channel id=`"$id`"><display-name>$id</display-name></channel>"
+            $xml += "  <programme start=`"20260824080000 +0000`" stop=`"20260826080000 +0000`" channel=`"$id`"><title>Show $id</title></programme>"
+        }
+        $xml += '</tv>'
+        $xml -join "`n" | Set-Content -LiteralPath $guide -Encoding utf8
+        return [pscustomobject]@{ Playlist = $playlist; Guide = $guide; Root = (New-GuidedSetupRoot -Name $Name) }
+    }
+
+    # Runs the build with no keyboard (redirected input), in a real child pwsh.
+    function Invoke-NoKeyboardBuild {
+        param([Parameter(Mandatory)]$Fixture, [string[]]$Extra = @())
+        $output = '' | & $script:Pwsh -NoProfile -File $script:WorkflowPath -Root $Fixture.Root -M3UPath $Fixture.Playlist -XMLTVPath $Fixture.Guide -Accept @Extra 2>&1 | Out-String
+        return [pscustomobject]@{ Output = $output; ExitCode = $LASTEXITCODE }
+    }
+
+    function Set-TestDecisions {
+        param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][object[]]$Record)
+        New-Item -ItemType Directory -Force -Path (Join-Path $Root 'state') | Out-Null
+        $rows = @($Record | ForEach-Object {
+                $row = [ordered]@{ key = (Get-TestChannelKey -Url "https://example.invalid/live/$($_.Stream)"); name = $_.Stream; choice = $_.Choice }
+                if ($_.GuideId) { $row.guideId = $_.GuideId }
+                $row.decidedAt = '2026-11-12T20:00:00Z'
+                $row
+            })
+        ConvertTo-Json -InputObject $rows -Depth 4 | Set-Content -LiteralPath (Join-Path $Root 'state\channel-decisions.json') -Encoding utf8
+    }
+
+    function Get-TestGuide {
+        param([Parameter(Mandatory)]$Summary, [Parameter(Mandatory)][string]$Name)
+        @($Summary.ChannelGuides | Where-Object { $_.name -eq $Name })[0]
+    }
 }
 
 Describe 'Build-My-Lineup.ps1 beginner workflow' {
@@ -104,16 +162,16 @@ Describe 'Build-My-Lineup.ps1 beginner workflow' {
         Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
     }
 
-    It 'keeps the channels but suppresses an ambiguous guide from accepted output' {
+    It 'keeps the channels and still publishes the guide for exact matches when one is held back' {
         $root = New-GuidedSetupRoot -Name 'accepted'
 
         & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -Accept -AmbiguousAction KeepWithoutGuide
 
         $summary = Read-GuidedSetupSummary -Root $root
         $summary.Status | Should -Be 'PUBLISHED'
-        $summary.GuideStatus | Should -Be 'GUIDE_SKIPPED_AMBIGUITY'
+        $summary.GuideStatus | Should -Be 'XMLTV_SELECTED'
         $summary.ConsumerM3UPath | Should -Be 'output/guided-setup/accepted/lineup.m3u'
-        $summary.ConsumerXMLTVPath | Should -BeNullOrEmpty
+        $summary.ConsumerXMLTVPath | Should -Be 'output/guided-setup/accepted/guide.xml'
         Test-Path -LiteralPath (Join-Path $root ($summary.ConsumerM3UPath -replace '/', '\')) -PathType Leaf | Should -BeTrue
         $pointer = Get-Content -LiteralPath (Join-Path $root 'state\accepted-lineup.json') -Raw | ConvertFrom-Json
         Test-Path -LiteralPath (Join-Path $root ("state\generations\{0}\merged.m3u" -f $pointer.GenerationId)) -PathType Leaf | Should -BeTrue
@@ -167,56 +225,102 @@ https://example.invalid/live/alpha
         Test-Path -LiteralPath (Join-Path $root ($summary.ConsumerXMLTVPath -replace '/', '\')) -PathType Leaf | Should -BeTrue
     }
 
-    It 'preserves an accepted guide when a later ambiguous guide is kept' {
-        $root = New-GuidedSetupRoot -Name 'prior-guide-ambiguity'
-        $exactGuide = Join-Path $TestDrive 'prior-guide-exact.xml'
-        @'
-<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="zeta.us"><display-name>Zeta Exact</display-name></channel>
-  <channel id="alpha.us"><display-name>Alpha Exact</display-name></channel>
-  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>
-  <programme start="20260824100000 +0000" stop="20260824110000 +0000" channel="alpha.us"><title>Alpha Morning</title></programme>
-</tv>
-'@ | Set-Content -LiteralPath $exactGuide -Encoding utf8
+    It 'normal mode with no decision: full lineup, affected channels have guide null, report lists them' {
+        $fixture = New-SharedIdFixture -Name 'normal-mode'
 
-        & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $exactGuide -Accept
-        $pointerPath = Join-Path $root 'state\accepted-lineup.json'
-        $pointerBefore = Get-Content -LiteralPath $pointerPath -Raw
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture
 
-        $ambiguousGuide = Join-Path $TestDrive 'prior-guide-ambiguous.xml'
-        @'
-<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="zeta.us"><display-name>Zeta First</display-name></channel>
-  <channel id="zeta.us"><display-name>Zeta Second</display-name></channel>
-  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>
-</tv>
-'@ | Set-Content -LiteralPath $ambiguousGuide -Encoding utf8
-
-        { & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $ambiguousGuide -Accept -AmbiguousAction KeepWithoutGuide } |
-            Should -Throw '*existing accepted guide*'
-
-        (Get-Content -LiteralPath $pointerPath -Raw) | Should -Be $pointerBefore
-        (Read-GuidedSetupSummary -Root $root).WhatHappened | Should -Match 'existing accepted guide'
+        $run.ExitCode | Should -Be 0
+        $run.Output | Should -Match '5 channels have no guide\. Run again and choose OwnPlaceholder'
+        $run.Output | Should -Match 'channel-decisions\.json'
+        $summary = Read-GuidedSetupSummary -Root $fixture.Root
+        $summary.Status | Should -Be 'PUBLISHED'
+        $summary.ChannelCount | Should -Be 6
+        @($summary.ChannelGuides).Count | Should -Be 6
+        @($summary.ChannelGuides | Where-Object { $null -eq $_.guide }).Count | Should -Be 5
+        (Get-TestGuide -Summary $summary -Name 'Real').guide | Should -Be 'real.us'
+        @($summary.CollisionGroups).Count | Should -Be 2
+        $m3u = Get-Content -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\accepted\lineup.m3u') -Raw
+        ([regex]::Matches($m3u, '#EXTINF')).Count | Should -Be 6
+        $m3u | Should -Not -Match 'tvg-id="(a|b)\.us"'
     }
-    It 'fails fast naming -AmbiguousAction when ambiguity needs a choice and input is redirected' {
-        $root = New-GuidedSetupRoot -Name 'no-keyboard'
-        $guide = Join-Path $TestDrive 'no-keyboard-guide.xml'
-        @'
-<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="zeta.us"><display-name>Zeta First</display-name></channel>
-  <channel id="zeta.us"><display-name>Zeta Second</display-name></channel>
-  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>
-</tv>
-'@ | Set-Content -LiteralPath $guide -Encoding utf8
 
-        $exe = (Get-Command -Name pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
-        $out = '' | & $exe -NoProfile -File $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $guide -Accept 2>&1 | Out-String
+    It 'strict mode stops on the same input and publishes nothing' {
+        $fixture = New-SharedIdFixture -Name 'strict-mode'
 
-        $out | Should -Match '-AmbiguousAction'
-        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture -Extra @('-AmbiguousAction', 'Cancel')
+
+        $run.ExitCode | Should -Not -Be 0
+        $run.Output | Should -Match 'strict mode stopped'
+        Test-Path -LiteralPath (Join-Path $fixture.Root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+
+    It 'applies each remembered choice on a second run, even for a renamed channel' {
+        $fixture = New-SharedIdFixture -Name 'remembered'
+        Invoke-NoKeyboardBuild -Fixture $fixture | Out-Null
+        Set-TestDecisions -Root $fixture.Root -Record @(
+            @{ Stream = 'a1'; Choice = 'ShareOnPurpose'; GuideId = 'a.us' }
+            @{ Stream = 'a2'; Choice = 'ShareOnPurpose'; GuideId = 'a.us' }
+            @{ Stream = 'b1'; Choice = 'OwnPlaceholder' }
+            @{ Stream = 'b2'; Choice = 'KeepWithoutGuide' }
+            @{ Stream = 'b3'; Choice = 'BindTrueMatch'; GuideId = 'real.us' })
+        $renamed = New-SharedIdFixture -Name 'remembered' -Rename @{ 'B One' = 'Renamed B1' }
+
+        $run = Invoke-NoKeyboardBuild -Fixture $renamed
+
+        $run.ExitCode | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $renamed.Root
+        $summary.Status | Should -Be 'PUBLISHED'
+        (Get-TestGuide -Summary $summary -Name 'A One').guide | Should -Be 'a.us'
+        (Get-TestGuide -Summary $summary -Name 'A Two').guide | Should -Be 'a.us'
+        (Get-TestGuide -Summary $summary -Name 'Renamed B1').guide | Should -Match '^ChannelForge-[0-9a-f]{32}$'
+        (Get-TestGuide -Summary $summary -Name 'B Two').guide | Should -BeNullOrEmpty
+        (Get-TestGuide -Summary $summary -Name 'B Three').guide | Should -Be 'real.us'
+        $guideXml = Get-Content -LiteralPath (Join-Path $renamed.Root 'output\guided-setup\accepted\guide.xml') -Raw
+        $guideXml | Should -Match '<display-name>Renamed B1</display-name>'
+        $guideXml | Should -Match '<programme [^>]*channel="ChannelForge-[0-9a-f]{32}"><title>Renamed B1</title>'
+        $m3u = @(Get-Content -LiteralPath (Join-Path $renamed.Root 'output\guided-setup\accepted\lineup.m3u'))
+        ($m3u | Where-Object { $_ -like '*,B Two' }) | Should -Not -Match 'tvg-id'
+        ($m3u | Where-Object { $_ -like '*,B Three' }) | Should -Match 'tvg-id="real\.us"'
+    }
+
+    It 'treats a ShareOnPurpose record that covers only part of a group as a collision' {
+        $fixture = New-SharedIdFixture -Name 'partial-share'
+        Set-TestDecisions -Root $fixture.Root -Record @(@{ Stream = 'a1'; Choice = 'ShareOnPurpose'; GuideId = 'a.us' })
+
+        $normal = Invoke-NoKeyboardBuild -Fixture $fixture
+        $strict = Invoke-NoKeyboardBuild -Fixture $fixture -Extra @('-AmbiguousAction', 'Cancel')
+
+        $normal.ExitCode | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $fixture.Root
+        (Get-TestGuide -Summary $summary -Name 'A One').guide | Should -BeNullOrEmpty
+        (Get-TestGuide -Summary $summary -Name 'A Two').guide | Should -BeNullOrEmpty
+        $strict.ExitCode | Should -Not -Be 0
+    }
+
+    It 'falls back to no guide, with a reason, when BindTrueMatch names a guide ID that does not exist' {
+        $fixture = New-SharedIdFixture -Name 'bind-missing'
+        Set-TestDecisions -Root $fixture.Root -Record @(@{ Stream = 'b3'; Choice = 'BindTrueMatch'; GuideId = 'nowhere.us' })
+
+        $normal = Invoke-NoKeyboardBuild -Fixture $fixture
+        $strict = Invoke-NoKeyboardBuild -Fixture $fixture -Extra @('-AmbiguousAction', 'Cancel')
+
+        $normal.ExitCode | Should -Be 0
+        $normal.Output | Should -Match "'B Three' was kept without a guide because the guide ID named in the decisions file is not in the guide"
+        (Get-TestGuide -Summary (Read-GuidedSetupSummary -Root $fixture.Root) -Name 'B Three').guide | Should -BeNullOrEmpty
+        $strict.ExitCode | Should -Not -Be 0
+    }
+
+    It 'stops every run when the decisions file is damaged' {
+        $fixture = New-SharedIdFixture -Name 'bad-decisions'
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture.Root 'state') | Out-Null
+        '{ not json' | Set-Content -LiteralPath (Join-Path $fixture.Root 'state\channel-decisions.json') -Encoding utf8
+
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture
+
+        $run.ExitCode | Should -Not -Be 0
+        $run.Output | Should -Match 'decisions file could not be read'
+        Test-Path -LiteralPath (Join-Path $fixture.Root 'state\accepted-lineup.json') | Should -BeFalse
     }
     It 'reports stable consumer view failure after accepted publication without misreporting state' {
         $root = New-GuidedSetupRoot -Name 'consumer-view-failure'
@@ -284,11 +388,11 @@ https://example.invalid/live/alpha
     It 'stops on unresolved material ambiguity and preserves accepted state' {
         $root = New-GuidedSetupRoot -Name 'cancel-ambiguity'
 
-        { & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -Accept -AmbiguousAction Cancel } | Should -Throw '*ambiguous guide match*'
+        { & $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $script:GuideFixture -Accept -AmbiguousAction Cancel } | Should -Throw '*strict mode stopped*'
 
         $summary = Read-GuidedSetupSummary -Root $root
         $summary.Status | Should -Be 'FAILED'
-        $summary.WhatHappened | Should -Be 'An ambiguous guide match was left unresolved; nothing was published.'
+        $summary.WhatHappened | Should -Match 'strict mode stopped'
         Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
     }
 
@@ -481,5 +585,46 @@ https://example.invalid/live/alpha
         $firstSummary.EventPatternPreview.Safety.FilesystemMutation | Should -BeFalse
         $firstSummary.EventPatternPreview.Safety.ProviderMutation | Should -BeFalse
         $firstSummary.EventPatternPreview.Safety.DownstreamMutation | Should -BeFalse
+    }
+}
+
+Describe 'OwnPlaceholder guide across daylight saving changes' {
+    It 'gives one programme per local day with no gap or overlap (<Day>)' -ForEach @(
+        @{ From = '20261030230000'; To = '20261104010000'; Day = '2026-11-01'; DayHours = 25 }
+        @{ From = '20260306230000'; To = '20260310010000'; Day = '2026-03-08'; DayHours = 23 }
+    ) {
+        $zone = try { [TimeZoneInfo]::FindSystemTimeZoneById('Eastern Standard Time') } catch { [TimeZoneInfo]::FindSystemTimeZoneById('America/New_York') }
+        $source = "<?xml version=`"1.0`"?><tv><channel id=`"x`"/><programme start=`"$From +0000`" stop=`"$To +0000`" channel=`"x`"><title>t</title></programme></tv>"
+        $bytes = & (Get-Module ChannelForge) { param($b, $z) Add-ChannelForgePlaceholderGuide -XmltvBytes $b -Channel @([pscustomobject]@{ Id = 'own'; Name = 'Own' }) -TimeZone $z } ([Text.Encoding]::UTF8.GetBytes($source)) $zone
+
+        $parse = { param($v) [datetime]::SpecifyKind([datetime]::ParseExact($v.Substring(0, 14), 'yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture), 'Utc') }
+        $doc = [xml][Text.Encoding]::UTF8.GetString($bytes)
+        $blocks = @($doc.tv.programme | Where-Object { $_.channel -eq 'own' } | ForEach-Object { , @((& $parse $_.start), (& $parse $_.stop)) })
+
+        $blocks.Count | Should -BeGreaterThan 3
+        $blocks[0][0] | Should -Be (& $parse $From)
+        $blocks[-1][1] | Should -Be (& $parse $To)
+        for ($i = 1; $i -lt $blocks.Count; $i++) {
+            $blocks[$i][0] | Should -Be $blocks[$i - 1][1]
+            [TimeZoneInfo]::ConvertTimeFromUtc($blocks[$i][0], $zone).TimeOfDay | Should -Be ([timespan]::Zero)
+        }
+        $dstDay = @($blocks | Where-Object { [TimeZoneInfo]::ConvertTimeFromUtc($_[0], $zone).Date -eq [datetime]$Day })[0]
+        ($dstDay[1] - $dstDay[0]).TotalHours | Should -Be $DayHours
+    }
+}
+
+Describe 'Real ETV playlist regression' {
+    # Set CHANNELFORGE_ETV_DIR to a folder holding a copy of ETV.m3u and ETV.xml. The build takes about 12 minutes.
+    It 'keeps all 482 channels in and out' -Skip:(-not $env:CHANNELFORGE_ETV_DIR) {
+        $root = New-GuidedSetupRoot -Name 'etv'
+        $pwshExe = (Get-Command -Name pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+        '' | & $pwshExe -NoProfile -File $script:WorkflowPath -Root $root -M3UPath (Join-Path $env:CHANNELFORGE_ETV_DIR 'ETV.m3u') -XMLTVPath (Join-Path $env:CHANNELFORGE_ETV_DIR 'ETV.xml') -Accept 2>&1 | Out-Null
+
+        $LASTEXITCODE | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $root
+        $summary.ChannelCount | Should -Be 482
+        @($summary.ChannelGuides).Count | Should -Be 482
+        $m3u = Get-Content -LiteralPath (Join-Path $root 'output\guided-setup\accepted\lineup.m3u') -Raw
+        ([regex]::Matches($m3u, '#EXTINF')).Count | Should -Be 482
     }
 }
