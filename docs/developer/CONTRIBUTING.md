@@ -38,6 +38,8 @@ See [INSTALL.md](../reference/INSTALL.md) for PowerShell 7.6 or newer (Core edit
 - No real provider or EPG URLs, account IDs, tokens, usernames, or passwords in tracked files. Use `https://example.invalid/...` placeholders (see [SECURITY.md](../reference/SECURITY.md)).
 - No generated playlists, XMLTV files, databases, logs, or backups staged for commit.
 - Real local configuration belongs only in ignored `*.local.json` / `*.local.csv` files.
+- Run the [security-testing roadmap](SECURITY-TESTING.md) checks for the change,
+  including the frozen-contract and security-focused tests when applicable.
 
 ## Pull requests
 

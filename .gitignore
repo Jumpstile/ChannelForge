@@ -29,3 +29,6 @@ config/*.local.csv
 # local playlists (real stream URLs - never commit; see data/playlists/README.md)
 data/playlists/*.local.m3u
 *.local.m3u
+
+# Optional persistent development-monitor spool; queue contents are runtime evidence.
+.monitor-state/
