@@ -1,0 +1,9 @@
+name: ChannelForge CodeQL configuration
+
+paths:
+  - src/ChannelForge/Private/Transport/**
+  - .github/workflows/**
+
+paths-ignore:
+  - tests/**
+  - docs/**
