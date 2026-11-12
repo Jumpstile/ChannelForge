@@ -8,6 +8,11 @@ function ConvertTo-ChannelForgeCanonicalJson {
     function Write-JsonString {
         param([AllowNull()][string]$Value)
         if ($null -eq $Value) { [void]$builder.Append('null'); return }
+        # Fast path: printable ASCII without quote or backslash needs no escaping.
+        if ([regex]::IsMatch($Value, '\A[\x20\x21\x23-\x5b\x5d-\x7e]*\z')) {
+            [void]$builder.Append([char]34); [void]$builder.Append($Value); [void]$builder.Append([char]34)
+            return
+        }
         [void]$builder.Append([char]34)
         for ($index = 0; $index -lt $Value.Length; $index++) {
             $character = $Value[$index]

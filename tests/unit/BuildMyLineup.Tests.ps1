@@ -200,6 +200,24 @@ https://example.invalid/live/alpha
         (Get-Content -LiteralPath $pointerPath -Raw) | Should -Be $pointerBefore
         (Read-GuidedSetupSummary -Root $root).WhatHappened | Should -Match 'existing accepted guide'
     }
+    It 'fails fast naming -AmbiguousAction when ambiguity needs a choice and input is redirected' {
+        $root = New-GuidedSetupRoot -Name 'no-keyboard'
+        $guide = Join-Path $TestDrive 'no-keyboard-guide.xml'
+        @'
+<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="zeta.us"><display-name>Zeta First</display-name></channel>
+  <channel id="zeta.us"><display-name>Zeta Second</display-name></channel>
+  <programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us"><title>Zeta Morning</title></programme>
+</tv>
+'@ | Set-Content -LiteralPath $guide -Encoding utf8
+
+        $exe = (Get-Process -Id $PID).Path
+        $out = '' | & $exe -NoProfile -File $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $guide -Accept 2>&1 | Out-String
+
+        $out | Should -Match '-AmbiguousAction'
+        Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
+    }
     It 'reports stable consumer view failure after accepted publication without misreporting state' {
         $root = New-GuidedSetupRoot -Name 'consumer-view-failure'
 

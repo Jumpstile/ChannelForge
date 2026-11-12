@@ -701,6 +701,9 @@ try {
         return
     }
     $ambiguous = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' })
+    if ($ambiguous.Count -gt 0 -and [string]::IsNullOrWhiteSpace($AmbiguousAction) -and ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive)) {
+        throw 'Some guide matches need your choice, and no one is at the keyboard to answer. Run again with -AmbiguousAction KeepWithoutGuide or -AmbiguousAction Cancel. Nothing was published.'
+    }
     foreach ($binding in $ambiguous) {
         $entry = @($manifest.Entries | Where-Object { [string]$_.EntryId -ceq [string]$binding.EntryId }) | Select-Object -First 1
         $choice = $AmbiguousAction

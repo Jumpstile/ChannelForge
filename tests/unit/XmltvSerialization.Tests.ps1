@@ -139,6 +139,13 @@ Describe 'Export-ChannelForgeXmltv' {
         }
     }
 
+    It 'writes channel names that contain a colon and a space' {
+        $programme = New-ChannelForgeProgramme -ChannelId 'USA: NFL NETWORK' -Start ([datetimeoffset]::new(2026, 8, 15, 9, 0, 0, [timespan]::Zero)) -End ([datetimeoffset]::new(2026, 8, 15, 10, 0, 0, [timespan]::Zero)) -Title 'Colon name' -SourceId 'safe-source'
+        $result = Merge-ChannelForgeXmltvProgrammes -Programme $programme
+        $outputPath = Export-TestXmltv -Result $result -Root $TestDrive -Name 'colon.xml'
+        Test-Path -LiteralPath $outputPath | Should -BeTrue
+    }
+
     It 'rejects conflicts and NeedsReview records before creating output' {
         $original = $script:programmesA[0]
         $conflicting = New-ChannelForgeProgramme -ChannelId $original.ChannelId -Start $original.Start -End $original.End -Title 'Different title' -SourceId $original.SourceId -Evidence $original.Evidence
