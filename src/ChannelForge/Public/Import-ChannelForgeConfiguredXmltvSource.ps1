@@ -121,6 +121,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -Programmes $programmes `
                         -SourceId $sourceId `
                         -MaxDocumentBytes $MaxDocumentBytes `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -Reason $reason | Out-Null
                 }
                 elseif ($null -ne $opened.CacheValidation) {
@@ -128,6 +129,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                         -CacheEntry $opened.CacheEntry `
                         -ETag ([string]$opened.CacheValidation.ETag) `
                         -LastModified $opened.CacheValidation.LastModified `
+                        -EvaluationTimeUtc $EvaluationTimeUtc `
                         -StatusCode 304 | Out-Null
                 }
 

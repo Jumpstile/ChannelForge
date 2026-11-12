@@ -36,7 +36,8 @@ foreach ($planned in $plan) {
             else { @(Import-ChannelForgeConfiguredXmltvSource -Source $source -CacheRoot $CacheRoot -EvaluationTimeUtc $EvaluationTimeUtc -AcquisitionStatus $status) | Out-Null }
             $outcome = [string]$status['Outcome']
             $reason = [string]$status['Reason']
-            $isNotModified = $reason -eq 'Validated304' -or $outcome -match '304|NotModified'
+            $statusCode = [int]$status['StatusCode']
+            $isNotModified = $statusCode -eq 304 -or $reason -eq 'Validated304' -or $outcome -match '304|NotModified'
             $row.Result = if ($isNotModified) { 'CONDITIONAL_REFRESHED' } elseif ($planned.RecommendedAction -eq 'CONDITIONAL_REFRESH') { 'CONDITIONAL_REFRESHED' } else { 'FULL_REFRESHED' }
             $row.CacheChanged = -not $isNotModified
             $row.ValidatorOutcome = if ($status['HasETag'] -and $status['HasLastModified']) { 'ETAG_AND_LAST_MODIFIED' } elseif ($status['HasETag']) { 'ETAG' } elseif ($status['HasLastModified']) { 'LAST_MODIFIED' } else { [string]$planned.Validator }
