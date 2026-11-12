@@ -96,6 +96,11 @@ function Write-WorkflowReport {
         "Exact guide matches: $($Report.ExactGuideMatchCount)"
         "Needs your choice: $($Report.AmbiguityCount)"
         "Guide-only records: $($Report.GuideOnlyCount)"
+        if (@($Report.CollisionGroups).Count -gt 0) {
+            "Guide IDs shared by several channels: $(@($Report.CollisionGroups).Count)"
+            "Decisions file: $($Report.DecisionsFile)"
+        }
+        if ($Report.NoGuideCount -gt 0) { "$($Report.NoGuideCount) channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide." }
         if ($Report.EventPatternPreview.Enabled) {
             "Event-pattern preview: $($Report.EventPatternPreview.Status)"
             "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
@@ -424,7 +429,8 @@ function Get-WorkflowAcceptedM3UBytes {
     param(
         [Parameter(Mandatory)][byte[]]$CandidateBytes,
         [Parameter(Mandatory)][object[]]$Entries,
-        [Parameter(Mandatory)][string[]]$IncludedEntryIds
+        [Parameter(Mandatory)][string[]]$IncludedEntryIds,
+        [hashtable]$TvgIdByEntry = @{}
     )
 
     $entryById = @{}
@@ -447,7 +453,22 @@ function Get-WorkflowAcceptedM3UBytes {
             if ($offset -lt 0 -or $length -le 0 -or $offset + $length -gt $CandidateBytes.Length) {
                 throw 'Candidate entry slice is invalid.'
             }
-            $stream.Write($CandidateBytes, [int]$offset, [int]$length)
+            if ($TvgIdByEntry.ContainsKey([string]$entry.EntryId)) {
+                # A guide choice changes this channel's guide ID ($null removes it, so no wrong guide attaches).
+                $newId = $TvgIdByEntry[[string]$entry.EntryId]
+                $entryText = [Text.Encoding]::UTF8.GetString($CandidateBytes, [int]$offset, [int]$length)
+                $entryText = if ($null -eq $newId) {
+                    [regex]::Replace($entryText, '(?<=^#EXTINF:[^\n]*?)\s+tvg-id="[^"]*"', '')
+                }
+                else {
+                    [regex]::Replace($entryText, '(?<=^#EXTINF:[^\n]*?tvg-id=")[^"]*', [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $newId })
+                }
+                $entryBytes = [Text.UTF8Encoding]::new($false).GetBytes($entryText)
+                $stream.Write($entryBytes, 0, $entryBytes.Length)
+            }
+            else {
+                $stream.Write($CandidateBytes, [int]$offset, [int]$length)
+            }
         }
         return [byte[]]$stream.ToArray()
     }
@@ -500,6 +521,10 @@ $report = [ordered]@{
     AmbiguityCount = 0
     GuideOnlyCount = 0
     GuideStatus = 'NOT_SELECTED'
+    CollisionGroups = @()
+    NoGuideCount = 0
+    DecisionsFile = $null
+    ChannelGuides = @()
     EventPatternPreview = New-WorkflowEventPatternPreviewReport -Enabled:$false -InferenceRan:$false -Review $null
     ConsumerM3UPath = $null
     ConsumerXMLTVPath = $null
@@ -700,30 +725,94 @@ try {
         Write-Host "`nProposal saved to $($reportFiles.PlanPath). Nothing was published." -ForegroundColor Yellow
         return
     }
-    $ambiguous = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' })
-    if ($ambiguous.Count -gt 0 -and [string]::IsNullOrWhiteSpace($AmbiguousAction) -and ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive)) {
-        throw 'Some guide matches need your choice, and no one is at the keyboard to answer. Run again with -AmbiguousAction KeepWithoutGuide or -AmbiguousAction Cancel. Nothing was published.'
+    $decisionsPath = Join-Path $rootFull 'state\channel-decisions.json'
+    $decisions = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeChannelDecisions' -Arguments @{ Path = $decisionsPath })
+    $strict = $AmbiguousAction -eq 'Cancel'
+    $interactive = [string]::IsNullOrWhiteSpace($AmbiguousAction) -and -not ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive)
+    $held = @(foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' })) {
+            $entry = @($manifest.Entries | Where-Object { [string]$_.EntryId -ceq [string]$binding.EntryId }) | Select-Object -First 1
+            if ($null -eq $entry) { continue }
+            $slice = $entry.EntryOutputSlice
+            $entryLines = [Text.Encoding]::UTF8.GetString($candidateM3UBytes, [int]$slice.ByteOffset, [int]$slice.ByteLength) -split "`n"
+            $streamUrl = @($entryLines | Where-Object { $_ -and -not $_.StartsWith('#') }) | Select-Object -Last 1
+            [pscustomobject]@{
+                EntryId = [string]$entry.EntryId
+                Key     = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeChannelKey' -Arguments @{ Url = [string]$streamUrl } | Select-Object -Last 1)
+                Name    = [string]$entry.DisplayName
+                GroupId = [string]$binding.M3URawId
+            }
+        })
+    $guideIds = @($manifest.GuideOccurrences | Where-Object { [string]$_.RawIdentityPresence -eq 'Present' } |
+            Group-Object -Property RawIdentityValue -CaseSensitive | Where-Object { $_.Count -eq 1 } | ForEach-Object Name)
+    $resolveArguments = { @{ Held = $held; Decision = $decisions; GuideId = $guideIds } }
+    $choices = Invoke-ChannelForgePrivate -Name 'Resolve-ChannelForgeGuideChoices' -Arguments (& $resolveArguments) | Select-Object -Last 1
+    if ($strict -and @($choices.Outcomes | Where-Object { -not $_.Resolved }).Count -gt 0) {
+        throw 'Some channels share a guide ID and have no saved choice, so strict mode stopped. Nothing was published. Run again without -AmbiguousAction Cancel, or save a choice for each channel in the channel decisions file.'
     }
-    foreach ($binding in $ambiguous) {
-        $entry = @($manifest.Entries | Where-Object { [string]$_.EntryId -ceq [string]$binding.EntryId }) | Select-Object -First 1
-        $choice = $AmbiguousAction
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            $choiceText = Read-Host "Guide match for '$($entry.DisplayName)' is ambiguous. Enter K to keep the channels but publish no guide, or C to cancel"
-            $choice = if ($choiceText -match '^(?i)c') { 'Cancel' } else { 'KeepWithoutGuide' }
+    $unanswered = @($choices.Outcomes | Where-Object { -not $_.HasRecord })
+    if ($interactive -and $unanswered.Count -gt 0) {
+        $newRecords = [System.Collections.Generic.List[object]]::new()
+        foreach ($group in @($unanswered | Group-Object -Property GroupId -CaseSensitive)) {
+            $answer = Read-Host "$($group.Count) channels share the guide ID '$($group.Name)'. Enter K to keep them without a guide, O to give each its own name-only guide, or A to use the default (K) for all remaining groups"
+            if ($answer -match '^(?i)a') { break }
+            $answerChoice = if ($answer -match '^(?i)o') { 'OwnPlaceholder' } else { 'KeepWithoutGuide' }
+            foreach ($member in @($group.Group | Sort-Object Key -Unique)) {
+                [void]$newRecords.Add([pscustomobject][ordered]@{
+                        key = $member.Key; name = $member.Name; choice = $answerChoice; guideId = $null
+                        decidedAt = (Get-Date).ToUniversalTime().ToString('o')
+                    })
+            }
         }
-
-        if ($choice -eq 'Cancel') {
-            throw 'An ambiguous guide match was left unresolved; nothing was published.'
+        if ($newRecords.Count -gt 0) {
+            $decisions = @($decisions) + @($newRecords.ToArray())
+            Invoke-ChannelForgePrivate -Name 'Write-ChannelForgeChannelDecisions' -Arguments @{ Path = $decisionsPath; Record = @($decisions) } | Out-Null
+            $choices = Invoke-ChannelForgePrivate -Name 'Resolve-ChannelForgeGuideChoices' -Arguments (& $resolveArguments) | Select-Object -Last 1
         }
     }
-    if ($ambiguous.Count -gt 0) {
-        if ($null -ne $prior -and [string]$prior.Output.Object.ActiveXMLTVStatus -eq 'Generated') {
-            throw 'An existing accepted guide is present; nothing was published. Cancel or provide an unambiguous guide to preserve it.'
+    $tvgIdByEntry = @{}
+    foreach ($outcome in @($choices.Outcomes)) {
+        if ($outcome.Choice -ne 'ShareOnPurpose') { $tvgIdByEntry[$outcome.EntryId] = $outcome.Guide }
+    }
+    $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name } })
+    if ($ownChannels.Count -gt 0) {
+        $candidateXMLTVBytes = [byte[]](Invoke-ChannelForgePrivate -Name 'Add-ChannelForgePlaceholderGuide' -Arguments @{
+                XmltvBytes = $candidateXMLTVBytes; Channel = $ownChannels; TimeZone = [System.TimeZoneInfo]::Local } | Select-Object -Last 1)
+    }
+    $exactEntryIds = @{}
+    foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -eq 'ExactBound' })) { $exactEntryIds[[string]$binding.EntryId] = [string]$binding.M3URawId }
+    $outcomeByEntry = @{}
+    foreach ($outcome in @($choices.Outcomes)) { $outcomeByEntry[$outcome.EntryId] = $outcome }
+    $report.ChannelGuides = @($manifest.Entries | ForEach-Object {
+            $id = [string]$_.EntryId
+            $outcome = $outcomeByEntry[$id]
+            $guideValue = if ($null -ne $outcome) { $outcome.Guide } elseif ($null -ne $candidateXMLTVBytes -and $exactEntryIds.ContainsKey($id)) { $exactEntryIds[$id] } else { $null }
+            [ordered]@{ name = [string]$_.DisplayName; guide = $guideValue; choice = if ($null -ne $outcome) { $outcome.Choice } elseif ($null -ne $guideValue) { 'ExactMatch' } else { 'NoMatch' } }
+        })
+    $report.CollisionGroups = @($choices.Outcomes | Group-Object -Property GroupId -CaseSensitive | ForEach-Object {
+            $actions = [ordered]@{}
+            foreach ($actionGroup in @($_.Group | Group-Object -Property Choice)) { $actions[$actionGroup.Name] = $actionGroup.Count }
+            [ordered]@{
+                GuideId = $_.Name
+                Channels = $_.Count
+                Actions = $actions
+                SameStreamChannels = @($_.Group | Group-Object -Property Key | Where-Object { $_.Count -gt 1 } | ForEach-Object { @($_.Group | ForEach-Object Name) -join ' = ' })
+            }
+        })
+    $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' }).Count
+    $report.DecisionsFile = 'state/channel-decisions.json'
+    if ($report.CollisionGroups.Count -gt 0) {
+        Write-Host "Guide collisions: $($report.CollisionGroups.Count) guide ID(s) are shared by several channels." -ForegroundColor Yellow
+        foreach ($collisionGroup in $report.CollisionGroups) {
+            Write-Host "  '$($collisionGroup.GuideId)': $($collisionGroup.Channels) channels; $(($collisionGroup.Actions.Keys | ForEach-Object { "$_ x$($collisionGroup.Actions[$_])" }) -join ', ')"
+            foreach ($sameStream in $collisionGroup.SameStreamChannels) { Write-Host "    Same stream, handled as one channel: $sameStream" }
         }
-        # Ambiguous guide identity is never published. The channel candidate is
-        # retained, while the accepted generation stays M3U-only.
-        $candidateXMLTVBytes = $null
-        $report.GuideStatus = 'GUIDE_SKIPPED_AMBIGUITY'
+        Write-Host "Decisions file: $decisionsPath" -ForegroundColor Yellow
+        foreach ($unresolvedOutcome in @($choices.Outcomes | Where-Object { -not $_.Resolved -and $_.HasRecord })) {
+            Write-Host "  '$($unresolvedOutcome.Name)' was kept without a guide because $($unresolvedOutcome.Reason)." -ForegroundColor Yellow
+        }
+    }
+    if ($report.NoGuideCount -gt 0) {
+        Write-Host "$($report.NoGuideCount) channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide." -ForegroundColor Yellow
     }
 
     $included = @($manifest.Entries | ForEach-Object EntryId | Sort-Object)
@@ -733,8 +822,11 @@ try {
         [void]$decisionRecords.Add((New-WorkflowDecision -DecisionType 'IncludeCandidateEntry' -CandidateEntryId $entryId -BindingId $null -ReasonCode 'GuidedSetupAccepted'))
     }
     $decisionRecords = @($decisionRecords | Sort-Object @{ Expression = { if ($_.DecisionType -eq 'AcceptGuideBinding') { 0 } elseif ($_.DecisionType -eq 'IncludeCandidateEntry') { 3 } else { 4 } } }, DecisionId)
-    $acceptedM3UBytes = Get-WorkflowAcceptedM3UBytes -CandidateBytes $candidateM3UBytes -Entries @($manifest.Entries) -IncludedEntryIds $included
-    if ($null -ne $prior -and [string]$prior.Manifest.Object.CandidateManifestHash -ceq [string]$manifest.CandidateManifestHash -and [string]$prior.Manifest.Object.BuildIdentity -ceq [string]$manifest.BuildIdentity) {
+    $acceptedM3UBytes = Get-WorkflowAcceptedM3UBytes -CandidateBytes $candidateM3UBytes -Entries @($manifest.Entries) -IncludedEntryIds $included -TvgIdByEntry $tvgIdByEntry
+    $acceptedM3UHash = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{ Domain = 'active-m3u/v2'; Bytes = $acceptedM3UBytes } | Select-Object -Last 1)
+    $acceptedXMLTVHash = if ($null -eq $candidateXMLTVBytes) { '' } else { [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeDomainHash' -Arguments @{ Domain = 'active-xmltv/v2'; Bytes = $candidateXMLTVBytes } | Select-Object -Last 1) }
+    if ($null -ne $prior -and [string]$prior.Manifest.Object.CandidateManifestHash -ceq [string]$manifest.CandidateManifestHash -and [string]$prior.Manifest.Object.BuildIdentity -ceq [string]$manifest.BuildIdentity -and
+        [string]$prior.Manifest.Object.ActiveM3UHash -ceq $acceptedM3UHash -and [string]$prior.Manifest.Object.ActiveXMLTVHash -ceq $acceptedXMLTVHash) {
         $report.Status = 'ALREADY_ACCEPTED'
         $report.WhatHappened = 'This exact proposal is already the accepted lineup.'
         $report.Changed = 'Nothing; the accepted lineup was reused.'

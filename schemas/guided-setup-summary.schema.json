@@ -39,12 +39,7 @@
     "AmbiguityCount": { "type": "integer", "minimum": 0 },
     "GuideOnlyCount": { "type": "integer", "minimum": 0 },
     "GuideStatus": {
-      "enum": [
-        "NOT_SELECTED",
-        "NO_GUIDE_SELECTED",
-        "XMLTV_SELECTED",
-        "GUIDE_SKIPPED_AMBIGUITY"
-      ]
+      "enum": ["NOT_SELECTED", "NO_GUIDE_SELECTED", "XMLTV_SELECTED"]
     },
     "EventPatternPreview": { "$ref": "#/$defs/eventPatternPreview" },
     "ConsumerM3UPath": { "type": ["string", "null"] },
@@ -52,7 +47,51 @@
     "WhatHappened": { "type": ["string", "null"] },
     "Preserved": { "type": "string" },
     "Changed": { "type": "string" },
-    "Next": { "type": "string" }
+    "Next": { "type": "string" },
+    "NoGuideCount": { "type": "integer", "minimum": 0 },
+    "DecisionsFile": { "type": ["string", "null"] },
+    "CollisionGroups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["GuideId", "Channels", "Actions", "SameStreamChannels"],
+        "properties": {
+          "GuideId": { "type": "string" },
+          "Channels": { "type": "integer", "minimum": 1 },
+          "Actions": {
+            "type": "object",
+            "additionalProperties": { "type": "integer", "minimum": 1 }
+          },
+          "SameStreamChannels": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "ChannelGuides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "guide", "choice"],
+        "properties": {
+          "name": { "type": "string" },
+          "guide": { "type": ["string", "null"] },
+          "choice": {
+            "enum": [
+              "ExactMatch",
+              "NoMatch",
+              "KeepWithoutGuide",
+              "OwnPlaceholder",
+              "BindTrueMatch",
+              "ShareOnPurpose"
+            ]
+          }
+        }
+      }
+    }
   },
   "$defs": {
     "eventPatternPreview": {
