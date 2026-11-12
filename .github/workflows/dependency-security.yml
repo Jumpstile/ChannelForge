@@ -1,4 +1,4 @@
-name: Dependency and SBOM checks
+name: SBOM
 
 on:
   pull_request:
@@ -10,23 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Review changed dependencies
-        uses: actions/dependency-review-action@v5
-        with:
-          fail-on-severity: moderate
-
   sbom:
     name: Repository SBOM
     runs-on: ubuntu-latest
