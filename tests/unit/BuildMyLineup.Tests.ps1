@@ -212,7 +212,7 @@ https://example.invalid/live/alpha
 </tv>
 '@ | Set-Content -LiteralPath $guide -Encoding utf8
 
-        $exe = (Get-Process -Id $PID).Path
+        $exe = (Get-Command -Name pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
         $out = '' | & $exe -NoProfile -File $script:WorkflowPath -Root $root -M3UPath $script:PlaylistFixture -XMLTVPath $guide -Accept 2>&1 | Out-String
 
         $out | Should -Match '-AmbiguousAction'
