@@ -38,6 +38,9 @@ function Export-ChannelForgeM3UPlaylist {
             $lines.Add($entryText.TrimEnd("`n"))
         }
 
+        $logoReport = Get-ChannelForgeLogoReport -Channel $allChannels.ToArray()
+        if ($logoReport.Warning) { Write-Warning $logoReport.Warning }
+
         # -NoNewline plus an explicit trailing "`n" gives one deterministic
         # byte sequence regardless of platform line-ending defaults.
         (($lines -join "`n") + "`n") | Set-Content -LiteralPath $Path -Encoding utf8NoBOM -NoNewline
