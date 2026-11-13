@@ -120,6 +120,55 @@ Describe 'Export-ChannelForgeM3UPlaylist' {
         (Get-Content -LiteralPath $outPath -Raw) | Should -Be $script:GoldenM3U
     }
 
+    It 'publishes an all-public-logo lineup with the exact entry bytes and no logo warning' {
+        $channel = New-ChannelForgeChannel -OriginalName 'A' -DisplayName 'A' -Url 'https://example.invalid/a' -Logo 'https://img.example.com/a.png'
+        $outPath = Join-Path $TestDrive 'logo-public.m3u'
+
+        @($channel) | Export-ChannelForgeM3UPlaylist -Path $outPath -WarningVariable warn -WarningAction SilentlyContinue
+
+        $entry = InModuleScope ChannelForge -Parameters @{ c = $channel } { ConvertTo-ChannelForgeM3UEntryBytes -Channel $c }
+        $expected = [byte[]]([System.Text.Encoding]::ASCII.GetBytes("#EXTM3U`n") + $entry)
+        [System.IO.File]::ReadAllBytes($outPath) | Should -Be $expected
+        @($warn).Count | Should -Be 0
+    }
+
+    It 'warns about non-public logos, publishes every channel, and never publishes a private or http logo' {
+        $channels = @(
+            New-ChannelForgeChannel -OriginalName 'P' -DisplayName 'Pub' -Url 'https://example.invalid/p' -Logo 'https://img.example.com/p.png'
+            New-ChannelForgeChannel -OriginalName 'V' -DisplayName 'Priv' -Url 'https://example.invalid/v' -Logo 'https://192.168.1.9/v.png'
+            New-ChannelForgeChannel -OriginalName 'H' -DisplayName 'Http' -Url 'https://example.invalid/h' -Logo 'http://img.example.com/h.png'
+            New-ChannelForgeChannel -OriginalName 'E' -DisplayName 'Empty' -Url 'https://example.invalid/e'
+        )
+        $outPath = Join-Path $TestDrive 'logo-mixed.m3u'
+
+        $channels | Export-ChannelForgeM3UPlaylist -Path $outPath -WarningVariable warn -WarningAction SilentlyContinue
+        $text = Get-Content -LiteralPath $outPath -Raw
+
+        @($warn).Count | Should -Be 1
+        $warn[0].Message | Should -Match '3 of 4'
+        ([regex]::Matches($text, '#EXTINF')).Count | Should -Be 4
+        $text | Should -Not -Match '192\.168\.1\.9'
+        $text | Should -Not -Match 'http://img\.example\.com/h\.png'
+        $text | Should -Match 'tvg-logo="https://img\.example\.com/p\.png"'
+    }
+
+    It 'counts logo statuses and names the non-public channels' {
+        $channels = @(
+            New-ChannelForgeChannel -OriginalName 'P' -DisplayName 'Pub' -Url 'https://x.invalid/p' -Logo 'https://img.example.com/p.png'
+            New-ChannelForgeChannel -OriginalName 'V' -DisplayName 'Priv' -Url 'https://x.invalid/v' -Logo 'https://10.0.0.5/v.png'
+            New-ChannelForgeChannel -OriginalName 'H' -DisplayName 'Http' -Url 'https://x.invalid/h' -Logo 'http://img.example.com/h.png'
+            New-ChannelForgeChannel -OriginalName 'E' -DisplayName 'Empty' -Url 'https://x.invalid/e'
+        )
+        $r = InModuleScope ChannelForge -Parameters @{ c = $channels } { Get-ChannelForgeLogoReport -Channel $c }
+        $r.Public | Should -Be 1
+        $r.PrivateAddress | Should -Be 1
+        $r.NotHttps | Should -Be 1
+        $r.Empty | Should -Be 1
+        $r.Names.PrivateAddress | Should -Be @('Priv')
+        $capped = InModuleScope ChannelForge -Parameters @{ c = $channels } { Get-ChannelForgeLogoReport -Channel $c -MaxNames 0 }
+        $capped.NamesNotShown.Empty | Should -Be 1
+    }
+
     It 'writes plain UTF-8 with no BOM' {
         $result = Merge-ChannelForgeLineup -Source $script:TwoFileSource -AliasPath $script:AliasPath -NumberingBlocksPath $script:NumberingBlocksPath
         $outPath = Join-Path $TestDrive 'merged-encoding.m3u'

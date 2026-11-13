@@ -5,7 +5,10 @@ function Export-ChannelForgeM3UPlaylist {
         [Channel[]]$Channel,
 
         [Parameter(Mandatory)]
-        [string]$Path
+        [string]$Path,
+
+        # Optional group name -> public https logo URL (Get-ChannelForgePublishLogo).
+        [hashtable]$GroupDefaultLogo = @{}
     )
 
     # This function only writes the file it is told to write. Confining the
@@ -32,11 +35,19 @@ function Export-ChannelForgeM3UPlaylist {
         # attributes, alias-resolved names) and is sanitized just before
         # writing, never earlier, so the domain object always keeps the
         # original value.
-        foreach ($ch in $allChannels) {
-            $entryBytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $ch
+        $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo)
+        for ($i = 0; $i -lt $allChannels.Count; $i++) {
+            $ch = $allChannels[$i]
+            $sourceLogo = $ch.Logo
+            $ch.Logo = $published[$i].Logo
+            try { $entryBytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $ch }
+            finally { $ch.Logo = $sourceLogo }
             $entryText = [System.Text.UTF8Encoding]::new($false, $true).GetString($entryBytes)
             $lines.Add($entryText.TrimEnd("`n"))
         }
+
+        $logoReport = Get-ChannelForgeLogoReport -Channel $published
+        if ($logoReport.Warning) { Write-Warning $logoReport.Warning }
 
         # -NoNewline plus an explicit trailing "`n" gives one deterministic
         # byte sequence regardless of platform line-ending defaults.
