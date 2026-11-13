@@ -191,6 +191,42 @@ function ConvertTo-SafeChannelForgeIdentityRecord {
     return [pscustomobject]$safe
 }
 
+function Get-ChannelForgeEpgCoverage {
+    # epg-coverage/v1: one record per Exact binding with the guide programme
+    # count and first start / last stop (UTC). Report-only; reads binding results.
+    param(
+        [AllowEmptyCollection()]
+        [object[]]$ExactBinding,
+
+        [AllowEmptyCollection()]
+        [object[]]$Programme
+    )
+
+    $spans = @{}
+    foreach ($p in @($Programme)) {
+        $id = if ([string]::IsNullOrEmpty($p.RawChannelId)) { $p.ChannelId } else { $p.RawChannelId }
+        $key = "$($p.SourceId)`u{001f}$id"
+        if (-not $spans.ContainsKey($key)) {
+            $spans[$key] = [pscustomobject]@{ First = $p.Start; Last = $p.End }
+            continue
+        }
+        if ($p.Start -lt $spans[$key].First) { $spans[$key].First = $p.Start }
+        if ($p.End -gt $spans[$key].Last) { $spans[$key].Last = $p.End }
+    }
+
+    return @($ExactBinding | ForEach-Object {
+            $span = $spans["$($_.XmltvSourceId)`u{001f}$($_.XmltvChannelId)"]
+            [pscustomobject][ordered]@{
+                TvgId          = Get-SafeReportIdentityText $_.TvgId
+                DisplayName    = Get-SafeReportText $_.DisplayName
+                XmltvSourceId  = Get-SafeReportText $_.XmltvSourceId
+                ProgrammeCount = [int]$_.Candidates[0].ProgrammeCount
+                FirstStartUtc  = if ($span) { $span.First.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ') } else { $null }
+                LastStopUtc    = if ($span) { $span.Last.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ') } else { $null }
+            }
+        })
+}
+
 function Compare-ChannelForgeBuildText {
     param(
         [AllowNull()]
@@ -546,6 +582,7 @@ $m3uXmltvExactBindings = @()
 $m3uXmltvUnboundChannels = @()
 $m3uXmltvReviewNeeded = @()
 $m3uXmltvOrphanedXmltvChannels = @()
+$m3uXmltvEpgCoverage = @()
 
 # Keep the raw configured path separately from the resolved access path. A
 # rooted path is deliberately excluded from the ordering key: machine-local
@@ -697,6 +734,9 @@ else {
             $m3uXmltvOrphanedXmltvChannels = @($identityBindingResult.OrphanedXmltvChannels | ForEach-Object {
                     ConvertTo-SafeChannelForgeIdentityRecord -Record $_
                 })
+            $m3uXmltvEpgCoverage = @(Get-ChannelForgeEpgCoverage `
+                    -ExactBinding @($identityBindingResult.ExactBindings) `
+                    -Programme @($allProgrammes.ToArray()))
         }
         else {
             $m3uXmltvBindingStatus = 'NOT_EVALUATED'
@@ -968,6 +1008,9 @@ $summary = [ordered]@{
     M3UXmltvUnboundChannels          = $m3uXmltvUnboundChannels
     M3UXmltvReviewNeeded             = $m3uXmltvReviewNeeded
     M3UXmltvOrphanedXmltvChannels    = $m3uXmltvOrphanedXmltvChannels
+    M3UXmltvEmptyGuideCount          = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 }).Count
+    M3UXmltvEmptyGuide               = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 })
+    M3UXmltvEpgCoverage              = $m3uXmltvEpgCoverage
     XMLTVDeferredReason            = $xmltvDeferredReason
     XMLTVFailureReason             = $xmltvFailureReason
     XMLTVAcquisitionStatus          = @($xmltvAcquisitionStatuses.ToArray())
@@ -1040,6 +1083,15 @@ foreach ($review in @($m3uXmltvReviewNeeded)) {
 }
 foreach ($orphan in @($m3uXmltvOrphanedXmltvChannels)) {
     $md += "- XMLTV-ONLY: channel '$($orphan.XmltvChannelId)' ($($orphan.Reason))."
+}
+$emptyGuide = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 })
+$md += ''
+$md += "Channels with a guide but no programmes: $($emptyGuide.Count)"
+foreach ($empty in @($emptyGuide | Select-Object -First 25)) {
+    $md += "- tvg-id '$($empty.TvgId)' / $($empty.DisplayName)"
+}
+if ($emptyGuide.Count -gt 25) {
+    $md += "- and $($emptyGuide.Count - 25) more"
 }
 
 $md += ""
