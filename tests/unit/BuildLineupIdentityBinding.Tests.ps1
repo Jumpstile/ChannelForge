@@ -8,7 +8,10 @@ BeforeAll {
     function New-IdentityBindingBuildRoot {
         param(
             [AllowNull()]
-            [object]$PlaylistContent = $null
+            [object]$PlaylistContent = $null,
+
+            [AllowNull()]
+            [object]$GuideContent = $null
         )
 
         $fixtureRoot = Join-Path $TestDrive 'identity-binding-build'
@@ -28,7 +31,12 @@ BeforeAll {
         else {
             $PlaylistContent | Set-Content -LiteralPath (Join-Path $playlistDir 'playlist.m3u') -Encoding utf8NoBOM
         }
-        Copy-Item -LiteralPath $script:IdentityGuidePath -Destination (Join-Path $dataDir 'epg\guide.xml')
+        if ($null -eq $GuideContent) {
+            Copy-Item -LiteralPath $script:IdentityGuidePath -Destination (Join-Path $dataDir 'epg\guide.xml')
+        }
+        else {
+            $GuideContent | Set-Content -LiteralPath (Join-Path $dataDir 'epg\guide.xml') -Encoding utf8NoBOM
+        }
 
         @{
             provider = 'fixture-provider'
@@ -120,5 +128,50 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         ([regex]::Matches($merged, '#EXTINF:')).Count | Should -Be 1
         $merged | Should -Match 'tvg-id="zeta.us"'
         Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeFalse
+    }
+
+    It 'lists an exact channel whose guide has no programmes and keeps it in the playlist' {
+        $guide = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<tv>'
+            '<channel id="zeta.us"><display-name>Zeta</display-name></channel>'
+            '<channel id="alpha.us"><display-name>Alpha</display-name></channel>'
+            '<programme start="20260824080000 +0000" stop="20260824090000 +0000" channel="zeta.us"><title>Z1</title></programme>'
+            '<programme start="20260824090000 +0000" stop="20260824100000 +0000" channel="zeta.us"><title>Z2</title></programme>'
+            '</tv>'
+        ) -join "`n"
+        $fixtureRoot = New-IdentityBindingBuildRoot -GuideContent $guide
+
+        & $script:BuildScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $zeta = @($summary.M3UXmltvEpgCoverage | Where-Object { $_.TvgId -ceq 'zeta.us' })
+
+        $summary.M3UXmltvEmptyGuideCount | Should -Be 1
+        @($summary.M3UXmltvEmptyGuide.TvgId) | Should -Be @('alpha.us')
+        $zeta[0].ProgrammeCount | Should -Be 2
+        $zeta[0].FirstStartUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-08-24T08:00:00Z'
+        $zeta[0].LastStopUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-08-24T10:00:00Z'
+        $plan | Should -Match 'Channels with a guide but no programmes: 1'
+        $plan | Should -Match "tvg-id 'alpha\.us'"
+        $plan | Should -Not -Match "tvg-id 'zeta\.us' /"
+
+        @($summary.M3UXmltvExactBindings | Where-Object { $_.M3UChannel.TvgId -ceq 'alpha.us' }).Count | Should -Be 1
+        $candidateRoot = Join-Path $fixtureRoot ($summary.CandidateNamespacePath -replace '/', '\')
+        (Get-Content -LiteralPath (Join-Path $candidateRoot 'merged.m3u') -Raw) | Should -Match 'tvg-id="alpha.us"'
+    }
+
+    It 'publishes the same bytes as before when no guide is empty' {
+        $fixtureRoot = New-IdentityBindingBuildRoot
+
+        & $script:BuildScriptPath -Root $fixtureRoot
+
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.M3UXmltvEmptyGuideCount | Should -Be 0
+        # Hashes recorded from this fixture before the coverage report existed.
+        $summary.M3USha256 | Should -Be '1266e1683fc4b0a1adc74949308c503c0849dfb1c5ab65aa9e365bdebe1d506f'
+        $summary.XMLTVSha256 | Should -Be '7ba3745695cb5782d120e953edde2e28ace39158dc1d5e22d02f7ecd621ed77c'
+        $summary.CandidateBuildIdentity | Should -Be '430a96b5c21d5c5cc92d5ebff0abd50d77b5151b47d3f886d3af2a81a4df9bc2'
     }
 }
