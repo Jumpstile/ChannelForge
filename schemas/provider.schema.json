@@ -21,6 +21,11 @@
       "minLength": 1,
       "description": "Informational base URL prefix shared by sources. Not read by Read-ChannelForgeProvider; documentation only."
     },
+    "group_default_logo": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Optional map of group name to a public https logo URL. A channel whose logo is empty, not https or a private address is published with its group's default. A default that is not public https is ignored with a warning."
+    },
     "sources": {
       "type": "array",
       "minItems": 1,

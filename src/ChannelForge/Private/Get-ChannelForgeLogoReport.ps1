@@ -12,6 +12,7 @@ function Get-ChannelForgeLogoReport {
     # names for the non-public ones. Never changes a channel or its logo.
     $report = [ordered]@{
         Public         = 0
+        Replaced       = 0
         Empty          = 0
         NotHttps       = 0
         PrivateAddress = 0
@@ -23,6 +24,7 @@ function Get-ChannelForgeLogoReport {
     foreach ($ch in @($Channel | Where-Object { $null -ne $_ })) {
         $status = Get-ChannelForgeLogoStatus -Url ([string]$ch.Logo)
         $report[$status]++
+        if ($ch.PSObject.Properties['Replaced'] -and $ch.Replaced) { $report.Replaced++ }
         if ($status -ne 'Public') { $all[$status] += [string]$ch.DisplayName }
     }
     foreach ($status in $all.Keys) {
@@ -37,6 +39,9 @@ function Get-ChannelForgeLogoReport {
             $more = if ($report.NamesNotShown[$status] -gt 0) { " +$($report.NamesNotShown[$status]) more" } else { '' }
             $report.Warning += " ${status}: $($report.Names[$status] -join ', ')$more."
         }
+    }
+    if ($report.Replaced -gt 0) {
+        $report.Warning = ("Logo default: $($report.Replaced) channels use their group default logo. " + $report.Warning).Trim()
     }
     return [pscustomobject]$report
 }

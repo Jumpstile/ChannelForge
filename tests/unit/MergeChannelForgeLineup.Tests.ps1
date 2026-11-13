@@ -132,7 +132,7 @@ Describe 'Export-ChannelForgeM3UPlaylist' {
         @($warn).Count | Should -Be 0
     }
 
-    It 'warns about empty, http and private-address logos but still publishes every channel with its original logo text' {
+    It 'warns about non-public logos, publishes every channel, and never publishes a private or http logo' {
         $channels = @(
             New-ChannelForgeChannel -OriginalName 'P' -DisplayName 'Pub' -Url 'https://example.invalid/p' -Logo 'https://img.example.com/p.png'
             New-ChannelForgeChannel -OriginalName 'V' -DisplayName 'Priv' -Url 'https://example.invalid/v' -Logo 'https://192.168.1.9/v.png'
@@ -147,8 +147,9 @@ Describe 'Export-ChannelForgeM3UPlaylist' {
         @($warn).Count | Should -Be 1
         $warn[0].Message | Should -Match '3 of 4'
         ([regex]::Matches($text, '#EXTINF')).Count | Should -Be 4
-        $text | Should -Match 'tvg-logo="https://192.168.1.9/v.png"'
-        $text | Should -Match 'tvg-logo="http://img.example.com/h.png"'
+        $text | Should -Not -Match '192\.168\.1\.9'
+        $text | Should -Not -Match 'http://img\.example\.com/h\.png'
+        $text | Should -Match 'tvg-logo="https://img\.example\.com/p\.png"'
     }
 
     It 'counts logo statuses and names the non-public channels' {

@@ -107,7 +107,7 @@ function New-ChannelForgeCandidateProposal {
      $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
      New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
      $m3uTemp = Join-Path $txRoot 'merged.m3u'
-     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp
+     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo (Get-ChannelForgeGroupDefaultLogo -ProviderConfig $providerConfig)
      $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
      Remove-Item -LiteralPath $m3uTemp -Force
      $xmltvBytes = $null

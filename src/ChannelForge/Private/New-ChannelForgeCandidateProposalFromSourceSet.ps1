@@ -8,6 +8,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         [Parameter(Mandatory)][string]$OutputRoot,
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
+        [hashtable]$GroupDefaultLogo = @{},
         [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -214,7 +215,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
     New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
     $m3uTemp = Join-Path $txRoot 'merged.m3u'
-    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp
+    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo
     $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
     Remove-Item -LiteralPath $m3uTemp -Force
 
@@ -283,8 +284,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
     $manifestArguments.ReviewCounts = $counts
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
-    $logoReport = Get-ChannelForgeLogoReport -Channel @($merge.Channels)
-    if ($logoReport.Warning) { Write-Warning $logoReport.Warning }
+    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo)
     $manifest = [ordered]@{}
     foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$property.Name] = $property.Value }
     $manifestHash = [string]$manifestResult.CandidateManifestHash
