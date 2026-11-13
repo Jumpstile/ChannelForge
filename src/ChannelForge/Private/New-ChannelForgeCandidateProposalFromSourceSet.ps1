@@ -247,6 +247,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         InputArtifactHashes = @($inputArtifactHashes.ToArray())
         SerializedM3UEntryOrder = $serializedM3UEntryOrder
         CandidateContractVersion = $CandidateContractVersion
+        GroupDefaultLogo = $GroupDefaultLogo
         SelectedSourceIds = $selectedLogicalSourceIds
     }
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments

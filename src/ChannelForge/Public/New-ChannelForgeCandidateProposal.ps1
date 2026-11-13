@@ -107,7 +107,8 @@ function New-ChannelForgeCandidateProposal {
      $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
      New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
      $m3uTemp = Join-Path $txRoot 'merged.m3u'
-     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo (Get-ChannelForgeGroupDefaultLogo -ProviderConfig $providerConfig)
+     $groupDefaultLogo = Get-ChannelForgeGroupDefaultLogo -ProviderConfig $providerConfig
+     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo
      $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
      Remove-Item -LiteralPath $m3uTemp -Force
      $xmltvBytes = $null
@@ -150,6 +151,7 @@ function New-ChannelForgeCandidateProposal {
              InputArtifactHashes = @($inputArtifactHashes.ToArray())
              SerializedM3UEntryOrder = $serializedM3UEntryOrder
              CandidateContractVersion = $CandidateContractVersion
+             GroupDefaultLogo = $groupDefaultLogo
              SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
          }
      $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
