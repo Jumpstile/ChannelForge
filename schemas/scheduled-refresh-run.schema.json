@@ -304,6 +304,19 @@
         },
         "SourceResultMarkdown": {
           "const": "output/reports/source-refresh-result.md"
+        },
+        "GuideComparisonJson": {
+          "const": "output/reports/scheduled-guide-comparison.json"
+        },
+        "GuideComparisonMarkdown": {
+          "const": "output/reports/scheduled-guide-comparison.md"
+        },
+        "GuideComparisonStatus": {
+          "enum": ["NotEnabled", "Succeeded", "Failed"]
+        },
+        "GuideComparisonDigest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
         }
       }
     },

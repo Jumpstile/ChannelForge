@@ -10,11 +10,14 @@ function Compare-ChannelForgeXmltvGuides {
         [timespan]$NearTimeWindow = ([timespan]::FromMinutes(15)),
         [AllowEmptyCollection()][object[]]$ExpectedCoverageWindows = @(),
         [AllowEmptyCollection()][object[]]$DurableChannelBindings = @(),
-        [AllowEmptyCollection()][object[]]$AcceptedKnowledge = @()
+        [AllowEmptyCollection()][object[]]$AcceptedKnowledge = @(),
+        [AllowEmptyCollection()][object[]]$ContextualProgrammeAliases = @()
     )
 
     $contractVersion = 'ChannelForgeExternalEvidenceObservation/v1'
     $safeIdentifierPattern = '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
+    $generatedReportIdentifierProperties = @('ObservationId', 'ObservationIds', 'FindingId', 'CorrelationId', 'AliasId', 'ContextKey', 'EvidenceObservationIds', 'InputArtifactFingerprint')
+    if ($Observations.Count -gt 256) { throw 'ComparisonObservationLimitExceeded: at most 256 observations may be compared per call.' }
     $evaluation = $EvaluationTimeUtc.ToUniversalTime()
     $observedRows = [System.Collections.Generic.List[object]]::new()
     $unboundRows = [System.Collections.Generic.List[object]]::new()
@@ -56,6 +59,26 @@ function Compare-ChannelForgeXmltvGuides {
         return $parsed.ToUniversalTime()
     }
 
+    function Get-ExplicitDisplayInstant {
+        param(
+            [Parameter(Mandatory)][object[]]$FieldObservations,
+            [Parameter(Mandatory)][string]$FieldName,
+            [Parameter(Mandatory)][datetimeoffset]$EffectiveInstant
+        )
+        $canonicalInstant = $EffectiveInstant.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+        $matchingFields = @($FieldObservations | Where-Object {
+            [string](Get-PropertyValue $_ 'FieldName') -ceq $FieldName -and
+            [string](Get-PropertyValue $_ 'NormalizedValue') -ceq $canonicalInstant
+        })
+        if ($matchingFields.Count -ne 1 -or (Get-PropertyValue $matchingFields[0] 'Redacted') -eq $true) { return $null }
+        $displayValue = [string](Get-PropertyValue $matchingFields[0] 'OriginalValueOrFingerprint')
+        if ($displayValue -notmatch '(?i)(?:Z|[+-]\d{2}:?\d{2})$') { return $null }
+        $parsed = [datetimeoffset]::MinValue
+        if (-not [datetimeoffset]::TryParse($displayValue, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $null }
+        if ($parsed.ToUniversalTime() -ne $EffectiveInstant.ToUniversalTime()) { return $null }
+        return $displayValue
+    }
+
     function Get-SafeIdentifier {
         param([AllowNull()][object]$Value, [Parameter(Mandatory)][string]$Name)
         if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) { return '' }
@@ -68,6 +91,61 @@ function Compare-ChannelForgeXmltvGuides {
         param([Parameter(Mandatory)][object]$Row, [Parameter(Mandatory)][string]$Name)
         if ($Row.Fields.Contains($Name)) { return $Row.Fields[$Name] }
         return $null
+    }
+
+    function ConvertTo-SafeComparisonText {
+        param([AllowNull()][object]$Value)
+        if ($null -eq $Value) { return $null }
+        $text = ConvertTo-ChannelForgeGuideSafeText -Value $Value -MaximumLength 512
+        $secretValuePattern = '(?:"[^"]*"|''[^'']*''|[^\s,;]+)'
+        $text = [regex]::Replace($text, '(?i)\b(?:[A-Z0-9]+_)*(?:password|passwd|secret|token|credential|api[_-]?key|access[_-]?key|client[_-]?secret)(?:_[A-Z0-9]+)*\s*[:=]\s*' + $secretValuePattern, '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?i)\bAuthorization\s*[:=]\s*(?:(?:Bearer|Basic)\s+)?' + $secretValuePattern, '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*', '[redacted-sensitive]')
+        $text = [regex]::Replace($text, '(?<![A-Z0-9])/(?:home|users|var|tmp|etc|opt|root|mnt|media|srv|private|workspace|workspaces)/[^\s,;]+', '[redacted-path]', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        $text = [regex]::Replace($text, '\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[redacted-contact]')
+        return $text
+    }
+
+    function ConvertTo-SafeComparisonProjection {
+        param([AllowNull()][object]$Value, [string]$PropertyName = '')
+        if ($null -eq $Value) { return $null }
+        if ($Value -is [string]) {
+            if ($PropertyName -in $generatedReportIdentifierProperties -and [string]$Value -match '^[a-f0-9]{64}$') { return [string]$Value }
+            if ($PropertyName -ceq 'CorrelationId' -and [string]$Value -match '^(?:[a-f0-9]{64}:)+[a-f0-9]{64}$') { return [string]$Value }
+            return ConvertTo-SafeComparisonText -Value $Value
+        }
+        if ($Value -is [System.Collections.IDictionary]) {
+            $safeObject = [ordered]@{}
+            foreach ($key in $Value.Keys) {
+                $safeObject[[string]$key] = ConvertTo-SafeComparisonProjection -Value $Value[$key] -PropertyName ([string]$key)
+            }
+            return $safeObject
+        }
+        if ($Value -is [pscustomobject]) {
+            $safeObject = [ordered]@{}
+            foreach ($property in $Value.PSObject.Properties) {
+                $safeObject[$property.Name] = ConvertTo-SafeComparisonProjection -Value $property.Value -PropertyName $property.Name
+            }
+            return $safeObject
+        }
+        if ($Value -is [System.Collections.IEnumerable]) {
+            $safeItems = [System.Collections.Generic.List[object]]::new()
+            foreach ($item in $Value) {
+                [void]$safeItems.Add((ConvertTo-SafeComparisonProjection -Value $item -PropertyName $PropertyName))
+            }
+            return ,$safeItems.ToArray()
+        }
+        return $Value
+    }
+
+    function ConvertTo-ComparisonMarkdownText {
+        param([AllowNull()][object]$Value)
+        if ($null -eq $Value) { return '' }
+        $text = (ConvertTo-SafeComparisonText -Value $Value).Replace('&', '&amp;')
+        foreach ($character in @('\', [char]0x60, '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!', '|', '~', '<', '>')) {
+            $text = $text.Replace([string]$character, [string]::Concat('\', [string]$character))
+        }
+        return $text
     }
 
     function Add-ComparisonFinding {
@@ -159,6 +237,16 @@ function Compare-ChannelForgeXmltvGuides {
     if ([string]::IsNullOrWhiteSpace($PlaylistId)) { throw 'PlaylistId is required.' }
     if ($FreshnessTtl -le [timespan]::Zero -or $FreshnessTtl -gt [timespan]::FromDays(30)) { throw 'FreshnessTtl must be positive and no longer than 30 days.' }
     if ($NearTimeWindow -lt [timespan]::Zero -or $NearTimeWindow -gt [timespan]::FromHours(2)) { throw 'NearTimeWindow must be between zero and two hours.' }
+
+    $categoryLookup = [System.Collections.Generic.Dictionary[string, string]]::new([StringComparer]::Ordinal)
+    $categoryRegistry = @(Get-ChannelForgeOneGuideCategoryRegistry | Where-Object { $_.Group -ne 'temporal' })
+    $supportedContentCategories = @($categoryRegistry | ForEach-Object { [string]$_.Key })
+    foreach ($category in $categoryRegistry) {
+        foreach ($label in @([string]$category.Key) + @($category.Aliases)) {
+            $normalizedLabel = Normalize-ComparisonText $label
+            if ($normalizedLabel -and -not $categoryLookup.ContainsKey($normalizedLabel)) { $categoryLookup[$normalizedLabel] = [string]$category.Key }
+        }
+    }
 
     $windows = [System.Collections.Generic.List[object]]::new()
     foreach ($window in @($ExpectedCoverageWindows)) {
@@ -311,11 +399,29 @@ function Compare-ChannelForgeXmltvGuides {
         }
 
         $startUtc = ConvertTo-OptionalUtcInstant (Get-RowField -Row ([pscustomobject]@{ Fields = $fields }) -Name 'UpdatedStartUtc') 'FieldObservations.UpdatedStartUtc'
-        if ($null -eq $startUtc) { $startUtc = ConvertTo-OptionalUtcInstant (Get-RowField -Row ([pscustomobject]@{ Fields = $fields }) -Name 'ScheduledStartUtc') 'FieldObservations.ScheduledStartUtc' }
+        $startFieldName = if ($null -ne $startUtc) { 'UpdatedStartUtc' } else { 'ScheduledStartUtc' }
+        if ($null -eq $startUtc) { $startUtc = ConvertTo-OptionalUtcInstant (Get-RowField -Row ([pscustomobject]@{ Fields = $fields }) -Name $startFieldName) 'FieldObservations.ScheduledStartUtc' }
         $stopUtc = ConvertTo-OptionalUtcInstant (Get-RowField -Row ([pscustomobject]@{ Fields = $fields }) -Name 'StopUtc') 'FieldObservations.StopUtc'
+        $sourceFieldObservations = @(Get-PropertyValue $observation 'FieldObservations')
+        $displayStartValue = if ($null -ne $startUtc) { Get-ExplicitDisplayInstant -FieldObservations $sourceFieldObservations -FieldName $startFieldName -EffectiveInstant $startUtc } else { $null }
+        $displayStopValue = if ($null -ne $stopUtc) { Get-ExplicitDisplayInstant -FieldObservations $sourceFieldObservations -FieldName 'StopUtc' -EffectiveInstant $stopUtc } else { $null }
+
         if ($null -ne $startUtc -and $null -ne $stopUtc -and $stopUtc -le $startUtc) { throw 'Observed StopUtc must be later than the effective start time.' }
         $participants = @()
         if ($fields.ContainsKey('Participant')) { $participants = @($fields.Participant | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Sort-Object -Unique) }
+        $categorySet = [System.Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+        if ($fields.ContainsKey('Category')) {
+            foreach ($value in @($fields.Category)) {
+                $normalizedLabel = Normalize-ComparisonText $value
+                if ($categoryLookup.ContainsKey($normalizedLabel)) { [void]$categorySet.Add($categoryLookup[$normalizedLabel]) }
+            }
+        }
+        $categoryKeys = @($categorySet)
+        $episodeNumber = ''
+        if ($fields.ContainsKey('Subtitle')) {
+            $episodeMatch = [regex]::Match([string]$fields.Subtitle, '(?i)\b(?:s\d{1,3}e\d{1,4}|\d{1,3}x\d{1,4})\b')
+            if ($episodeMatch.Success) { $episodeNumber = $episodeMatch.Value }
+        }
         $row = [pscustomobject][ordered]@{
             ObservationId = $observationId
             SourceId = $sourceId
@@ -334,21 +440,54 @@ function Compare-ChannelForgeXmltvGuides {
             Venue = [string]$fields.Venue
             EventStatus = [string]$fields.EventStatus
             Participants = $participants
+            CategoryKeys = $categoryKeys
+            EpisodeNumber = $episodeNumber
             ScheduledStartUtc = ConvertTo-OptionalUtcInstant $fields.ScheduledStartUtc 'FieldObservations.ScheduledStartUtc'
             UpdatedStartUtc = ConvertTo-OptionalUtcInstant $fields.UpdatedStartUtc 'FieldObservations.UpdatedStartUtc'
+            DisplayStartValue = $displayStartValue
+            DisplayStopValue = $displayStopValue
             StartUtc = $startUtc
             StopUtc = $stopUtc
             Fields = $fields
+            SourceDataTimeUtc = Get-PropertyValue $observation 'SourceDataTimeUtc'
+            ObservationTimeUtc = Get-PropertyValue $observation 'ObservationTimeUtc'
+            FetchTimeUtc = Get-PropertyValue $observation 'FetchTimeUtc'
             FreshnessState = $freshnessState
         }
         [void]$observedRows.Add($row)
     }
+    $crossChannelAssessment = Get-ChannelForgeCrossChannelProgrammeCorrelation -Rows @($observedRows.ToArray()) -NearTimeWindow $NearTimeWindow -EvaluationTimeUtc $evaluation -ContextualProgrammeAliases $ContextualProgrammeAliases
+
+    foreach ($candidate in @($crossChannelAssessment.Correlations | Where-Object ReviewRequired)) {
+        Add-ComparisonFinding -Kind 'AmbiguousCrossChannelProgrammeCorrelation' -Status 'NeedsReview' -SourceIds $candidate.SourceIds -ObservationIds $candidate.ObservationIds -Details ([ordered]@{
+            ChannelIds = $candidate.ChannelIds
+            Titles = $candidate.Titles
+            ConfidenceScore = $candidate.ConfidenceScore
+            CorrelationBasis = $candidate.CorrelationBasis
+            WinnerSelected = $false
+            CanMerge = $false
+        })
+    }
+    foreach ($rejected in @($crossChannelAssessment.RejectedAliasMatches)) {
+        Add-ComparisonFinding -Kind 'RejectedContextualProgrammeAliasMatch' -Status 'NeedsReview' -SourceIds $rejected.SourceIds -ObservationIds $rejected.ObservationIds -Details ([ordered]@{
+            EntryId = $rejected.EntryId
+            ContextKey = $rejected.ContextKey
+            ChannelIds = $rejected.ChannelIds
+            Titles = $rejected.Titles
+            IndependentCorrelation = $false
+            WinnerSelected = $false
+        })
+    }
+
 
     $candidateEdges = [System.Collections.Generic.List[object]]::new()
     for ($leftIndex = 0; $leftIndex -lt $observedRows.Count; $leftIndex++) {
         for ($rightIndex = $leftIndex + 1; $rightIndex -lt $observedRows.Count; $rightIndex++) {
             $candidate = Get-CorrelationCandidate -Left $observedRows[$leftIndex] -Right $observedRows[$rightIndex]
-            if ($null -ne $candidate) { [void]$candidateEdges.Add($candidate) }
+            if ($null -ne $candidate) {
+                if ($candidateEdges.Count -ge 256) { throw 'ComparisonCandidateLimitExceeded: at most 256 correlation candidates may be evaluated per call.' }
+                [void]$candidateEdges.Add($candidate)
+            }
         }
     }
 
@@ -535,6 +674,117 @@ function Compare-ChannelForgeXmltvGuides {
         $status = if ($differences.Count -gt 0) { 'Contradiction' } else { 'Informational' }
         Add-ComparisonFinding -Kind $kind -Status $status -SourceIds @($row.SourceId, 'accepted-knowledge') -ObservationIds @($row.ObservationId, $knowledge.ObservationId) -ChannelId $row.ChannelId -Details ([ordered]@{ Differences = @($differences | Sort-Object -Unique); AcceptedKnowledgeReadOnly = $true; AcceptedKnowledgeChanged = $false })
     }
+    $profileByChannel = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
+    foreach ($binding in @($DurableChannelBindings)) {
+        $boundPlaylist = [string](Get-PropertyValue $binding 'PlaylistId')
+        $boundChannelId = [string](Get-PropertyValue $binding 'ChannelId')
+        $boundSourceId = [string](Get-PropertyValue $binding 'SourceId')
+        $boundReference = [string](Get-PropertyValue $binding 'SourceChannelReference')
+        if ($boundPlaylist -cne $PlaylistId -or [string]::IsNullOrWhiteSpace($boundChannelId)) { continue }
+        if (-not $profileByChannel.ContainsKey($boundChannelId)) {
+            $profileByChannel[$boundChannelId] = [pscustomobject][ordered]@{
+                ChannelId = $boundChannelId
+                Bindings = [System.Collections.Generic.List[object]]::new()
+                Rows = [System.Collections.Generic.List[object]]::new()
+            }
+        }
+        [void]$profileByChannel[$boundChannelId].Bindings.Add([pscustomobject][ordered]@{ SourceId = $boundSourceId; SourceChannelReference = $boundReference })
+    }
+    foreach ($window in $windows) {
+        if ([string]::IsNullOrWhiteSpace([string]$window.ChannelId) -or $profileByChannel.ContainsKey([string]$window.ChannelId)) { continue }
+        $profileByChannel[[string]$window.ChannelId] = [pscustomobject][ordered]@{
+            ChannelId = [string]$window.ChannelId
+            Bindings = [System.Collections.Generic.List[object]]::new()
+            Rows = [System.Collections.Generic.List[object]]::new()
+        }
+    }
+
+    foreach ($row in $observedRows) {
+        if ([string]::IsNullOrWhiteSpace([string]$row.ChannelId)) { continue }
+        if (-not $profileByChannel.ContainsKey([string]$row.ChannelId)) {
+            $profileByChannel[[string]$row.ChannelId] = [pscustomobject][ordered]@{
+                ChannelId = [string]$row.ChannelId
+                Bindings = [System.Collections.Generic.List[object]]::new()
+                Rows = [System.Collections.Generic.List[object]]::new()
+            }
+        }
+        [void]$profileByChannel[[string]$row.ChannelId].Rows.Add($row)
+    }
+    $channelProfiles = [System.Collections.Generic.List[object]]::new()
+    foreach ($channelId in @($profileByChannel.Keys | Sort-Object)) {
+        $channelProfile = $profileByChannel[$channelId]
+        $profileRows = @($channelProfile.Rows.ToArray())
+        $profileWindows = @($windows | Where-Object ChannelId -CEQ $channelId | Sort-Object SourceId, StartUtc, StopUtc)
+        $profileGaps = @($coverageRows | Where-Object ChannelId -CEQ $channelId | Sort-Object SourceId, StartUtc, StopUtc)
+        $categorySet = [System.Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+        foreach ($row in $profileRows) {
+            foreach ($label in @($row.CategoryKeys)) {
+                $normalizedLabel = Normalize-ComparisonText $label
+                if ($categoryLookup.ContainsKey($normalizedLabel)) { [void]$categorySet.Add($categoryLookup[$normalizedLabel]) }
+            }
+        }
+        $categories = @($categorySet)
+        $sourceProfiles = [System.Collections.Generic.List[object]]::new()
+        foreach ($sourceBinding in @($channelProfile.Bindings | Sort-Object SourceId, SourceChannelReference -Unique)) {
+            $sourceRows = @($profileRows | Where-Object { $_.SourceId -ceq $sourceBinding.SourceId -and $_.ChannelReference -ceq $sourceBinding.SourceChannelReference })
+            $sourceProvenance = @($provenanceRows | Where-Object { $_.SourceId -ceq $sourceBinding.SourceId -and $_.ChannelReference -ceq $sourceBinding.SourceChannelReference })
+            $sourceProfiles.Add([pscustomobject][ordered]@{
+                SourceId = $sourceBinding.SourceId
+                SourceChannelReference = $sourceBinding.SourceChannelReference
+                ObservationCount = $sourceRows.Count
+                ObservationStates = @($sourceProvenance | ForEach-Object { $_.ObservationStatus } | Where-Object { $_ } | Sort-Object -Unique)
+                FreshnessStates = @($sourceProvenance | ForEach-Object { $_.FreshnessState } | Where-Object { $_ } | Sort-Object -Unique)
+                MissingXmltv = ($sourceRows.Count -eq 0)
+            }) | Out-Null
+        }
+        $guideState = if ($profileRows.Count -eq 0) { 'MissingXmltv' } elseif ($profileGaps.Count -gt 0) { 'CoverageGap' } elseif ($profileWindows.Count -eq 0) { 'ObservedWithoutDeclaredCoverage' } else { 'CoverageDeclaredAndObserved' }
+        $channelProfiles.Add([pscustomobject][ordered]@{
+            ChannelId = $channelId
+            ChannelReferences = @($channelProfile.Bindings | ForEach-Object { [string]$_.SourceChannelReference } | Where-Object { $_ } | Sort-Object -Unique)
+            Sources = @($sourceProfiles.ToArray() | Sort-Object SourceId, SourceChannelReference)
+            ObservedProgrammeCount = $profileRows.Count
+            CategoryKeys = $categories
+            ExpectedCoverageWindowCount = $profileWindows.Count
+            CoverageGaps = $profileGaps
+            GuideState = $guideState
+            EnrichmentCategoryKeys = if ($categories.Count -eq 0 -and $profileRows.Count -eq 0) { $supportedContentCategories } else { $categories }
+            RevisitRequired = ($guideState -ne 'CoverageDeclaredAndObserved' -or @($profileRows | Where-Object FreshnessState -ne 'Fresh').Count -gt 0)
+        }) | Out-Null
+    }
+    $enrichmentCandidates = [System.Collections.Generic.List[object]]::new()
+    foreach ($channelProfile in $channelProfiles) {
+        if ($channelProfile.GuideState -eq 'MissingXmltv') {
+            $enrichmentCandidates.Add([pscustomobject][ordered]@{
+                ChannelId = $channelProfile.ChannelId
+                Kind = 'MissingXmltv'
+                Categories = $channelProfile.EnrichmentCategoryKeys
+                ExpectedWindows = @($windows | Where-Object ChannelId -CEQ $channelProfile.ChannelId | Sort-Object SourceId, StartUtc, StopUtc | ForEach-Object {
+                    [ordered]@{
+                        SourceId = $_.SourceId
+                        ChannelId = $_.ChannelId
+                        SourceChannelReference = $_.SourceChannelReference
+                        StartUtc = $_.StartUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+                        StopUtc = $_.StopUtc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+                    }
+                })
+                SourceAccess = 'NotEvaluated'
+                RequiresReview = $true
+                CanFetch = $false
+            }) | Out-Null
+        }
+        foreach ($gap in @($channelProfile.CoverageGaps)) {
+            $enrichmentCandidates.Add([pscustomobject][ordered]@{
+                ChannelId = $channelProfile.ChannelId
+                Kind = 'CoverageGap'
+                Categories = $channelProfile.EnrichmentCategoryKeys
+                ExpectedWindows = @($gap)
+                SourceAccess = 'NotEvaluated'
+                RequiresReview = $true
+                CanFetch = $false
+            }) | Out-Null
+        }
+    }
+
 
     $orderedFindings = @($findings | Sort-Object FindingId -Unique)
     $orderedCorrelations = @($correlations | Sort-Object CorrelationId)
@@ -555,11 +805,21 @@ function Compare-ChannelForgeXmltvGuides {
         Summary = [ordered]@{
             FindingCount = $orderedFindings.Count
             CorrelationCount = $orderedCorrelations.Count
+            CrossChannelCorrelationCount = @($crossChannelAssessment.Correlations).Count
+            ContextualAliasProposalCount = @($crossChannelAssessment.ContextualAliasProposals).Count
+            RejectedAliasMatchCount = @($crossChannelAssessment.RejectedAliasMatches).Count
+            ChannelEvidenceProfileCount = $channelProfiles.Count
+            EnrichmentCandidateCount = $enrichmentCandidates.Count
             ContradictionCount = @($orderedFindings | Where-Object Status -eq 'Contradiction').Count
             ReviewRequiredCount = @($orderedFindings | Where-Object ReviewRequired).Count
             StaleObservationCount = @($orderedFreshness | Where-Object FreshnessState -eq 'Stale').Count
             CoverageGapCount = @($orderedCoverage).Count
         }
+        CrossChannelCorrelations = @($crossChannelAssessment.Correlations)
+        ContextualAliasProposals = @($crossChannelAssessment.ContextualAliasProposals)
+        RejectedAliasMatches = @($crossChannelAssessment.RejectedAliasMatches)
+        ChannelEvidenceProfiles = @($channelProfiles.ToArray() | Sort-Object ChannelId)
+        EnrichmentCandidates = @($enrichmentCandidates.ToArray() | Sort-Object ChannelId, Kind, @{Expression={ $_.ExpectedWindows[0].StartUtc }})
         Correlations = $orderedCorrelations
         FreshnessAssessments = $orderedFreshness
         CoverageGaps = $orderedCoverage
@@ -572,19 +832,37 @@ function Compare-ChannelForgeXmltvGuides {
         AcceptedStateMutation = 'None'
         AcceptedKnowledgeMutation = 'None'
     }
+    $report = ConvertTo-SafeComparisonProjection -Value $report
     $json = ConvertTo-ChannelForgeCanonicalJson -InputObject $report
     $markdown = @(
         '# ChannelForge guide comparison',
         '',
-        ('**Playlist:** {0}' -f $PlaylistId),
+        ('**Playlist:** {0}' -f (ConvertTo-ComparisonMarkdownText $report.PlaylistId)),
         ('**Evaluation time (UTC):** {0}' -f $report.EvaluationTimeUtc),
         ('**Observations:** {0}' -f $report.ObservationCount),
-        ('**Correlations:** {0}' -f $report.Summary.CorrelationCount),
+        ('**Same-channel correlations:** {0}' -f $report.Summary.CorrelationCount),
+        ('**Cross-channel candidates:** {0}' -f $report.Summary.CrossChannelCorrelationCount),
+        ('**Contextual alias proposals (not accepted):** {0}' -f $report.Summary.ContextualAliasProposalCount),
+        ('**Rejected contextual alias matches:** {0}' -f $report.Summary.RejectedAliasMatchCount),
+        ('**Channel evidence profiles:** {0}' -f $report.Summary.ChannelEvidenceProfileCount),
+        ('**Enrichment candidates (fetch disabled):** {0}' -f $report.Summary.EnrichmentCandidateCount),
         ('**Findings:** {0}' -f $report.Summary.FindingCount),
+        '',
+        '## Cross-channel candidates',
+        ''
+    ) + @($report.CrossChannelCorrelations | ForEach-Object { '- {0} — {1}; confidence {2}/100; {3}; merge disabled.' -f (ConvertTo-ComparisonMarkdownText ($_.Titles -join ' / ')), (ConvertTo-ComparisonMarkdownText ($_.ChannelIds -join ', ')), $_.ConfidenceScore, (ConvertTo-ComparisonMarkdownText $_.ConfidenceState) }) + @(
+        '',
+        '## Contextual alias proposals',
+        ''
+    ) + @($report.ContextualAliasProposals | ForEach-Object { '- {0} — confidence {1}/100; proposed, reversible, not accepted.' -f (ConvertTo-ComparisonMarkdownText ($_.Aliases -join ' / ')), $_.ConfidenceScore }) + @(
+        '',
+        '## Channel profiles and enrichment gaps',
+        ''
+    ) + @($report.ChannelEvidenceProfiles | ForEach-Object { '- {0} — {1}; {2} programmes; categories: {3}.' -f (ConvertTo-ComparisonMarkdownText $_.ChannelId), (ConvertTo-ComparisonMarkdownText $_.GuideState), $_.ObservedProgrammeCount, (ConvertTo-ComparisonMarkdownText (@($_.EnrichmentCategoryKeys) -join ', ')) }) + @(
         '',
         '## Findings',
         ''
-    ) + @($orderedFindings | ForEach-Object { '- **{0}** ({1}) — {2}' -f $_.Kind, $_.Status, (ConvertTo-ChannelForgeCanonicalJson -InputObject $_.Details) })
+    ) + @($report.Findings | ForEach-Object { '- **{0}** ({1}) — {2}' -f (ConvertTo-ComparisonMarkdownText $_.Kind), (ConvertTo-ComparisonMarkdownText $_.Status), (ConvertTo-ComparisonMarkdownText (ConvertTo-ChannelForgeCanonicalJson -InputObject $_.Details)) })
     $report['Json'] = $json
     $report['Markdown'] = [string]::Join("`n", $markdown)
     return [pscustomobject]$report

@@ -41,6 +41,21 @@ Describe 'Import-ChannelForgeXmltvSource' {
         $programmes[1].EpisodeNumber | Should -Be 'S01E01'
         $programmes[1].IsLive | Should -BeTrue
     }
+    It 'stops XMLTV parsing before materializing a programme over the configured limit' {
+        $path = Join-Path $TestDrive 'programme-limit.xml'
+        $xml = @'
+<tv>
+  <channel id="one"><display-name>One</display-name></channel>
+  <programme start="20260101120000 +0000" stop="20260101130000 +0000" channel="one"><title>First</title></programme>
+  <programme start="20260101130000 +0000" stop="20260101140000 +0000" channel="one"><title>Second</title></programme>
+  <programme start="20260101140000 +0000" stop="20260101150000 +0000" channel="one"><title>Third</title></programme>
+</tv>
+'@
+        [IO.File]::WriteAllText($path,$xml,[Text.UTF8Encoding]::new($false))
+
+        { Import-ChannelForgeXmltvSource -Path $path -SourceId 'bounded-fixture' -MaximumProgrammeCount 2 } | Should -Throw '*ComparisonProgrammeLimitExceeded*'
+        @(Import-ChannelForgeXmltvSource -Path $path -SourceId 'bounded-fixture' -MaximumProgrammeCount 3).Count | Should -Be 3
+    }
 
     It 'produces identical programme structure and ordering on repeated parses' {
         $first = @(Import-ChannelForgeXmltvSource -Path $script:FixturePath -SourceId 'fixture')

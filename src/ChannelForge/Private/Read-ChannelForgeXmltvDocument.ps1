@@ -34,6 +34,9 @@ function Read-ChannelForgeXmltvDocument {
 
         [long]$MaxDocumentBytes = 268435456,
 
+        [ValidateRange(0, 2147483647)]
+        [int]$MaximumProgrammeCount = [int]::MaxValue,
+
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -148,8 +151,12 @@ function Read-ChannelForgeXmltvDocument {
                             RawChannelExtensions         = @()
                         })
                 }
-
                 'programme' {
+
+                    if ($programmes.Count -ge $MaximumProgrammeCount) {
+                        throw 'ComparisonProgrammeLimitExceeded'
+                    }
+
                     $programmeDepth = $reader.Depth
                     $channelId = $reader.GetAttribute('channel')
                     $startValue = $reader.GetAttribute('start')

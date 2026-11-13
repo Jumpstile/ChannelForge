@@ -121,6 +121,28 @@
         "MaxRunRecords": { "type": "integer", "minimum": 1, "maximum": 1000 },
         "MaxAgeDays": { "type": "integer", "minimum": 1, "maximum": 3650 }
       }
+    },
+    "GuideComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Enabled"],
+      "properties": {
+        "Enabled": { "type": "boolean" },
+        "PlaylistId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "Enabled": { "const": true } },
+            "required": ["Enabled"]
+          },
+          "then": { "required": ["PlaylistId"] },
+          "else": { "not": { "required": ["PlaylistId"] } }
+        }
+      ]
     }
   }
 }

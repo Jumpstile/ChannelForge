@@ -63,6 +63,20 @@ Describe 'Windows Task Scheduler registration contract' {
         $first.Digest | Should -Be $second.Digest
         (Get-ChannelForgeScheduledOperationTaskIdentity -RootInfo $first).TaskName | Should -Match '^ScheduledRefresh-[0-9a-f]{16}$'
     }
+    It 'normalizes omitted and disabled guide comparison identically in policy canonicalization' {
+        $policy = Get-Content -LiteralPath $script:PolicyExample -Raw | ConvertFrom-Json
+        $omitted = Get-ChannelForgeScheduledOperationPolicyCanonical -Policy $policy
+        $disabledPolicy = Get-Content -LiteralPath $script:PolicyExample -Raw | ConvertFrom-Json
+        Add-Member -InputObject $disabledPolicy -NotePropertyName GuideComparison -NotePropertyValue ([pscustomobject]@{ Enabled = $false })
+        $disabled = Get-ChannelForgeScheduledOperationPolicyCanonical -Policy $disabledPolicy
+        ($omitted | ConvertTo-Json -Depth 10 -Compress) | Should -Be ($disabled | ConvertTo-Json -Depth 10 -Compress)
+
+        $enabledPolicy = Get-Content -LiteralPath $script:PolicyExample -Raw | ConvertFrom-Json
+        Add-Member -InputObject $enabledPolicy -NotePropertyName GuideComparison -NotePropertyValue ([pscustomobject]@{ Enabled = $true; PlaylistId = 'primary-playlist' })
+        $enabled = Get-ChannelForgeScheduledOperationPolicyCanonical -Policy $enabledPolicy
+        ($enabled | ConvertTo-Json -Depth 10 -Compress) | Should -Not -Be ($omitted | ConvertTo-Json -Depth 10 -Compress)
+    }
+
 
     It 'installs, reports, and uninstalls exactly one owned task' {
         $project = New-RegistrationProject
