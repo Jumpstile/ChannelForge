@@ -283,6 +283,8 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
     $manifestArguments.ReviewCounts = $counts
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
+    $logoReport = Get-ChannelForgeLogoReport -Channel @($merge.Channels)
+    if ($logoReport.Warning) { Write-Warning $logoReport.Warning }
     $manifest = [ordered]@{}
     foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$property.Name] = $property.Value }
     $manifestHash = [string]$manifestResult.CandidateManifestHash
@@ -327,6 +329,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             BuildIdentity = $manifestResult.BuildIdentity
             CandidateDirectory = $finalPath
             Manifest = [pscustomobject]$manifest
+            LogoReport = $logoReport
         }
     }
     catch {
