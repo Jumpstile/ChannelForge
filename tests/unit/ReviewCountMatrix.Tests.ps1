@@ -11,6 +11,10 @@ BeforeAll {
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawM3UProjection.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeRawXmltvProjection.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeCandidateReviewCounts.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Test-ChannelForgeDisallowedIpAddress.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Test-ChannelForgeSafeHostAddress.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeLogoStatus.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgePublishLogo.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\New-ChannelForgeCandidateManifest.ps1')
     function New-ReviewCountInputs {
         $channels = @(Import-ChannelForgeM3UPlaylist `

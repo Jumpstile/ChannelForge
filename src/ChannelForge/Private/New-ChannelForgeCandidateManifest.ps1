@@ -35,6 +35,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [AllowNull()]
         [object]$ReviewCounts,
         [string[]]$SerializedM3UEntryOrder = @(),
+        [hashtable]$GroupDefaultLogo = @{},
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -203,6 +204,15 @@ function ConvertTo-ChannelForgeCandidateManifest {
         return @($digests | Sort-Object -Unique)
     }
 
+    # logo-fingerprint/v1: the presentation fingerprint hashes the logo that is
+    # published (same helper and group-default map as the M3U export).
+    $fingerprintOccurrences = @($RawM3UOccurrences | Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate })
+    $publishedLogos = @(Get-ChannelForgePublishLogo -Channel @($fingerprintOccurrences | ForEach-Object { $_.Channel }) -GroupDefaultLogo $GroupDefaultLogo)
+    $publishedLogoByEntry = @{}
+    for ($p = 0; $p -lt $fingerprintOccurrences.Count; $p++) {
+        $publishedLogoByEntry[[string]$fingerprintOccurrences[$p].EntryId] = $publishedLogos[$p].Logo
+    }
+
     $orderedM3U = @($RawM3UOccurrences | Sort-Object @{ Expression = { [string]$_.EntryId } })
     $entries = @($orderedM3U | Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } | ForEach-Object {
             [ordered]@{
@@ -227,7 +237,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
                     TvgName = [string]$_.TvgName
                     DisplayName = [string]$_.DisplayName
                     GroupTitle = [string]$_.GroupTitle
-                    Logo = [string]$_.Logo
+                    Logo = [string]$publishedLogoByEntry[[string]$_.EntryId]
                     ChannelNumber = $_.ChannelNumber
                 })
                 EntryOutputSlice    = [ordered]@{

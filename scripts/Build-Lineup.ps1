@@ -803,6 +803,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
             SerializedM3UEntryOrder = $serializedM3UEntryOrder
             SelectedSourceIds       = $selectedSourceIds
             CandidateContractVersion = $CandidateContractVersion
+            GroupDefaultLogo        = $groupDefaultLogo
         }
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
