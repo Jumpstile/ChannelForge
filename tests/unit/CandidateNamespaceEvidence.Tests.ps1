@@ -5,6 +5,10 @@ BeforeAll {
 
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\ConvertTo-ChannelForgeCanonicalJson.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeDomainHash.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Test-ChannelForgeDisallowedIpAddress.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Test-ChannelForgeSafeHostAddress.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgeLogoStatus.ps1')
+    . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\Get-ChannelForgePublishLogo.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\New-ChannelForgeCandidateManifest.ps1')
     . (Join-Path $script:RepoRoot 'src\ChannelForge\Private\ConvertTo-ChannelForgeCandidateCanonical.ps1')
 

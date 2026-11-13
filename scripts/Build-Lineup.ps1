@@ -313,6 +313,11 @@ $resolvedProviderPath = Resolve-ChannelForgeProviderConfigPath `
 # decisions beyond being classified as remote.
 $providerSources = @(Read-ChannelForgeProvider -Path $resolvedProviderPath)
 $providerConfig = Read-JsonFile $resolvedProviderPath
+# Optional group_default_logo: group name -> public https logo URL.
+$groupDefaultLogo = @{}
+if ($providerConfig.PSObject.Properties['group_default_logo']) {
+    foreach ($entry in $providerConfig.group_default_logo.PSObject.Properties) { $groupDefaultLogo[$entry.Name] = [string]$entry.Value }
+}
 $epgSelection = Select-ChannelForgeEpgConfig -EpgDirectory $epgDirectory -SchemaPath $epgSchemaPath
 $epgConfigPath = $epgSelection.Path
 $epgConfigSource = $epgSelection.Source
@@ -470,7 +475,7 @@ if ($m3uActiveSourceCount -gt 0) {
             Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
             Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
             ForEach-Object { $_.Channel })
-        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath
+        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo
         if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
             throw 'M3U exporter did not produce the staged output.'
         }
@@ -798,6 +803,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
             SerializedM3UEntryOrder = $serializedM3UEntryOrder
             SelectedSourceIds       = $selectedSourceIds
             CandidateContractVersion = $CandidateContractVersion
+            GroupDefaultLogo        = $groupDefaultLogo
         }
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
