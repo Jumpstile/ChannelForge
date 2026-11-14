@@ -43,6 +43,20 @@ Describe 'Event channel candidates' {
         $none.Reasons | Should -Contain 'no guide data'
     }
 
+    It 'rates PPV1 style names high' {
+        $rated = Get-Rated -Channel @((New-EventChannel -Name 'Prima Sport PPV1' -Titles @('Prima Sport PPV1')))
+        $rated[0].Confidence | Should -Be 'high'
+    }
+
+    It 'counts a title that echoes the channel name with a suffix as placeholder' {
+        $rated = Get-Rated -Channel @(
+            (New-EventChannel -Name 'blue Event D 1' -Titles @('blue Event D 1 Live', 'blue Event D 1 Live'))
+            (New-EventChannel -Name 'Fight Network' -Titles @('Bout A', 'Bout B', 'Bout C'))
+        )
+        ($rated | Where-Object DisplayName -ceq 'blue Event D 1').Confidence | Should -Be 'high'
+        ($rated | Where-Object DisplayName -ceq 'Fight Network').Confidence | Should -Be 'medium'
+    }
+
     It 'does not flag a normal channel full of filler, and reports nothing for a normal channel' {
         $rated = Get-Rated -Channel @(
             (New-EventChannel -Name 'City News' -Titles @('Off Air', 'SIGN OFF', 'To Be Announced'))
