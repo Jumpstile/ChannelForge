@@ -385,7 +385,7 @@ Describe 'Remote XMLTV disposable fetch cache' {
         $cacheRoot=Join-Path $TestDrive 'empty-response'
         $payload=New-CachePayload -Bytes ([text.encoding]::UTF8.GetBytes('<tv />'))
         Set-CacheMockQueue @($payload)
-        { Import-ChannelForgeConfiguredXmltvSource -Source (New-CacheSource) -CacheRoot $cacheRoot } | Should -Throw '*no programmes*'
+        { Import-ChannelForgeConfiguredXmltvSource -Source (New-CacheSource) -CacheRoot $cacheRoot } | Should -Throw '*no programs*'
         $payload.Disposed | Should -BeTrue
         Get-CacheMetadataPath $cacheRoot | Should -BeNullOrEmpty
     }
