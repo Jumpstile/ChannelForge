@@ -459,12 +459,14 @@ function Write-ChannelForgeSourceSet {
         $storedId = if ($null -ne $descriptor.PSObject.Properties['SourceId']) { [string]$descriptor.SourceId } else { '' }
         $id = if ([string]::IsNullOrWhiteSpace($storedId)) { Get-ChannelForgeSourceSetSourceId -Kind $kind -SourceKind $sourceKind -SourceKey $key } else { $storedId }
         if ($id -cnotmatch '^[0-9a-f]{64}$') { throw 'SOURCE_ENROLLMENT_INVALID: source identity is invalid.' }
+        # A record that already names its snapshot keeps that name. Only a new source is named by its ID.
+        $keptExtension = if ($kind -eq 'M3U') { 'm3u' } else { 'xml' }
+        $keptPath = if ($null -ne $descriptor.PSObject.Properties['ManagedPath'] -and [string]$descriptor.ManagedPath -cmatch ('^state/managed-sources/[0-9a-f]{64}\.' + $keptExtension + '$')) { [string]$descriptor.ManagedPath } else { "state/managed-sources/$id.$keptExtension" }
         $managedPath = $null; $url = $null; $contentHash = $null; $byteLength = $null; $refreshState = 'saved'
         if ($sourceKind -eq 'managed-file') {
             $bytes = [byte[]]$descriptor.Bytes
             if ($null -eq $bytes -or $bytes.Length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: managed source bytes cannot be empty.' }
-            $extension = if ($kind -eq 'M3U') { 'm3u' } else { 'xml' }
-            $managedPath = "state/managed-sources/$id.$extension"
+            $managedPath = $keptPath
             Write-ChannelForgeSourceEnrollmentAtomicBytes -Path (Join-Path $paths.RepositoryRoot ($managedPath -replace '/', '\')) -Bytes $bytes -AllowedRoot $paths.ManagedSourceRoot
             $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
             $byteLength = $bytes.Length
@@ -477,8 +479,7 @@ function Write-ChannelForgeSourceSet {
             $bytes = if ($descriptorProperties -contains 'Bytes') { [byte[]]$descriptor.Bytes } else { $null }
             if ($null -ne $bytes) {
                 if ($bytes.Length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source bytes cannot be empty.' }
-                $extension = if ($kind -eq 'M3U') { 'm3u' } else { 'xml' }
-                $managedPath = "state/managed-sources/$id.$extension"
+                $managedPath = $keptPath
                 Write-ChannelForgeSourceEnrollmentAtomicBytes -Path (Join-Path $paths.RepositoryRoot ($managedPath -replace '/', '\')) -Bytes $bytes -AllowedRoot $paths.ManagedSourceRoot
                 $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
                 $byteLength = $bytes.Length
