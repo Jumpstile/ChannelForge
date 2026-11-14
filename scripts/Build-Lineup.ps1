@@ -664,6 +664,7 @@ else {
         $allProgrammes = [System.Collections.Generic.List[object]]::new()
 
         foreach ($source in $xmltvSources) {
+            $xmltvCurrentSourceName = [string]$source.Name
             $acquisitionStatus = [ordered]@{}
             $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource `
                 -Source $source `
@@ -698,6 +699,7 @@ else {
             }
         }
 
+        $xmltvCurrentSourceName = $null
         if ($allProgrammes.Count -eq 0) {
             throw 'No XMLTV programmes were imported.'
         }
@@ -775,9 +777,24 @@ else {
             }).Count -gt 0
             if ($hasRemoteXmltvSource) { $xmltvFailureReason = 'Configured XMLTV input could not be imported.' }
             else { $xmltvFailureReason = 'Configured local XMLTV input could not be imported.' }
+            if ($xmltvCurrentSourceName) {
+                $failedName = Get-SafeReportText $xmltvCurrentSourceName
+                $xmltvFailureReason = "XMLTV source '$failedName' could not be imported."
+                [void]$xmltvAcquisitionStatuses.Add([pscustomobject][ordered]@{
+                    SourceId = $failedName
+                    Outcome  = 'Failed'
+                    Reason   = Get-SafeReportText $_.Exception.Message
+                    CacheKey = ''
+                })
+            }
         }
         elseif ($xmltvFailureStage -eq 'merge') {
             $xmltvFailureReason = 'Imported XMLTV programmes could not be merged deterministically.'
+            $conflictNames = @($xmltvMergeResult.Conflicts.Alternatives.Evidence.SourceId |
+                Where-Object { $_ } | ForEach-Object { Get-SafeReportText $_ } | Sort-Object -Unique -CaseSensitive)
+            if ($conflictNames.Count -gt 0) {
+                $xmltvFailureReason = "Imported XMLTV programmes could not be merged deterministically; conflicting source: $($conflictNames -join ', ')."
+            }
         }
         elseif ($xmltvFailureStage -eq 'export') {
             $xmltvFailureReason = 'Merged XMLTV programmes could not be serialized.'
