@@ -36,5 +36,23 @@ function Get-ChannelForgeGuidedSetupChecks {
     catch {
         [void]$checks.Add([pscustomobject][ordered]@{ Kind = 'categories'; Status = 'unavailable'; Headline = 'Category check could not run. You can still accept.'; Details = @() })
     }
+    $programmes = @($Candidate.GuideProgrammes)
+    if (@($programmes | ForEach-Object { [string]$_.SourceId } | Sort-Object -Unique).Count -ge 2) {
+        try {
+            $xguide = @(Get-ChannelForgeXguideReport -Programme $programmes -BuildTimeUtc ([datetime]::UtcNow))[-1]
+            $guideLines = @(Get-ChannelForgeXguideSummaryLines -Report $xguide | Where-Object { $_ -and $_ -notlike '## *' })
+            $behind = [int]$xguide.Counts.GuideBehind
+            $differences = (@($xguide.Counts.PSObject.Properties | ForEach-Object { [int]$_.Value } | Measure-Object -Sum).Sum) - $behind
+            $guideStatus = if ($differences + $behind -gt 0) { 'attention' } else { 'ok' }
+            $guideHeadline = if ($differences -gt 0) { "Your guides disagree on $differences shows. $accept" }
+            elseif ($behind -gt 0) { "A guide looks empty, ended or out of date. $accept" }
+            elseif ($xguide.SharedChannelCount -eq 0) { 'Your guides share no channels, so there is nothing to compare.' }
+            else { 'Your guides agree on their shared channels. Looks fine.' }
+            [void]$checks.Add([pscustomobject][ordered]@{ Kind = 'guides'; Status = $guideStatus; Headline = $guideHeadline; Details = $guideLines })
+        }
+        catch {
+            [void]$checks.Add([pscustomobject][ordered]@{ Kind = 'guides'; Status = 'unavailable'; Headline = 'Guide check could not run. You can still accept.'; Details = @() })
+        }
+    }
     return @($checks)
 }

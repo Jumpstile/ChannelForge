@@ -109,7 +109,7 @@ type GuideBindingSelection = {
 
 function ProposalCheckRow({ check }: { check: GuidedSetupCheck }) {
   const [open, setOpen] = useState(false)
-  const name = check.Kind === 'logos' ? 'Logos' : 'Categories'
+  const name = check.Kind === 'logos' ? 'Logos' : check.Kind === 'guides' ? 'Guides' : 'Categories'
   const state = check.Status === 'ok' ? 'OK' : check.Status === 'attention' ? 'Needs a look' : 'Not available'
   return (
     <li>
