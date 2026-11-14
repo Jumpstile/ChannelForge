@@ -19,6 +19,11 @@ function Get-ChannelForgeEventChannelCandidate {
     foreach ($item in $Channel) {
         $name = & $normalize ([string]$item.DisplayName)
         $ppvHit = @(Find-ChannelForgeCategoryWord -Text $name -Registry $ppvWords -Property Aliases)
+        # The shared matcher is whole-word only; also accept ppv plus digits (PPV1, PPV2). Not SKYPPV.
+        if ($ppvHit.Count -eq 0) {
+            $ppvDigits = [regex]::Match($name, '(?<![\p{L}\p{N}])ppv\d+(?![\p{L}\p{N}])')
+            if ($ppvDigits.Success) { $ppvHit = @([pscustomobject]@{ Key = 'ppv'; Word = $ppvDigits.Value }) }
+        }
         $eventHit = @(Find-ChannelForgeCategoryWord -Text $name -Registry $eventWords -Property Aliases)
         $programmes = @($item.Programmes)
 
@@ -28,7 +33,10 @@ function Get-ChannelForgeEventChannelCandidate {
             if ($hours -le 0) { continue }
             $title = & $normalize ([string]$programme.Title)
             $total += $hours
-            if ($fillers -contains $title -or $title -ceq $name) { $placeholder += $hours }
+            # A title that echoes the channel name (equal, or one starts with the other, shorter side 4+ chars) is a placeholder.
+            $short = [math]::Min($title.Length, $name.Length)
+            $echo = $short -ge 4 -and ($name.StartsWith($title, [StringComparison]::Ordinal) -or $title.StartsWith($name, [StringComparison]::Ordinal))
+            if ($fillers -contains $title -or $title -ceq $name -or $echo) { $placeholder += $hours }
             else { $realTitles[$title] = $true; if ($hours -ge 6) { $long += $hours } }
         }
         $share = if ($total -gt 0) { $placeholder / $total } else { 0.0 }
