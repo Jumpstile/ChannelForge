@@ -365,8 +365,7 @@ function Get-ChannelForgeSourceEnrollmentStatus {
 }
 function Get-ChannelForgeSourceEnrollmentInputs {
     $integrity = Get-ChannelForgeSourceEnrollmentIntegrity -RepositoryRoot $RepositoryRoot
-    $remoteRetryable = @($integrity.SourceStates | Where-Object { $_.SourceKind -eq 'public-https' -and $_.State -in @('Remote', 'Unavailable', 'Changed') }).Count -gt 0
-    if ($integrity.State -notin @('Valid', 'Changed') -and -not $remoteRetryable) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
+    if ($integrity.State -notin @('Valid', 'Changed', 'SourceUnavailable')) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
     $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
     $playlist = @($integrity.Enrollment.Playlists | Where-Object { $_.Enabled }) | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1
     $guide = @($integrity.Enrollment.Guides | Where-Object { $_.Enabled }) | Sort-Object Priority, OrderKey, SourceId | Select-Object -First 1
@@ -374,7 +373,7 @@ function Get-ChannelForgeSourceEnrollmentInputs {
         param($record)
         if ($null -eq $record -or [string]::IsNullOrWhiteSpace([string]$record.ManagedPath)) { return $null }
         $path = [System.IO.Path]::GetFullPath((Join-Path $paths.RepositoryRoot ([string]$record.ManagedPath -replace '/', '\')))
-        Assert-ChannelForgeSourceEnrollmentPath -Path $path -AllowedRoot $paths.RepositoryRoot | Out-Null
+        try { Assert-ChannelForgeSourceEnrollmentPath -Path $path -AllowedRoot $paths.RepositoryRoot | Out-Null } catch { return $null }
         return $path
     }
     $m3uPath = & $resolveManagedPath $playlist
