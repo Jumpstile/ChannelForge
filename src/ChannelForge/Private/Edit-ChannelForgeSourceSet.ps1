@@ -76,6 +76,22 @@ function Get-ChannelForgeSourceSetEditBase {
     }
 }
 
+function Find-ChannelForgeSourceSetSource {
+    param(
+        [Parameter(Mandatory)]$Base,
+        [string]$SourceId,
+        [string]$Label,
+        [string]$Kind
+    )
+    $found = @(@($Base.Playlists) + @($Base.Guides) | Where-Object {
+        if (-not [string]::IsNullOrEmpty($SourceId)) { $_.SourceId -ceq $SourceId }
+        else { $_.Label -ieq $Label -and ([string]::IsNullOrEmpty($Kind) -or $_.Kind -ceq $Kind) }
+    })
+    if ($found.Count -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: no saved source matches.' }
+    if ($found.Count -gt 1) { throw 'SOURCE_ENROLLMENT_INVALID: more than one saved source matches. Use -Kind or -SourceId.' }
+    return $found[0]
+}
+
 function Save-ChannelForgeSourceSetEdit {
     param(
         [Parameter(Mandatory)][string]$RepositoryRoot,

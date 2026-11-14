@@ -8,13 +8,7 @@ function Remove-ChannelForgeSourceSetSource {
     )
 
     $base = Get-ChannelForgeSourceSetEditBase -RepositoryRoot $RepositoryRoot
-    $found = @(@($base.Playlists) + @($base.Guides) | Where-Object {
-        if ($PSCmdlet.ParameterSetName -eq 'ById') { $_.SourceId -ceq $SourceId }
-        else { $_.Label -ieq $Label -and (-not $PSBoundParameters.ContainsKey('Kind') -or $_.Kind -ceq $Kind) }
-    })
-    if ($found.Count -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: no saved source matches.' }
-    if ($found.Count -gt 1) { throw 'SOURCE_ENROLLMENT_INVALID: more than one saved source matches. Use -Kind or -SourceId.' }
-    $target = $found[0]
+    $target = Find-ChannelForgeSourceSetSource -Base $base -SourceId $SourceId -Label $Label -Kind $Kind
 
     $playlists = @($base.Playlists)
     $guides = @($base.Guides)
