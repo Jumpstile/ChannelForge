@@ -53,9 +53,16 @@ function Get-ChannelForgeRefreshManagedSourceHash {
     finally { $sha.Dispose() }
 }
  $sourceUpdates = [System.Collections.Generic.List[object]]::new()
+$replacements = [System.Collections.Generic.List[object]]::new()
+$pending = [System.Collections.Generic.List[object]]::new()
+$setBlocked = $false
+$inputs = $null
+if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
+    try { $inputs = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $rootFull } catch { $inputs = $null }
+}
  foreach ($planned in $plan) {
      if ([string]$planned.SourceKind -eq 'enrolled') {
-         $inputs = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $rootFull
+        $wantsCandidate = $false
          $record = @($inputs.Enrollment.Playlists + $inputs.Enrollment.Guides | Where-Object {
              [string]$_.SourceId -eq [string]$planned.EnrollmentSourceId
          }) | Select-Object -First 1
@@ -104,25 +111,13 @@ function Get-ChannelForgeRefreshManagedSourceHash {
                          $programmes = @(Import-ChannelForgeXmltvSource -Path $candidatePath -SourceId ([string]$record.SourceId) -AcquisitionStatus $xmlStatus)
                          if ($programmes.Count -eq 0) { throw 'Remote XMLTV response contained no programmes.' }
                      }
-                     try {
-                         New-ChannelForgeEnrolledCandidate `
-                             -EnrollmentInputs $inputs `
-                             -RepositoryRoot $rootFull `
-                             -ReplacementSourceId ([string]$record.SourceId) `
-                             -ReplacementPath $candidatePath `
-                             -OutputRoot (Join-Path (Join-Path $reportRoot 'refresh-candidates') 'source-set') | Out-Null
-                         $row.ReasonCode = 'CandidateGenerated'
-                         $row.SafeReason = 'Changed public HTTPS source produced a review-only source-set candidate; accepted state and last-known-good snapshot were not modified.'
-                     }
-                     catch {
-                         $row.ReasonCode = 'CandidateReviewRequired'
-                         $row.SafeReason = 'Changed public HTTPS source was validated, but a complete source-set candidate could not be generated; accepted state and last-known-good snapshot were preserved.'
-                     }
-                     $row.Result = 'REVIEW_REQUIRED'
-                     $row.Classification = 'ReviewNeeded'
-                     $row.CacheChanged = $true
-                     $row.LastKnownGoodPreserved = -not [string]::IsNullOrWhiteSpace([string]$record.ContentHash)
-                     $sourceUpdates.Add([pscustomobject]@{ SourceId = [string]$record.SourceId; State = 'changes-found' }) | Out-Null
+                    $replacements.Add([pscustomobject]@{ SourceId = [string]$record.SourceId; Path = $candidatePath }) | Out-Null
+                    $wantsCandidate = $true
+                    $row.Result = 'REVIEW_REQUIRED'
+                    $row.Classification = 'ReviewNeeded'
+                    $row.CacheChanged = $true
+                    $row.LastKnownGoodPreserved = -not [string]::IsNullOrWhiteSpace([string]$record.ContentHash)
+                    $sourceUpdates.Add([pscustomobject]@{ SourceId = [string]$record.SourceId; State = 'changes-found' }) | Out-Null
                  }
              }
              catch {
@@ -131,6 +126,7 @@ function Get-ChannelForgeRefreshManagedSourceHash {
                  $row.ReasonCode = if ($row.Classification -eq 'Degraded') { 'RefreshFailedLkgPreserved' } else { 'RefreshFailedNoLkg' }
                  $row.LastKnownGoodPreserved = -not [string]::IsNullOrWhiteSpace([string]$record.ContentHash)
                  $row.SafeReason = if ($row.LastKnownGoodPreserved) { 'Public HTTPS refresh failed; the saved last-known-good snapshot and accepted state were preserved.' } else { 'Public HTTPS refresh failed and no saved snapshot was available.' }
+                if (-not $row.LastKnownGoodPreserved) { $setBlocked = $true }
                  $sourceUpdates.Add([pscustomobject]@{ SourceId = [string]$record.SourceId; State = 'source-unavailable' }) | Out-Null
              }
          }
@@ -141,38 +137,19 @@ function Get-ChannelForgeRefreshManagedSourceHash {
              $row.SafeReason = 'Saved source bytes are unchanged; no network request was made and accepted state was not modified.'
          }
          elseif ([string]$planned.RecommendedAction -eq 'FULL_REFRESH') {
-             $row.Attempted = $true
-             try {
-                 $candidateRoot = Join-Path $reportRoot 'refresh-candidates'
-                 New-Item -ItemType Directory -Force -Path $candidateRoot | Out-Null
-                 $candidateM3UPath = if ([string]$planned.EnrollmentKind -eq 'XMLTV') { [string]$inputs.M3UPath } else { [string]$planned.SourcePath }
-                 $candidateXMLTVPath = if ([string]$planned.EnrollmentKind -eq 'XMLTV') { [string]$planned.SourcePath } else { [string]$planned.GuidePath }
-                 New-ChannelForgeCandidateProposal `
-                     -Root $rootFull `
-                     -M3UPath $candidateM3UPath `
-                     -XMLTVPath $candidateXMLTVPath `
-                     -OutputRoot $candidateRoot `
-                     -CandidateContractVersion 'blocker-2-contract/v8' | Out-Null
-                 $row.Result = 'REVIEW_REQUIRED'
-                 $row.Classification = 'ReviewNeeded'
-                 $row.ReasonCode = 'CandidateGenerated'
-                 $row.SafeReason = 'Changed saved source bytes produced a review-only candidate; accepted state was not modified.'
-             }
-             catch {
-                 $row.Result = 'REFRESH_FAILED'
-                 $row.Classification = 'ReviewNeeded'
-                 $row.ReasonCode = 'RefreshFailedLkgPreserved'
-                 $row.LastKnownGoodPreserved = $true
-                 $row.SafeReason = 'Changed saved source could not produce a candidate; accepted state was preserved.'
-             }
+            $row.Attempted = $true
+            $wantsCandidate = $true
          }
          else {
+            $setBlocked = $true
              $row.Result = 'REVIEW_REQUIRED'
              $row.Classification = 'ReviewNeeded'
              $row.ReasonCode = 'InvalidCache'
              $row.SafeReason = [string]$planned.Reason
          }
-         $rows.Add([pscustomobject]$row) | Out-Null
+        $rowObject = [pscustomobject]$row
+        $rows.Add($rowObject) | Out-Null
+        if ($wantsCandidate) { $pending.Add([pscustomobject]@{ Row = $rowObject; Remote = $isRemote }) | Out-Null }
          continue
      }
 
@@ -307,6 +284,41 @@ function Get-ChannelForgeRefreshManagedSourceHash {
      }
      $rows.Add([pscustomobject]$row) | Out-Null
  }
+
+if ($pending.Count -gt 0) {
+    $candidateBuilt = $false
+    if (-not $setBlocked) {
+        try {
+            New-ChannelForgeEnrolledCandidate `
+                -EnrollmentInputs $inputs `
+                -RepositoryRoot $rootFull `
+                -Replacement @($replacements.ToArray()) `
+                -OutputRoot (Join-Path (Join-Path $reportRoot 'refresh-candidates') 'source-set') | Out-Null
+            $candidateBuilt = $true
+        }
+        catch { $candidateBuilt = $false }
+    }
+    foreach ($item in $pending) {
+        $r = $item.Row
+        if ($candidateBuilt) {
+            $r.Result = 'REVIEW_REQUIRED'
+            $r.Classification = 'ReviewNeeded'
+            $r.ReasonCode = 'CandidateGenerated'
+            $r.SafeReason = if ($item.Remote) { 'Changed public HTTPS source produced a review-only source-set candidate; accepted state and last-known-good snapshot were not modified.' } else { 'Changed saved source bytes produced a review-only candidate; accepted state was not modified.' }
+        }
+        elseif ($item.Remote) {
+            $r.ReasonCode = 'CandidateReviewRequired'
+            $r.SafeReason = 'Changed public HTTPS source was validated, but a complete source-set candidate could not be generated; accepted state and last-known-good snapshot were preserved.'
+        }
+        else {
+            $r.Result = 'REFRESH_FAILED'
+            $r.Classification = 'ReviewNeeded'
+            $r.ReasonCode = 'RefreshFailedLkgPreserved'
+            $r.LastKnownGoodPreserved = $true
+            $r.SafeReason = 'Changed saved source could not produce a candidate; accepted state was preserved.'
+        }
+    }
+}
 
  $sourceRows = @($rows | Sort-Object Kind, SourceId)
  $reviewNeededCount = @($sourceRows | Where-Object {
