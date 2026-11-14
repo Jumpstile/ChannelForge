@@ -10,7 +10,10 @@ param(
 
     # Candidate-owned registry version; independent subsystem versions remain explicit.
     [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
-    [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+    [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+
+    # Test-only clock for the guide age warning. Default is the real UTC time.
+    [datetime]$BuildTimeUtc = [datetime]::UtcNow
 )
 $ErrorActionPreference = "Stop"
 
@@ -225,6 +228,37 @@ function Get-ChannelForgeEpgCoverage {
                 LastStopUtc    = if ($span) { $span.Last.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ') } else { $null }
             }
         })
+}
+
+function Get-ChannelForgeGuideEnd {
+    # epg-guide-end/v1: latest programme stop (UTC) and a warn-only age flag.
+    # Warns when that stop is less than $WarnWithinHours after $NowUtc.
+    param(
+        [AllowEmptyCollection()]
+        [object[]]$Programme,
+
+        [datetime]$NowUtc,
+
+        [int]$WarnWithinHours = 48
+    )
+
+    $last = $null
+    $bySource = [ordered]@{}
+    foreach ($p in @($Programme)) {
+        if ($null -eq $last -or $p.End -gt $last) { $last = $p.End }
+        $sid = [string]$p.SourceId
+        if (-not $bySource.Contains($sid) -or $p.End -gt $bySource[$sid]) { $bySource[$sid] = $p.End }
+    }
+    if ($null -eq $last) {
+        return [pscustomobject]@{ GuideEndsUtc = $null; GuideEndsUtcBySource = @(); GuideAgeWarning = $false }
+    }
+    return [pscustomobject]@{
+        GuideEndsUtc         = $last.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ')
+        GuideEndsUtcBySource = @($bySource.Keys | ForEach-Object {
+                [pscustomobject][ordered]@{ SourceId = Get-SafeReportText $_; GuideEndsUtc = $bySource[$_].UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ') }
+            })
+        GuideAgeWarning      = ($last.UtcDateTime -lt $NowUtc.ToUniversalTime().AddHours($WarnWithinHours))
+    }
 }
 
 function Compare-ChannelForgeBuildText {
@@ -978,6 +1012,8 @@ else {
     'SOURCE_OF_TRUTH_VALIDATED'
 }
 
+$guideEnd = Get-ChannelForgeGuideEnd -Programme @($allProgrammes) -NowUtc $BuildTimeUtc
+
 $summary = [ordered]@{
     GeneratedAt                    = (Get-Date).ToString("s")
     CandidateBuildIdentity         = $candidateBuildIdentity
@@ -1028,6 +1064,9 @@ $summary = [ordered]@{
     M3UXmltvEmptyGuideCount          = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 }).Count
     M3UXmltvEmptyGuide               = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 })
     M3UXmltvEpgCoverage              = $m3uXmltvEpgCoverage
+    GuideEndsUtc                     = $guideEnd.GuideEndsUtc
+    GuideAgeWarning                  = $guideEnd.GuideAgeWarning
+    GuideEndsUtcBySource             = @($guideEnd.GuideEndsUtcBySource)
     XMLTVDeferredReason            = $xmltvDeferredReason
     XMLTVFailureReason             = $xmltvFailureReason
     XMLTVAcquisitionStatus          = @($xmltvAcquisitionStatuses.ToArray())
@@ -1109,6 +1148,10 @@ foreach ($empty in @($emptyGuide | Select-Object -First 25)) {
 }
 if ($emptyGuide.Count -gt 25) {
     $md += "- and $($emptyGuide.Count - 25) more"
+}
+if ($guideEnd.GuideAgeWarning) {
+    $md += ''
+    $md += "WARNING: the guide ends $($guideEnd.GuideEndsUtc), less than 48 hours after this build. Get a newer guide file and rebuild."
 }
 
 $md += ""
