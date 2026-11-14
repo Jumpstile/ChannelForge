@@ -1145,6 +1145,9 @@ if ($candidatePublished) {
         $eventFound = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventChannelCandidate' -Arguments @{ Channel = $eventInput })
         $eventLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventChannelSummaryLines' -Arguments @{ Candidate = $eventFound }
         foreach ($eventLine in $eventLines) { $md += (Get-SafeReportText $eventLine) }
+        $eventAgreement = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventTimeAgreement' -Arguments @{ Candidate = $eventFound; Channel = $eventInput }
+        $eventTimeLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventTimeSummaryLines' -Arguments @{ Agreement = $eventAgreement }
+        foreach ($eventTimeLine in $eventTimeLines) { $md += (Get-SafeReportText $eventTimeLine) }
     }
     catch {
         Write-Warning 'The event channel check could not run, so the event channel section is left out of the summary.'

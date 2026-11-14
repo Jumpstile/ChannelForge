@@ -7,14 +7,11 @@ function Get-ChannelForgeEventChannelCandidate {
     [CmdletBinding()]
     param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Channel)
 
-    # Placeholder titles, compared after lowercasing and dropping punctuation. Extend here.
-    $fillers = @('next event coming soon', 'sign off', 'channel no longer available', 'to be announced', 'tba', 'tbd',
-        'no event', 'no events', 'no live event', 'event not started', 'coming soon', 'event offline',
-        'pay per view', 'ppv', 'event', 'events')
+    $fillers = Get-ChannelForgeEventFillerTitle
     $ppvWords = @([pscustomobject]@{ Key = 'ppv'; Aliases = @('ppv', 'pay per view') })
     $eventWords = @([pscustomobject]@{ Key = 'event'; Aliases = @('ppv', 'pay per view', 'event', 'events', 'ufc', 'wwe', 'aew', 'boxing', 'fight', 'wrestling', 'live event') })
     $sportsKeys = @(Get-ChannelForgeOneGuideCategoryRegistry | Where-Object { $_.Group -ceq 'sports' } | ForEach-Object { [string]$_.Key })
-    $normalize = { param([string]$Text) ((($Text.ToLowerInvariant() -replace '[^\p{L}\p{N}]+', ' ')).Trim()) }
+    $normalize = { param([string]$Text) ConvertTo-ChannelForgeEventTitleKey -Text $Text }
 
     foreach ($item in $Channel) {
         $name = & $normalize ([string]$item.DisplayName)
@@ -70,6 +67,20 @@ function Get-ChannelForgeEventChannelCandidate {
             Reasons     = @($reasons)
         }
     }
+}
+
+function Get-ChannelForgeEventFillerTitle {
+    # Placeholder titles, compared after ConvertTo-ChannelForgeEventTitleKey. Extend here.
+    @('next event coming soon', 'sign off', 'channel no longer available', 'to be announced', 'tba', 'tbd',
+        'no event', 'no events', 'no live event', 'event not started', 'coming soon', 'event offline',
+        'pay per view', 'ppv', 'event', 'events')
+}
+
+function ConvertTo-ChannelForgeEventTitleKey {
+    # Lowercase, punctuation to single spaces. The one title comparison rule for event channels.
+    [CmdletBinding()]
+    param([string]$Text)
+    ((($Text.ToLowerInvariant() -replace '[^\p{L}\p{N}]+', ' ')).Trim())
 }
 
 function Get-ChannelForgeEventChannelInput {
