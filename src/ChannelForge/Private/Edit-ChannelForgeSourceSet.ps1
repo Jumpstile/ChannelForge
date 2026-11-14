@@ -1,0 +1,81 @@
+function Read-ChannelForgeSourceSetFileBytes {
+    param(
+        [Parameter(Mandatory)][ValidateSet('M3U', 'XMLTV')][string]$Kind,
+        [Parameter(Mandatory)][string]$Path
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'SOURCE_ENROLLMENT_INVALID: the source file was not found.' }
+    $limits = Get-ChannelForgeWebProposalLimits
+    $maxBytes = if ($Kind -eq 'M3U') { $limits.MaxM3UBytes } else { $limits.MaxXMLTVBytes }
+    $length = (Get-Item -LiteralPath $Path -Force).Length
+    if ($length -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: the source file is empty.' }
+    if ($length -gt $maxBytes) { throw 'SOURCE_ENROLLMENT_INVALID: the source file is too large.' }
+    try {
+        if ($Kind -eq 'M3U') {
+            if (@(Import-ChannelForgeM3UPlaylist -Path $Path -Provider 'candidate').Count -eq 0) { throw 'no channels were found.' }
+        }
+        else { $null = Import-ChannelForgeXmltvSource -Path $Path -SourceId 'candidate' }
+    }
+    catch { throw "SOURCE_ENROLLMENT_INVALID: the $Kind source file is not valid. $($_.Exception.Message)" }
+    return , [System.IO.File]::ReadAllBytes($Path)
+}
+
+function Get-ChannelForgeSourceSetEditBase {
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+    $integrity = Get-ChannelForgeSourceEnrollmentIntegrity -RepositoryRoot $RepositoryRoot
+    if ($integrity.State -notin @('Valid', 'Missing')) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
+    $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
+    $set = $integrity.Enrollment
+    $toSource = {
+        param($record)
+        $source = [ordered]@{
+            Kind = [string]$record.Kind; SourceKind = [string]$record.SourceKind; SourceId = [string]$record.SourceId
+            Label = [string]$record.Label; Priority = [int]$record.Priority; Enabled = [bool]$record.Enabled
+            Provenance = $record.Provenance; Url = $record.Url; ManagedPath = [string]$record.ManagedPath
+        }
+        if (-not [string]::IsNullOrWhiteSpace($source.ManagedPath)) {
+            $path = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $paths.RepositoryRoot ($source.ManagedPath -replace '/', '\')) -AllowedRoot $paths.ManagedSourceRoot
+            $source.Bytes = [System.IO.File]::ReadAllBytes($path)
+        }
+        return [pscustomobject]$source
+    }
+    $toBinding = {
+        param($binding)
+        [pscustomobject][ordered]@{
+            GuideId = [string]$binding.GuideId; PlaylistIds = @($binding.PlaylistIds | ForEach-Object { [string]$_ }); AppliesToAll = [bool]$binding.AppliesToAll
+            ExplicitlyUnbound = $null -ne $binding.PSObject.Properties['ExplicitlyUnbound'] -and [bool]$binding.ExplicitlyUnbound
+            Revision = [int]$binding.Revision; Enabled = [bool]$binding.Enabled
+        }
+    }
+    return [pscustomobject][ordered]@{
+        Playlists = if ($null -eq $set) { @() } else { @($set.Playlists | ForEach-Object { & $toSource $_ }) }
+        Guides = if ($null -eq $set) { @() } else { @($set.Guides | ForEach-Object { & $toSource $_ }) }
+        Bindings = if ($null -eq $set) { @() } else { @($set.Bindings | ForEach-Object { & $toBinding $_ }) }
+        AcceptedWorkflow = if ($null -eq $set) { $null } else { $set.AcceptedWorkflow }
+    }
+}
+
+function Save-ChannelForgeSourceSetEdit {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)]$Base,
+        [Parameter(Mandatory)][object[]]$PlaylistSources,
+        [AllowEmptyCollection()][object[]]$GuideSources = @(),
+        [AllowEmptyCollection()][object[]]$Bindings = @()
+    )
+    $workflow = $Base.AcceptedWorkflow
+    return Write-ChannelForgeSourceSet -RepositoryRoot $RepositoryRoot -PlaylistSources $PlaylistSources -GuideSources $GuideSources -Bindings $Bindings -PreserveUnboundGuides `
+        -AcceptedGenerationManifestHash $(if ($null -eq $workflow) { $null } else { $workflow.GenerationManifestHash }) `
+        -AcceptedStateHash $(if ($null -eq $workflow) { $null } else { $workflow.AcceptedStateHash }) `
+        -AcceptedOutputManifestHash $(if ($null -eq $workflow) { $null } else { $workflow.AcceptedOutputManifestHash })
+}
+
+function Remove-ChannelForgeManagedSourceSnapshot {
+    param(
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string]$ManagedPath
+    )
+    if ($ManagedPath -cnotmatch '^state/managed-sources/[0-9a-f]{64}\.(m3u|xml)$') { throw 'FAIL_CLOSED: managed source reference is invalid.' }
+    $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
+    $path = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $paths.RepositoryRoot ($ManagedPath -replace '/', '\')) -AllowedRoot $paths.ManagedSourceRoot -AllowMissingLeaf
+    if ([System.IO.File]::Exists($path)) { Remove-Item -LiteralPath $path -Force -ErrorAction Stop }
+}
