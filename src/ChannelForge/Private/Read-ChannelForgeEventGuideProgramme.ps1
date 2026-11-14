@@ -13,7 +13,7 @@ function Read-ChannelForgeEventGuideProgramme {
     $readTime = {
         param([string]$Value)
         $parsed = [datetimeoffset]::MinValue
-        if ($Value -match '^\d{14} \+0000$' -and [datetimeoffset]::TryParseExact($Value, "yyyyMMddHHmmss '+0000'", $culture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$parsed)) { return $parsed }
+        if ($Value -match '^(\d{14}) ([+-]\d{2})(\d{2})$' -and [datetimeoffset]::TryParseExact(('{0} {1}:{2}' -f $Matches[1], $Matches[2], $Matches[3]), 'yyyyMMddHHmmss zzz', $culture, [System.Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $parsed.ToUniversalTime() }
         return $null
     }
     $result = @{}

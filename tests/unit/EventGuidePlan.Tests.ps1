@@ -78,4 +78,28 @@ Describe 'Event guide for high channels' {
         $out.Plan.Channel.Count | Should -Be 0
         $out.Plan.Fallback[0].Reason | Should -BeLike '*saved a guide choice*'
     }
+
+    It 'applies the time offset: -0500, +0100 and +0530 all give the same real instants' -ForEach @(
+        @{ Zone = '-0500'; From = '20261115130000'; To = '20261115160000' }
+        @{ Zone = '+0100'; From = '20261115190000'; To = '20261115220000' }
+        @{ Zone = '+0530'; From = '20261115233000'; To = '20261116023000' }
+    ) {
+        $offset = @{ ppv1 = @(,@("$From $Zone", "$To $Zone", 'Big Fight Night')); news = $script:Provider.news }
+        $out = Invoke-Plan -Xmltv (New-Xmltv $offset) -Entry @((New-Entry 'PPV 1' 1 'ppv1'), (New-Entry 'News' 2 'news'))
+        $out.Plan.Fallback.Count | Should -Be 0
+        @($out.Rows[$out.Plan.Channel[0].Id] | ForEach-Object { "$($_.Start)-$($_.Stop) $($_.Title)" }) | Should -Be @('0000-1800 PPV 1', '1800-2100 Big Fight Night', '2100-2359 PPV 1')
+    }
+
+    It 'falls back when the offset is not a real offset' {
+        $bad = @{ ppv1 = @(,@("$($script:Day)180000 +9999", "$($script:Day)210000 +9999", 'Big Fight Night')); news = $script:Provider.news }
+        $out = Invoke-Plan -Xmltv (New-Xmltv $bad) -Entry @((New-Entry 'PPV 1' 1 'ppv1'), (New-Entry 'News' 2 'news'))
+        $out.Plan.Channel.Count | Should -Be 0
+        $out.Plan.Fallback[0].Reason | Should -BeLike '*could not be read*'
+    }
+
+    It 'shows the channel name, not provider filler, for a To Be Advised title' {
+        $tba = @{ ppv1 = @(,@("$($script:Day)000000 +0000", "$($script:Day)235900 +0000", 'Next PPV Event is To Be Advised')); news = $script:Provider.news }
+        $out = Invoke-Plan -Xmltv (New-Xmltv $tba) -Entry @((New-Entry 'PPV 1' 1 'ppv1'), (New-Entry 'News' 2 'news'))
+        @($out.Rows[$out.Plan.Channel[0].Id] | ForEach-Object { $_.Title } | Select-Object -Unique) | Should -Be @('PPV 1')
+    }
 }

@@ -7,7 +7,7 @@ function Get-ChannelForgeEventChannelCandidate {
     [CmdletBinding()]
     param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Channel)
 
-    $fillers = Get-ChannelForgeEventFillerTitle
+    # Filler titles: Test-ChannelForgeEventFillerKey
     $ppvWords = @([pscustomobject]@{ Key = 'ppv'; Aliases = @('ppv', 'pay per view') })
     $eventWords = @([pscustomobject]@{ Key = 'event'; Aliases = @('ppv', 'pay per view', 'event', 'events', 'ufc', 'wwe', 'aew', 'boxing', 'fight', 'wrestling', 'live event') })
     $sportsKeys = @(Get-ChannelForgeOneGuideCategoryRegistry | Where-Object { $_.Group -ceq 'sports' } | ForEach-Object { [string]$_.Key })
@@ -33,7 +33,7 @@ function Get-ChannelForgeEventChannelCandidate {
             # A title that echoes the channel name (equal, or one starts with the other, shorter side 4+ chars) is a placeholder.
             $short = [math]::Min($title.Length, $name.Length)
             $echo = $short -ge 4 -and ($name.StartsWith($title, [StringComparison]::Ordinal) -or $title.StartsWith($name, [StringComparison]::Ordinal))
-            if ($fillers -contains $title -or $title -ceq $name -or $echo) { $placeholder += $hours }
+            if ((Test-ChannelForgeEventFillerKey -Key $title) -or $title -ceq $name -or $echo) { $placeholder += $hours }
             else { $realTitles[$title] = $true; if ($hours -ge 6) { $long += $hours } }
         }
         $share = if ($total -gt 0) { $placeholder / $total } else { 0.0 }
@@ -74,6 +74,14 @@ function Get-ChannelForgeEventFillerTitle {
     @('next event coming soon', 'sign off', 'channel no longer available', 'to be announced', 'tba', 'tbd',
         'no event', 'no events', 'no live event', 'event not started', 'coming soon', 'event offline',
         'pay per view', 'ppv', 'event', 'events')
+}
+
+function Test-ChannelForgeEventFillerKey {
+    # True when a title key (ConvertTo-ChannelForgeEventTitleKey) is provider filler: an exact entry of
+    # Get-ChannelForgeEventFillerTitle, or a title containing "to be advised/announced/determined".
+    [CmdletBinding()]
+    param([string]$Key)
+    ((Get-ChannelForgeEventFillerTitle) -contains $Key) -or ($Key -match '\bto be (advised|announced|determined)\b')
 }
 
 function ConvertTo-ChannelForgeEventTitleKey {

@@ -16,11 +16,11 @@ function Get-ChannelForgeEventProgrammeBlocks {
     if ($Programme.Count -eq 0) { return [pscustomobject]@{ Blocks = @(); Reason = 'the provider guide has no programs for this channel' } }
     if (@($Programme | Where-Object { -not $_.Valid }).Count -gt 0) { return [pscustomobject]@{ Blocks = @(); Reason = 'a program time in the provider guide could not be read' } }
 
-    $fillers = Get-ChannelForgeEventFillerTitle
+    # Filler titles: Test-ChannelForgeEventFillerKey
     $nameKey = ConvertTo-ChannelForgeEventTitleKey -Text $ChannelName
     $real = @($Programme | Where-Object {
             $key = ConvertTo-ChannelForgeEventTitleKey -Text ([string]$_.Title)
-            $key -and $fillers -notcontains $key -and $key -cne $nameKey
+            $key -and -not (Test-ChannelForgeEventFillerKey -Key $key) -and $key -cne $nameKey
         } | Sort-Object { $_.Start.UtcDateTime } | Group-Object { $_.Start.UtcDateTime } | ForEach-Object { $_.Group[0] })
 
     $name = ConvertTo-ChannelForgeGuideSafeText -Value $ChannelName -MaximumLength 200
