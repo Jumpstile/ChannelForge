@@ -289,6 +289,8 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | `New-ChannelForgeBuildContext`                 | Construct a `BuildContext` domain object                                                                            |
 | `New-ChannelForgeCandidateProposal`            | Build one deterministic candidate namespace from server/CLI-owned M3U/XMLTV paths without acceptance or publication |
 | `Get-ChannelForgeSourceEnrollment`             | Return redacted durable local source enrollment status                                                              |
+| `Get-ChannelForgeLogoPin`                      | List stored channel logo pins (state\logo-pins.json); pins are stored but not yet applied to builds                 |
+| `Set-ChannelForgeLogoPin`                      | Add, replace or -Remove one logo pin by exact TvgId; public https link only; not yet applied to builds              |
 | `Get-ChannelForgeEnrolledSourceInput`          | Read validated managed source input for the refresh engine; not a browser response                                  |
 | `Set-ChannelForgeSourceEnrollmentRefreshState` | Persist non-authoritative up-to-date/changes-found refresh status marker                                            |
 | `Assert-ChannelForgeWritePath`                 | Throw unless a target path resolves under an explicitly approved root                                               |
