@@ -15,13 +15,29 @@ BeforeAll {
             [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]'2026-01-01T00:00:00Z'),
 
             [ValidateSet('m3u', 'xmltv')]
-            [string]$Kind = 'm3u'
+            [string]$Kind = 'm3u',
+
+            [switch]$UseLegacyPositionalArguments,
+            [switch]$EnableGuideComparison,
+            [switch]$SimulateComparisonScriptFailure
         )
+
 
         $root = Join-Path $TestDrive ('executor-harness-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'data/providers'), (Join-Path $root 'data/epg') | Out-Null
         $providerPath = Join-Path $root 'data/providers/provider.json'
         $epgPath = Join-Path $root 'data/epg/epg.json'
+        $executorPath = $script:Executor
+        if ($SimulateComparisonScriptFailure) {
+            $temporaryScripts = Join-Path $root 'scripts'
+            $temporaryModule = Join-Path $root 'src/ChannelForge'
+            New-Item -ItemType Directory -Force -Path $temporaryScripts, $temporaryModule | Out-Null
+            $executorPath = Join-Path $temporaryScripts 'Invoke-ChannelForgeSourceRefresh.ps1'
+            Copy-Item -LiteralPath $script:Executor -Destination $executorPath
+            [IO.File]::WriteAllText((Join-Path $temporaryScripts 'Invoke-ChannelForgeScheduledGuideComparison.ps1'), "throw 'ComparisonStageUnavailable'", [Text.UTF8Encoding]::new($false))
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'reports') | Out-Null
+            [IO.File]::WriteAllText((Join-Path $root 'reports/scheduled-guide-comparison.json'), '{"Status":"SUCCEEDED","SourceResultDigest":"stale"}', [Text.UTF8Encoding]::new($false))
+        }
         Set-Content -LiteralPath $providerPath -Value '{"provider":"fixture","sources":[]}'
         Set-Content -LiteralPath $epgPath -Value '{"epg_sources":[]}'
 
@@ -123,13 +139,24 @@ BeforeAll {
                 }
             }
 
-            $result = & $script:Executor `
-                -Root $root `
-                -ProviderConfigPath $providerPath `
-                -EpgConfigPath $epgPath `
-                -CacheRoot (Join-Path $root 'cache') `
-                -OutputRoot (Join-Path $root 'reports') `
-                -EvaluationTimeUtc $EvaluationTimeUtc
+            if ($UseLegacyPositionalArguments) {
+                $result = & $executorPath $root $providerPath $epgPath (Join-Path $root 'cache') $EvaluationTimeUtc (Join-Path $root 'reports')
+            }
+            else {
+                $executorArguments = @{
+                    Root = $root
+                    ProviderConfigPath = $providerPath
+                    EpgConfigPath = $epgPath
+                    CacheRoot = Join-Path $root 'cache'
+                    OutputRoot = Join-Path $root 'reports'
+                    EvaluationTimeUtc = $EvaluationTimeUtc
+                }
+                if ($EnableGuideComparison) {
+                    $executorArguments.GuideComparisonEnabled = $true
+                    $executorArguments.GuideComparisonPlaylistId = 'playlist-one'
+                }
+                $result = & $executorPath @executorArguments
+            }
             $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
             $harnessResult = [pscustomobject]@{
                 Root   = $root
@@ -165,6 +192,41 @@ BeforeAll {
 
 }
 Describe 'one-shot source refresh executor' {
+    It 'preserves the legacy positional timestamp and output-root arguments' {
+        $evaluation = [datetimeoffset]'2026-01-01T00:00:00Z'
+        $plan = [pscustomobject]@{
+            SourceId = 'm3u-positional-compat'
+            Name = 'Positional playlist'
+            Kind = 'remote'
+            RecommendedAction = 'CONDITIONAL_REFRESH'
+            CacheState = 'EXPIRED'
+            Validator = 'ETAG'
+            Reason = 'Validated cache expired; reusable validator evidence exists.'
+        }
+        $status = [ordered]@{ Outcome='Fetched'; Reason='FreshFetched'; StatusCode=200; HasETag=$true; HasLastModified=$false }
+        $harness = Invoke-ExecutorHarness -Plan $plan -Status $status -EvaluationTimeUtc $evaluation -UseLegacyPositionalArguments
+
+        [datetimeoffset]$harness.Report.EvaluationTimeUtc | Should -Be $evaluation
+        $harness.Result.JsonPath | Should -Be (Join-Path $harness.Root 'reports/source-refresh-result.json')
+        Test-Json -Path $harness.Result.JsonPath -SchemaFile $script:ResultSchema | Should -BeTrue
+    }
+    It 'removes a stale comparison report before a failing comparison stage' {
+        $plan = [pscustomobject]@{
+            SourceId = 'm3u-stale-comparison'
+            Name = 'Stale comparison fixture'
+            Kind = 'remote'
+            RecommendedAction = 'CONDITIONAL_REFRESH'
+            CacheState = 'EXPIRED'
+            Validator = 'ETAG'
+            Reason = 'Validated cache expired; reusable validator evidence exists.'
+        }
+        $status = [ordered]@{ Outcome='Fetched'; Reason='FreshFetched'; StatusCode=200; HasETag=$true; HasLastModified=$false }
+        $harness = Invoke-ExecutorHarness -Plan $plan -Status $status -EnableGuideComparison -SimulateComparisonScriptFailure
+
+        Test-Path -LiteralPath (Join-Path $harness.Root 'reports/scheduled-guide-comparison.json') | Should -BeFalse
+        $harness.Report.SchemaVersion | Should -Be 'source-refresh-result/v2'
+    }
+
     It 'reports disabled sources without contacting a source and writes safe reports' {
         $root = Join-Path $TestDrive 'project'
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'data/providers'),(Join-Path $root 'data/epg') | Out-Null

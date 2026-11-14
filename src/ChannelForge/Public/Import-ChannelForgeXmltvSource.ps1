@@ -11,7 +11,10 @@ function Import-ChannelForgeXmltvSource {
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
-        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+
+        [ValidateRange(0, 256)]
+        [int]$MaximumProgrammeCount = [int]::MaxValue
     )
 
     if ($Path -match '^[a-z][a-z0-9+.-]*://') {
@@ -36,7 +39,8 @@ function Import-ChannelForgeXmltvSource {
             -SourcePath $opened.SourcePath `
             -Compression $opened.Compression `
             -MaxDocumentBytes $MaxDocumentBytes `
-            -CandidateContractVersion $CandidateContractVersion)
+            -CandidateContractVersion $CandidateContractVersion `
+            -MaximumProgrammeCount $MaximumProgrammeCount)
         if ($null -ne $AcquisitionStatus) {
             $AcquisitionStatus.Clear()
             $AcquisitionStatus['InputArtifactHash'] = Get-ChannelForgeDomainHash `

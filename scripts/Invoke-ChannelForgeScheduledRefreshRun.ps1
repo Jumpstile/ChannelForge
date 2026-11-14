@@ -106,9 +106,12 @@ function New-ReportsProjection {
         PlanMarkdown = 'output/reports/scheduled-refresh-plan.md'
         SourceResultJson = 'output/reports/source-refresh-result.json'
         SourceResultMarkdown = 'output/reports/source-refresh-result.md'
+        GuideComparisonJson = 'output/reports/scheduled-guide-comparison.json'
+        GuideComparisonMarkdown = 'output/reports/scheduled-guide-comparison.md'
+        GuideComparisonStatus = 'NotEnabled'
+        GuideComparisonDigest = $null
     }
 }
-
 function New-RunReport {
     param(
         [Parameter(Mandatory)][string]$RunId,
@@ -257,6 +260,8 @@ function Write-RunReports {
     $md.Add("- Executor status: $($Report.ExecutorStatus)")
     $md.Add("- Executor invocations: $($Report.ExecutorInvocationCount)")
     $md.Add("- Executor termination: $($Report.ExecutorTermination)")
+    $md.Add("- Guide comparison status: $($Report.Reports.GuideComparisonStatus)")
+    $md.Add("- Guide comparison digest: $($Report.Reports.GuideComparisonDigest)")
     $md.Add('')
     $md.Add('## Counts')
     $md.Add('')
@@ -402,7 +407,8 @@ function Invoke-BoundedSourceExecutor {
         [Parameter(Mandatory)][int]$HeartbeatSeconds,
         [Parameter(Mandatory)][object]$Lease,
         [Parameter(Mandatory)][System.Collections.IDictionary]$LockMetadata,
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Report
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Report,
+        [Parameter(Mandatory)][object]$GuideComparison
     )
     $process = $null
     $job = $null
@@ -421,7 +427,11 @@ function Invoke-BoundedSourceExecutor {
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
-        foreach ($argument in @('-NoLogo', '-NoProfile', '-NonInteractive', '-File', $ExecutorPath, '-Root', $RootPath, '-ProviderConfigPath', $ProviderPath, '-EpgConfigPath', $EpgPath, '-CacheRoot', $CachePath, '-OutputRoot', $ReportsPath, '-EvaluationTimeUtc', (Get-UtcText -Value $Evaluation))) {
+        $arguments = @('-NoLogo', '-NoProfile', '-NonInteractive', '-File', $ExecutorPath, '-Root', $RootPath, '-ProviderConfigPath', $ProviderPath, '-EpgConfigPath', $EpgPath, '-CacheRoot', $CachePath, '-OutputRoot', $ReportsPath, '-EvaluationTimeUtc', (Get-UtcText -Value $Evaluation))
+        if ([bool]$GuideComparison.Enabled) {
+            $arguments += @('-GuideComparisonEnabled', '-GuideComparisonPlaylistId', [string]$GuideComparison.PlaylistId)
+        }
+        foreach ($argument in $arguments) {
             $null = $psi.ArgumentList.Add([string]$argument)
         }
         $process = [Diagnostics.Process]::new()
@@ -569,6 +579,7 @@ try {
         [pscustomobject]$report
         return
     }
+    if ([bool]$policyInfo.Canonical.GuideComparison.Enabled) { $report.Reports.GuideComparisonStatus = 'Failed' }
     if ($ScheduledInvocation) {
         try {
             $registration = Read-ChannelForgeScheduledOperationRegistrationEvidence -Root $rootFull -SchemaPath $registrationSchemaPath
@@ -757,7 +768,7 @@ try {
     Write-RunReports -Report $report -ReportRoot $reportsRoot -SchemaPath $runSchemaPath
 
     $heartbeatSeconds = [Math]::Max(1, [int]$policyRaw.HeartbeatIntervalSeconds)
-    $executorResult = Invoke-BoundedSourceExecutor -ExecutorPath $executorPath -RootPath $rootFull -ProviderPath $providerPath -EpgPath $epgPath -CachePath $cachePath -ReportsPath $reportsRoot -Evaluation $EvaluationTimeUtc -Timeout $effectiveTimeout -HeartbeatSeconds $heartbeatSeconds -Lease $lease -LockMetadata $lockMetadata -Report $report
+    $executorResult = Invoke-BoundedSourceExecutor -ExecutorPath $executorPath -RootPath $rootFull -ProviderPath $providerPath -EpgPath $epgPath -CachePath $cachePath -ReportsPath $reportsRoot -Evaluation $EvaluationTimeUtc -Timeout $effectiveTimeout -HeartbeatSeconds $heartbeatSeconds -Lease $lease -LockMetadata $lockMetadata -Report $report -GuideComparison ([pscustomobject]$policyInfo.Canonical.GuideComparison)
     $report.ExecutorExitCode = $executorResult.ExitCode
     if ($executorResult.FailureCode -ne 'None') {
         $report.FailureCode = $executorResult.FailureCode
@@ -798,6 +809,22 @@ try {
             $report.Safety.LockMutation = 'AcquireRelease'
             $report.Safety.SourceCacheMutation = 'ExecutorMayHaveChanged'
             $report.NotificationDecision = Get-NotificationDecision -Status 'FAILED' -ReviewNeededCount 0 -DegradedCount 0
+        }
+    }
+    if ([bool]$policyInfo.Canonical.GuideComparison.Enabled) { $report.Reports.GuideComparisonStatus = 'Failed' }
+    if ([bool]$policyInfo.Canonical.GuideComparison.Enabled -and $report.Evidence.ExecutorResultValidated) {
+        $comparisonPath = Join-Path $reportsRoot 'scheduled-guide-comparison.json'
+        $comparisonSchemaPath = Join-Path $rootFull 'schemas/scheduled-guide-comparison.schema.json'
+        try {
+            if (-not (Test-Json -Path $comparisonPath -SchemaFile $comparisonSchemaPath -ErrorAction Stop)) { throw 'Comparison report schema invalid.' }
+            $comparisonReport = Get-Content -LiteralPath $comparisonPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            if ([string]$comparisonReport.PlaylistId -cne [string]$policyInfo.Canonical.GuideComparison.PlaylistId -or ([datetimeoffset]$comparisonReport.EvaluationTimeUtc).ToUniversalTime() -ne $EvaluationTimeUtc.ToUniversalTime() -or [string]$comparisonReport.SourceResultDigest -cne [string]$report.InputResultDigest) { throw 'Comparison report context mismatch.' }
+            $report.Reports.GuideComparisonStatus = if ($comparisonReport.Status -eq 'SUCCEEDED') { 'Succeeded' } else { 'Failed' }
+            $report.Reports.GuideComparisonDigest = Get-FileSha256 -Path $comparisonPath
+        }
+        catch {
+            $report.Reports.GuideComparisonStatus = 'Failed'
+            $report.Reports.GuideComparisonDigest = $null
         }
     }
     if ($executorResult.FailureCode -eq 'ExecutorTerminationUnconfirmed') {
