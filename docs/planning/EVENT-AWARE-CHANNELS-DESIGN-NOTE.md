@@ -45,29 +45,24 @@ Per channel, from data the build already holds: the channel name, the provider g
 
 ### Signals, strong and weak
 
-Points are a first guess [UNVERIFIED]. They must be tuned in the report-only step on the user's real lineup, and never trusted after tuning on one lineup.
+Slice 1 measured two real guides (28,239 and 6,100 channels). Filler share alone flagged 129 and 57 normal channels (off-air and blacked-out feeds) and missed event channels whose placeholder is the channel name or one generic word. Average block length, distinct titles per day and venue text did not separate event channels from normal ones, so they are not used. The rules below replace the first guess of points and scores.
 
-| Signal                                                                                                                                                                          | Where             | Strength | Points                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | -------- | ----------------------------------------------- |
-| Guide time mostly fillers: at least half of the window is titles like "No Event", "No Events", "No Live Event", "TBA", "TBD", "To Be Announced", "Coming Soon", "Event Offline" | provider guide    | Strong   | 3                                               |
-| Name has PPV or "Pay Per View" as a whole word                                                                                                                                  | channel name      | Strong   | 3                                               |
-| Numbered family: two or more channels in one group share a name stem and differ by a trailing number ("PPV 1", "PPV 2")                                                         | names and groups  | Medium   | 2                                               |
-| Provider group has PPV, "Pay Per View", "Event" or "Events"                                                                                                                     | group title       | Medium   | 2                                               |
-| Name has "Event" or "Special Event" as a whole word with a slot number ("Event 3")                                                                                              | channel name      | Medium   | 2                                               |
-| Name has "Event" as a whole word, no number                                                                                                                                     | channel name      | Weak     | 1                                               |
-| Few, long programmes: median programme length at least 2 hours                                                                                                                  | provider guide    | Weak     | 1                                               |
-| One distinct title per local day, no title repeated                                                                                                                             | provider guide    | Weak     | 1                                               |
-| Titles carry event words ("vs", "Main Card", "Prelims", "Live", a sports name token)                                                                                            | provider guide    | Weak     | 1                                               |
-| Category is wrestling, mma, boxing or other sports                                                                                                                              | category decision | Weak     | 1, only if other signals already gave 2 or more |
-| Only filler "Off Air" or "Stand By" titles (no event wording)                                                                                                                   | provider guide    | Weak     | 1                                               |
-| Normal TV pattern: 10 or more non-filler programmes in the window with median length 60 minutes or less                                                                         | provider guide    | Against  | minus 2                                         |
+Placeholder time is programme time whose title is a filler ("Next Event Coming Soon", "SIGN OFF", "Channel No Longer Available", "To Be Announced", "No Event", "TBA", "Event Not Started", "Coming Soon"), equals the channel name (ignoring case and punctuation), or is one generic word such as "Pay-Per-View". The filler list is one small data list in `Get-ChannelForgeEventChannelCandidate.ps1`.
+
+| Signal                                                                                                                                                      | Where              | Result                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Name has PPV, Pay Per View or Pay-Per-View                                                                                                                  | channel name       | `high`, always; `medium` only with 3 or more different real programmes and placeholder time at most half |
+| Name has an event word (PPV, Pay Per View, Event, Events, UFC, WWE, AEW, Boxing, Fight, Wrestling, Live Event) and placeholder time over half of guide time | name and guide     | `high`                                                                                                   |
+| Name has an event word and real programmes                                                                                                                  | name and guide     | `medium`                                                                                                 |
+| Name has an event word and no programmes at all                                                                                                             | channel name       | `medium`, reason "no guide data"                                                                         |
+| No event word, category is a sports category, and most guide time is in single blocks of 6 hours or more                                                    | category and guide | `low`                                                                                                    |
 
 Rules for the result:
 
-- Score 6 or more is `high`, 4 to 5 `medium`, 2 to 3 `low`, under 2 is not reported.
-- Without any guide signal, confidence stops at `medium`. A name and a group are only words; guide behavior is evidence.
-- Each fired signal adds one plain reason, for example `name has "PPV"; 3 sibling channels PPV 2 to PPV 4; 78% of guide time is "No Event"`.
-- The category never counts by itself. It tells which events matter, not whether the channel is an event channel.
+- A channel that matches none of the rows is not reported. A normal channel with filler and no event word is not flagged.
+- Each rule adds one plain reason, for example `name has "ppv"; 78% of guide time is placeholder titles`.
+- Only `high` will act (slice 3). `medium` and `low` keep their normal guide and are only listed.
+- The 6 hour block limit for `low` is a first guess [UNVERIFIED]; it was not tuned on the measured guides.
 
 ### False-positive and false-negative risk (plain)
 
