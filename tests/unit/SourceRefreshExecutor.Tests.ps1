@@ -469,4 +469,43 @@ Describe 'one-shot source refresh executor' {
         $saved = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $root
         [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($saved.M3UPath)) | Should -Be ([Text.Encoding]::UTF8.GetString($oldBytes))
     }
+
+    It 'builds the same candidate from the saved set as the refresh script' {
+        $root = Join-Path $TestDrive 'one-way-candidate-project'
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'data/rules'), (Join-Path $root 'data/lineup') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/rules/aliases.json') -Destination (Join-Path $root 'data/rules/aliases.json')
+        Copy-Item -LiteralPath (Join-Path $script:Root 'data/lineup/numbering_blocks.json') -Destination (Join-Path $root 'data/lineup/numbering_blocks.json')
+        Import-Module (Join-Path $script:Root 'src/ChannelForge/ChannelForge.psd1') -Force
+        $utf8 = [Text.UTF8Encoding]::new($false)
+        $oldBytes = $utf8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"one`",Old`nhttps://example.invalid/old`n")
+        $newBytes = $utf8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"one`",New`nhttps://example.invalid/new`n")
+        $secondBytes = $utf8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"two`",Two`nhttps://example.invalid/two`n")
+        $guideBytes = $utf8.GetBytes('<?xml version="1.0"?><tv><channel id="one"><display-name>one</display-name></channel><programme start="20260101000000 +0000" stop="20260101010000 +0000" channel="one"><title>A</title></programme></tv>')
+        $playlists = @(
+            [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; SourceKey = 'remote-playlist'; Label = 'Remote playlist'; Url = 'https://example.invalid/first.m3u'; Bytes = $oldBytes }
+            [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; SourceKey = 'second-playlist'; Label = 'Second playlist'; Url = 'https://example.invalid/second.m3u'; Bytes = $secondBytes }
+        )
+        $guide = [pscustomobject]@{ Kind = 'XMLTV'; SourceKind = 'public-https'; SourceKey = 'one-guide'; Label = 'One guide'; Url = 'https://example.invalid/guide.xml'; Bytes = $guideBytes }
+        & (Get-Module ChannelForge) {
+            param($root, $playlists, $guide)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($playlists) -GuideSources @($guide) | Out-Null
+        } $root $playlists $guide
+        $newPath = Join-Path $root 'new.m3u'
+        [IO.File]::WriteAllBytes($newPath, $newBytes)
+        Mock -CommandName Get-ChannelForgeRemoteSourceBytes -MockWith {
+            if ($Url -like '*/first.m3u') { $newBytes } elseif ($Url -like '*/second.m3u') { $secondBytes } else { $guideBytes }
+        }
+
+        $result = & $script:Executor -Root $root -EnrollmentPath (Join-Path $root 'state/source-enrollment.json') -OutputRoot (Join-Path $root 'reports')
+        $report = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        @($report.Sources | Where-Object ReasonCode -eq 'CandidateGenerated').Count | Should -Be 1
+        $fromScript = @(Get-ChildItem -LiteralPath (Join-Path $root 'reports/refresh-candidates/source-set/candidates') -Directory | Where-Object Name -ne '.staging')
+        $fromScript.Count | Should -Be 1
+
+        $saved = Get-ChannelForgeEnrolledSourceInput -RepositoryRoot $root
+        $replaced = @($saved.Enrollment.Playlists | Where-Object Label -eq 'Remote playlist')[0]
+        $direct = New-ChannelForgeEnrolledCandidate -EnrollmentInputs $saved -RepositoryRoot $root `
+            -ReplacementSourceId ([string]$replaced.SourceId) -ReplacementPath $newPath -OutputRoot (Join-Path $root 'direct')
+        $direct.CandidateManifestHash | Should -Be $fromScript[0].Name
+    }
 }
