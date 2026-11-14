@@ -1120,6 +1120,18 @@ if ($xmltvPreviousOutputPreserved) {
     $md += 'Prior XMLTV artifact: preserved for rollback/inspection only.'
 }
 
+# Category check (category-summary/v1): report only. A failure is one warning line.
+if ($candidatePublished) {
+    try {
+        $categoryReport = Get-ChannelForgeCategoryReport -CandidateDirectory $candidateNamespacePath -RepositoryRoot $Root
+        $categoryLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCategorySummaryLines' -Arguments @{ Report = $categoryReport }
+        foreach ($categoryLine in $categoryLines) { $md += (Get-SafeReportText $categoryLine) }
+    }
+    catch {
+        Write-Warning 'The category check could not run, so the category section is left out of the summary.'
+    }
+}
+
 $md += ''
 $md += '## M3U/XMLTV Identity Binding'
 $md += "Status: $m3uXmltvBindingStatus. $m3uXmltvBindingReason"
