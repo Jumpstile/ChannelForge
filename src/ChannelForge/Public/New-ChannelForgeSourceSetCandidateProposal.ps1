@@ -9,6 +9,7 @@ function New-ChannelForgeSourceSetCandidateProposal {
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
         [hashtable]$GroupDefaultLogo = @{},
+        [hashtable]$LogoPin,
         [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )

@@ -36,6 +36,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [object]$ReviewCounts,
         [string[]]$SerializedM3UEntryOrder = @(),
         [hashtable]$GroupDefaultLogo = @{},
+        [hashtable]$LogoPin = @{},
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -207,7 +208,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
     # logo-fingerprint/v1: the presentation fingerprint hashes the logo that is
     # published (same helper and group-default map as the M3U export).
     $fingerprintOccurrences = @($RawM3UOccurrences | Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate })
-    $publishedLogos = @(Get-ChannelForgePublishLogo -Channel @($fingerprintOccurrences | ForEach-Object { $_.Channel }) -GroupDefaultLogo $GroupDefaultLogo)
+    $publishedLogos = @(Get-ChannelForgePublishLogo -Channel @($fingerprintOccurrences | ForEach-Object { $_.Channel }) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
     $publishedLogoByEntry = @{}
     for ($p = 0; $p -lt $fingerprintOccurrences.Count; $p++) {
         $publishedLogoByEntry[[string]$fingerprintOccurrences[$p].EntryId] = $publishedLogos[$p].Logo

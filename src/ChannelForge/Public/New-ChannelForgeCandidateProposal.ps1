@@ -108,7 +108,8 @@ function New-ChannelForgeCandidateProposal {
      New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
      $m3uTemp = Join-Path $txRoot 'merged.m3u'
      $groupDefaultLogo = Get-ChannelForgeGroupDefaultLogo -ProviderConfig $providerConfig
-     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo
+     $logoPin = Get-ChannelForgeLogoPinMap -RepositoryRoot $Root
+     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin
      $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
      Remove-Item -LiteralPath $m3uTemp -Force
      $xmltvBytes = $null
@@ -152,6 +153,7 @@ function New-ChannelForgeCandidateProposal {
              SerializedM3UEntryOrder = $serializedM3UEntryOrder
              CandidateContractVersion = $CandidateContractVersion
              GroupDefaultLogo = $groupDefaultLogo
+             LogoPin = $logoPin
              SelectedSourceIds = @($inputArtifactHashes | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)
          }
      $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
