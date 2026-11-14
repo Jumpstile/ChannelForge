@@ -101,6 +101,25 @@ function Convert-ChannelForgeSourceEnrollmentV1ToV2 {
     $converted.EnrollmentHash = Get-ChannelForgeSourceEnrollmentHash -Enrollment ([pscustomobject]$converted)
     return [pscustomobject]$converted
 }
+function Assert-ChannelForgeSourceSetHygiene {
+    param([Parameter(Mandatory)]$Record)
+    $limits = Get-ChannelForgeWebProposalLimits
+    $playlists = @($Record.Playlists)
+    $guides = @($Record.Guides)
+    if ($playlists.Count -gt $limits.MaxPlaylists) { throw 'FAIL_CLOSED: source enrollment has too many playlists.' }
+    if ($guides.Count -gt $limits.MaxGuides) { throw 'FAIL_CLOSED: source enrollment has too many guides.' }
+    foreach ($group in @($playlists, $guides)) {
+        # The browser parser gives unlabeled sources the default label "<Kind> source"; only typed labels must be unique.
+        $labels = @($group | Where-Object { [string]$_.Label -cne ('{0} source' -f [string]$_.Kind) } | ForEach-Object { ([string]$_.Label).ToLowerInvariant() })
+        if ($labels.Count -ne @($labels | Sort-Object -Unique).Count) { throw 'FAIL_CLOSED: source enrollment contains a duplicate source label.' }
+    }
+    $bound = @($Record.Bindings | ForEach-Object { [string]$_.GuideId })
+    if ($bound.Count -ne @($bound | Sort-Object -Unique).Count) { throw 'FAIL_CLOSED: source enrollment has more than one binding for a guide.' }
+    $bytes = [long]0
+    foreach ($source in @($playlists) + @($guides)) { if ($null -ne $source.ByteLength) { $bytes += [long]$source.ByteLength } }
+    if ($bytes -gt $limits.MaxAggregateSourceBytes) { throw 'FAIL_CLOSED: source enrollment exceeds the total size limit.' }
+}
+
 function Assert-ChannelForgeSourceEnrollmentV2Integrity {
     param([Parameter(Mandatory)]$Record)
     $playlists = @($Record.Playlists)
@@ -135,6 +154,7 @@ function Assert-ChannelForgeSourceEnrollmentV2Integrity {
         if ($effective.ContainsKey($key)) { throw 'FAIL_CLOSED: source enrollment contains a duplicate effective guide binding.' }
         $effective[$key] = $true
     }
+    Assert-ChannelForgeSourceSetHygiene -Record $Record
 }
 
 function Write-ChannelForgeSourceEnrollmentAtomicBytes {
@@ -466,7 +486,7 @@ function Write-ChannelForgeSourceSet {
         }
         return [ordered]@{
             SourceId = $id; Kind = $kind; Format = if ($kind -eq 'M3U') { 'm3u' } else { 'xmltv' }; Label = if ([string]::IsNullOrWhiteSpace([string]$descriptor.Label)) { "$kind source" } else { [string]$descriptor.Label }
-            SourceKind = $sourceKind; Enabled = if ($null -eq $descriptor.Enabled) { $true } else { [bool]$descriptor.Enabled }; Present = $true; Priority = if ($null -eq $descriptor.Priority) { 100 } else { [int]$descriptor.Priority }; OrderKey = $id
+            SourceKind = $sourceKind; Enabled = if ($null -eq $descriptor.Enabled) { $true } else { [bool]$descriptor.Enabled }; Present = ($null -ne $contentHash); Priority = if ($null -eq $descriptor.Priority) { 100 } else { [int]$descriptor.Priority }; OrderKey = $id
             ManagedPath = $managedPath; Url = $url; ContentHash = $contentHash; ByteLength = $byteLength
             Provenance = if ($null -eq $descriptor.Provenance) { [ordered]@{ Origin = 'source-set-v2' } } else { $descriptor.Provenance }
             Refresh = [ordered]@{ State = $refreshState; LastValidatedAtUtc = $now; CacheKey = $null; ETag = $null; LastModified = $null }
