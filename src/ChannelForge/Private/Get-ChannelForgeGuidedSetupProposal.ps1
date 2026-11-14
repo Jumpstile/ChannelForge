@@ -197,6 +197,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
             if ($guideOnly -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-only-record'; Message = 'The guide contains records not present in the playlist.' }) }
             if ($unboundGuideCount -gt 0) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'guide-unbound-actionable'; Message = 'The guide remains enrolled for later review and will not be applied until explicitly bound.' }) }
             if ($candidate.LogoReport.Warning) { [void]$warnings.Add([pscustomobject][ordered]@{ Code = 'logo-check'; Message = [string]$candidate.LogoReport.Warning }) }
+            $checks = @(Get-ChannelForgeGuidedSetupChecks -Candidate $candidate -RepositoryRoot $RepositoryRoot)
             $current = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $RepositoryRoot
             $parentManifestHash = if ($null -eq $current) { $null } else { [string]$current.Manifest.Object.GenerationManifestHash }
             $parentStateHash = if ($null -eq $current) { $null } else { [string]$current.State.Object.AcceptedStateHash }
@@ -292,6 +293,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
                     BlockingReasons = @($blockingReasons)
                 }
                 Warnings = @($warnings | Sort-Object Code)
+                Checks = @($checks)
                 Safety = [ordered]@{
                     PublicationState = 'CandidateOnly'
                     AcceptedStateMutation = 'none'

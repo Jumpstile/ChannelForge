@@ -49,6 +49,30 @@ const accepted: GuidedSetupSourceSetAcceptance = {
 }
 
 describe('browser Guided Setup proposal and acceptance', () => {
+  it('shows the logo and category checks in plain words, hides details until asked, and still needs the acknowledgement', async () => {
+    const user = userEvent.setup()
+    const withChecks: GuidedSetupSourceSetProposal = {
+      ...readyProposal,
+      Warnings: [{ Code: 'logo-check', Message: 'Logo check: 1 of 2 channels have no public https logo. Pin one with Set-ChannelForgeLogoPin.' }],
+      Checks: [
+        { Kind: 'logos', Status: 'attention', Headline: '1 of 2 channels have no public logo. You can accept, or fix this first (see Details).', Details: ['Empty: One.'] },
+        { Kind: 'categories', Status: 'unavailable', Headline: 'Category check could not run. You can still accept.', Details: [] },
+      ],
+    }
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(withChecks)
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} sourceSetAcceptanceSubmitter={vi.fn()} />)
+    await user.upload(screen.getAllByLabelText('Choose playlist')[0], new File(['#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one\n'], 'channels.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+
+    expect(await screen.findByText(/1 of 2 channels have no public logo/)).toBeInTheDocument()
+    expect(screen.getByText('Category check could not run. You can still accept.')).toBeInTheDocument()
+    expect(screen.queryByText(/Set-ChannelForgeLogoPin/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Empty: One.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('Empty: One.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Accept reviewed proposal' })).toBeDisabled()
+  })
+
   it('reviews multiple browser sources, submits explicit guide bindings, and accepts only after acknowledgement', async () => {
     const user = userEvent.setup()
     const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)

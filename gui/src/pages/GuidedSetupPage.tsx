@@ -3,6 +3,7 @@ import { BookOpen, CheckCircle2, FileText, FolderOpen, ListVideo } from 'lucide-
 import {
   acceptGuidedSetupSourceSetProposal,
   submitGuidedSetupSourceSetProposal,
+  type GuidedSetupCheck,
   type GuidedSetupSourceDraft,
   type GuidedSetupSourceSetAcceptance,
   type GuidedSetupSourceSetProposal,
@@ -106,6 +107,19 @@ type GuideBindingSelection = {
   explicitlyUnbound: boolean
 }
 
+function ProposalCheckRow({ check }: { check: GuidedSetupCheck }) {
+  const [open, setOpen] = useState(false)
+  const name = check.Kind === 'logos' ? 'Logos' : 'Categories'
+  const state = check.Status === 'ok' ? 'OK' : check.Status === 'attention' ? 'Needs a look' : 'Not available'
+  return (
+    <li>
+      <strong>{name}: {state}.</strong> {check.Headline}
+      {check.Details.length > 0 ? <> <button aria-expanded={open} className="button" type="button" onClick={() => setOpen(!open)}>{open ? 'Hide details' : 'Details'}</button></> : null}
+      {open ? <ul>{check.Details.map((line, index) => <li key={index}>{line}</li>)}</ul> : null}
+    </li>
+  )
+}
+
 function BrowserGuidedSetupPage({
   sourceSetProposalSubmitter,
   sourceSetAcceptanceSubmitter,
@@ -120,6 +134,7 @@ function BrowserGuidedSetupPage({
   const [bindings, setBindings] = useState<Record<string, GuideBindingSelection>>({})
   const [proposal, setProposal] = useState<GuidedSetupSourceSetProposal | null>(null)
   const [accepted, setAccepted] = useState<GuidedSetupSourceSetAcceptance | null>(null)
+  const shownWarnings = (proposal?.Warnings ?? []).filter((warning) => !(warning.Code === 'logo-check' && proposal?.Checks?.some((check) => check.Kind === 'logos')))
   const [acknowledged, setAcknowledged] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const proposalErrorRef = useRef<HTMLParagraphElement>(null)
@@ -337,7 +352,8 @@ function BrowserGuidedSetupPage({
               <div><dt>Needs review</dt><dd>{proposal.Proposal.AmbiguityCount}</dd></div>
               <div><dt>Unbound guides</dt><dd>{proposal.Proposal.UnboundGuideCount}</dd></div>
             </dl>
-            {proposal.Warnings.length > 0 ? <ul>{proposal.Warnings.map((warning) => <li key={warning.Code}>{warning.Message}</li>)}</ul> : <p>No proposal warnings.</p>}
+            {proposal.Checks && proposal.Checks.length > 0 ? <><h3>Checks before you accept</h3><ul>{proposal.Checks.map((check) => <ProposalCheckRow check={check} key={check.Kind} />)}</ul></> : null}
+            {shownWarnings.length > 0 ? <ul>{shownWarnings.map((warning) => <li key={warning.Code}>{warning.Message}</li>)}</ul> : <p>No proposal warnings.</p>}
             {proposal.Proposal.BlockingReasons.length > 0 ? <p role="alert">Acceptance is blocked until the review blockers are resolved.</p> : null}
             {!accepted ? <div className="saved-lineup-action-row"><label className="saved-lineup-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /> I reviewed these results and want to accept this exact proposal.</label><button aria-busy={accepting} className="button button-primary" disabled={!proposal.Proposal.CanAccept || !acknowledged || accepting} type="button" onClick={() => void accept()}>{accepting ? 'Accepting…' : 'Accept reviewed proposal'}</button></div> : null}
           </div>
