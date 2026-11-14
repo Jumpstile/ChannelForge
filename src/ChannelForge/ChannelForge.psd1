@@ -117,6 +117,8 @@ FunctionsToExport = @(
     'Remove-ChannelForgeSourceSetSource'
     'Set-ChannelForgeSourceSetBinding'
     'Update-ChannelForgeSourceSetSource'
+    'Get-ChannelForgeLogoPin'
+    'Set-ChannelForgeLogoPin'
     'Get-ChannelForgeGuideReadiness'
     'Get-ChannelForgeOneGuide'
     'Get-ChannelForgeWebStatus'
