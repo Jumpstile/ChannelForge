@@ -12,14 +12,10 @@ function Add-ChannelForgePlaceholderGuide {
 
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
     $text = $utf8.GetString($XmltvBytes)
-    $stamp = [regex]::Matches($text, '<programme start="(\d{14}) \+0000" stop="(\d{14}) \+0000"')
-    if ($stamp.Count -eq 0) { throw 'The guide has no programs, so a name-only guide cannot be built for it.' }
-    $first = ($stamp | ForEach-Object { $_.Groups[1].Value } | Sort-Object | Select-Object -First 1)
-    $last = ($stamp | ForEach-Object { $_.Groups[2].Value } | Sort-Object | Select-Object -Last 1)
-    $format = 'yyyyMMddHHmmss'
+    $window = Get-ChannelForgeGuideWindow -Text $text
+    $windowStart = $window.Start
+    $windowEnd = $window.End
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
-    $windowStart = [datetime]::SpecifyKind([datetime]::ParseExact($first, $format, $culture), [System.DateTimeKind]::Utc)
-    $windowEnd = [datetime]::SpecifyKind([datetime]::ParseExact($last, $format, $culture), [System.DateTimeKind]::Utc)
 
     $toUtc = {
         param([datetime]$localMidnight)
@@ -46,8 +42,14 @@ function Add-ChannelForgePlaceholderGuide {
         $id = [System.Security.SecurityElement]::Escape([string]$item.Id)
         $name = [System.Security.SecurityElement]::Escape([string]$item.Name)
         [void]$channelXml.Append("  <channel id=`"$id`"><display-name>$name</display-name></channel>`n")
-        foreach ($block in $blocks) {
-            [void]$programmeXml.Append("  <programme start=`"$($block[0].ToString($stampFormat, $culture))`" stop=`"$($block[1].ToString($stampFormat, $culture))`" channel=`"$id`"><title>$name</title></programme>`n")
+        # A channel with its own Blocks (Start, Stop, Title as UTC datetime) gets those; the rest get the day blocks.
+        $source = $blocks
+        if ($item.PSObject.Properties['Blocks'] -and @($item.Blocks).Count -gt 0) {
+            $source = @($item.Blocks | ForEach-Object { , @($_.Start, $_.Stop, [System.Security.SecurityElement]::Escape([string]$_.Title)) })
+        }
+        foreach ($block in $source) {
+            $title = if ($block.Count -gt 2) { $block[2] } else { $name }
+            [void]$programmeXml.Append("  <programme start=`"$($block[0].ToString($stampFormat, $culture))`" stop=`"$($block[1].ToString($stampFormat, $culture))`" channel=`"$id`"><title>$title</title></programme>`n")
         }
     }
 

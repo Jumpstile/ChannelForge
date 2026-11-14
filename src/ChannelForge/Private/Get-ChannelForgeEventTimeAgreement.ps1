@@ -12,7 +12,7 @@ function Get-ChannelForgeEventTimeAgreement {
         [int]$WindowMinutes = 15
     )
 
-    $fillers = Get-ChannelForgeEventFillerTitle
+    # Filler titles: Test-ChannelForgeEventFillerKey
     $rated = @{}
     foreach ($row in $Candidate) { $rated[[string]$row.Key] = $true }
     $entries = [System.Collections.Generic.List[object]]::new()
@@ -25,7 +25,7 @@ function Get-ChannelForgeEventTimeAgreement {
             $start = [datetimeoffset]::MinValue
             $hasStart = $programme.Start -is [datetimeoffset] -or [datetimeoffset]::TryParse([string]$programme.Start, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$start)
             if ($programme.Start -is [datetimeoffset]) { $start = $programme.Start }
-            if (-not $hasStart -or $start -eq [datetimeoffset]::MinValue -or -not $titleKey -or $fillers -contains $titleKey -or $titleKey -ceq $name) { $skipped++; continue }
+            if (-not $hasStart -or $start -eq [datetimeoffset]::MinValue -or -not $titleKey -or (Test-ChannelForgeEventFillerKey -Key $titleKey) -or $titleKey -ceq $name) { $skipped++; continue }
             $entries.Add([pscustomobject]@{ TitleKey = $titleKey; Title = ([string]$programme.Title).Trim(); ChannelKey = [string]$item.Key; DisplayName = [string]$item.DisplayName; Start = $start })
         }
     }
