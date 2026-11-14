@@ -1127,7 +1127,10 @@ if ($xmltvPreviousOutputPreserved) {
 if ($candidatePublished) {
     try {
         $categoryReport = Get-ChannelForgeCategoryReport -CandidateDirectory $candidateNamespacePath -RepositoryRoot $Root
-        $categoryLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCategorySummaryLines' -Arguments @{ Report = $categoryReport }
+        $programmeMismatch = @()
+        try { $programmeMismatch = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCategoryProgrammeCheck' -Arguments @{ CandidateDirectory = $candidateNamespacePath; Report = $categoryReport }) }
+        catch { Write-Warning 'The category programme check could not run, so it is left out of the category section.' }
+        $categoryLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCategorySummaryLines' -Arguments @{ Report = $categoryReport; ProgrammeMismatch = [string[]]$programmeMismatch }
         foreach ($categoryLine in $categoryLines) { $md += (Get-SafeReportText $categoryLine) }
     }
     catch {

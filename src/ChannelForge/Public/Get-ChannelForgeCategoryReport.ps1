@@ -32,11 +32,7 @@ function Get-ChannelForgeCategoryReport {
     $overrideMap = @{}
     foreach ($record in $records) { $overrideMap[$record.key] = $record.category }
 
-    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
-    $manifest = $utf8.GetString([System.IO.File]::ReadAllBytes((Join-Path $directory 'manifest.json'))) | ConvertFrom-Json
-    $reader = [System.IO.StreamReader]::new($m3uPath, $utf8)
-    try { $channels = @(Read-ChannelForgeM3UReader -Reader $reader -CandidateContractVersion ([string]$manifest.ContractVersion)) }
-    finally { $reader.Dispose() }
+    $channels = @(Read-ChannelForgeCandidateChannels -Directory $directory)
 
     $registry = @(Get-ChannelForgeOneGuideCategoryRegistry)
     $rows = @(foreach ($channel in $channels) {
