@@ -89,11 +89,41 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             })
     }
 
+    $bindingByGuide = @{}
+    foreach ($binding in @($Bindings)) { $bindingByGuide[[string]$binding.GuideId] = $binding }
+    $playlistLogicalIdsBySourceId = @{}
+    foreach ($sourceRecord in @($sourceList)) {
+        $playlistLogicalIdsBySourceId[[string]$sourceRecord.SourceId] = [string]$sourceRecord.LogicalSourceId
+    }
+    $allPlaylistLogicalIds = @($sourceList | ForEach-Object LogicalSourceId)
+
     $guideRecords = [System.Collections.Generic.List[object]]::new()
     $guideOrdinal = 0
-    foreach ($guide in @($GuideSources | Sort-Object Priority, SourceId)) {
+    $orderedGuides = @($GuideSources | Sort-Object Priority, SourceId)
+    foreach ($guide in $orderedGuides) {
+        $binding = $bindingByGuide[[string]$guide.SourceId]
+        $resolvedLogicalIds = if ($null -eq $binding -or [bool]$binding.ExplicitlyUnbound) {
+            @()
+        }
+        elseif ([bool]$binding.AppliesToAll) {
+            $allPlaylistLogicalIds
+        }
+        else {
+            @($binding.PlaylistIds | ForEach-Object {
+                    if ($playlistLogicalIdsBySourceId.ContainsKey([string]$_)) { $playlistLogicalIdsBySourceId[[string]$_] }
+                })
+        }
+        $isSimpleSet = Test-ChannelForgeSimpleSourceSet `
+            -PlaylistCount $sourceList.Count `
+            -GuideCount $orderedGuides.Count `
+            -Binding $binding `
+            -EffectivePlaylistLogicalId $resolvedLogicalIds
+        $fingerprint = Get-ChannelForgeSourceBindingFingerprint `
+            -Binding $binding `
+            -EffectivePlaylistLogicalId $resolvedLogicalIds `
+            -IsSimpleSet $isSimpleSet
         $logicalSourceId = Get-ChannelForgeLogicalSourceId `
-            -ProviderName 'candidate' `
+            -ProviderName $(if ($fingerprint) { "candidate:$fingerprint" } else { 'candidate' }) `
             -SourceName ([string]$guide.Label) `
             -SourceKind 'XMLTV' `
             -SourceOrdinal $guideOrdinal
@@ -105,6 +135,8 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                 Priority = [int]$guide.Priority
                 Path = [string]$guide.Path
                 Url = $guide.Url
+                Binding = $binding
+                AllowedLogicalSourceIds = if ($null -ne $binding -and [bool]$binding.Enabled) { @($resolvedLogicalIds) } else { @() }
             })
         $guideOrdinal++
     }
@@ -112,12 +144,6 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $programmesForOutput = [System.Collections.Generic.List[object]]::new()
     $rawXmltv = [System.Collections.Generic.List[object]]::new()
     $bindingResults = [System.Collections.Generic.List[object]]::new()
-    $bindingByGuide = @{}
-    foreach ($binding in @($Bindings)) { $bindingByGuide[[string]$binding.GuideId] = $binding }
-    $playlistLogicalIdsBySourceId = @{}
-    foreach ($sourceRecord in @($sourceList)) {
-        $playlistLogicalIdsBySourceId[[string]$sourceRecord.SourceId] = [string]$sourceRecord.LogicalSourceId
-    }
 
     foreach ($guide in @($guideRecords.ToArray())) {
         $xmlPath = [System.IO.Path]::GetFullPath([string]$guide.Path)
@@ -145,25 +171,8 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                 ArtifactHash = [string]$xmlStatus.InputArtifactHash
             })
 
-        $binding = if ($bindingByGuide.ContainsKey([string]$guide.SourceId)) {
-            $bindingByGuide[[string]$guide.SourceId]
-        }
-        else {
-            $null
-        }
-        $allowedLogicalSourceIds = if ($null -eq $binding) {
-            @()
-        }
-        elseif ([bool]$binding.AppliesToAll) {
-            @($sourceList | ForEach-Object LogicalSourceId)
-        }
-        else {
-            @($binding.PlaylistIds | ForEach-Object {
-                    if ($playlistLogicalIdsBySourceId.ContainsKey([string]$_)) {
-                        $playlistLogicalIdsBySourceId[[string]$_]
-                    }
-                })
-        }
+        $binding = $guide.Binding
+        $allowedLogicalSourceIds = @($guide.AllowedLogicalSourceIds)
         $allowedChannels = @($merge.AllChannels | Where-Object {
                 $occurrenceProperty = $_.PSObject.Properties['RawM3UOccurrence']
                 if ($null -eq $occurrenceProperty -or $null -eq $occurrenceProperty.Value) { return $false }
@@ -182,7 +191,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             -Programme $guideProgrammes `
             -M3UIdentityCollisions $allowedCollisions
         [void]$bindingResults.Add($bindingResult)
-        if ($null -ne $binding -and -not [bool]$binding.ExplicitlyUnbound) {
+        if ($null -ne $binding -and [bool]$binding.Enabled -and -not [bool]$binding.ExplicitlyUnbound) {
             foreach ($programme in $guideProgrammes) { [void]$programmesForOutput.Add($programme) }
         }
     }
