@@ -214,4 +214,35 @@ describe('browser Guided Setup proposal and acceptance', () => {
       expect.objectContaining({ playlistRefs: ['playlist-1', expect.stringMatching(/^playlist-2-/)], appliesToAll: false }),
     ])
   })
+
+  it('says tokenized links are unsupported', () => {
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={vi.fn<GuidedSetupSourceSetSubmitter>()} />)
+    expect(screen.getByText(/Links with a password or token in them are not supported yet/)).toBeInTheDocument()
+  })
+
+  it('does not ask to choose a playlist when there is only one playlist', async () => {
+    const user = userEvent.setup()
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={vi.fn<GuidedSetupSourceSetSubmitter>()} />)
+
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
+    expect(screen.queryByText('Choose a playlist for this guide')).not.toBeInTheDocument()
+  })
+
+  it('asks to choose a playlist for a guide with several playlists and no binding yet', async () => {
+    const user = userEvent.setup()
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={vi.fn<GuidedSetupSourceSetSubmitter>()} />)
+
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add another playlist' }))
+    await user.upload(screen.getAllByLabelText('Choose playlist')[1], new File(['#EXTM3U\n'], 'two.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+    await user.upload(screen.getByLabelText('Choose guide'), new File(['<tv></tv>'], 'guide.xml'))
+    expect(screen.getByText('Choose a playlist for this guide')).toBeInTheDocument()
+    expect(screen.getByText(/Unbound because no binding decision was supplied/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Playlist 1' }))
+    expect(screen.queryByText('Choose a playlist for this guide')).not.toBeInTheDocument()
+  })
 })

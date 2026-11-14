@@ -303,6 +303,7 @@ function BrowserGuidedSetupPage({
         <article className="setup-step-card">
           <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><ListVideo size={22} /></div><div><p className="setup-step-number">Step 1</p><h2>Playlists</h2></div></div>
           <p className="setup-step-description">Add every playlist that belongs in the source set. Each item can be a local file or a public HTTPS URL.</p>
+          <p className="setup-step-description">Links with a password or token in them are not supported yet. Use a file instead.</p>
           {playlists.map((source, index) => renderSourceRow(source, 'playlist', index))}
           <button className="button button-secondary" type="button" onClick={addPlaylist}>Add another playlist</button>
         </article>
@@ -329,6 +330,7 @@ function BrowserGuidedSetupPage({
             return (
               <fieldset className="setup-binding-fieldset" key={guide.id}>
                 <legend>{guide.label || 'Guide'} — Apply this guide to:</legend>
+                {playlists.length > 1 && !selection.all && selection.playlistIds.length === 0 && !selection.explicitlyUnbound ? <p className="setup-binding-status" role="status"><strong>Choose a playlist for this guide</strong></p> : null}
                 <p className="setup-binding-status" role="status">{bindingStatus}</p>
                 {playlists.length > 1 ? <label><input checked={selection.all} type="checkbox" onChange={(event) => setBinding(guide.id, { all: event.target.checked, playlistIds: [] })} /> All playlists</label> : null}
                 {playlists.map((playlist) => <label key={playlist.id}><input checked={!selection.all && selection.playlistIds.includes(playlist.id)} disabled={selection.all} type="checkbox" onChange={(event) => setBinding(guide.id, { all: false, playlistIds: event.target.checked ? [...selection.playlistIds, playlist.id] : selection.playlistIds.filter((id) => id !== playlist.id) })} /> {playlist.label || 'Playlist'}</label>)}
