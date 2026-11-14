@@ -205,7 +205,8 @@ function New-ChannelForgeCandidateProposal {
         Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'lineup-change-review.md') -Bytes $reviewMdBytes -HookPrefix 'CandidateStageWrite.ReviewMarkdown' -FaultHook $FaultHook | Out-Null
         Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
         $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
-        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest }
+        $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin) -LogoPin $logoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $Root)
+        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport }
     }
     catch {
         if (Test-Path -LiteralPath $txRoot) {
