@@ -204,3 +204,87 @@ Describe 'headless add and remove of managed-file sources' {
         (Get-Snapshots) | Should -Be $snapshots
     }
 }
+
+Describe 'headless add of a public HTTPS source' {
+    BeforeEach {
+        $script:Project = Join-Path $TestDrive ('project-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path $script:Project | Out-Null
+        $script:M3U = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"one`",One`nhttps://example.invalid/one`n")
+        $script:Xml = [Text.Encoding]::UTF8.GetBytes('<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme start="20260101000000 +0000" stop="20260101010000 +0000" channel="one"><title>One</title></programme></tv>')
+        $script:Served = $script:M3U
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { , $script:Served }
+        function Get-Set { & (Get-Module ChannelForge) { param($root) Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $root } $script:Project }
+        function Get-SetBytes { $f = Join-Path $script:Project 'state/source-enrollment.json'; if (Test-Path $f) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($f)) } else { 'none' } }
+        function Get-Snapshots { @(Get-ChildItem -LiteralPath (Join-Path $script:Project 'state/managed-sources') -File -ErrorAction SilentlyContinue | ForEach-Object Name) }
+    }
+
+    It 'adds a playlist and a guide from links with kind public-https and a saved snapshot' {
+        $playlist = Add-ChannelForgeSourceSetSource -Kind M3U -Url 'https://example.com/list.m3u' -RepositoryRoot $script:Project
+        $script:Served = $script:Xml
+        $guide = Add-ChannelForgeSourceSetSource -Kind XMLTV -Url 'https://example.com/guide.xml' -Label 'Web guide' -RepositoryRoot $script:Project
+        $set = Get-Set
+
+        $set.Playlists[0].SourceKind | Should -Be 'public-https'
+        $set.Playlists[0].Url | Should -Be 'https://example.com/list.m3u'
+        $set.Playlists[0].Label | Should -Be 'M3U source'
+        $set.Guides[0].SourceKind | Should -Be 'public-https'
+        $set.Guides[0].Label | Should -Be 'Web guide'
+        $set.Bindings.Count | Should -Be 1
+        $set.Bindings[0].GuideId | Should -Be $guide.SourceId
+        @($set.Bindings[0].PlaylistIds) | Should -Be @($playlist.SourceId)
+        (Get-Snapshots).Count | Should -Be 2
+        $set.Playlists[0].ContentHash | Should -Be (& (Get-Module ChannelForge) { param($b) Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $b } $script:M3U)
+        Test-Json -Path (Join-Path $script:Project 'state/source-enrollment.json') -SchemaFile (Join-Path $script:Root 'schemas/source-enrollment.schema.json') | Should -BeTrue
+    }
+
+    It 'refuses unsafe links, never fetches, saves nothing and never shows the link' {
+        $links = 'http://example.com/a.m3u', 'https://localhost/a.m3u', 'https://192.168.1.5/a.m3u', 'https://10.0.0.1/a.m3u',
+            'https://user:secret@example.com/a.m3u', 'https://example.com/a.m3u?token=abc123', 'https://example.com/a.m3u#frag', 'not a link'
+        foreach ($link in $links) {
+            $message = try { Add-ChannelForgeSourceSetSource -Kind M3U -Url $link -RepositoryRoot $script:Project; 'no error' } catch { $_.Exception.Message }
+            $message | Should -BeLike '*public HTTPS*not supported*'
+            $message | Should -Not -BeLike '*secret*'
+            $message | Should -Not -BeLike '*abc123*'
+            $message | Should -Not -BeLike '*example.com*'
+        }
+        Should -Invoke -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes -Times 0 -Exactly
+        Get-SetBytes | Should -Be 'none'
+        (Get-Snapshots).Count | Should -Be 0
+    }
+
+    It 'leaves the old set unchanged when the fetch fails, or the bytes are empty, oversize or malformed' {
+        Add-ChannelForgeSourceSetSource -Kind M3U -Url 'https://example.com/list.m3u' -RepositoryRoot $script:Project | Out-Null
+        $before = Get-SetBytes
+        $snapshots = Get-Snapshots
+        $url = 'https://example.com/secret-path/other.m3u'
+
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { throw "boom $Url" }
+        $message = try { Add-ChannelForgeSourceSetSource -Kind M3U -Url $url -RepositoryRoot $script:Project; 'no error' } catch { $_.Exception.Message }
+        $message | Should -BeLike '*could not be fetched*'
+        $message | Should -Not -BeLike '*secret-path*'
+
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { throw 'The remote M3U source is too large.' }
+        { Add-ChannelForgeSourceSetSource -Kind M3U -Url $url -RepositoryRoot $script:Project } | Should -Throw '*too large*'
+
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { , [byte[]]@() }
+        { Add-ChannelForgeSourceSetSource -Kind M3U -Url $url -RepositoryRoot $script:Project } | Should -Throw '*empty*'
+
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { , (New-Object byte[] (4MB + 1)) }
+        { Add-ChannelForgeSourceSetSource -Kind M3U -Url $url -RepositoryRoot $script:Project } | Should -Throw '*too large*'
+
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { , [Text.Encoding]::UTF8.GetBytes('just some text') }
+        { Add-ChannelForgeSourceSetSource -Kind M3U -Url $url -RepositoryRoot $script:Project } | Should -Throw '*not valid*'
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { , [Text.Encoding]::UTF8.GetBytes('<tv><channel') }
+        { Add-ChannelForgeSourceSetSource -Kind XMLTV -Url $url -RepositoryRoot $script:Project } | Should -Throw '*not valid*'
+
+        Get-SetBytes | Should -Be $before
+        (Get-Snapshots) | Should -Be $snapshots
+    }
+
+    It 'refuses -Path and -Url together' {
+        $file = Join-Path $TestDrive 'a.m3u'
+        [IO.File]::WriteAllBytes($file, $script:M3U)
+        { Add-ChannelForgeSourceSetSource -Kind M3U -Path $file -Url 'https://example.com/a.m3u' -RepositoryRoot $script:Project } | Should -Throw
+        Get-SetBytes | Should -Be 'none'
+    }
+}
