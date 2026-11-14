@@ -1138,6 +1138,19 @@ if ($candidatePublished) {
     }
 }
 
+# Event channels (event-channel/v2, slice 1): report only. A failure is one warning line.
+if ($candidatePublished) {
+    try {
+        $eventInput = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventChannelInput' -Arguments @{ CandidateDirectory = $candidateNamespacePath; CategoryReport = (Get-ChannelForgeCategoryReport -CandidateDirectory $candidateNamespacePath -RepositoryRoot $Root); Programme = @($allProgrammes) })
+        $eventFound = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventChannelCandidate' -Arguments @{ Channel = $eventInput })
+        $eventLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeEventChannelSummaryLines' -Arguments @{ Candidate = $eventFound }
+        foreach ($eventLine in $eventLines) { $md += (Get-SafeReportText $eventLine) }
+    }
+    catch {
+        Write-Warning 'The event channel check could not run, so the event channel section is left out of the summary.'
+    }
+}
+
 # Guide comparison (xguide-compare/v1): report only. A failure is one warning line.
 if (@($allProgrammes).Count -gt 0) {
     try {
