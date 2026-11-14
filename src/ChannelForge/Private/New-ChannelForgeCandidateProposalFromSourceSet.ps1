@@ -297,7 +297,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
     $manifestArguments.ReviewCounts = $counts
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
-    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
+    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin) -LogoPin $LogoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $rootFull)
     $manifest = [ordered]@{}
     foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$property.Name] = $property.Value }
     $manifestHash = [string]$manifestResult.CandidateManifestHash
