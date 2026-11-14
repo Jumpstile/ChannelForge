@@ -130,7 +130,7 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         Test-Path -LiteralPath (Join-Path $fixtureRoot 'output\merged.m3u') -PathType Leaf | Should -BeFalse
     }
 
-    It 'lists an exact channel whose guide has no programmes and keeps it in the playlist' {
+    It 'lists an exact channel whose guide has no programs and keeps it in the playlist' {
         $guide = @(
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<tv>'
@@ -153,7 +153,7 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $zeta[0].ProgrammeCount | Should -Be 2
         $zeta[0].FirstStartUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-08-24T08:00:00Z'
         $zeta[0].LastStopUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-08-24T10:00:00Z'
-        $plan | Should -Match 'Channels with a guide but no programmes: 1'
+        $plan | Should -Match 'Channels with a guide but no programs: 1'
         $plan | Should -Match "tvg-id 'alpha\.us'"
         $plan | Should -Not -Match "tvg-id 'zeta\.us' /"
 
@@ -218,7 +218,7 @@ Describe 'Build-Lineup.ps1 guide end date and age warning' {
         $summary.GuideAgeWarning | Should -BeTrue
     }
 
-    It 'returns a null end date and no warning when there are no programmes' {
+    It 'returns a null end date and no warning when there are no programs' {
         $r = Get-ChannelForgeGuideEnd -Programme @() -NowUtc ([datetime]'2026-08-20T00:00:00Z')
         $r.GuideEndsUtc | Should -BeNullOrEmpty
         $r.GuideAgeWarning | Should -BeFalse

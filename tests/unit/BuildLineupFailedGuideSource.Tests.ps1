@@ -69,7 +69,7 @@ Describe 'Build-Lineup.ps1 names the failing XMLTV guide source' {
         ($run.Summary | ConvertTo-Json -Depth 20) | Should -Not -Match '[A-Za-z]:\\\\|https?://'
     }
 
-    It 'names the source whose programmes conflict' {
+    It 'names the source whose programs conflict' {
         $conflicting = $script:GoodGuide.Replace('</tv>',
             '  <programme start="20260824100000 +0000" stop="20260824110000 +0000" channel="alpha.us"><title>Different Title</title></programme>' + "`n</tv>")
         $root = New-FailedSourceBuildRoot -Guides @(

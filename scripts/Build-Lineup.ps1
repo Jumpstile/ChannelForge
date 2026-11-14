@@ -195,7 +195,7 @@ function ConvertTo-SafeChannelForgeIdentityRecord {
 }
 
 function Get-ChannelForgeEpgCoverage {
-    # epg-coverage/v1: one record per Exact binding with the guide programme
+    # epg-coverage/v1: one record per Exact binding with the guide program
     # count and first start / last stop (UTC). Report-only; reads binding results.
     param(
         [AllowEmptyCollection()]
@@ -231,7 +231,7 @@ function Get-ChannelForgeEpgCoverage {
 }
 
 function Get-ChannelForgeGuideEnd {
-    # epg-guide-end/v1: latest programme stop (UTC) and a warn-only age flag.
+    # epg-guide-end/v1: latest program stop (UTC) and a warn-only age flag.
     # Warns when that stop is less than $WarnWithinHours after $NowUtc.
     param(
         [AllowEmptyCollection()]
@@ -735,7 +735,7 @@ else {
 
         $xmltvCurrentSourceName = $null
         if ($allProgrammes.Count -eq 0) {
-            throw 'No XMLTV programmes were imported.'
+            throw 'No XMLTV programs were imported.'
         }
 
         $xmltvFailureStage = 'merge'
@@ -823,15 +823,15 @@ else {
             }
         }
         elseif ($xmltvFailureStage -eq 'merge') {
-            $xmltvFailureReason = 'Imported XMLTV programmes could not be merged deterministically.'
+            $xmltvFailureReason = 'Imported XMLTV programs could not be merged deterministically.'
             $conflictNames = @($xmltvMergeResult.Conflicts.Alternatives.Evidence.SourceId |
                 Where-Object { $_ } | ForEach-Object { Get-SafeReportText $_ } | Sort-Object -Unique -CaseSensitive)
             if ($conflictNames.Count -gt 0) {
-                $xmltvFailureReason = "Imported XMLTV programmes could not be merged deterministically; conflicting source: $($conflictNames -join ', ')."
+                $xmltvFailureReason = "Imported XMLTV programs could not be merged deterministically; conflicting source: $($conflictNames -join ', ')."
             }
         }
         elseif ($xmltvFailureStage -eq 'export') {
-            $xmltvFailureReason = 'Merged XMLTV programmes could not be serialized.'
+            $xmltvFailureReason = 'Merged XMLTV programs could not be serialized.'
         }
         elseif ($xmltvFailureStage -eq 'identity-binding') {
             $xmltvFailureReason = 'M3U/XMLTV identity binding could not be evaluated safely.'
@@ -1102,7 +1102,7 @@ $md += ""
 $md += "## XMLTV Result"
 switch ($xmltvStatus) {
     'GENERATED' {
-        $md += "Generated XMLTV: $xmltvRelativePath ($xmltvProgrammeCount programmes, $xmltvBindingCount channels, $xmltvDuplicateGroupCount duplicate groups, SHA-256 $xmltvHash)"
+        $md += "Generated XMLTV: $xmltvRelativePath ($xmltvProgrammeCount programs, $xmltvBindingCount channels, $xmltvDuplicateGroupCount duplicate groups, SHA-256 $xmltvHash)"
     }
     'FAILED' {
         $md += "XMLTV output: FAILED. $xmltvFailureReason"
@@ -1142,7 +1142,7 @@ foreach ($orphan in @($m3uXmltvOrphanedXmltvChannels)) {
 }
 $emptyGuide = @($m3uXmltvEpgCoverage | Where-Object { $_.ProgrammeCount -eq 0 })
 $md += ''
-$md += "Channels with a guide but no programmes: $($emptyGuide.Count)"
+$md += "Channels with a guide but no programs: $($emptyGuide.Count)"
 foreach ($empty in @($emptyGuide | Select-Object -First 25)) {
     $md += "- tvg-id '$($empty.TvgId)' / $($empty.DisplayName)"
 }
