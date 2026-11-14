@@ -765,7 +765,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         $beforeHash = (Get-FileHash -LiteralPath $xmltvPath -Algorithm SHA256).Hash
         '<tv><programme></tv>' | Set-Content -LiteralPath $guidePath -Encoding UTF8
 
-        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Configured local XMLTV input could not be imported*'
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw "*XMLTV source 'fixture-guide' could not be imported*"
 
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
@@ -837,7 +837,7 @@ Describe 'Build-Lineup.ps1 (local XMLTV integration)' {
         Mock -CommandName Import-ChannelForgeConfiguredXmltvSource -MockWith {
             throw 'deterministic remote acquisition failure'
         }
-        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw '*Configured XMLTV input could not be imported*'
+        { & $script:ScriptPath -Root $fixtureRoot } | Should -Throw "*XMLTV source 'remote-guide' could not be imported*"
 
         $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw

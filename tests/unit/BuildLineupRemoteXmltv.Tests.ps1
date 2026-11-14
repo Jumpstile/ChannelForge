@@ -101,7 +101,7 @@ Describe 'Build-Lineup remote XMLTV wiring' {
         $programmes = @(Import-ChannelForgeXmltvSource -Path $script:FixturePath -SourceId 'remote-guide')
 
         { Invoke-BuildWithConfiguredImporterMock -Root $root -Programmes $programmes -Fail | Out-Null } |
-            Should -Throw '*Configured XMLTV input could not be imported*'
+            Should -Throw "*XMLTV source 'remote-guide' could not be imported*"
 
         $summary = Get-Content -LiteralPath (Join-Path $root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $summary.XMLTVStatus | Should -Be 'FAILED'
