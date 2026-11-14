@@ -1,6 +1,6 @@
 function Add-ChannelForgePlaceholderGuide {
-    # OwnPlaceholder guide: for each channel, one name-only programme per local day,
-    # covering the same window as the programmes already in the guide. Day boundaries
+    # OwnPlaceholder guide: for each channel, one name-only program per local day,
+    # covering the same window as the programs already in the guide. Day boundaries
     # are local midnight in TimeZone, so a daylight saving day is 23 or 25 hours long
     # with no gap and no overlap. Returns the extended XMLTV bytes (as one byte[] item).
     [CmdletBinding()]
@@ -13,7 +13,7 @@ function Add-ChannelForgePlaceholderGuide {
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
     $text = $utf8.GetString($XmltvBytes)
     $stamp = [regex]::Matches($text, '<programme start="(\d{14}) \+0000" stop="(\d{14}) \+0000"')
-    if ($stamp.Count -eq 0) { throw 'The guide has no programmes, so a name-only guide cannot be built for it.' }
+    if ($stamp.Count -eq 0) { throw 'The guide has no programs, so a name-only guide cannot be built for it.' }
     $first = ($stamp | ForEach-Object { $_.Groups[1].Value } | Sort-Object | Select-Object -First 1)
     $last = ($stamp | ForEach-Object { $_.Groups[2].Value } | Sort-Object | Select-Object -Last 1)
     $format = 'yyyyMMddHHmmss'

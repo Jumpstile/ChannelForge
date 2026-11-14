@@ -102,7 +102,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
                 $inputArtifactHash = ([BitConverter]::ToString($hasher.Hash)).Replace('-', '').ToLowerInvariant()
                 $parserCompleted = $true
                 if (@($programmes).Count -eq 0) {
-                    throw 'Remote XMLTV response contained no programmes; cache promotion was rejected.'
+                    throw 'Remote XMLTV response contained no programs; cache promotion was rejected.'
                 }
                 if ($null -ne $opened.Stream) {
                     $opened.Stream.Dispose()
