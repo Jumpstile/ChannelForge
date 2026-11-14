@@ -1138,10 +1138,14 @@ if ($candidatePublished) {
     }
 }
 
-# Guide comparison (xguide-compare/v1): report only. A failure is one warning line.
+# Guide comparison (xguide-compare/v2): report only. A failure is one warning line.
 if (@($allProgrammes).Count -gt 0) {
     try {
-        $xguideReport = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideReport' -Arguments @{ Programme = @($allProgrammes); BuildTimeUtc = $BuildTimeUtc; GuideSourceId = [string[]]@($xmltvSources | ForEach-Object { [string]$_.Name }) })[-1]
+        $xguideNames = [string[]]@($xmltvSources | ForEach-Object { [string]$_.Name })
+        $xguideScope = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideScope' -Arguments @{ RepositoryRoot = $Root; GuideName = $xguideNames })
+        $xguideArguments = @{ Programme = @($allProgrammes); BuildTimeUtc = $BuildTimeUtc; GuideSourceId = $xguideNames }
+        if ($xguideScope.Count -gt 0 -and $xguideScope[-1] -is [hashtable]) { $xguideArguments.GuideScope = $xguideScope[-1] }
+        $xguideReport = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideScopedReport' -Arguments $xguideArguments)[-1]
         $xguideLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideSummaryLines' -Arguments @{ Report = $xguideReport }
         foreach ($xguideLine in $xguideLines) { $md += (Get-SafeReportText $xguideLine) }
     }
