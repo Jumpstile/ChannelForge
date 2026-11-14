@@ -36,10 +36,12 @@ function Get-ChannelForgePublishLogo {
     foreach ($ch in @($Channel)) {
         $logo = [string]$ch.Logo
         $replaced = $false
+        $pinned = $false
         $tvgId = [string]$ch.TvgId
         if ($tvgId.Length -gt 0 -and $pins.ContainsKey($tvgId)) {
             # Logo pin (logo-apply/v1): wins over a good public logo.
             $logo = $pins[$tvgId]
+            $pinned = $true
         }
         elseif ((Get-ChannelForgeLogoStatus -Url $logo) -ne 'Public') {
             $logo = ''
@@ -48,6 +50,6 @@ function Get-ChannelForgePublishLogo {
                 $replaced = $true
             }
         }
-        [pscustomobject]@{ DisplayName = [string]$ch.DisplayName; Logo = $logo; Replaced = $replaced }
+        [pscustomobject]@{ DisplayName = [string]$ch.DisplayName; Logo = $logo; Replaced = $replaced; TvgId = $tvgId; Pinned = $pinned }
     }
 }
