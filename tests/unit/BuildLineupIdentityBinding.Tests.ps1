@@ -175,3 +175,62 @@ Describe 'Build-Lineup.ps1 M3U/XMLTV identity binding report' {
         $summary.CandidateBuildIdentity | Should -Be '430a96b5c21d5c5cc92d5ebff0abd50d77b5151b47d3f886d3af2a81a4df9bc2'
     }
 }
+
+Describe 'Build-Lineup.ps1 guide end date and age warning' {
+    BeforeAll {
+        $script:GuideEndGuide = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<tv>'
+            '<channel id="zeta.us"><display-name>Zeta</display-name></channel>'
+            '<programme start="20260824080000 +0000" stop="20260824100000 +0000" channel="zeta.us"><title>Z1</title></programme>'
+            '</tv>'
+        ) -join "`n"
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:BuildScriptPath, [ref]$null, [ref]$null)
+        $def = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-ChannelForgeGuideEnd' }, $true)
+        . ([scriptblock]::Create($def.Extent.Text))
+    }
+
+    It 'gives no warning when the guide ends well after build time' {
+        $fixtureRoot = New-IdentityBindingBuildRoot -GuideContent $script:GuideEndGuide
+        & $script:BuildScriptPath -Root $fixtureRoot -BuildTimeUtc ([datetime]'2026-08-20T00:00:00Z')
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $summary.GuideEndsUtc.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-08-24T10:00:00Z'
+        $summary.GuideAgeWarning | Should -BeFalse
+        @($summary.GuideEndsUtcBySource).Count | Should -Be 1
+        $plan | Should -Not -Match 'WARNING: the guide ends'
+    }
+
+    It 'warns but still builds when the guide ends within 48 hours of build time' {
+        $fixtureRoot = New-IdentityBindingBuildRoot -GuideContent $script:GuideEndGuide
+        & $script:BuildScriptPath -Root $fixtureRoot -BuildTimeUtc ([datetime]'2026-08-23T00:00:00Z')
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $plan = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\lineup-plan.md') -Raw
+        $summary.GuideAgeWarning | Should -BeTrue
+        $summary.M3UXmltvExactBindingCount | Should -Be 1
+        $plan | Should -Match 'WARNING: the guide ends 2026-08-24T10:00:00Z.*Get a newer guide file'
+    }
+
+    It 'warns when the guide already ended' {
+        $fixtureRoot = New-IdentityBindingBuildRoot -GuideContent $script:GuideEndGuide
+        & $script:BuildScriptPath -Root $fixtureRoot -BuildTimeUtc ([datetime]'2026-09-30T00:00:00Z')
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.GuideAgeWarning | Should -BeTrue
+    }
+
+    It 'returns a null end date and no warning when there are no programmes' {
+        $r = Get-ChannelForgeGuideEnd -Programme @() -NowUtc ([datetime]'2026-08-20T00:00:00Z')
+        $r.GuideEndsUtc | Should -BeNullOrEmpty
+        $r.GuideAgeWarning | Should -BeFalse
+    }
+
+    It 'leaves published bytes, hashes and build identity unchanged whatever the clock says' {
+        $fixtureRoot = New-IdentityBindingBuildRoot
+        & $script:BuildScriptPath -Root $fixtureRoot -BuildTimeUtc ([datetime]'2030-01-01T00:00:00Z')
+        $summary = Get-Content -LiteralPath (Join-Path $fixtureRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.GuideAgeWarning | Should -BeTrue
+        $summary.M3USha256 | Should -Be '1266e1683fc4b0a1adc74949308c503c0849dfb1c5ab65aa9e365bdebe1d506f'
+        $summary.XMLTVSha256 | Should -Be '7ba3745695cb5782d120e953edde2e28ace39158dc1d5e22d02f7ecd621ed77c'
+        $summary.CandidateBuildIdentity | Should -Be '430a96b5c21d5c5cc92d5ebff0abd50d77b5151b47d3f886d3af2a81a4df9bc2'
+    }
+}
