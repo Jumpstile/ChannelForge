@@ -19,6 +19,28 @@ function Read-ChannelForgeSourceSetFileBytes {
     return , [System.IO.File]::ReadAllBytes($Path)
 }
 
+function Get-ChannelForgeSourceSetUrlBytes {
+    param(
+        [Parameter(Mandatory)][ValidateSet('M3U', 'XMLTV')][string]$Kind,
+        [Parameter(Mandatory)][string]$Url
+    )
+    # The link is a secret. Every message below is fixed text; never add the link or a transport message to it.
+    $parsed = $null
+    if (-not (Test-ChannelForgeSourceUrl -Url $Url) -or -not [Uri]::TryCreate($Url, [UriKind]::Absolute, [ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) {
+        throw 'SOURCE_ENROLLMENT_INVALID: the link must be a public HTTPS address with no user info, query or fragment. Tokenized or credential-bearing links are not supported.'
+    }
+    $limits = Get-ChannelForgeWebProposalLimits
+    try { $bytes = [byte[]](Get-ChannelForgeRemoteSourceBytes -Kind $Kind -Url $Url -MaxBytes $(if ($Kind -eq 'M3U') { $limits.MaxM3UBytes } else { $limits.MaxXMLTVBytes })) }
+    catch { throw 'SOURCE_ENROLLMENT_INVALID: the source could not be fetched, or it was empty or too large.' }
+    # The parsers read files, so the fetched bytes get the same file check through a short-lived temp file.
+    $temp = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + $(if ($Kind -eq 'M3U') { '.m3u' } else { '.xml' }))
+    try {
+        [System.IO.File]::WriteAllBytes($temp, $bytes)
+        return , (Read-ChannelForgeSourceSetFileBytes -Kind $Kind -Path $temp)
+    }
+    finally { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
+}
+
 function Get-ChannelForgeSourceSetEditBase {
     param([Parameter(Mandatory)][string]$RepositoryRoot)
     $integrity = Get-ChannelForgeSourceEnrollmentIntegrity -RepositoryRoot $RepositoryRoot

@@ -1,8 +1,18 @@
 function Add-ChannelForgeSourceSetSource {
+    <#
+    .SYNOPSIS
+    Adds one playlist or guide to the saved source set, from a local file (-Path) or a public HTTPS link (-Url).
+    .DESCRIPTION
+    Give exactly one of -Path or -Url. A link must be a plain public HTTPS address. Links with user info, a query
+    string or a fragment (tokenized or credential-bearing links) are not supported and are refused. The link is
+    fetched once, checked like a local file, and saved as a managed snapshot. Nothing is saved if any step fails.
+    The link is never shown in errors or warnings.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('M3U', 'XMLTV')][string]$Kind,
-        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory, ParameterSetName = 'Path')][string]$Path,
+        [Parameter(Mandatory, ParameterSetName = 'Url')][string]$Url,
         [string]$Label,
         [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot)
     )
@@ -11,14 +21,16 @@ function Add-ChannelForgeSourceSetSource {
     if ($PSBoundParameters.ContainsKey('Label') -and ([string]::IsNullOrWhiteSpace($Label) -or $Label.Length -gt $limits.MaxLabelLength -or $Label -match '[\x00-\x1F\x7F]')) {
         throw 'SOURCE_ENROLLMENT_INVALID: the source label is invalid.'
     }
-    $bytes = Read-ChannelForgeSourceSetFileBytes -Kind $Kind -Path $Path
+    $bytes = if ($PSCmdlet.ParameterSetName -eq 'Url') { Get-ChannelForgeSourceSetUrlBytes -Kind $Kind -Url $Url } else { Read-ChannelForgeSourceSetFileBytes -Kind $Kind -Path $Path }
+    $sourceKind = if ($PSCmdlet.ParameterSetName -eq 'Url') { 'public-https' } else { 'managed-file' }
     $base = Get-ChannelForgeSourceSetEditBase -RepositoryRoot $RepositoryRoot
     if ($Kind -eq 'XMLTV' -and @($base.Playlists).Count -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: add a playlist before adding a guide.' }
 
     $group = if ($Kind -eq 'M3U') { @($base.Playlists) } else { @($base.Guides) }
     $source = [pscustomobject][ordered]@{
-        Kind = $Kind; SourceKind = 'managed-file'; Bytes = $bytes
-        SourceId = Get-ChannelForgeSourceSetSourceId -Kind $Kind -SourceKind 'managed-file' -SourceKey ([guid]::NewGuid().ToString('N'))
+        Kind = $Kind; SourceKind = $sourceKind; Bytes = $bytes
+        Url = if ($sourceKind -eq 'public-https') { $Url } else { $null }
+        SourceId = Get-ChannelForgeSourceSetSourceId -Kind $Kind -SourceKind $sourceKind -SourceKey ([guid]::NewGuid().ToString('N'))
         Label = if ($PSBoundParameters.ContainsKey('Label')) { $Label } else { $null }
         Priority = if ($group.Count -eq 0) { 100 } else { [int]($group | Measure-Object -Property Priority -Maximum).Maximum + 1 }
     }
