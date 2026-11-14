@@ -73,6 +73,28 @@ describe('browser Guided Setup proposal and acceptance', () => {
     expect(screen.getByRole('button', { name: 'Accept reviewed proposal' })).toBeDisabled()
   })
 
+  it('shows the guide check headline, hides its details until asked, and still needs the acknowledgement', async () => {
+    const user = userEvent.setup()
+    const withGuides: GuidedSetupSourceSetProposal = {
+      ...readyProposal,
+      Checks: [
+        { Kind: 'guides', Status: 'attention', Headline: 'Your guides disagree on 1 programmes. You can accept, or fix this first (see Details).', Details: ['channel one: 2030-01-01 00:00 is "A" in g1, "B" in g2'] },
+      ],
+    }
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(withGuides)
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} sourceSetAcceptanceSubmitter={vi.fn()} />)
+    await user.upload(screen.getAllByLabelText('Choose playlist')[0], new File(['#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one\n'], 'channels.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+
+    expect(await screen.findByText(/Your guides disagree on 1 programmes/)).toBeInTheDocument()
+    expect(screen.queryByText(/is "A" in g1/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText(/is "A" in g1/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Accept reviewed proposal' })).toBeDisabled()
+    await user.click(screen.getByLabelText(/I reviewed these results/))
+    expect(screen.getByRole('button', { name: 'Accept reviewed proposal' })).toBeEnabled()
+  })
+
   it('reviews multiple browser sources, submits explicit guide bindings, and accepts only after acknowledgement', async () => {
     const user = userEvent.setup()
     const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)

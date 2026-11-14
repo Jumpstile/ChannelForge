@@ -343,6 +343,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             CandidateDirectory = $finalPath
             Manifest = [pscustomobject]$manifest
             LogoReport = $logoReport
+            GuideProgrammes = @($programmesForOutput.ToArray())
         }
     }
     catch {

@@ -4,7 +4,7 @@ export const proposalRequestLimits = {
 } as const
 
 export type GuidedSetupCheck = {
-  Kind: 'logos' | 'categories'
+  Kind: 'logos' | 'categories' | 'guides'
   Status: 'ok' | 'attention' | 'unavailable'
   Headline: string
   Details: string[]
