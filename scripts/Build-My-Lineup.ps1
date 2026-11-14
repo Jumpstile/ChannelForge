@@ -101,6 +101,7 @@ function Write-WorkflowReport {
             "Decisions file: $($Report.DecisionsFile)"
         }
         if ($Report.NoGuideCount -gt 0) { "$($Report.NoGuideCount) channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide." }
+        foreach ($eventRow in @($Report.EventGuide.Applied) + @($Report.EventGuide.Fallback)) { "Event channel '$($eventRow.Name)': $($eventRow.Reason)" }
         if ($Report.EventPatternPreview.Enabled) {
             "Event-pattern preview: $($Report.EventPatternPreview.Status)"
             "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
@@ -729,15 +730,20 @@ try {
     $decisions = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeChannelDecisions' -Arguments @{ Path = $decisionsPath })
     $strict = $AmbiguousAction -eq 'Cancel'
     $interactive = [string]::IsNullOrWhiteSpace($AmbiguousAction) -and -not ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive)
+    $entryStreamKey = {
+        param($entry)
+        $slice = $entry.EntryOutputSlice
+        $entryLines = [Text.Encoding]::UTF8.GetString($candidateM3UBytes, [int]$slice.ByteOffset, [int]$slice.ByteLength) -split "`n"
+        $streamUrl = @($entryLines | Where-Object { $_ -and -not $_.StartsWith('#') }) | Select-Object -Last 1
+        [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeChannelKey' -Arguments @{ Url = [string]$streamUrl } | Select-Object -Last 1)
+    }
     $held = @(foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' })) {
             $entry = @($manifest.Entries | Where-Object { [string]$_.EntryId -ceq [string]$binding.EntryId }) | Select-Object -First 1
             if ($null -eq $entry) { continue }
-            $slice = $entry.EntryOutputSlice
-            $entryLines = [Text.Encoding]::UTF8.GetString($candidateM3UBytes, [int]$slice.ByteOffset, [int]$slice.ByteLength) -split "`n"
-            $streamUrl = @($entryLines | Where-Object { $_ -and -not $_.StartsWith('#') }) | Select-Object -Last 1
+            $streamKey = & $entryStreamKey $entry
             [pscustomobject]@{
                 EntryId = [string]$entry.EntryId
-                Key     = [string](Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeChannelKey' -Arguments @{ Url = [string]$streamUrl } | Select-Object -Last 1)
+                Key     = $streamKey
                 Name    = [string]$entry.DisplayName
                 GroupId = [string]$binding.M3URawId
             }
@@ -774,6 +780,21 @@ try {
         if ($outcome.Choice -ne 'ShareOnPurpose') { $tvgIdByEntry[$outcome.EntryId] = $outcome.Guide }
     }
     $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name } })
+    # Event channels (event-channel/v2, slice 3): channels rated high get an event guide from their own provider
+    # guide. A saved user choice wins. Any problem leaves every channel on its normal guide.
+    $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @()
+    if ($null -ne $candidateXMLTVBytes) {
+        try {
+            $guideIdByEntry = @{}
+            foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -in 'ExactBound', 'ReviewNeeded' })) { $guideIdByEntry[[string]$binding.EntryId] = [string]$binding.M3URawId }
+            $eventEntries = @($manifest.Entries | ForEach-Object { [pscustomobject]@{ EntryId = [string]$_.EntryId; Key = (& $entryStreamKey $_); Name = [string]$_.DisplayName; GuideId = [string]$guideIdByEntry[[string]$_.EntryId] } })
+            $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }) } | Select-Object -Last 1
+            $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback)
+            $ownChannels = @($ownChannels) + @($eventPlan.Channel)
+            foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
+        }
+        catch { Write-Warning 'The event channel guide could not be built, so every channel keeps its normal guide.' }
+    }
     if ($ownChannels.Count -gt 0) {
         $candidateXMLTVBytes = [byte[]](Invoke-ChannelForgePrivate -Name 'Add-ChannelForgePlaceholderGuide' -Arguments @{
                 XmltvBytes = $candidateXMLTVBytes; Channel = $ownChannels; TimeZone = [System.TimeZoneInfo]::Local } | Select-Object -Last 1)
@@ -785,8 +806,8 @@ try {
     $report.ChannelGuides = @($manifest.Entries | ForEach-Object {
             $id = [string]$_.EntryId
             $outcome = $outcomeByEntry[$id]
-            $guideValue = if ($null -ne $outcome) { $outcome.Guide } elseif ($null -ne $candidateXMLTVBytes -and $exactEntryIds.ContainsKey($id)) { $exactEntryIds[$id] } else { $null }
-            [ordered]@{ name = [string]$_.DisplayName; guide = $guideValue; choice = if ($null -ne $outcome) { $outcome.Choice } elseif ($null -ne $guideValue) { 'ExactMatch' } else { 'NoMatch' } }
+            $guideValue = if ($eventGuideByEntry.ContainsKey($id)) { $eventGuideByEntry[$id] } elseif ($null -ne $outcome) { $outcome.Guide } elseif ($null -ne $candidateXMLTVBytes -and $exactEntryIds.ContainsKey($id)) { $exactEntryIds[$id] } else { $null }
+            [ordered]@{ name = [string]$_.DisplayName; guide = $guideValue; choice = if ($eventGuideByEntry.ContainsKey($id)) { 'EventGuide' } elseif ($null -ne $outcome) { $outcome.Choice } elseif ($null -ne $guideValue) { 'ExactMatch' } else { 'NoMatch' } }
         })
     $report.CollisionGroups = @($choices.Outcomes | Group-Object -Property GroupId -CaseSensitive | ForEach-Object {
             $actions = [ordered]@{}
@@ -798,7 +819,9 @@ try {
                 SameStreamChannels = @($_.Group | Group-Object -Property Key | Where-Object { $_.Count -gt 1 } | ForEach-Object { @($_.Group | ForEach-Object Name) -join ' = ' })
             }
         })
-    $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' }).Count
+    $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' -and -not $eventGuideByEntry.ContainsKey($_.EntryId) }).Count
+    $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback) }
+    foreach ($eventRow in @($eventApplied) + @($eventFallback)) { Write-Host "Event channel '$($eventRow.Name)': $($eventRow.Reason)" -ForegroundColor Yellow }
     $report.DecisionsFile = 'state/channel-decisions.json'
     if ($report.CollisionGroups.Count -gt 0) {
         Write-Host "Guide collisions: $($report.CollisionGroups.Count) guide ID(s) are shared by several channels." -ForegroundColor Yellow

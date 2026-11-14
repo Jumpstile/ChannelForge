@@ -86,14 +86,37 @@
               "KeepWithoutGuide",
               "OwnPlaceholder",
               "BindTrueMatch",
-              "ShareOnPurpose"
+              "ShareOnPurpose",
+              "EventGuide"
             ]
           }
         }
       }
+    },
+    "EventGuide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Applied", "Fallback"],
+      "properties": {
+        "Applied": { "$ref": "#/$defs/eventGuideRows" },
+        "Fallback": { "$ref": "#/$defs/eventGuideRows" }
+      }
     }
   },
   "$defs": {
+    "eventGuideRows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["Key", "Name", "Reason"],
+        "properties": {
+          "Key": { "type": "string" },
+          "Name": { "type": "string" },
+          "Reason": { "type": "string" }
+        }
+      }
+    },
     "eventPatternPreview": {
       "type": "object",
       "additionalProperties": false,

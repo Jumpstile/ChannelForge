@@ -628,3 +628,57 @@ Describe 'Real ETV playlist regression' {
         ([regex]::Matches($m3u, '#EXTINF')).Count | Should -Be 482
     }
 }
+
+Describe 'Event channel guide in the accepted lineup' {
+    BeforeAll {
+        function New-EventFixture {
+            param([string]$Name, [string]$BigFightStart)
+            $root = New-GuidedSetupRoot -Name $Name
+            $playlist = Join-Path $TestDrive "$Name.m3u"
+            $guide = Join-Path $TestDrive "$Name.xml"
+            "#EXTM3U`n#EXTINF:-1 tvg-id=`"ppv1.us`" group-title=`"PPV`",PPV 1`nhttps://example.invalid/live/ppv1`n#EXTINF:-1 tvg-id=`"news.us`" group-title=`"News`",News Channel`nhttps://example.invalid/live/news`n" | Set-Content -LiteralPath $playlist -Encoding utf8
+            @"
+<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="ppv1.us"><display-name>PPV 1</display-name></channel>
+  <channel id="news.us"><display-name>News Channel</display-name></channel>
+  <programme start="20261115000000 +0000" stop="20261115180000 +0000" channel="ppv1.us"><title>No Event</title></programme>
+  <programme start="$BigFightStart" stop="20261115210000 +0000" channel="ppv1.us"><title>Big Fight Night</title></programme>
+  <programme start="20261115210000 +0000" stop="20261115235900 +0000" channel="ppv1.us"><title>No Event</title></programme>
+  <programme start="20261115000000 +0000" stop="20261115235900 +0000" channel="news.us"><title>News</title></programme>
+</tv>
+"@ | Set-Content -LiteralPath $guide -Encoding utf8
+            [pscustomobject]@{ Root = $root; Playlist = $playlist; Guide = $guide }
+        }
+    }
+
+    It 'publishes the event title under the channel own guide id and reports the channel' {
+        $fixture = New-EventFixture -Name 'event-apply' -BigFightStart '20261115180000 +0000'
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture
+        $run.ExitCode | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $fixture.Root
+        $ownId = 'ChannelForge-' + (Get-TestChannelKey -Url 'https://example.invalid/live/ppv1').Substring(0, 32)
+        $ppv = Get-TestGuide -Summary $summary -Name 'PPV 1'
+        $ppv.guide | Should -Be $ownId
+        $ppv.choice | Should -Be 'EventGuide'
+        @($summary.EventGuide.Applied).Count | Should -Be 1
+        (Get-TestGuide -Summary $summary -Name 'News Channel').guide | Should -Be 'news.us'
+        $xml = [xml](Get-Content -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\accepted\guide.xml') -Raw)
+        @($xml.tv.programme | Where-Object { $_.channel -eq $ownId } | ForEach-Object { $_.title }) | Should -Contain 'Big Fight Night'
+        (Get-Content -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\accepted\lineup.m3u') -Raw) | Should -Match ([regex]::Escape("tvg-id=`"$ownId`""))
+    }
+
+    It 'keeps the normal guide and reports why when the provider guide has no programs for the channel' {
+        # An unreadable time is already refused by the guide reader before this step, so the reachable fallback is a channel with no programs.
+        $fixture = New-EventFixture -Name 'event-fallback' -BigFightStart '20261115180000 +0000'
+        $text = (Get-Content -LiteralPath $fixture.Guide -Raw) -replace '(?m)^.*channel="ppv1\.us"><title>.*\r?\n', ''
+        Set-Content -LiteralPath $fixture.Guide -Value $text -Encoding utf8
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture
+        $run.ExitCode | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $fixture.Root
+        (Get-TestGuide -Summary $summary -Name 'PPV 1').guide | Should -Be 'ppv1.us'
+        @($summary.EventGuide.Applied).Count | Should -Be 0
+        $summary.EventGuide.Fallback[0].Reason | Should -BeLike '*no programs*'
+        $run.Output | Should -Not -BeLike '*could not be built*'
+    }
+}
