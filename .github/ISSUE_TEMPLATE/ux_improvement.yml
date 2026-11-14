@@ -1,0 +1,53 @@
+name: UX improvement
+description: Improve clarity, workflow, safety, or the beginner experience
+title: "[UX]: "
+labels:
+  - "type:ux"
+  - "component:ux"
+  - "status:needs-design"
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: In one short sentence, what should be easier or clearer?
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What are you trying to do?
+      description: Describe the task from the user's point of view.
+    validations:
+      required: true
+
+  - type: textarea
+    id: friction
+    attributes:
+      label: What is confusing, unsafe, slow, or hard to check?
+      description: Describe what gets in the way today. Include the screen or step.
+    validations:
+      required: true
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What would be better?
+      description: Describe the experience you would like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and trust
+      description: How should the user preview, approve, check, or undo the result?
+
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      placeholder: |
+        - ...
+        - ...

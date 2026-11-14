@@ -1,0 +1,50 @@
+name: Technical debt
+description: Track cleanup, maintainability, or design debt
+title: "[Tech debt]: "
+labels:
+  - "type:technical-debt"
+  - "status:needs-design"
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: In one short sentence, what is the maintainability problem?
+    validations:
+      required: true
+
+  - type: textarea
+    id: debt
+    attributes:
+      label: What is the problem?
+      description: Describe the cleanup or design issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Point to files, repeated patterns, confusing behavior, or review findings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk
+      description: What gets harder or more fragile if this stays as it is?
+    validations:
+      required: true
+
+  - type: textarea
+    id: direction
+    attributes:
+      label: Smallest useful cleanup
+      description: Describe the smallest change that would help.
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How to verify
+      description: List the tests, docs, or review steps needed.

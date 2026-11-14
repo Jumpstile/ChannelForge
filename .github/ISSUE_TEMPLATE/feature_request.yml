@@ -1,0 +1,77 @@
+name: Feature request
+description: Propose a new capability or workflow
+title: "[Feature]: "
+labels:
+  - "type:feature"
+  - "status:needs-design"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please search existing issues first.
+        Do not include account names, tokens, or private URLs.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: In one short sentence, what would you like ChannelForge to do?
+      placeholder: Example - Show which channels carry the same event
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe what you are trying to do and what gets in the way today.
+      placeholder: |
+        I am trying to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: What should it do?
+      description: Describe the workflow or result you want, from the user's point of view.
+      placeholder: |
+        I would like...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Closest area
+      description: Choose the closest match. Maintainers use this to apply the component label.
+      options:
+        - Desktop app screens, setup, or review (component:ux)
+        - Channel matching, names, or corrections (component:identity)
+        - Guide data, artwork, or stream details (component:guide-media)
+        - Event or sports channels and event guides (component:events)
+        - Output files, playlists, or deployment (component:delivery)
+        - Stored data, schemas, or saved state (component:data)
+        - Automation, scheduled runs, or notifications (component:operations)
+        - Rules, policy packs, or adapters (component:policy-sdk)
+        - Documentation (component:documentation)
+        - Other or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How will we know it works?
+      description: List what you would check to say the feature is done.
+      placeholder: |
+        - ...
+        - ...
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workaround or alternatives (if known)
+      description: Tell us what you do today, or other ways this could work.
+      placeholder: |
+        Workaround, or "None known":

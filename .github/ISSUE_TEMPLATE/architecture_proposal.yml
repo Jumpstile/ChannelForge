@@ -1,0 +1,56 @@
+name: Architecture proposal
+description: Propose or revise an architectural decision
+title: "[Architecture]: "
+labels:
+  - "type:governance"
+  - "component:foundation"
+  - "status:needs-design"
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Decision summary
+      description: In one short sentence, what needs to be decided?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What decision is needed, and why now?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: List repository evidence, tests, constraints, and related issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the proposed architecture or boundary.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: List credible alternatives and their tradeoffs.
+
+  - type: dropdown
+    id: adr-impact
+    attributes:
+      label: Decision record (ADR) impact
+      options:
+        - New ADR needed
+        - Existing ADR updated
+        - No ADR needed
+    validations:
+      required: true

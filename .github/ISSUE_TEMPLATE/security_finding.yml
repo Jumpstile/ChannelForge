@@ -1,0 +1,76 @@
+name: Security finding
+description: Report a security issue, secret exposure, or hardening need
+title: "[Security]: "
+labels:
+  - "type:security"
+  - "component:security"
+  - "status:needs-investigation"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a security concern.
+
+        Do not paste real secrets, tokens, passwords, or full private URLs.
+        Redact anything sensitive before you submit. If the problem is an
+        active exposure that someone could exploit right now, use the
+        repository's private security reporting instead of a public issue.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Finding summary
+      description: In one short sentence, what is the concern?
+      placeholder: Example - A log file can contain a provider account token
+    validations:
+      required: true
+
+  - type: input
+    id: channelforge-version
+    attributes:
+      label: ChannelForge version or release
+      description: Enter the exact version or release identifier, or say if it is a development build.
+    validations:
+      required: true
+
+  - type: textarea
+    id: finding
+    attributes:
+      label: What did you find?
+      description: Describe the concern and where it appears (file, screen, command, or output).
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Provide redacted evidence and the affected paths. Replace any secret with a placeholder such as "REDACTED".
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: What could go wrong if this is not fixed?
+      description: Describe who or what is affected and how likely it is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Suggested fix (if known)
+      description: Describe the safest fix you can think of. If you have no idea, say so.
+
+  - type: checkboxes
+    id: pre-submit-checklist
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I removed real secrets and private information from everything I included.
+          required: true
+        - label: This is not an active exposure that needs private reporting.
+          required: true
+        - label: If a credential was exposed, I know it may need to be rotated.
+          required: true
