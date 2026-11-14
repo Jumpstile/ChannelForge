@@ -258,6 +258,30 @@ The JSON contract is validated by the dedicated report-schema tests. See
 [`schemas/guided-event-pattern-preview.schema.json`](../../../schemas/guided-event-pattern-preview.schema.json),
 and [`schemas/guide-pattern-acceptance-plan.schema.json`](../../../schemas/guide-pattern-acceptance-plan.schema.json).
 
+## Seeing each channel's category
+
+`Get-ChannelForgeCategoryReport` shows the category, how sure the tool is, and the plain reason for every channel in a candidate. It only reads. It never changes a channel, a group, the playlist or the guide, and it never blocks a build. The category is not shown in your player yet.
+
+```powershell
+Import-Module ./src/ChannelForge/ChannelForge.psd1 -Force
+$report = Get-ChannelForgeCategoryReport -CandidateDirectory ./output/candidates/<candidate-hash>
+$report.Summary
+$report.Rows | Where-Object Confidence -ne 'high'
+```
+
+Success: you get the report and a file at `output/category-reports/<candidate-hash>.json`. Each row has `Category`, `Confidence` (`high`, `medium` or `none`) and a `Reason`. A channel with `Confidence` of `none` has no category on purpose: the tool was not sure and did not guess.
+
+If a category is wrong, copy its `ChannelKey` from the report and save your correction. It is kept for every later report:
+
+```powershell
+Set-ChannelForgeCategoryOverride -ChannelKey <ChannelKey> -Category wrestling -Name 'My channel'
+Set-ChannelForgeCategoryOverride -ChannelKey <ChannelKey> -Clear
+```
+
+Run the report again to see the change (`Decision` shows `override`). A correction whose channel is no longer in the candidate is kept and listed under `Overrides.Stale`.
+
+If it fails: the message says what is wrong and that nothing was written. A damaged `state/category-overrides.json` stops both commands. Fix or delete that file, then run again. A candidate directory that does not pass its own check is refused.
+
 ## Verifying your environment
 
 ```powershell
