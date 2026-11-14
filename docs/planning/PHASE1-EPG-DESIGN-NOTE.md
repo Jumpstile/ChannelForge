@@ -25,13 +25,13 @@ Correction to the logo note: `Add-ChannelForgePlaceholderGuide` does have a call
 
 ## What a 479-channel run still lacks
 
-Evidence from the trial files: the M3U has 482 entries, 451 distinct tvg-ids, 3 ids used more than once. ETV.xml has 451 channels and 37,476 programmes. All 451 distinct M3U ids match an XMLTV channel id after normal XML decoding (checked by a separate count, Nov 13, 2026).
+Evidence from the trial files: the M3U has 482 entries, 451 distinct tvg-ids, 3 ids used more than once. ETV.xml has 451 channels and 37,476 programs. All 451 distinct M3U ids match an XMLTV channel id after normal XML decoding (checked by a separate count, Nov 13, 2026).
 
-1. **Bound but empty guide.** 102 of 451 XMLTV channels have zero programmes, and M3U ids match all 102 of them. Those channels count as Exact today and show an empty guide in Plex. Nothing reports them. Not found in code: any per-channel programme count in the report. This is the biggest gap.
+1. **Bound but empty guide.** 102 of 451 XMLTV channels have zero programs, and M3U ids match all 102 of them. Those channels count as Exact today and show an empty guide in Plex. Nothing reports them. Not found in code: any per-channel program count in the report. This is the biggest gap.
 2. **Silently old guide.** A local XMLTV file is never checked for age. Remote CacheHit inside the TTL is reported, but the report has no "guide ends on" date. A file that ended last week builds fine.
 3. **Unmatched channels: no problem found.** Unbound channels are already in the report with Reason `TvgIdNotFoundInXmltv`. In the trial every id matches, so no user problem exists here. (A first search that skipped XML decoding showed 20 false mismatches from `&amp;`; the product reader parses XML, so it is not a real gap.)
 4. **One bad source stops all guides.** One failed source, or one conflict, throws and no XMLTV is produced. This fails closed and is honest. But the message says only "could not be imported". It does not name the source.
-5. **Several sources do not fill gaps.** Merge groups by source-scoped channel. A channel bound to source A never borrows programmes from source B. For one user with one big file this is not a problem today.
+5. **Several sources do not fill gaps.** Merge groups by source-scoped channel. A channel bound to source A never borrows programs from source B. For one user with one big file this is not a problem today.
 6. **Build-My-Lineup ignores the source list.** Only one guide path. A user with two files must pre-merge by hand.
 7. **Outcome words.** Report uses Fetched and CacheHit. The issue wants Stale, Failed, NeedsReview too. Failed already stops the build, so adding names only helps the report.
 
@@ -39,7 +39,7 @@ Evidence from the trial files: the M3U has 482 entries, 451 distinct tvg-ids, 3 
 
 Each PR is about 80 changed lines, never over 150, and has no behavior change to published bytes.
 
-1. **PR 1: per-channel coverage in the report.** For each Exact binding, add programme count, first start and last stop. List Exact channels with zero programmes as `EmptyGuide`. Fixes gap 1: Eli sees the 102 before Plex does. Reuse `Resolve-ChannelForgeM3UXmltvBinding` candidates (they already carry `ProgrammeCount`) and `ConvertTo-SafeChannelForgeIdentityRecord`.
+1. **PR 1: per-channel coverage in the report.** For each Exact binding, add program count, first start and last stop. List Exact channels with zero programs as `EmptyGuide`. Fixes gap 1: Eli sees the 102 before Plex does. Reuse `Resolve-ChannelForgeM3UXmltvBinding` candidates (they already carry `ProgrammeCount`) and `ConvertTo-SafeChannelForgeIdentityRecord`.
 2. **PR 2: guide end date and age warning.** Add `GuideEndsUtc` per source and overall to the build report. Warn when the last stop is earlier than build time plus a set number of hours (default 48). Never block. Fixes gap 2.
 3. **PR 3: name the failing source.** Make the import and conflict errors carry the source name and the Reason, using the existing `XMLTVAcquisitionStatus` shape. Add `Failed` there. Fixes gap 4.
 4. **PR 4 (only if Eli needs two files): Build-My-Lineup reads more than one guide.** Pass a list of paths to Build-Candidate and reuse the existing import and merge loop. Fixes gap 6.
@@ -64,7 +64,7 @@ Total about 320 lines over four PRs. PR 1 to 3 cover the one-time run.
 
 Recommended defaults. Eli can override any of them before the matching PR merges.
 
-1. Should an Exact channel with zero programmes block the build? Recommend: warn and list only. Never drop the channel.
+1. Should an Exact channel with zero programs block the build? Recommend: warn and list only. Never drop the channel.
 2. How old is too old? Recommend: warn when the guide ends less than 48 hours after build time. Never block.
 3. Does a source conflict still stop the whole XMLTV build? Recommend: yes, keep it, and name the source. Fail closed.
 4. Add Stale and NeedsReview outcome words now? Recommend: add Failed only (PR 3). The others have no new cause yet.
@@ -73,7 +73,7 @@ Recommended defaults. Eli can override any of them before the matching PR merges
 ## Risks to frozen contracts
 
 - **Guide-id contract v1.0.** PR 1 to 3 only read binding results and add report fields. No binding rule changes, so no channel is dropped and `guide: null` stays. No PR rewrites a tvg-id. PR 4 adds sources into the existing import loop and must keep the exact-match rule.
-- **raw-xmltv-occurrence/v2 and raw-m3u-occurrence/v2.** No PR touches the readers or projection helpers. Coverage counts come from parsed programmes, not from edited source text.
+- **raw-xmltv-occurrence/v2 and raw-m3u-occurrence/v2.** No PR touches the readers or projection helpers. Coverage counts come from parsed programs, not from edited source text.
 - **M3U byte format (ConvertTo-ChannelForgeM3UEntryBytes).** Untouched.
 - **Candidate manifest and report.** New report fields must be added beside existing ones; check the manifest hash inputs before PR 1 so a report-only field does not change a build identity. Not verified: whether report fields reach the hash.
 
