@@ -32,6 +32,7 @@ function New-ChannelForgeEnrolledCandidate {
                 Priority = [int]$record.Priority
                 SourceKind = [string]$record.SourceKind
                 Url = if ($record.PSObject.Properties.Name -contains 'Url') { [string]$record.Url } else { $null }
+                Origin = if ($null -ne $record.PSObject.Properties['Provenance'] -and $null -ne $record.Provenance) { [string]$record.Provenance.Origin } else { '' }
                 Path = [IO.Path]::GetFullPath($path)
             }
         }
@@ -39,6 +40,14 @@ function New-ChannelForgeEnrolledCandidate {
     $playlists = @(& $makeSources $EnrollmentInputs.Enrollment.Playlists 'M3U')
     $guides = @(& $makeSources $EnrollmentInputs.Enrollment.Guides 'XMLTV')
     if ($used.Count -ne $replacements.Count) { throw 'Replacement source is not an enabled source of the saved set.' }
+    if ((Get-ChannelForgeEnrolledCandidateRoute -Playlist $playlists -Guide $guides -Binding @($EnrollmentInputs.Bindings)) -eq 'single-source') {
+        return New-ChannelForgeCandidateProposal `
+            -Root $RepositoryRoot `
+            -M3UPath ([string]$playlists[0].Path) `
+            -XMLTVPath $(if ($guides.Count -eq 1) { [string]$guides[0].Path } else { $null }) `
+            -OutputRoot $OutputRoot `
+            -CandidateContractVersion 'blocker-2-contract/v8'
+    }
     return New-ChannelForgeSourceSetCandidateProposal `
         -Root $RepositoryRoot `
         -PlaylistSources $playlists `
