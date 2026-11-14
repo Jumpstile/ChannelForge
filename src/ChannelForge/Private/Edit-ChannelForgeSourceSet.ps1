@@ -42,9 +42,9 @@ function Get-ChannelForgeSourceSetUrlBytes {
 }
 
 function Get-ChannelForgeSourceSetEditBase {
-    param([Parameter(Mandatory)][string]$RepositoryRoot)
+    param([Parameter(Mandatory)][string]$RepositoryRoot, [switch]$AllowChanged)
     $integrity = Get-ChannelForgeSourceEnrollmentIntegrity -RepositoryRoot $RepositoryRoot
-    if ($integrity.State -notin @('Valid', 'Missing')) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
+    if ($integrity.State -notin @('Valid', 'Missing') -and -not ($AllowChanged -and $integrity.State -eq 'Changed')) { throw "SOURCE_ENROLLMENT_UNAVAILABLE: $($integrity.Reason)" }
     $paths = Get-ChannelForgeSourceEnrollmentPaths -RepositoryRoot $RepositoryRoot
     $set = $integrity.Enrollment
     $toSource = {
@@ -52,7 +52,7 @@ function Get-ChannelForgeSourceSetEditBase {
         $source = [ordered]@{
             Kind = [string]$record.Kind; SourceKind = [string]$record.SourceKind; SourceId = [string]$record.SourceId
             Label = [string]$record.Label; Priority = [int]$record.Priority; Enabled = [bool]$record.Enabled
-            Provenance = $record.Provenance; Url = $record.Url; ManagedPath = [string]$record.ManagedPath
+            Provenance = $record.Provenance; Url = $record.Url; ManagedPath = [string]$record.ManagedPath; ContentHash = [string]$record.ContentHash
         }
         if (-not [string]::IsNullOrWhiteSpace($source.ManagedPath)) {
             $path = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $paths.RepositoryRoot ($source.ManagedPath -replace '/', '\')) -AllowedRoot $paths.ManagedSourceRoot
