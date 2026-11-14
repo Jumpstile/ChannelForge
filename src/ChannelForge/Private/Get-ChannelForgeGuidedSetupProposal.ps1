@@ -5,7 +5,7 @@ function Get-ChannelForgeWebProposalLimits {
         MaxXMLTVBytes = 12MB
         MaxPlaylists = 8
         MaxGuides = 8
-        MaxBindings = 16
+        MaxBindings = 8
         MaxAggregateSourceBytes = 16MB
         MaxLabelLength = 128
         MaxJsonDepth = 8

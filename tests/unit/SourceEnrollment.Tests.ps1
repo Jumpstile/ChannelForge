@@ -101,6 +101,36 @@ Describe 'durable source enrollment' {
         Save-Enrollment -XMLTVBytes $script:XMLTV
         @(Get-ChildItem -LiteralPath (Join-Path $script:Project 'state') -Recurse -Force -File | Where-Object Name -like '*.tmp').Count | Should -Be 0
     }
+    It 'rejects source sets the store must not hold' {
+        $src = { param($k,$n,$label) [pscustomobject]@{ Kind=$k; SourceKind='public-https'; SourceKey="$k-$n"; Label=$label; Url="https://example.invalid/$k$n" } }
+        $save = { param($p,$g) & (Get-Module ChannelForge) { param($root,$p,$g) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p -GuideSources $g } $script:Project $p $g }
+        $p = @(1..9 | ForEach-Object { & $src 'M3U' $_ "P$_" })
+        { & $save $p @() } | Should -Throw '*too many playlists*'
+        $g = @(1..9 | ForEach-Object { & $src 'XMLTV' $_ "G$_" })
+        { & $save @($p[0]) $g } | Should -Throw '*too many guides*'
+        { & $save @((& $src 'M3U' 1 'Main'),(& $src 'M3U' 2 'MAIN')) @() } | Should -Throw '*duplicate source label*'
+        $record = [pscustomobject]@{ Playlists=@([pscustomobject]@{ SourceId='p1'; Kind='M3U'; Label='A'; ByteLength=1 },[pscustomobject]@{ SourceId='p2'; Kind='M3U'; Label='B'; ByteLength=1 }); Guides=@([pscustomobject]@{ SourceId='g1'; Kind='XMLTV'; Label='G'; ByteLength=1 }); Bindings=@([pscustomobject]@{ BindingId='b1'; GuideId='g1'; PlaylistIds=@('p1'); AppliesToAll=$false },[pscustomobject]@{ BindingId='b2'; GuideId='g1'; PlaylistIds=@('p2'); AppliesToAll=$false }) }
+        { & (Get-Module ChannelForge) { param($r) Assert-ChannelForgeSourceEnrollmentV2Integrity -Record $r } $record } | Should -Throw '*more than one binding*'
+    }
+    It 'allows two unlabeled playlists or guides but rejects a typed duplicate label' {
+        $src = { param($k,$n,$label) [pscustomobject]@{ Kind=$k; SourceKind='public-https'; SourceKey="$k-$n"; Label=$label; Url="https://example.invalid/$k$n" } }
+        $saved = & (Get-Module ChannelForge) { param($root,$p,$g) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p -GuideSources $g } $script:Project @((& $src 'M3U' 1 'M3U source'),(& $src 'M3U' 2 'M3U source')) @((& $src 'XMLTV' 1 'XMLTV source'),(& $src 'XMLTV' 2 'XMLTV source'))
+        $loaded = & (Get-Module ChannelForge) { param($root) Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $root } $script:Project
+        $loaded.EnrollmentHash | Should -Be $saved.EnrollmentHash
+        $loaded.Playlists.Count | Should -Be 2
+        $loaded.Guides.Count | Should -Be 2
+        { & (Get-Module ChannelForge) { param($root,$p) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p } $script:Project @((& $src 'M3U' 3 'Movies'),(& $src 'M3U' 4 'MOVIES')) } | Should -Throw '*duplicate source label*'
+    }
+    It 'loads a valid source set unchanged and marks a remote source without a snapshot as not present' {
+        $remote = [pscustomobject]@{ Kind='M3U'; SourceKind='public-https'; SourceKey='remote'; Label='Remote'; Url='https://example.invalid/r.m3u' }
+        $local = [pscustomobject]@{ Kind='M3U'; SourceKind='managed-file'; SourceKey='local'; Label='Local'; Bytes=$script:M3U }
+        $saved = & (Get-Module ChannelForge) { param($root,$p) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p } $script:Project @($remote,$local)
+        $loaded = & (Get-Module ChannelForge) { param($root) Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $root } $script:Project
+        $loaded.EnrollmentHash | Should -Be $saved.EnrollmentHash
+        $loaded.Playlists.Count | Should -Be 2
+        @($loaded.Playlists | Where-Object Label -eq 'Remote').Present | Should -BeFalse
+        @($loaded.Playlists | Where-Object Label -eq 'Local').Present | Should -BeTrue
+    }
     It 'persists multiple playlists, multiple guides, and explicit ALL bindings' {
         $playlists = @(
             [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'managed-file'; SourceKey = 'playlist-a'; Label = 'A'; Bytes = $script:M3U; Priority = 10 },
@@ -151,8 +181,8 @@ Describe 'durable source enrollment' {
     }
 
     It 'accepts explicit single-playlist and ALL bindings only' {
-        $p1 = [pscustomobject]@{ Kind='M3U'; SourceKind='public-https'; SourceKey='p1'; Url='https://example.invalid/p1.m3u' }
-        $p2 = [pscustomobject]@{ Kind='M3U'; SourceKind='public-https'; SourceKey='p2'; Url='https://example.invalid/p2.m3u' }
+        $p1 = [pscustomobject]@{ Kind='M3U'; SourceKind='public-https'; SourceKey='p1'; Label='P1'; Url='https://example.invalid/p1.m3u' }
+        $p2 = [pscustomobject]@{ Kind='M3U'; SourceKind='public-https'; SourceKey='p2'; Label='P2'; Url='https://example.invalid/p2.m3u' }
         $g = [pscustomobject]@{ Kind='XMLTV'; SourceKind='public-https'; SourceKey='g'; Url='https://example.invalid/g.xml' }
         $one = & (Get-Module ChannelForge) { param($root,$p,$g) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources $p -GuideSources @($g) } $script:Project @($p1,$p2) $g
         $guideId = [string]$one.Guides[0].SourceId; $playlistId = [string]$one.Playlists[0].SourceId
