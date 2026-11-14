@@ -1,0 +1,63 @@
+name: Documentation task
+description: Improve repository or user-facing documentation
+title: "[Docs]: "
+labels:
+  - "type:documentation"
+  - "component:documentation"
+  - "status:needs-design"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Repository docs are the engineering source of truth. The `docs/user/`
+        folder is the user-facing guide.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: In one short sentence, what needs to change?
+      placeholder: Example - Explain how event channels get their own guide
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc-area
+    attributes:
+      label: Documentation area
+      options:
+        - Repository docs (engineering)
+        - User guide (docs/user)
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: page
+    attributes:
+      label: Page, workflow, or audience
+      description: Name the page, workflow, or the people who read it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is missing, unclear, outdated, or misleading?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-update
+    attributes:
+      label: Proposed update
+      description: Describe the change you would like.
+
+  - type: checkboxes
+    id: done-when
+    attributes:
+      label: Done when
+      options:
+        - label: Repository docs are reviewed or updated.
+        - label: The user guide (docs/user) is reviewed, updated, or tracked as follow-up.
+        - label: The documentation status is current.
