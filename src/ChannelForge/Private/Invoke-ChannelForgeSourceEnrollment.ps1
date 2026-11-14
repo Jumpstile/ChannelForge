@@ -457,7 +457,9 @@ function Write-ChannelForgeSourceSet {
         if ($sourceKind -notin @('managed-file','public-https')) { throw 'SOURCE_ENROLLMENT_INVALID: source storage kind is unsupported.' }
         $key = [string]$descriptor.SourceKey
         if ([string]::IsNullOrWhiteSpace($key)) { $key = "$kind|$([string]$descriptor.Label)|$sourceKind" }
-        $id = Get-ChannelForgeSourceSetSourceId -Kind $kind -SourceKind $sourceKind -SourceKey $key
+        $storedId = if ($null -ne $descriptor.PSObject.Properties['SourceId']) { [string]$descriptor.SourceId } else { '' }
+        $id = if ([string]::IsNullOrWhiteSpace($storedId)) { Get-ChannelForgeSourceSetSourceId -Kind $kind -SourceKind $sourceKind -SourceKey $key } else { $storedId }
+        if ($id -cnotmatch '^[0-9a-f]{64}$') { throw 'SOURCE_ENROLLMENT_INVALID: source identity is invalid.' }
         $managedPath = $null; $url = $null; $contentHash = $null; $byteLength = $null; $refreshState = 'saved'
         if ($sourceKind -eq 'managed-file') {
             $bytes = [byte[]]$descriptor.Bytes

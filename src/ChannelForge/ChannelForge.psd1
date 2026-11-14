@@ -112,6 +112,8 @@ FunctionsToExport = @(
     'Get-ChannelForgeSourceEnrollment'
     'Get-ChannelForgeEnrolledSourceInput'
     'Set-ChannelForgeSourceEnrollmentRefreshState'
+    'Add-ChannelForgeSourceSetSource'
+    'Remove-ChannelForgeSourceSetSource'
     'Get-ChannelForgeGuideReadiness'
     'Get-ChannelForgeOneGuide'
     'Get-ChannelForgeWebStatus'
