@@ -1138,6 +1138,18 @@ if ($candidatePublished) {
     }
 }
 
+# Guide comparison (xguide-compare/v1): report only. A failure is one warning line.
+if (@($allProgrammes).Count -gt 0) {
+    try {
+        $xguideReport = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideReport' -Arguments @{ Programme = @($allProgrammes); BuildTimeUtc = $BuildTimeUtc; GuideSourceId = [string[]]@($xmltvSources | ForEach-Object { [string]$_.Name }) })[-1]
+        $xguideLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeXguideSummaryLines' -Arguments @{ Report = $xguideReport }
+        foreach ($xguideLine in $xguideLines) { $md += (Get-SafeReportText $xguideLine) }
+    }
+    catch {
+        Write-Warning 'The guide comparison could not run, so the comparison section is left out of the summary.'
+    }
+}
+
 $md += ''
 $md += '## M3U/XMLTV Identity Binding'
 $md += "Status: $m3uXmltvBindingStatus. $m3uXmltvBindingReason"
