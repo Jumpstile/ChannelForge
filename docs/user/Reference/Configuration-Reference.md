@@ -99,6 +99,15 @@ Full schema: [`schemas/numbering_blocks.schema.json`](../../../schemas/numbering
 
 Full schema: [`schemas/locals.schema.json`](../../../schemas/locals.schema.json).
 
+## Category files
+
+These two files are written for you by the category commands. See [Seeing each channel's category](CLI-Reference.md#seeing-each-channels-category).
+
+| File                                            | What it is                                                                          | Written by                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| `state/category-overrides.json`                 | Your category corrections. Keep it. A damaged file stops the category commands.     | `Set-ChannelForgeCategoryOverride` |
+| `output/category-reports/<candidate-hash>.json` | The category report for one candidate. Safe to delete; the next report rewrites it. | `Get-ChannelForgeCategoryReport`   |
+
 ## A note on secrets in display fields
 
 `provider`, `sources[].name`, and similar display-only fields are **not** redacted from build reports — only `url` fields are. Never put a token, account ID, or other secret-shaped value in a display field. See [Safe Local Configuration](../SAFE_LOCAL_CONFIGURATION.md#how-to-avoid-exposing-credentials).
