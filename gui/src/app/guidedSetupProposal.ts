@@ -3,6 +3,13 @@ export const proposalRequestLimits = {
   maxXMLTVBytes: 12 * 1024 * 1024,
 } as const
 
+export type GuidedSetupCheck = {
+  Kind: 'logos' | 'categories'
+  Status: 'ok' | 'attention' | 'unavailable'
+  Headline: string
+  Details: string[]
+}
+
 export type GuidedSetupProposal = {
   Version: 'guided-setup/proposal/v1'
   Status: 'PROPOSAL_READY'
@@ -79,6 +86,7 @@ export type GuidedSetupSourceSetProposal = {
     BlockingReasons: string[]
   }
   Warnings: Array<{ Code: string; Message: string }>
+  Checks?: GuidedSetupCheck[]
   Safety: {
     PublicationState: 'CandidateOnly'
     AcceptedStateMutation: 'none'
