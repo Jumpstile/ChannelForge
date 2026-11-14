@@ -186,7 +186,7 @@ function Get-ChannelForgeGuidedSetupProposalResponse {
             $guideOnly = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'XMLTVOnly' }).Count
             $boundGuideIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
             foreach ($binding in @($staged.Bindings)) {
-                if (-not [bool]$binding.ExplicitlyUnbound) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
+                if (-not [bool]$binding.ExplicitlyUnbound -and [bool]$binding.Enabled) { [void]$boundGuideIds.Add([string]$binding.GuideId) }
             }
             $unboundGuideCount = @($staged.Guides | Where-Object { -not $boundGuideIds.Contains([string]$_.SourceId) }).Count
             $boundGuideCount = $boundGuideIds.Count

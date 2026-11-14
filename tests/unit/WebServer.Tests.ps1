@@ -152,11 +152,22 @@ BeforeAll {
             $playlistOrdinal++
         }
         $guideOrdinal = 0
-        foreach ($reviewed in @($session.SourceSet.Guides | Sort-Object Priority, SourceId)) {
+        $guideList = @($session.SourceSet.Guides | Sort-Object Priority, SourceId)
+        foreach ($reviewed in $guideList) {
             [void]$expectedLogicalSourceIds.Add((& (Get-Module ChannelForge) {
-                        param($Label, $Ordinal)
-                        Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName $Label -SourceKind 'XMLTV' -SourceOrdinal $Ordinal
-                    } $reviewed.Label $guideOrdinal))
+                        param($Reviewed, $Ordinal, $Session, $GuideCount)
+                        $playlists = @($Session.SourceSet.Playlists | Sort-Object Priority, SourceId)
+                        $idBySource = @{}
+                        $ord = 0
+                        foreach ($p in $playlists) { $idBySource[[string]$p.SourceId] = Get-ChannelForgeLogicalSourceId -ProviderName 'candidate' -SourceName $p.Label -SourceKind 'M3U' -SourceOrdinal $ord; $ord++ }
+                        $binding = @($Session.SourceSet.Bindings | Where-Object { [string]$_.GuideId -eq [string]$Reviewed.SourceId })[0]
+                        $resolved = if ($null -eq $binding -or [bool]$binding.ExplicitlyUnbound) { @() }
+                        elseif ([bool]$binding.AppliesToAll) { @($idBySource.Values) }
+                        else { @($binding.PlaylistIds | ForEach-Object { $idBySource[[string]$_] }) }
+                        $simple = Test-ChannelForgeSimpleSourceSet -PlaylistCount $playlists.Count -GuideCount $GuideCount -Binding $binding -EffectivePlaylistLogicalId $resolved
+                        $fp = Get-ChannelForgeSourceBindingFingerprint -Binding $binding -EffectivePlaylistLogicalId $resolved -IsSimpleSet $simple
+                        Get-ChannelForgeLogicalSourceId -ProviderName $(if ($fp) { "candidate:$fp" } else { 'candidate' }) -SourceName $Reviewed.Label -SourceKind 'XMLTV' -SourceOrdinal $Ordinal
+                    } $reviewed $guideOrdinal $session $guideList.Count))
             $guideOrdinal++
         }
         (@($candidateManifest.SelectedSources | Sort-Object) -join '|') | Should -Be (@($expectedLogicalSourceIds | Sort-Object) -join '|')
