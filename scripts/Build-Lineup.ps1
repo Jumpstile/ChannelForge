@@ -388,6 +388,8 @@ $groupDefaultLogo = @{}
 if ($providerConfig.PSObject.Properties['group_default_logo']) {
     foreach ($entry in $providerConfig.group_default_logo.PSObject.Properties) { $groupDefaultLogo[$entry.Name] = [string]$entry.Value }
 }
+# Logo pins (logo-apply/v1): read once per build; corrupt file means no pin and a warning.
+$logoPin = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeLogoPinMap' -Arguments @{ RepositoryRoot = $ModuleRoot })[0]
 $epgSelection = Select-ChannelForgeEpgConfig -EpgDirectory $epgDirectory -SchemaPath $epgSchemaPath
 $epgConfigPath = $epgSelection.Path
 $epgConfigSource = $epgSelection.Source
@@ -545,7 +547,7 @@ if ($m3uActiveSourceCount -gt 0) {
             Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
             Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
             ForEach-Object { $_.Channel })
-        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo
+        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin
         if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
             throw 'M3U exporter did not produce the staged output.'
         }
@@ -895,6 +897,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
             SelectedSourceIds       = $selectedSourceIds
             CandidateContractVersion = $CandidateContractVersion
             GroupDefaultLogo        = $groupDefaultLogo
+            LogoPin                 = $logoPin
         }
         $manifestResult = Invoke-ChannelForgePrivateCandidateFunction `
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `

@@ -8,7 +8,10 @@ function Export-ChannelForgeM3UPlaylist {
         [string]$Path,
 
         # Optional group name -> public https logo URL (Get-ChannelForgePublishLogo).
-        [hashtable]$GroupDefaultLogo = @{}
+        [hashtable]$GroupDefaultLogo = @{},
+
+        # Optional TvgId -> pinned logo link (Get-ChannelForgeLogoPinMap).
+        [hashtable]$LogoPin = @{}
     )
 
     # This function only writes the file it is told to write. Confining the
@@ -35,7 +38,7 @@ function Export-ChannelForgeM3UPlaylist {
         # attributes, alias-resolved names) and is sanitized just before
         # writing, never earlier, so the domain object always keeps the
         # original value.
-        $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo)
+        $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
         for ($i = 0; $i -lt $allChannels.Count; $i++) {
             $ch = $allChannels[$i]
             $sourceLogo = $ch.Logo

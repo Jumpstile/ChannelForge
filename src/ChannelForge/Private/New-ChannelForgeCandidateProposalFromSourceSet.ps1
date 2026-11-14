@@ -9,12 +9,14 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
         [hashtable]$GroupDefaultLogo = @{},
+        [hashtable]$LogoPin,
         [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
     if (@($PlaylistSources).Count -eq 0) { throw 'A source-set candidate requires at least one playlist.' }
     $rootFull = [System.IO.Path]::GetFullPath($Root)
+    if ($null -eq $LogoPin) { $LogoPin = Get-ChannelForgeLogoPinMap -RepositoryRoot $rootFull }
     $outputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
     $aliasPath = Join-Path $rootFull 'data\rules\aliases.json'
     $blocksPath = Join-Path $rootFull 'data\lineup\numbering_blocks.json'
@@ -224,7 +226,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
     New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
     $m3uTemp = Join-Path $txRoot 'merged.m3u'
-    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo
+    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin
     $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
     Remove-Item -LiteralPath $m3uTemp -Force
 
@@ -257,6 +259,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         SerializedM3UEntryOrder = $serializedM3UEntryOrder
         CandidateContractVersion = $CandidateContractVersion
         GroupDefaultLogo = $GroupDefaultLogo
+        LogoPin = $LogoPin
         SelectedSourceIds = $selectedLogicalSourceIds
     }
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
@@ -294,7 +297,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
     $manifestArguments.ReviewCounts = $counts
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
-    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo)
+    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
     $manifest = [ordered]@{}
     foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$property.Name] = $property.Value }
     $manifestHash = [string]$manifestResult.CandidateManifestHash
