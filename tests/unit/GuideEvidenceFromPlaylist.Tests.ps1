@@ -51,3 +51,24 @@ Describe 'Guide evidence from a playlist and one guide' {
         ($two.Readiness | ConvertTo-Json -Depth 8) | Should -Be ($one.Readiness | ConvertTo-Json -Depth 8)
     }
 }
+
+Describe 'Guide evidence for tvg-ids with spaces and symbols' {
+    BeforeAll {
+        $script:Odd = @((New-Chan 'BBC One (HD) | UK' 'One'), (New-Chan 'BBC One (HD) & UK' 'Two'), (New-Chan 'No Guide #1' 'Three'))
+        $script:OddProg = @((New-Prog 'BBC One (HD) | UK' '2026-10-01T10:00:00Z'), (New-Prog 'BBC One (HD) & UK' '2026-10-01T10:00:00Z'))
+    }
+
+    It 'counts a channel with programmes as guided, not missing, and keeps two odd ids apart' {
+        $r = Get-Ready $script:Odd $script:OddProg
+        @($r.Readiness.Records).Count | Should -Be 3
+        $r.Readiness.StateCounts.SafeCandidate | Should -Be 2
+        $r.Readiness.StateCounts.Unresolved | Should -Be 1
+        @($r.Evidence.ChannelReference | Where-Object { $_ } | Select-Object -Unique).Count | Should -Be 3
+    }
+
+    It 'gives the same result whatever the channel order' {
+        $one = Get-Ready $script:Odd $script:OddProg
+        $two = Get-Ready @($script:Odd[2..0]) @($script:OddProg[1..0])
+        ($two.Readiness | ConvertTo-Json -Depth 8) | Should -Be ($one.Readiness | ConvertTo-Json -Depth 8)
+    }
+}
