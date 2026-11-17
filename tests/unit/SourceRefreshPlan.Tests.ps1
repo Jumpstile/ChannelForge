@@ -40,7 +40,7 @@ Describe 'source refresh plan' {
         Add-M3U 'ScriptSource'
         Save-Configs
         $command = Join-Path $script:Root 'scripts/Get-ChannelForgeSourceRefreshPlan.ps1'
-        & $command -Root $script:Root -ProviderConfigPath $ProviderPath -EpgConfigPath $EpgPath -CacheRoot (Join-Path $Project 'cache') -OutputRoot (Join-Path $Project 'reports') -EvaluationTimeUtc $Evaluation | Out-Null
+        & $command -Root $Project -ProviderConfigPath $ProviderPath -EpgConfigPath $EpgPath -CacheRoot (Join-Path $Project 'cache') -OutputRoot (Join-Path $Project 'reports') -EvaluationTimeUtc $Evaluation | Out-Null
         $jsonPath = Join-Path $Project 'reports/source-refresh-plan.json'
         $mdPath = Join-Path $Project 'reports/source-refresh-plan.md'
         Test-Path $jsonPath | Should -BeTrue

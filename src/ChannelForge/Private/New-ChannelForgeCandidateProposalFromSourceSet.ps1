@@ -231,7 +231,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
 
     New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
     $m3uTemp = Join-Path $txRoot 'merged.m3u'
-    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin
+    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -AllowedRoot $txRoot
     $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
     Remove-Item -LiteralPath $m3uTemp -Force
 
