@@ -1661,4 +1661,108 @@ Describe 'ChannelForge web server foundation' {
         $accepted.StatusCode | Should -Be 422
         Test-Path -LiteralPath (Join-Path $root 'state\accepted-lineup.json') | Should -BeFalse
     }
+
+    It 'records one private audit record per acceptance and never blocks acceptance when it cannot be saved' {
+        $guideXml = { param($Id) "<?xml version=`"1.0`"?><tv><channel id=`"$Id`"><display-name>$Id</display-name></channel><programme channel=`"$Id`" start=`"20260101000000 +0000`" stop=`"20260101010000 +0000`"><title>$Id</title></programme></tv>" }
+        $playlists = @(
+            [pscustomobject]@{ Key = 'lbl-news'; Text = "#EXTM3U`n#EXTINF:-1 tvg-id=`"news`",News`nhttps://example.invalid/news`n" }
+            [pscustomobject]@{ Key = 'lbl-sports'; Text = "#EXTM3U`n#EXTINF:-1 tvg-id=`"sports`",Sports`nhttps://example.invalid/sports`n" }
+        )
+        $guides = @(
+            [pscustomobject]@{ Key = 'guide-news'; Text = (& $guideXml 'news') }
+            [pscustomobject]@{ Key = 'guide-sports'; Text = (& $guideXml 'sports') }
+            [pscustomobject]@{ Key = 'guide-spare'; Text = (& $guideXml 'spare') }
+        )
+        $bindings = @(
+            [pscustomobject]@{ Guide = 'guide-news'; Playlists = @('lbl-news'); All = $false }
+            [pscustomobject]@{ Guide = 'guide-sports'; Playlists = @('lbl-sports'); All = $false }
+            [pscustomobject]@{ Guide = 'guide-spare'; Playlists = @(); All = $false; ExplicitlyUnbound = $true }
+        )
+        $analyze = {
+            param($Root)
+            $body = New-TestMultiSourceProposalBody -Playlists $playlists -Guides $guides -Bindings $bindings
+            $response = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $Root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+            $response.StatusCode | Should -Be 200
+            $response.Body | ConvertFrom-Json
+        }
+        $accept = {
+            param($Root, $ProposalId, [bool]$Acknowledged = $true)
+            $body = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 2; proposalId = $ProposalId; acknowledged = $Acknowledged } | ConvertTo-Json -Compress))
+            Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $Root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length
+        }
+        $readAudit = {
+            param($Root)
+            & (Get-Module ChannelForge) {
+                param($Root)
+                $snapshot = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root
+                Read-ChannelForgeGuidedSetupAuditRecord -RepositoryRoot $Root -GenerationManifestHash ([string]$snapshot.Manifest.Object.GenerationManifestHash) -Snapshot $snapshot
+            } $Root
+        }
+
+        $root = Join-Path $TestDrive 'v2-audit'
+        Initialize-TestCandidateData -Root $root
+        $stateRoot = Join-Path $root 'state'
+        $before = if (Test-Path -LiteralPath $stateRoot) { Get-TestTreeSnapshot -Root $stateRoot } else { @() }
+        $first = & $analyze $root
+        $after = if (Test-Path -LiteralPath $stateRoot) { Get-TestTreeSnapshot -Root $stateRoot } else { @() }
+        $first.Proposal.ExactGuideMatchCount | Should -Be 2
+        $first.Proposal.AmbiguityCount | Should -Be 0
+        $first.Proposal.UnmatchedPlaylistCount | Should -Be 0
+        $first.Proposal.UnboundGuideCount | Should -Be 1
+        $first.Safety.AcceptedStateMutation | Should -Be 'none'
+        ($after | ConvertTo-Json -Depth 4) | Should -Be ($before | ConvertTo-Json -Depth 4)
+        Test-Path -LiteralPath (Join-Path $stateRoot 'guided-setup-audit') | Should -BeFalse
+
+        $accepted = & $accept $root $first.Proposal.ProposalId
+        $accepted.StatusCode | Should -Be 200
+        $acceptedPayload = $accepted.Body | ConvertFrom-Json
+        $acceptedPayload.Status | Should -Be 'ACCEPTED'
+        $acceptedPayload.Audit | Should -Be 'RECORDED'
+        $files = @(Get-ChildItem -LiteralPath (Join-Path $stateRoot 'guided-setup-audit') -File)
+        $files.Count | Should -Be 1
+        $audit = & $readAudit $root
+        $audit.Status | Should -Be 'AUDIT_OK'
+        @($audit.Record.Playlists).Count | Should -Be 2
+        @($audit.Record.Guides).Count | Should -Be 3
+        @($audit.Record.Bindings | Where-Object { -not $_.ExplicitlyUnbound }).Count | Should -Be 2
+        @($audit.Record.Bindings | Where-Object ExplicitlyUnbound).Count | Should -Be 1
+        $audit.Record.Outcome.ExactGuideMatchCount | Should -Be 2
+        $audit.Record.Outcome.UnboundGuideCount | Should -Be 1
+        $audit.Record.Outcome.UnmatchedPlaylistCount | Should -Be 0
+        $text = [IO.File]::ReadAllText($files[0].FullName)
+        foreach ($secret in @('example.invalid', 'EXTM3U', '<tv', 'lbl-news', 'lbl-sports', 'guide-news', 'guide-sports', 'guide-spare', [regex]::Escape($root), [regex]::Escape(($root -replace '\\', '\\')))) {
+            $text | Should -Not -Match $secret
+        }
+
+        $second = & $analyze $root
+        $secondAccepted = & $accept $root $second.Proposal.ProposalId
+        ($secondAccepted.Body | ConvertFrom-Json).Audit | Should -Be 'RECORDED'
+        $secondAudit = & $readAudit $root
+        $secondAudit.Status | Should -Be 'AUDIT_OK'
+        $secondAudit.Record.Prior.GenerationManifestHash | Should -Be $audit.Record.Result.GenerationManifestHash
+        $secondAudit.Record.Prior.AcceptedStateHash | Should -Be $audit.Record.Result.AcceptedStateHash
+        $secondAudit.Record.Prior.OutputManifestHash | Should -Be $audit.Record.Result.OutputManifestHash
+
+        $blockedRoot = Join-Path $TestDrive 'v2-audit-blocked'
+        Initialize-TestCandidateData -Root $blockedRoot
+        $blocked = & $analyze $blockedRoot
+        New-Item -ItemType File -Force -Path (Join-Path $blockedRoot 'state\guided-setup-audit') | Out-Null
+        $blockedAccepted = & $accept $blockedRoot $blocked.Proposal.ProposalId
+        $blockedAccepted.StatusCode | Should -Be 200
+        $blockedPayload = $blockedAccepted.Body | ConvertFrom-Json
+        $blockedPayload.Status | Should -Be 'ACCEPTED'
+        $blockedPayload.Audit | Should -Be 'NOT_RECORDED'
+        $blockedPayload.Proposal.ChannelCount | Should -Be 2
+        $blockedPayload.Message | Should -Not -Match 'state|\\|[0-9a-f]{64}'
+        $blockedSnapshot = & (Get-Module ChannelForge) { param($Root) Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root } $blockedRoot
+        $blockedSnapshot | Should -Not -BeNullOrEmpty
+        (Get-Item -LiteralPath (Join-Path $blockedRoot 'state\guided-setup-audit')).PSIsContainer | Should -BeFalse
+
+        $noAckRoot = Join-Path $TestDrive 'v2-audit-unacknowledged'
+        Initialize-TestCandidateData -Root $noAckRoot
+        $noAck = & $analyze $noAckRoot
+        (& $accept $noAckRoot $noAck.Proposal.ProposalId $false).StatusCode | Should -Be 400
+        Test-Path -LiteralPath (Join-Path $noAckRoot 'state\guided-setup-audit') | Should -BeFalse
+        (& (Get-Module ChannelForge) { param($Root) Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root } $noAckRoot) | Should -BeNullOrEmpty
+    }
 }

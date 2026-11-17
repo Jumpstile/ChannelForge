@@ -45,6 +45,8 @@ BeforeAll {
             $publish = [pscustomobject]@{ GenerationManifest = $snapshot.Manifest.Object; AcceptedState = $snapshot.State.Object; AcceptedOutputManifest = $snapshot.Output.Object; DecisionManifest = $snapshot.Decision.Object }
             New-ChannelForgeGuidedSetupAuditRecord -Session $session -Accepted $publish -Enrollment (Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $Root) -RequestSchemaVersion 2
         } @($Root, $proposalId)
+        # Acceptance already wrote a record; clear it so each test starts from a known state.
+        Remove-Item -LiteralPath (Join-Path $Root 'state\guided-setup-audit') -Recurse -Force
         return $record
     }
 

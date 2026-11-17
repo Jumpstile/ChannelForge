@@ -247,6 +247,14 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
             $enrollmentMessage = 'Lineup accepted, but saved sources need repair before refresh.'
         }
 
+        $auditStatus = 'NOT_RECORDED'
+        try {
+            $auditRecord = New-ChannelForgeGuidedSetupAuditRecord -Session $session -Accepted $accepted -Enrollment $enrollment -RequestSchemaVersion ([int]$request.SchemaVersion)
+            Write-ChannelForgeGuidedSetupAuditRecord -RepositoryRoot $RepositoryRoot -Record $auditRecord | Out-Null
+            $auditStatus = 'RECORDED'
+        }
+        catch { $enrollmentMessage += ' The acceptance record could not be saved.' }
+
         $acceptedSession = [ordered]@{}
         foreach ($property in @($session.PSObject.Properties)) { $acceptedSession[$property.Name] = $property.Value }
         $acceptedSession.Status = 'Accepted'
@@ -257,6 +265,7 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
             Version = if ([string]$session.Version -ceq 'guided-setup/review/v2') { 'guided-setup/acceptance/v2' } else { 'guided-setup/acceptance/v1' }
             Status = 'ACCEPTED'
             EnrollmentStatus = $enrollmentStatus
+            Audit = $auditStatus
             Message = $enrollmentMessage
             Proposal = [ordered]@{
                 ChannelCount = $entryIds.Count
