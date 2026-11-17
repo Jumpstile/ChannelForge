@@ -118,6 +118,26 @@ force option. Ambiguous guide bindings block both the UI and server. The
 server compares the recorded parent with the recovered current generation and
 lets the immutable generation store perform its locked parent validation. A
 stale review is rejected; it is never automatically rebased.
+
+### Acceptance audit record
+
+After an explicit acceptance publishes, the response writes one
+`guided-setup/audit/v1` record per accepted generation, described by
+[`schemas/guided-setup-audit.schema.json`](../../schemas/guided-setup-audit.schema.json).
+It lives at `state\guided-setup-audit\acceptance-<ResultGenerationManifestHash>.json`.
+
+- The record holds hashes and counts only: no source text, URLs, labels,
+  tokens, or private paths. Sessions that came from a `schemaVersion: 1`
+  request get a thin record with no source-set details.
+- The writer never replaces an existing record.
+- The acceptance response gains `Audit = RECORDED` or `NOT_RECORDED`. An audit
+  failure never blocks, rolls back, or changes accepted state. The message
+  only says the record could not be saved.
+- `Read-ChannelForgeGuidedSetupAuditRecord` reports `AUDIT_OK`, `AUDIT_MISSING`,
+  `AUDIT_INVALID`, or `AUDIT_MISMATCH`. It never repairs a record or touches
+  accepted state.
+- Analysis (the proposal step) never creates or changes audit records.
+
 `New-ChannelForgeCandidateProposal` remains candidate-only. Both the browser
 v2 and legacy browser v1 acceptance paths call
 `Publish-ChannelForgeReviewedCandidate`, which constructs the decision
