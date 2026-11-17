@@ -102,4 +102,19 @@ Describe 'Event guide for high channels' {
         $out = Invoke-Plan -Xmltv (New-Xmltv $tba) -Entry @((New-Entry 'PPV 1' 1 'ppv1'), (New-Entry 'News' 2 'news'))
         @($out.Rows[$out.Plan.Channel[0].Id] | ForEach-Object { $_.Title } | Select-Object -Unique) | Should -Be @('PPV 1')
     }
+
+    It 'writes only a title for each event programme and none of the provider description, sub-title or category text' {
+        $stat = 'Team A is 12-0 this season'
+        $body = "<programme start=`"$($script:Day)180000 +0000`" stop=`"$($script:Day)210000 +0000`" channel=`"ppv1`"><title>Big Fight Night</title><sub-title>$stat</sub-title><desc>$stat</desc><category>$stat</category></programme>"
+        $xmltv = [Text.Encoding]::UTF8.GetBytes("<?xml version=`"1.0`"?><tv>$body</tv>")
+        $bytes = InModuleScope ChannelForge -Parameters @{ X = $xmltv; E = @((New-Entry 'PPV 1' 1 'ppv1')) } {
+            $plan = Get-ChannelForgeEventGuidePlan -XmltvBytes $X -Entry $E
+            [byte[]](Add-ChannelForgePlaceholderGuide -XmltvBytes $X -Channel $plan.Channel -TimeZone ([TimeZoneInfo]::Utc) | Select-Object -Last 1)
+        }
+        $doc = [xml][Text.Encoding]::UTF8.GetString($bytes)
+        $own = @($doc.tv.programme | Where-Object { $_.channel -like 'ChannelForge-*' })
+        $own.Count | Should -BeGreaterThan 0
+        foreach ($programme in $own) { @($programme.ChildNodes | ForEach-Object { $_.Name }) | Should -Be @('title') }
+        ($own | ForEach-Object { $_.OuterXml }) -join '' | Should -Not -BeLike "*$stat*"
+    }
 }

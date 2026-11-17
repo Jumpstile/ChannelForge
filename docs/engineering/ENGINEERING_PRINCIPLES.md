@@ -73,3 +73,13 @@ entry points, safety boundary, evidence, and disposition in the
 [Product Intent-Fit Audit](INTENT_FIT_AUDIT.md) format. Hold mismatches and
 record material `PASS_WITH_GAPS` remediation instead of passing the uncertainty
 to a tester.
+
+## Volatile event facts
+
+Volatile event facts are stats, records, results, standings, rosters and
+live or final state. They must carry source, fetched-at and season context, or
+be omitted (issue #147). No current ChannelForge code writes them into guide
+programme text: an event guide carries only the title, time and channel from the user's own guide.
+Programme text in a merged guide is the guide author's data, passed through
+unchanged. A change that makes ChannelForge write such text must add those
+safeguards first.
