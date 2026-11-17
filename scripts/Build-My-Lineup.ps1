@@ -800,7 +800,10 @@ try {
             $guideIdByEntry = @{}
             foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -in 'ExactBound', 'ReviewNeeded' })) { $guideIdByEntry[[string]$binding.EntryId] = [string]$binding.M3URawId }
             $eventEntries = @($manifest.Entries | ForEach-Object { [pscustomobject]@{ EntryId = [string]$_.EntryId; Key = (& $entryStreamKey $_); Name = [string]$_.DisplayName; GuideId = [string]$guideIdByEntry[[string]$_.EntryId] } })
-            $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }) } | Select-Object -Last 1
+            $eventOverride = @()
+            try { $eventOverride = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeEventChannelOverrides' -Arguments @{ Path = (Join-Path $rootFull 'state\event-channels.json') }) }
+            catch { Write-Warning 'The event channel overrides file is damaged, so it is ignored. Fix or delete state\event-channels.json.' }
+            $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }); Override = $eventOverride } | Select-Object -Last 1
             $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback)
             $ownChannels = @($ownChannels) + @($eventPlan.Channel)
             foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
