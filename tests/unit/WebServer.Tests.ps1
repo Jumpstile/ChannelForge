@@ -1765,4 +1765,43 @@ Describe 'ChannelForge web server foundation' {
         Test-Path -LiteralPath (Join-Path $noAckRoot 'state\guided-setup-audit') | Should -BeFalse
         (& (Get-Module ChannelForge) { param($Root) Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root } $noAckRoot) | Should -BeNullOrEmpty
     }
+
+    It 'records a thin private audit record for a single-source v1 acceptance' {
+        $root = Join-Path $TestDrive 'v1-audit'
+        Initialize-TestCandidateData -Root $root
+        $guideText = '<?xml version="1.0"?><tv><channel id="one"><display-name>One</display-name></channel><programme channel="one" start="20260101000000 +0000" stop="20260101010000 +0000"><title>One</title></programme></tv>'
+        $body = New-TestProposalBody -WithGuide -GuideText $guideText
+        $proposal = (Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $body -ContentType 'application/json' -ContentLength $body.Length).Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposal.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        $accepted = Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length
+        $accepted.StatusCode | Should -Be 200
+        $payload = $accepted.Body | ConvertFrom-Json
+        $payload.Status | Should -Be 'ACCEPTED'
+        $payload.Audit | Should -Be 'RECORDED'
+        $files = @(Get-ChildItem -LiteralPath (Join-Path $root 'state\guided-setup-audit') -File)
+        $files.Count | Should -Be 1
+        $read = & (Get-Module ChannelForge) {
+            param($Root)
+            $snapshot = Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root
+            [pscustomobject]@{
+                Audit    = Read-ChannelForgeGuidedSetupAuditRecord -RepositoryRoot $Root -GenerationManifestHash ([string]$snapshot.Manifest.Object.GenerationManifestHash) -Snapshot $snapshot
+                Manifest = [string]$snapshot.Manifest.Object.GenerationManifestHash
+                State    = [string]$snapshot.State.Object.AcceptedStateHash
+                Output   = [string]$snapshot.Output.Object.OutputManifestHash
+            }
+        } $root
+        $read.Audit.Status | Should -Be 'AUDIT_OK'
+        $record = $read.Audit.Record
+        $record.SourceSetVersion | Should -BeNullOrEmpty
+        @($record.Playlists).Count | Should -Be 0
+        @($record.Guides).Count | Should -Be 0
+        @($record.Bindings).Count | Should -Be 0
+        $record.Result.GenerationManifestHash | Should -Be $read.Manifest
+        $record.Result.AcceptedStateHash | Should -Be $read.State
+        $record.Result.OutputManifestHash | Should -Be $read.Output
+        $text = [IO.File]::ReadAllText($files[0].FullName)
+        foreach ($secret in @('example.invalid', 'EXTM3U', '<tv', 'display-name', [regex]::Escape($root), [regex]::Escape(($root -replace '\\', '\\')))) {
+            $text | Should -Not -Match $secret
+        }
+    }
 }
