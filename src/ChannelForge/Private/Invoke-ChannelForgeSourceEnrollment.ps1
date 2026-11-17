@@ -161,7 +161,8 @@ function Write-ChannelForgeSourceEnrollmentAtomicBytes {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][byte[]]$Bytes,
-        [Parameter(Mandatory)][string]$AllowedRoot
+        [Parameter(Mandatory)][string]$AllowedRoot,
+        [switch]$NoReplace
     )
 
     Assert-ChannelForgeSourceEnrollmentDirectory -Path $AllowedRoot -Create | Out-Null
@@ -172,7 +173,7 @@ function Write-ChannelForgeSourceEnrollmentAtomicBytes {
     Assert-ChannelForgeSourceEnrollmentPath -Path $temporary -AllowedRoot $AllowedRoot -AllowMissingLeaf | Out-Null
     try {
         [System.IO.File]::WriteAllBytes($temporary, $Bytes)
-        if ([System.IO.File]::Exists($full)) {
+        if ([System.IO.File]::Exists($full) -and -not $NoReplace) {
             [System.IO.File]::Move($temporary, $full, $true)
         }
         else {
@@ -188,11 +189,12 @@ function Write-ChannelForgeSourceEnrollmentAtomicJson {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)]$Value,
-        [Parameter(Mandatory)][string]$AllowedRoot
+        [Parameter(Mandatory)][string]$AllowedRoot,
+        [switch]$NoReplace
     )
 
     $bytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $Value))
-    Write-ChannelForgeSourceEnrollmentAtomicBytes -Path $Path -Bytes $bytes -AllowedRoot $AllowedRoot
+    Write-ChannelForgeSourceEnrollmentAtomicBytes -Path $Path -Bytes $bytes -AllowedRoot $AllowedRoot -NoReplace:$NoReplace
 }
 
 function Read-ChannelForgeSourceEnrollmentRecord {
