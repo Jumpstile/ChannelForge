@@ -386,6 +386,68 @@ Every field `Export-ChannelForgeM3UPlaylist` writes is passed through the privat
 
 See [PLEX_SMOKE_TEST.md](../user/PLEX_SMOKE_TEST.md) for the end-to-end walkthrough of testing a real local playlist in Plex under this Phase 1 boundary.
 
+## Guide quality scorecard and playlist evidence
+
+`Get-ChannelForgeGuideQualityReport` (public) turns reports that already exist
+into six quality gates under the contract `guide-quality-scorecard/v1`. It
+calls the private `Get-ChannelForgeGuideQualityScorecard`. It is read-only: it
+reads nothing from disk, writes nothing, and merges or changes nothing.
+
+Inputs (all optional): `XguideReport` (`Get-ChannelForgeXguideReport`),
+`CategoryReport` (`Get-ChannelForgeCategoryReport`), `ReadinessResult`
+(`Get-ChannelForgeGuideReadiness`), `Programme` (rows with `ChannelId` or
+`RawChannelId`, `Start`, `Title`, optional `CanonicalEventId`), and
+`PlaylistGuideId` (the tvg-id of each playlist channel).
+
+Each gate has `Name`, `Verdict` (`Pass`, `Review`, `Fail`, or `NotMeasured`),
+`Counts`, and a one-line `Reason`. Any Fail-level finding gives Fail, else any
+Review-level finding gives Review, else Pass. A gate that got no input, or
+compared nothing, is `NotMeasured`, never Pass. There are no percentages.
+
+| Gate           | NotMeasured when                                                             | Fail                                | Review                                                       |
+| -------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| Accuracy       | guides share no channel and readiness has no Contradiction                   | readiness Contradiction             | xguide TitleDiffers or StartShift                            |
+| Completeness   | no shared channel, no empty guide, and no `PlaylistGuideId` plus `Programme` | a guide with no programmes          | xguide MissingChannel; a playlist channel with no programmes |
+| Freshness      | neither `XguideReport` nor `ReadinessResult`                                 | a guide that ended before the build | a guide over 24 h behind; readiness StaleSource              |
+| Deduplication  | no programme has a `CanonicalEventId`                                        | none                                | same title and start on different channels with no identity  |
+| Classification | no `CategoryReport`                                                          | none                                | any ambiguous (`conflict`) or unknown (`no-rule`) channel    |
+| Availability   | no `ReadinessResult`                                                         | readiness SourceUnavailable         | readiness Unresolved                                         |
+
+Deduplication ignores filler titles and only counts; without a
+`CanonicalEventId` a repeated title and start is a normal syndicated show.
+
+`Overall` is the worst gate: any Fail gives Fail. Otherwise any Review or
+`NotMeasured` gate gives Review. Only when all six gates are Pass is it Pass.
+`Totals` carries the input channel and record counts so a caller can check that
+no channel was dropped.
+
+The category classifier also checks the provider group against league tags
+(for example a group named "NHL"), not only the channel name. A group that
+names a sport agrees or disagrees with the name; a generic sports group adds
+nothing.
+
+`ConvertTo-ChannelForgeGuideEvidenceFromPlaylist` (private) builds
+`GuideEvidenceRecord` objects for `Get-ChannelForgeGuideReadiness` from the
+playlist channels and one guide's programme rows. One record per channel,
+sorted so input order does not matter. A tvg-id with spaces or symbols that the evidence builder would reject gets a stable hash-based reference instead, so its programmes still count (programmes are always looked up by the original id). A channel with programmes gets XMLTV
+evidence, `SafeCandidate`, `Current` or `Stale` (the guide ended before the
+build time). A channel with no programmes or no tvg-id gets
+`ProviderM3UMetadata` evidence, `Unresolved`; it is never dropped. It uses one
+guide only, never cross-checks, and invents nothing from programme text.
+
+Example (invented data; run on PowerShell 7). Two playlist channels, one guide
+with one programme, for `news.one` only:
+
+```powershell
+Get-ChannelForgeGuideQualityReport -Programme $prog -PlaylistGuideId @('news.one','sports.two')
+```
+
+Output: `Overall` is `Review`. Completeness is `Review` ("1 playlist channels
+have no programmes in the guide"). Deduplication is `NotMeasured` (no canonical
+identity). Accuracy, Freshness, Classification, and Availability are
+`NotMeasured` because no report was supplied. The evidence step gives
+`news.one` XMLTV/`Current` and `sports.two` ProviderM3UMetadata.
+
 ## Report redaction
 
 Generated reports (`output/reports/build-summary.json`, `output/reports/lineup-plan.md`) must never contain full provider/EPG/stream URLs, tokens, account IDs, credentials, local-only file paths, or other secret-like values (see [SECURITY.md](../reference/SECURITY.md)). `Build-Lineup.ps1` lists provider sources by name, enabled state, and local/remote playlist state only — never by `url` — and reports the merged playlist's path as a project-relative string (`output/merged.m3u`, never an absolute or UNC path) plus its SHA-256 hash rather than its contents. Remote acquisition summaries may include only safe operational fields such as an opaque cache key, status, normalized content type, encodings, bounded byte counts, parsed count, and validator-presence booleans. The Pester suite asserts this directly using fixture data shaped like real token-bearing and stream URLs.
