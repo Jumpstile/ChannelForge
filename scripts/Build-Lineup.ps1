@@ -547,7 +547,7 @@ if ($m3uActiveSourceCount -gt 0) {
             Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
             Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
             ForEach-Object { $_.Channel })
-        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin
+        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -AllowedRoot $outDir
         if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
             throw 'M3U exporter did not produce the staged output.'
         }

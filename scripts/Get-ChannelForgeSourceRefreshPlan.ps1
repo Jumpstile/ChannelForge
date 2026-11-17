@@ -15,6 +15,7 @@ if ([string]::IsNullOrWhiteSpace($CacheRoot)) { $CacheRoot = Join-Path $rootFull
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot = Join-Path $rootFull 'output/reports' }
 
 Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'src/ChannelForge/ChannelForge.psd1') -Force
+Assert-ChannelForgeWritePath -Path $OutputRoot -AllowedRoot $rootFull
 $plan = @(Get-ChannelForgeSourceRefreshPlan -ProviderConfigPath $ProviderConfigPath -EpgConfigPath $EpgConfigPath -CacheRoot $CacheRoot -EvaluationTimeUtc $EvaluationTimeUtc)
 $projection = [ordered]@{
     SchemaVersion = 'source-refresh-plan/v1'

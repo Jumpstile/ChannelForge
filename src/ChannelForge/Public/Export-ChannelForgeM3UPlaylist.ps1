@@ -11,14 +11,19 @@ function Export-ChannelForgeM3UPlaylist {
         [hashtable]$GroupDefaultLogo = @{},
 
         # Optional TvgId -> pinned logo link (Get-ChannelForgeLogoPinMap).
-        [hashtable]$LogoPin = @{}
+        [hashtable]$LogoPin = @{},
+
+        # Optional approved folder; the file must resolve inside it.
+        [string]$AllowedRoot
     )
 
-    # This function only writes the file it is told to write. Confining the
-    # write to an approved location (e.g. the project's output/ folder) is
-    # the caller's responsibility via Assert-ChannelForgeWritePath - the same
-    # separation Build-Lineup.ps1 and Backup-IPTVBoss.ps1 already follow.
+    # With -AllowedRoot the write is confined here, before anything is built
+    # or written. Without it the caller owns the guard via
+    # Assert-ChannelForgeWritePath, as with Backup-IPTVBoss.ps1.
     begin {
+        if ($PSBoundParameters.ContainsKey('AllowedRoot')) {
+            Assert-ChannelForgeWritePath -Path $Path -AllowedRoot $AllowedRoot
+        }
         $lines = [System.Collections.Generic.List[string]]::new()
         $lines.Add('#EXTM3U')
         $allChannels = [System.Collections.Generic.List[Channel]]::new()
