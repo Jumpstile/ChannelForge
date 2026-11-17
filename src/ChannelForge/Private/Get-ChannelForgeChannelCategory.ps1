@@ -41,7 +41,9 @@ function Get-ChannelForgeChannelCategory {
     }
 
     $nameHits = @(Find-ChannelForgeCategoryWord -Text $Name -Registry $Registry -Property NameTokens)
-    $groupHits = @(Find-ChannelForgeCategoryWord -Text $ProviderGroup -Registry $Registry -Property Aliases)
+    # A provider group may be a league tag such as "NHL", so group text is checked against the same league tokens as the name.
+    $groupHits = @(Find-ChannelForgeCategoryWord -Text $ProviderGroup -Registry $Registry -Property Aliases) +
+        @(Find-ChannelForgeCategoryWord -Text $ProviderGroup -Registry $Registry -Property NameTokens)
     $groupSpecific = @($groupHits | Where-Object { $_.Key -ne 'other-sports' })
     $isGeneric = $groupHits.Count -gt $groupSpecific.Count
     $keys = @(@($nameHits) + $groupSpecific | ForEach-Object { $_.Key } | Select-Object -Unique)

@@ -118,3 +118,26 @@ Describe 'Category overrides: corrections the owner keeps' {
         [IO.File]::ReadAllBytes($script:OverridePath) | Should -Be $before
     }
 }
+
+Describe 'Channel category: league tag in the provider group' {
+    BeforeAll {
+        function Get-Decision { param([string]$Name, [string]$Group) & (Get-Module ChannelForge) { param($n, $g) Get-ChannelForgeChannelCategory -Name $n -ProviderGroup $g -Key 'k' } $Name $Group }
+    }
+
+    It 'puts a game-feed channel in an NHL group under hockey, even with an empty name' {
+        (Get-Decision 'Vancouver Canucks @ Utah Mammoth [Mammoth Feed]' 'NHL').Category | Should -Be 'hockey'
+        (Get-Decision '' 'NHL').Category | Should -Be 'hockey'
+    }
+
+    It 'gives no category when the name and the NHL group disagree' {
+        $result = Get-Decision 'NBA TV' 'NHL'
+        $result.Category | Should -BeNullOrEmpty
+        $result.Decision | Should -Be 'conflict'
+    }
+
+    It 'keeps the MLB, NBA and NFL categories' {
+        (Get-Decision 'MLB 01: No event today' 'MLB').Category | Should -Be 'baseball'
+        (Get-Decision 'NBA (ATL) Atlanta Hawks (A)' 'NBA').Category | Should -Be 'basketball'
+        (Get-Decision 'NFL RedZone' 'NFL').Category | Should -Be 'football'
+    }
+}
