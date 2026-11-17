@@ -5,6 +5,7 @@ function New-ChannelForgeCandidateProposal {
         [string]$ProviderPath,
         [string]$M3UPath,
         [string]$XMLTVPath,
+        [string]$XMLTVAllowedRoot,
         [Parameter(Mandatory)][string]$OutputRoot,
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
@@ -112,15 +113,18 @@ function New-ChannelForgeCandidateProposal {
      $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin
      $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
      Remove-Item -LiteralPath $m3uTemp -Force
+    $guideTrim = $null
      $xmltvBytes = $null
      $rawXmltv = @()
      $programmes = @()
      if (-not [string]::IsNullOrWhiteSpace($XMLTVPath)) {
          $xmlPath = [System.IO.Path]::GetFullPath($XMLTVPath)
-         Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $Root
+         # Default: guide must be under Root. Callers with a user-selected guide read in place pass its folder.
+         Assert-ChannelForgeReadPath -Path $xmlPath -AllowedRoot $(if ([string]::IsNullOrWhiteSpace($XMLTVAllowedRoot)) { $Root } else { $XMLTVAllowedRoot })
         Write-Host 'Reading and checking the guide. A big guide can take several minutes; ChannelForge has not frozen.'
          $xmlStatus = [ordered]@{}
-        $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion)
+        $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion -TrimToChannelId @($merge.Channels | ForEach-Object { [string]$_.TvgId }) -TrimTempRoot $txRoot)
+        if ($xmlStatus.Contains('GuideTrim')) { $guideTrim = $xmlStatus['GuideTrim'] }
         $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes
         $xmlTemp = Join-Path $txRoot 'merged.xml'
         Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
@@ -206,7 +210,7 @@ function New-ChannelForgeCandidateProposal {
         Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
         $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
         $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin) -LogoPin $logoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $Root)
-        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport }
+        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport; GuideTrim = $guideTrim }
     }
     catch {
         if (Test-Path -LiteralPath $txRoot) {

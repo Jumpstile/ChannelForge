@@ -146,6 +146,9 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $programmesForOutput = [System.Collections.Generic.List[object]]::new()
     $rawXmltv = [System.Collections.Generic.List[object]]::new()
     $bindingResults = [System.Collections.Generic.List[object]]::new()
+    $guideTrims = [System.Collections.Generic.List[object]]::new()
+    $playlistTvgIds = @($merge.AllChannels | ForEach-Object { [string]$_.TvgId })
+    $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
 
     foreach ($guide in @($guideRecords.ToArray())) {
         $xmlPath = [System.IO.Path]::GetFullPath([string]$guide.Path)
@@ -156,12 +159,15 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                     -Path $xmlPath `
                     -SourceId ([string]$guide.LogicalSourceId) `
                     -AcquisitionStatus $xmlStatus `
-                    -CandidateContractVersion $CandidateContractVersion)
+                    -CandidateContractVersion $CandidateContractVersion `
+                    -TrimToChannelId $playlistTvgIds `
+                    -TrimTempRoot $txRoot)
         }
         catch {
             $_.Exception.Data['ChannelForgeGuidedSetupErrorCode'] = 'invalid-guide'
             throw
         }
+        if ($xmlStatus.Contains('GuideTrim')) { [void]$guideTrims.Add($xmlStatus['GuideTrim']) }
         foreach ($raw in @(Get-ChannelForgeRawXmltvProjection `
                     -Programme $guideProgrammes `
                     -CandidateContractVersion $CandidateContractVersion)) {
@@ -223,7 +229,6 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         HasReviewNeeded = @($bindingResults | Where-Object { $_.HasReviewNeeded }).Count -gt 0
     }
 
-    $txRoot = Join-Path (Join-Path $outputRoot 'candidates\.staging') $TransactionId
     New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
     $m3uTemp = Join-Path $txRoot 'merged.m3u'
     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin
@@ -344,6 +349,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
             Manifest = [pscustomobject]$manifest
             LogoReport = $logoReport
             GuideProgrammes = @($programmesForOutput.ToArray())
+            GuideTrim = @($guideTrims.ToArray())
         }
     }
     catch {

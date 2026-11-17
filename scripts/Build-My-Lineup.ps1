@@ -93,6 +93,7 @@ function Write-WorkflowReport {
         "Status: $($Report.Status)"
         "Channels: $($Report.ChannelCount)"
         "Guide: $($Report.GuideStatus)"
+        if ($Report.GuideTrim) { [string]$Report.GuideTrim }
         "Exact guide matches: $($Report.ExactGuideMatchCount)"
         "Needs your choice: $($Report.AmbiguityCount)"
         "Guide-only records: $($Report.GuideOnlyCount)"
@@ -384,6 +385,9 @@ function Resolve-WorkflowInput {
     return $full
 }
 
+# Matches the local guide size limit (256 MiB). Larger inputs are used in place, never copied.
+$script:MaxCopyInputBytes = 268435456
+
 function Copy-WorkflowInput {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -396,6 +400,7 @@ function Copy-WorkflowInput {
     if ([string]::IsNullOrWhiteSpace($extension)) { $extension = '.data' }
     $destination = Join-Path $DestinationDirectory ("{0}-{1}{2}" -f $Label, $hash, $extension)
     New-Item -ItemType Directory -Force -Path $DestinationDirectory | Out-Null
+    if ((Get-Item -LiteralPath $Path).Length -gt $script:MaxCopyInputBytes) { return $Path }
     Copy-Item -LiteralPath $Path -Destination $destination -Force
     return $destination
 }
@@ -548,6 +553,7 @@ $machineParentGenerationManifestHash = $null
 $machineAcceptedEntryCount = $null
 $prior = $null
 $stagedInputs = @()
+$inputDirectory = $null
 $acceptedPublicationCompleted = $false
 $acceptedGenerationChanged = $false
 $eventInference = $null
@@ -584,6 +590,7 @@ try {
         -Root $rootFull `
         -M3UPath $stagedInputs[0] `
         -XMLTVPath $candidateXmltvInput `
+        -XMLTVAllowedRoot $(if ($null -eq $candidateXmltvInput) { $null } else { Split-Path -Parent $candidateXmltvInput }) `
         -OutputRoot $outputFull `
         -CandidateContractVersion 'blocker-2-contract/v8' `
         -FaultHook $FaultHook) | Select-Object -Last 1
@@ -606,6 +613,11 @@ try {
     $candidateXMLTVPath = Join-Path $candidateDirectory 'merged.xml'
     [byte[]]$candidateXMLTVBytes = if (Test-Path -LiteralPath $candidateXMLTVPath -PathType Leaf) { [IO.File]::ReadAllBytes($candidateXMLTVPath) } else { $null }
 
+    $guideTrim = @($candidateResult[0].GuideTrim)[0]
+    if ($null -ne $guideTrim) {
+        $report.GuideTrim = 'Guide trimmed: kept {0} of {1} channels ({2} MB of {3} MB). Guide channels the playlist does not use were dropped.' -f $guideTrim.KeptChannelCount, $guideTrim.GuideChannelCount, [math]::Round($guideTrim.KeptBytes / 1MB, 1), [math]::Round($guideTrim.OriginalBytes / 1MB, 1)
+        Write-Host $report.GuideTrim -ForegroundColor Yellow
+    }
     $report.ChannelCount = @($manifest.Entries).Count
     if ($report.ChannelCount -eq 0) {
         throw 'No channels were found in the IPTV playlist.'
@@ -961,7 +973,8 @@ catch {
 }
 finally {
     foreach ($path in @($stagedInputs)) {
-        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
+        # Only delete our own copies; oversized inputs are the user's original files.
+        if ($null -ne $inputDirectory -and (Split-Path -Parent $path) -eq $inputDirectory -and (Test-Path -LiteralPath $path -PathType Leaf)) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
     }
     if ($MachineResult) {
         $machineAcceptedLineupStatus = if ($acceptedPublicationCompleted -or $null -ne $prior) { 'present' } else { 'none' }
