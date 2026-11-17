@@ -103,10 +103,11 @@ Full schema: [`schemas/locals.schema.json`](../../../schemas/locals.schema.json)
 
 These two files are written for you by the category commands. See [Seeing each channel's category](CLI-Reference.md#seeing-each-channels-category).
 
-| File                                            | What it is                                                                          | Written by                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
-| `state/category-overrides.json`                 | Your category corrections. Keep it. A damaged file stops the category commands.     | `Set-ChannelForgeCategoryOverride` |
-| `output/category-reports/<candidate-hash>.json` | The category report for one candidate. Safe to delete; the next report rewrites it. | `Get-ChannelForgeCategoryReport`   |
+| File                                            | What it is                                                                                     | Written by                         |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `state/category-overrides.json`                 | Your category corrections. Keep it. A damaged file stops the category commands.                | `Set-ChannelForgeCategoryOverride` |
+| `state/event-channels.json`                     | Your optional event channel choices (force on or off). A damaged file is ignored by the build. | `Set-ChannelForgeEventChannel`     |
+| `output/category-reports/<candidate-hash>.json` | The category report for one candidate. Safe to delete; the next report rewrites it.            | `Get-ChannelForgeCategoryReport`   |
 
 ## A note on secrets in display fields
 
