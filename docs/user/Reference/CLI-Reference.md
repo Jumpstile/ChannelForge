@@ -282,6 +282,19 @@ Run the report again to see the change (`Decision` shows `override`). A correcti
 
 If it fails: the message says what is wrong and that nothing was written. A damaged `state/category-overrides.json` stops both commands. Fix or delete that file, then run again. A candidate directory that does not pass its own check is refused.
 
+### Event channels: force one channel on or off (optional)
+
+The build finds event channels (PPV and similar) by itself. If it guesses wrong, list what it found and force one channel. Nothing needs this.
+
+```powershell
+Get-ChannelForgeEventChannelReport -CandidateDirectory ./output/candidates/<candidate-hash>
+Set-ChannelForgeEventChannel -ChannelKey <ChannelKey> -Decision ForceOn
+Set-ChannelForgeEventChannel -ChannelKey <ChannelKey> -Decision ForceOff
+Set-ChannelForgeEventChannel -ChannelKey <ChannelKey> -Clear
+```
+
+ForceOn asks for an event guide; the channel still keeps its normal guide if its start and end times cannot be used. ForceOff keeps the normal guide. The next build reports the channel as overridden. A choice whose channel is no longer in the playlist is listed under `Stale` and ignored. A damaged `state/event-channels.json` stops the set command; the build warns once and ignores the file. Neither command uses the network.
+
 ## Verifying your environment
 
 ```powershell
