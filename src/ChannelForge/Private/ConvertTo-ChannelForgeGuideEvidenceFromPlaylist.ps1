@@ -8,7 +8,7 @@ function ConvertTo-ChannelForgeGuideEvidenceFromPlaylist {
     - Channel has programmes: XMLTV evidence. StartUtc/EndUtc is the span the guide covers for that channel.
       The guide is Stale when that span ended before BuildTimeUtc, else Current. State is SafeCandidate:
       one source, never cross-checked. Source relationship stays Unknown.
-    - Channel has no programmes (or no usable tvg-id): ProviderM3UMetadata evidence, Unresolved, reasons
+    - Channel has no programmes (or no tvg-id): ProviderM3UMetadata evidence, Unresolved, reasons
       EvidenceMissing and NoEventData. It is never dropped.
     - Title is the channel display name, so each channel is one readiness group. Programme titles are not used.
     Channels are sorted first, so the result does not depend on input order.
@@ -39,12 +39,14 @@ function ConvertTo-ChannelForgeGuideEvidenceFromPlaylist {
     $ordered = @($Channel | Where-Object { $null -ne $_ } | Sort-Object { [string]$_.TvgId }, { [string]$_.DisplayName })
     foreach ($c in $ordered) {
         $tvgId = [string]$c.TvgId
-        $usable = $tvgId -cmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
+        $hasId = -not [string]::IsNullOrEmpty($tvgId)
+        $reference = if ($tvgId -cmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$') { $tvgId }
+        elseif ($hasId) { 'id-' + (Get-ChannelForgeDomainHash -Domain 'channelforge/guide-id/v1' -Bytes ([System.Text.UTF8Encoding]::new($false).GetBytes($tvgId))).Substring(0, 32) }
         $name = [string]$c.DisplayName
         $common = @{ SourceId = $SourceId; DisplayName = $name; Group = [string]$c.Group }
-        if ($usable) { $common.ChannelReference = $tvgId; $common.Title = $name }
+        if ($hasId) { $common.ChannelReference = $reference; $common.Title = $name }
 
-        if ($usable -and $span.ContainsKey($tvgId)) {
+        if ($hasId -and $span.ContainsKey($tvgId)) {
             $s = $span[$tvgId]
             New-ChannelForgeGuideEvidence -EvidenceType XMLTV @common `
                 -StartUtc $s.Start.UtcDateTime.ToString($format, $culture) -EndUtc $s.End.UtcDateTime.ToString($format, $culture) `
@@ -52,7 +54,7 @@ function ConvertTo-ChannelForgeGuideEvidenceFromPlaylist {
                 -FreshnessState $(if ($s.End.UtcDateTime -lt $build) { 'Stale' } else { 'Current' })
         }
         else {
-            $codes = if ($span.ContainsKey($tvgId)) { @('InvalidGuideId') } else { @('EvidenceMissing', 'NoEventData') }
+            $codes = @('EvidenceMissing', 'NoEventData')
             New-ChannelForgeGuideEvidence -EvidenceType ProviderM3UMetadata @common -ReasonCodes $codes
         }
     }
