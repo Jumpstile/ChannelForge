@@ -18,6 +18,8 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot = Join-Path $rootFu
 
 $moduleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $moduleRoot 'src/ChannelForge/ChannelForge.psd1') -Force
+Assert-ChannelForgeWritePath -Path $CacheRoot -AllowedRoot $rootFull
+Assert-ChannelForgeWritePath -Path $OutputRoot -AllowedRoot $rootFull
 
 $providerId = 'provider'
 $providerConfig = @()
