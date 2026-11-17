@@ -41,6 +41,7 @@
     "GuideStatus": {
       "enum": ["NOT_SELECTED", "NO_GUIDE_SELECTED", "XMLTV_SELECTED"]
     },
+    "GuideTrim": { "type": "string" },
     "EventPatternPreview": { "$ref": "#/$defs/eventPatternPreview" },
     "ConsumerM3UPath": { "type": ["string", "null"] },
     "ConsumerXMLTVPath": { "type": ["string", "null"] },

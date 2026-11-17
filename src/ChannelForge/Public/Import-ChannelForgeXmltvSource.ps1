@@ -11,7 +11,13 @@ function Import-ChannelForgeXmltvSource {
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
-        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+
+        # Playlist tvg-ids. Only used when the guide is over the size limit (guide-trim/v2).
+        [string[]]$TrimToChannelId,
+
+        # Staging folder for the trimmed temp guide. Trimming needs both this and -TrimToChannelId.
+        [string]$TrimTempRoot
     )
 
     if ($Path -match '^[a-z][a-z0-9+.-]*://') {
@@ -24,45 +30,55 @@ function Import-ChannelForgeXmltvSource {
 
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $resolvedSourceId = if ([string]::IsNullOrWhiteSpace($SourceId)) { $fullPath } else { $SourceId.Trim() }
-    $opened = $null
+    $readArguments = @{
+        SourceId                 = $resolvedSourceId
+        MaxDocumentBytes         = $MaxDocumentBytes
+        CandidateContractVersion = $CandidateContractVersion
+    }
+    $hashPath = $fullPath
+    $trim = $null
     try {
-        $opened = Open-ChannelForgeXmltvSourceStream `
-            -Path $fullPath `
-            -MaxDocumentBytes $MaxDocumentBytes
+        try {
+            $programmes = @(Read-ChannelForgeXmltvSourceFile -Path $fullPath @readArguments)
+        }
+        catch {
+            $sizeExceeded = $false
+            for ($e = $_.Exception; $null -ne $e; $e = $e.InnerException) {
+                if ($e.Message -like 'XMLTV document exceeds the configured maximum*') { $sizeExceeded = $true }
+            }
+            if (-not $sizeExceeded -or $null -eq $TrimToChannelId -or [string]::IsNullOrWhiteSpace($TrimTempRoot)) { throw }
 
-        $programmes = @(Read-ChannelForgeXmltvDocument `
-            -Stream $opened.Stream `
-            -SourceId $resolvedSourceId `
-            -SourcePath $opened.SourcePath `
-            -Compression $opened.Compression `
-            -MaxDocumentBytes $MaxDocumentBytes `
-            -CandidateContractVersion $CandidateContractVersion)
+            $trim = Write-ChannelForgeTrimmedXmltvGuide -Path $fullPath -ChannelId $TrimToChannelId -TempRoot $TrimTempRoot
+            $hashPath = $trim.Path
+            try {
+                $programmes = @(Read-ChannelForgeXmltvSourceFile -Path $hashPath -SourcePath $fullPath @readArguments)
+            }
+            catch {
+                if ($_.Exception.Message -like 'XMLTV document exceeds the configured maximum*') {
+                    throw "The guide is still too big after keeping only the channels your playlist uses: $($trim.KeptChannelCount) playlist channels matched, and the kept guide is $([math]::Round($trim.KeptBytes / 1MB, 1)) MB (limit $([math]::Round($MaxDocumentBytes / 1MB, 1)) MB)."
+                }
+                throw
+            }
+        }
+
         if ($null -ne $AcquisitionStatus) {
             $AcquisitionStatus.Clear()
+            # The hash is over exact file bytes: the guide itself, or the trimmed temp file when trimmed.
             $AcquisitionStatus['InputArtifactHash'] = Get-ChannelForgeDomainHash `
                 -Domain 'input-xmltv/v2' `
-                -Bytes ([System.IO.File]::ReadAllBytes($fullPath))
+                -Bytes ([System.IO.File]::ReadAllBytes($hashPath))
+            if ($null -ne $trim) {
+                $AcquisitionStatus['GuideTrim'] = [pscustomobject][ordered]@{
+                    KeptChannelCount  = $trim.KeptChannelCount
+                    GuideChannelCount = $trim.GuideChannelCount
+                    OriginalBytes     = $trim.OriginalBytes
+                    KeptBytes         = $trim.KeptBytes
+                }
+            }
         }
         return $programmes
     }
     finally {
-        # The hash is over exact file bytes; stream disposal below is parser cleanup only.
-        if ($null -ne $opened) {
-            try {
-                $opened.Stream.Dispose()
-            }
-            catch {
-                # Preserve the parse/open result while still attempting all cleanup.
-            }
-
-            for ($i = $opened.Resources.Count - 1; $i -ge 0; $i--) {
-                try {
-                    $opened.Resources[$i].Dispose()
-                }
-                catch {
-                    # Preserve the parse/open result while still attempting all cleanup.
-                }
-            }
-        }
+        if ($null -ne $trim) { Remove-Item -LiteralPath $trim.Path -Force -ErrorAction SilentlyContinue }
     }
 }
