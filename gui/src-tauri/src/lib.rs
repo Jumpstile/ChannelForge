@@ -614,8 +614,8 @@ fn content_failure(reason_code: PlaylistContentReasonCode) -> PlaylistContentSum
         reason_code: Some(reason_code),
     }
 }
-const MAX_GUIDE_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_GUIDE_COMPRESSED_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_GUIDE_BYTES: u64 = 16 * 1024 * 1024 * 1024;
+const MAX_GUIDE_COMPRESSED_BYTES: u64 = 16 * 1024 * 1024 * 1024;
 const GUIDE_OUTPUT_LIMIT_ERROR: &str = "guide output exceeds maximum size";
 
 #[derive(Clone, Copy, PartialEq)]
@@ -755,13 +755,19 @@ fn guide_io_reason(error: &io::Error) -> GuideContentReasonCode {
 struct BoundedReader<R> {
     inner: R,
     bytes_read: u64,
+    limit: u64,
 }
 
 impl<R: Read> BoundedReader<R> {
     fn new(inner: R) -> Self {
+        Self::with_limit(inner, MAX_GUIDE_BYTES)
+    }
+
+    fn with_limit(inner: R, limit: u64) -> Self {
         Self {
             inner,
             bytes_read: 0,
+            limit,
         }
     }
 }
@@ -771,7 +777,7 @@ impl<R: Read> Read for BoundedReader<R> {
         if buffer.is_empty() {
             return Ok(0);
         }
-        if self.bytes_read == MAX_GUIDE_BYTES {
+        if self.bytes_read == self.limit {
             let mut probe = [0_u8; 1];
             return match self.inner.read(&mut probe) {
                 Ok(0) => Ok(0),
@@ -783,7 +789,7 @@ impl<R: Read> Read for BoundedReader<R> {
             };
         }
 
-        let remaining = MAX_GUIDE_BYTES - self.bytes_read;
+        let remaining = self.limit - self.bytes_read;
         let allowed = usize::try_from(remaining)
             .unwrap_or(usize::MAX)
             .min(buffer.len());
@@ -1604,9 +1610,18 @@ fn run_saved_workflow(
     Ok(machine)
 }
 
+// Guide-only channels (full-EPG guides) do not block a plan; every other
+// attention reason (unmatched playlist channels) still does.
+fn match_allows_plan(summary: &PlaylistGuideMatchSummary) -> bool {
+    summary.match_status == MatchStatus::Checked
+        || (summary.match_status == MatchStatus::NeedsAttention
+            && summary.unmatched_playlist_count == Some(0)
+            && summary.ambiguous_count == Some(0))
+}
+
 fn prepare_saved_lineup_plan_inner(session: &Mutex<SetupSession>) -> SavedLineupPlan {
     let summary = check_selected_playlist_guide(session);
-    if summary.match_status != MatchStatus::Checked {
+    if !match_allows_plan(&summary) {
         let plan_status = match summary.match_status {
             MatchStatus::NotChecked | MatchStatus::Checking => SavedLineupPlanStatus::NotReady,
             _ => SavedLineupPlanStatus::Blocked,
@@ -1742,7 +1757,7 @@ fn accept_saved_lineup_inner(session: &Mutex<SetupSession>) -> SavedLineupResult
         );
     }
     let summary = check_selected_playlist_guide(session);
-    if summary.match_status != MatchStatus::Checked {
+    if !match_allows_plan(&summary) {
         session
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -2145,22 +2160,21 @@ mod tests {
             Some(GuideContentReasonCode::TooLarge)
         );
         fs::remove_file(&oversized_path).expect("oversized fixture should be removed");
+    }
 
-        let mut oversized_xml = valid_guide_xml().to_vec();
-        oversized_xml.resize(MAX_GUIDE_BYTES as usize + 1, b' ');
-        let oversized_output_path = write_guide_file("gz", &gzip_guide(&oversized_xml));
-        let oversized_output = inspect_guide_content(&oversized_output_path);
-        assert_eq!(
-            oversized_output.reason_code,
-            Some(GuideContentReasonCode::TooLarge)
-        );
-        fs::remove_file(&oversized_output_path)
-            .expect("oversized output fixture should be removed");
+    #[test]
+    fn guide_output_over_limit_reports_too_large() {
+        let mut xml = valid_guide_xml().to_vec();
+        xml.resize(64 * 1024, b' ');
+        let decoder = MultiGzDecoder::new(std::io::Cursor::new(gzip_guide(&xml)));
+        let reader = BufReader::new(BoundedReader::with_limit(decoder, 1024));
+        let summary = inspect_guide_reader_summary(reader);
+        assert_eq!(summary.reason_code, Some(GuideContentReasonCode::TooLarge));
     }
 
     #[test]
     fn bounded_reader_rejects_output_beyond_final_guide_limit() {
-        let mut reader = BoundedReader::new(std::io::repeat(0));
+        let mut reader = BoundedReader::with_limit(std::io::repeat(0), 4 * 1024 * 1024);
         let mut chunk = vec![0_u8; 1024 * 1024];
         let error = loop {
             match reader.read(&mut chunk) {
@@ -2605,6 +2619,41 @@ mod tests {
         assert_eq!(session.guide_path, None);
         assert_eq!(session.playlist_path, Some(PathBuf::from("two.m3u")));
     }
+    #[test]
+    fn plan_gate_allows_only_checked_or_guide_only_attention() {
+        let summary = |status, unmatched, ambiguous, guide_only| PlaylistGuideMatchSummary {
+            match_status: status,
+            playlist_entry_count: Some(2),
+            guide_channel_count: Some(5),
+            matched_count: Some(2),
+            unmatched_playlist_count: Some(unmatched),
+            ambiguous_count: Some(ambiguous),
+            guide_only_count: Some(guide_only),
+            requires_review: false,
+            reason_code: None,
+        };
+        assert!(match_allows_plan(&summary(MatchStatus::Checked, 0, 0, 0)));
+        assert!(match_allows_plan(&summary(
+            MatchStatus::NeedsAttention,
+            0,
+            0,
+            3
+        )));
+        assert!(!match_allows_plan(&summary(
+            MatchStatus::NeedsAttention,
+            1,
+            0,
+            3
+        )));
+        assert!(!match_allows_plan(&summary(
+            MatchStatus::ReviewNeeded,
+            0,
+            1,
+            0
+        )));
+        assert!(!match_allows_plan(&summary(MatchStatus::Blocked, 0, 0, 0)));
+    }
+
     #[test]
     fn saved_lineup_plan_is_checked_only_and_redacts_source_values() {
         let summary = PlaylistGuideMatchSummary {
