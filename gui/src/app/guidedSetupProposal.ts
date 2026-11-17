@@ -170,9 +170,11 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-async function readFileBase64(file: File, maximumBytes: number): Promise<string> {
+const guideTooLargeMessage = 'This guide is over 12 MB. Use the desktop app or the command line for a guide this big; it is trimmed on this computer without uploading.'
+
+async function readFileBase64(file: File, maximumBytes: number, tooLargeMessage = 'The selected file is too large to analyze safely.'): Promise<string> {
   if (file.size === 0) throw new Error('Choose a non-empty file.')
-  if (file.size > maximumBytes) throw new Error('The selected file is too large to analyze safely.')
+  if (file.size > maximumBytes) throw new Error(tooLargeMessage)
   return bytesToBase64(new Uint8Array(await file.arrayBuffer()))
 }
 
@@ -182,7 +184,7 @@ export async function submitGuidedSetupProposal(playlist: File, guide: File | nu
     schemaVersion: 1,
     m3u: { contentBase64: playlistBase64 },
   }
-  if (guide) request.xmltv = { contentBase64: await readFileBase64(guide, proposalRequestLimits.maxXMLTVBytes) }
+  if (guide) request.xmltv = { contentBase64: await readFileBase64(guide, proposalRequestLimits.maxXMLTVBytes, guideTooLargeMessage) }
 
   const response = await fetch('/api/guided-setup/proposal', {
     method: 'POST',
@@ -218,8 +220,8 @@ export async function acceptGuidedSetupProposal(proposalId: string): Promise<Gui
   return payload as GuidedSetupAcceptance
 }
 
-async function encodeSource(source: GuidedSetupSourceDraft, maximumBytes: number): Promise<{ contentBase64: string } | { url: string }> {
-  if (source.file) return { contentBase64: await readFileBase64(source.file, maximumBytes) }
+async function encodeSource(source: GuidedSetupSourceDraft, maximumBytes: number, tooLargeMessage?: string): Promise<{ contentBase64: string } | { url: string }> {
+  if (source.file) return { contentBase64: await readFileBase64(source.file, maximumBytes, tooLargeMessage) }
   const url = source.url?.trim() ?? ''
   if (!url) throw new Error(`Add a file or HTTPS URL for ${source.label}.`)
   return { url }
@@ -243,7 +245,7 @@ export async function submitGuidedSetupSourceSetProposal(
       sourceKey: source.sourceKey,
       label: source.label,
       priority: source.priority ?? index + 1,
-      ...(await encodeSource(source, proposalRequestLimits.maxXMLTVBytes)),
+      ...(await encodeSource(source, proposalRequestLimits.maxXMLTVBytes, guideTooLargeMessage)),
     }))),
     bindings: bindings.map((binding) => ({
       guideRef: binding.guideRef,
