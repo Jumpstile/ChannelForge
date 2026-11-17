@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/schemas/guided-setup-audit.schema.json",
+  "title": "ChannelForge Guided Setup acceptance audit record",
+  "description": "One hash-only record per explicit Guided Setup acceptance. Contains no URLs, labels, source text, or paths.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Version",
+    "ProposalId",
+    "SessionVersion",
+    "SessionHash",
+    "CandidateManifestHash",
+    "BuildIdentity",
+    "CandidateContractVersion",
+    "SourceSetVersion",
+    "Playlists",
+    "Guides",
+    "Bindings",
+    "Outcome",
+    "Acknowledgement",
+    "AcceptedAtUtc",
+    "Prior",
+    "Result",
+    "Enrollment",
+    "RecordHash"
+  ],
+  "properties": {
+    "Version": { "const": "guided-setup/audit/v1" },
+    "ProposalId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "SessionVersion": {
+      "enum": ["guided-setup/review/v1", "guided-setup/review/v2"]
+    },
+    "SessionHash": { "$ref": "#/$defs/hash" },
+    "CandidateManifestHash": { "$ref": "#/$defs/hash" },
+    "BuildIdentity": { "$ref": "#/$defs/hash" },
+    "CandidateContractVersion": {
+      "enum": ["blocker-2-contract/v7", "blocker-2-contract/v8"]
+    },
+    "SourceSetVersion": { "enum": ["source-set/v2", null] },
+    "Playlists": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "Guides": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "Bindings": { "type": "array", "items": { "$ref": "#/$defs/binding" } },
+    "Outcome": { "$ref": "#/$defs/outcome" },
+    "Acknowledgement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Explicit", "RequestSchemaVersion"],
+      "properties": {
+        "Explicit": { "const": true },
+        "RequestSchemaVersion": { "enum": [1, 2] }
+      }
+    },
+    "AcceptedAtUtc": { "type": "string", "format": "date-time" },
+    "Prior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "GenerationManifestHash",
+        "AcceptedStateHash",
+        "OutputManifestHash"
+      ],
+      "properties": {
+        "GenerationManifestHash": { "$ref": "#/$defs/nullableHash" },
+        "AcceptedStateHash": { "$ref": "#/$defs/nullableHash" },
+        "OutputManifestHash": { "$ref": "#/$defs/nullableHash" }
+      }
+    },
+    "Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "GenerationManifestHash",
+        "AcceptedStateHash",
+        "OutputManifestHash",
+        "DecisionManifestHash"
+      ],
+      "properties": {
+        "GenerationManifestHash": { "$ref": "#/$defs/hash" },
+        "AcceptedStateHash": { "$ref": "#/$defs/hash" },
+        "OutputManifestHash": { "$ref": "#/$defs/hash" },
+        "DecisionManifestHash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "Enrollment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Status", "EnrollmentHash"],
+      "properties": {
+        "Status": { "enum": ["SAVED", "REPAIR_REQUIRED"] },
+        "EnrollmentHash": { "$ref": "#/$defs/nullableHash" }
+      }
+    },
+    "RecordHash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableHash": {
+      "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "SourceId",
+        "SourceKind",
+        "Priority",
+        "ContentHash",
+        "ByteLength"
+      ],
+      "properties": {
+        "SourceId": { "$ref": "#/$defs/hash" },
+        "SourceKind": { "enum": ["managed-file", "public-https"] },
+        "Priority": { "type": "integer" },
+        "ContentHash": { "$ref": "#/$defs/hash" },
+        "ByteLength": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "GuideId",
+        "PlaylistIds",
+        "AppliesToAll",
+        "ExplicitlyUnbound",
+        "Revision",
+        "Enabled"
+      ],
+      "properties": {
+        "GuideId": { "$ref": "#/$defs/hash" },
+        "PlaylistIds": { "type": "array", "items": { "$ref": "#/$defs/hash" } },
+        "AppliesToAll": { "type": "boolean" },
+        "ExplicitlyUnbound": { "type": "boolean" },
+        "Revision": { "type": "integer", "minimum": 0 },
+        "Enabled": { "type": "boolean" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ChannelCount",
+        "ExactGuideMatchCount",
+        "AmbiguityCount",
+        "UnmatchedPlaylistCount",
+        "GuideOnlyCount",
+        "GuideCount",
+        "BoundGuideCount",
+        "UnboundGuideCount",
+        "GuideStatus",
+        "CanAccept",
+        "BlockingReasons"
+      ],
+      "properties": {
+        "ChannelCount": { "type": "integer", "minimum": 0 },
+        "ExactGuideMatchCount": { "type": "integer", "minimum": 0 },
+        "AmbiguityCount": { "type": "integer", "minimum": 0 },
+        "UnmatchedPlaylistCount": { "type": "integer", "minimum": 0 },
+        "GuideOnlyCount": { "type": "integer", "minimum": 0 },
+        "GuideCount": { "type": "integer", "minimum": 0 },
+        "BoundGuideCount": { "type": "integer", "minimum": 0 },
+        "UnboundGuideCount": { "type": "integer", "minimum": 0 },
+        "GuideStatus": { "type": "string" },
+        "CanAccept": { "type": "boolean" },
+        "BlockingReasons": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
