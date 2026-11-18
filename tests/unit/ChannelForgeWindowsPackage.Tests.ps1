@@ -92,6 +92,50 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
             $env:LOCALAPPDATA = $oldLocalAppData
         }
     }
+    It 'rejects PurgeData without ConfirmPurge and removes nothing' {
+        $oldLocalAppData = $env:LOCALAPPDATA
+        $local = Join-Path $TestDrive 'local-app-data-noconfirm'
+        $env:LOCALAPPDATA = $local
+        try {
+            $root = Join-Path $local 'ChannelForge'
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'src'), (Join-Path $root 'state') | Out-Null
+            Set-Content -LiteralPath (Join-Path $root 'src\app.ps1') -Value 'app' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'state\marker.txt') -Value 'keep' -NoNewline
+
+            { & $script:UninstallPath -InstallRoot $root -PurgeData } | Should -Throw '*ConfirmPurge*'
+            Test-Path -LiteralPath (Join-Path $root 'src\app.ps1') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $root 'state\marker.txt') | Should -BeTrue
+        } finally {
+            $env:LOCALAPPDATA = $oldLocalAppData
+        }
+    }
+
+    It 'leaves a neighbour file next to the install root after keep and purge' {
+        $oldLocalAppData = $env:LOCALAPPDATA
+        $local = Join-Path $TestDrive 'local-app-data-neighbour'
+        $env:LOCALAPPDATA = $local
+        try {
+            $root = Join-Path $local 'ChannelForge'
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'src'), (Join-Path $root 'state') | Out-Null
+            $neighbour = Join-Path $local 'neighbour.txt'
+            Set-Content -LiteralPath $neighbour -Value 'mine' -NoNewline
+
+            & $script:UninstallPath -InstallRoot $root
+            Test-Path -LiteralPath $neighbour | Should -BeTrue
+            & $script:UninstallPath -InstallRoot $root -PurgeData -ConfirmPurge
+            Test-Path -LiteralPath $root | Should -BeFalse
+            Test-Path -LiteralPath $neighbour | Should -BeTrue
+        } finally {
+            $env:LOCALAPPDATA = $oldLocalAppData
+        }
+    }
+
+    It 'offers both plain choices and requires the typed word DELETE in the cmd' {
+        $cmd = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'Uninstall ChannelForge.cmd') -Raw
+        $cmd | Should -Match 'Keep my lineup and saved sources'
+        $cmd | Should -Match 'Delete all ChannelForge data'
+        $cmd | Should -Match '"%CONFIRM%"=="DELETE"'
+    }
 }
 
 Describe 'Start-ChannelForge' {
