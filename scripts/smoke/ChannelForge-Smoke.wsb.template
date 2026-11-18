@@ -6,7 +6,6 @@
   <VideoInput>Disable</VideoInput>
   <PrinterRedirection>Disable</PrinterRedirection>
   <ClipboardRedirection>Disable</ClipboardRedirection>
-  <ProtectedClient>Enable</ProtectedClient>
   <MappedFolders>
     <MappedFolder>
       <HostFolder>{{INPUT_FOLDER}}</HostFolder>
