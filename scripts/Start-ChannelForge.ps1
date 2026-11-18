@@ -17,6 +17,20 @@ $missing = @(@($runtime, $serverScript, $moduleManifest, $index) | Where-Object 
 if ($missing.Count -gt 0) {
     throw "ChannelForge installation is incomplete. Missing: $($missing -join '; '). Reinstall ChannelForge. Logs are in $(Join-Path $root 'state/runtime')."
 }
+# A packaged install has package-manifest.json. Check only the bundled pwsh.exe
+# (length first, then SHA-256) so a swapped runtime is never started. A developer
+# checkout has no manifest, so the check is skipped.
+$packageManifest = Join-Path $root 'package-manifest.json'
+if ([IO.File]::Exists($packageManifest)) {
+    $runtimeOk = $false
+    try {
+        $entry = @((Get-Content -LiteralPath $packageManifest -Raw | ConvertFrom-Json).Files | Where-Object { ([string]$_.Path).Replace('\', '/') -ceq 'runtime/pwsh/pwsh.exe' })
+        if ($entry.Count -eq 1 -and ([IO.FileInfo]$runtime).Length -eq [int64]$entry[0].ByteLength) {
+            $runtimeOk = (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant() -ceq ([string]$entry[0].Sha256).ToLowerInvariant()
+        }
+    } catch { $runtimeOk = $false }
+    if (-not $runtimeOk) { throw 'The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge.' }
+}
 $runtimeState = Join-Path $root 'state/runtime'
 New-Item -ItemType Directory -Force -Path $runtimeState | Out-Null
 $pidPath = Join-Path $runtimeState 'server.pid'
