@@ -21,7 +21,7 @@ The smoke installs the package, starts it, adds fixture sources, restarts, refre
    ```
 
 4. The launcher checks the ZIP and the checkout. It stops with a plain message if the ZIP is missing, its SHA-256 differs from the evidence file, or the checkout is dirty or at a different commit.
-5. A Windows Sandbox window opens and runs the smoke by itself. Do not click inside it. It can take several minutes.
+5. A Windows Sandbox window opens and runs the smoke by itself. Do not click inside it. While it runs, the launcher prints the latest `progress.txt` line every 15 seconds. A run is normally a few minutes and never longer than the overall limit (20 minutes).
 6. When the run ends, the launcher prints the evidence path. It exits with 0 only when the overall result is PASS.
 7. Close the sandbox window. Everything inside it is deleted.
 
@@ -31,6 +31,7 @@ Under `%TEMP%\ChannelForgeSmokeResults\run-<time>\results` (change the root with
 
 - `ChannelForge-smoke-evidence.txt` for people.
 - `ChannelForge-smoke-evidence.json` for tools.
+- `progress.txt`, one line per event: time, step number, step name, then `STARTED` or the result. It is written during the run, so you can open it while the sandbox is still working. The last line tells you which step is running or stuck.
 
 Both hold the ZIP SHA-256, the source commit from the package manifest, and every step. The overall result is PASS only when every step is PASS. Any FAIL makes it FAIL. A run with a NOT RUN step is INCOMPLETE, never PASS.
 
@@ -70,6 +71,12 @@ The proposal, accept, and refresh steps call the product's own local API with th
 ## If a step fails
 
 Read the detail in brackets on the failing line. Later steps that depend on it show NOT RUN with "Not reached". Server logs are inside the sandbox only. To keep them, copy the failing step's command into a normal test folder on a spare machine and rerun it by hand.
+
+## Time limits
+
+- Every step that starts a program has a hard limit of 120 seconds (`-StepTimeoutSeconds` on `Invoke-ChannelForgeSmoke.ps1`). A step that reaches it is FAIL with the detail "timed out", never PASS. Its programs are stopped, and the run goes on. Steps that need the failed one show FAIL or NOT RUN, never PASS.
+- The whole run has a limit of 20 minutes (`-OverallTimeoutMinutes`). When it is reached, the evidence so far is written. A `run` line is FAIL with "timed out", and steps not reached are NOT RUN.
+- Programs run with their input closed, so none can wait for a key press. The only `.cmd` the smoke runs is `Uninstall ChannelForge.cmd`. It reads typed answers from a file and its closing `pause` returns when the file ends.
 
 ## Run the tests for the smoke files
 
