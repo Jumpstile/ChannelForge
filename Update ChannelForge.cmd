@@ -7,7 +7,7 @@ if not exist "%PW%" (
   pause
   exit /b 1
 )
-"%PW%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ROOT%tools\Invoke-ChannelForgeAutoUpdate.ps1" -PackageRoot "%ROOT%" -InstallRoot "%LOCALAPPDATA%\ChannelForge" -Apply %*
+"%PW%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ROOT%tools\Invoke-ChannelForgeAutoUpdate.ps1" -PackageRoot "%ROOT:~0,-1%" -InstallRoot "%LOCALAPPDATA%\ChannelForge" -Apply %*
 if errorlevel 1 (
   echo.
   echo ChannelForge update failed. The previous application files should have been restored.

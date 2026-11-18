@@ -168,9 +168,9 @@ Describe 'Smoke uninstall steps' -Skip:(-not $IsWindows) {
         $bundle = Join-Path $TestDrive 'my bundle'
         New-Item -ItemType Directory -Path $bundle | Out-Null
         Set-Content -LiteralPath (Join-Path $bundle 'Uninstall ChannelForge.cmd') -Value '@echo ARGS=[%*]' -Encoding ascii
-        $run = Invoke-SmokeUninstallCmd -BundleRoot $bundle -ArgumentList @('-PurgeData', '-ConfirmPurge')
+        $run = Invoke-SmokeBundleCmd -BundleRoot $bundle -CmdName 'Uninstall ChannelForge.cmd' -ArgumentList @('-PurgeData', '-ConfirmPurge')
         $run.Output | Should -Match ([regex]::Escape('ARGS=[-PurgeData -ConfirmPurge]'))
-        (Invoke-SmokeUninstallCmd -BundleRoot $bundle).Output | Should -Match ([regex]::Escape('ARGS=[]'))
+        (Invoke-SmokeBundleCmd -BundleRoot $bundle -CmdName 'Uninstall ChannelForge.cmd').Output | Should -Match ([regex]::Escape('ARGS=[]'))
     }
 
     It 'does not pass the cancel check when the output lacks "Cancelled"' {
