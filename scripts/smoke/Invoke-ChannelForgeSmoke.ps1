@@ -38,9 +38,9 @@ $script:StepPlan = @(
     @('update-check-local', 'Update check on the local package reports it valid'),
     @('update-same-version', 'Updating to the same version is refused, files unchanged'),
     @('update-check-github', 'Update check against the GitHub release'),
-    @('uninstall-cancel', 'Uninstall with a wrong DELETE word removes nothing'),
-    @('uninstall-keep', 'Uninstall option 1 removes the app and keeps the data'),
-    @('uninstall-delete', 'Uninstall option 2 with typed DELETE removes the data')
+    @('uninstall-cancel', 'Uninstall with a wrong DELETE word removes nothing (the typed menu itself is NOT verified here)'),
+    @('uninstall-keep', 'Uninstall with -Verbose removes the app and keeps the data'),
+    @('uninstall-delete', 'Uninstall with -PurgeData -ConfirmPurge removes the install folder')
 )
 
 # One line per event in progress.txt: time, step number, id, STARTED or the result.
@@ -126,7 +126,7 @@ function Write-SmokeEvidence {
         if ($script:ValidStatuses -cnotcontains $step.Status) { throw "Invalid step status: $($step.Status)" }
     }
     $overall = Get-SmokeOverall -Steps @($all)
-    $notCovered = @('Code signing', 'A real provider or real credentials', 'GUI screenshots or browser clicks', 'Windows Defender or SmartScreen prompts')
+    $notCovered = @('Code signing', 'A real provider or real credentials', 'GUI screenshots or browser clicks', 'Windows Defender or SmartScreen prompts', 'The typed uninstall menu itself (choosing 1 or 2, typing DELETE): the sandbox does not deliver typed answers, so a person at a real console must check it')
     $record = [ordered]@{
         SchemaVersion = 'clean-machine-smoke/v1'
         Overall = $overall
@@ -233,13 +233,51 @@ function Get-SmokeStatus {
     return ($reply.Body | ConvertFrom-Json)
 }
 
-# Runs the real Uninstall ChannelForge.cmd with typed answers on stdin. Input ends after
-# the answers, so its closing "pause" returns at once.
+# First 300 characters of a process's output on one line, for a FAIL detail.
+function Get-SmokeHead {
+    param([string]$Text)
+    $flat = ($Text -replace '\s+', ' ').Trim()
+    if ($flat.Length -gt 300) { return $flat.Substring(0, 300) }
+    return $flat
+}
+
+# Returns $true when $Ok; otherwise throws with the process exit code and output head.
+function Assert-SmokeRun {
+    param($Run, [string]$What, [bool]$Ok)
+    if (-not $Ok) { throw "$What failed (exit code $($Run.ExitCode)). Output: $(Get-SmokeHead $Run.Output)" }
+    return $true
+}
+
+# Runs the real Uninstall ChannelForge.cmd and returns the run (ExitCode, Output).
+# -ArgumentList (for example -Verbose) skips the typed menu. -Answers are typed answers
+# on stdin; input ends after them, so the closing "pause" returns at once.
 function Invoke-SmokeUninstallCmd {
-    param([string]$BundleRoot, [string[]]$Answers)
+    param([string]$BundleRoot, [string[]]$Answers = @(), [string[]]$ArgumentList = @())
     $cmdPath = Join-Path $BundleRoot 'Uninstall ChannelForge.cmd'
-    $run = Invoke-SmokeProcess $env:ComSpec @('/c', ('"' + $cmdPath + '"')) -StdinText (($Answers -join "`r`n") + "`r`n")
-    return $run.ExitCode
+    # The whole command is wrapped in one more pair of quotes: cmd /c keeps the quoted .cmd path intact.
+    $line = '"' + (@('"' + $cmdPath + '"') + $ArgumentList -join ' ') + '"'
+    $stdin = if ($Answers.Count -gt 0) { ($Answers -join "`r`n") + "`r`n" } else { '' }
+    return Invoke-SmokeProcess $env:ComSpec @('/c', $line) -StdinText $stdin
+}
+
+# Up to $Max files left under $Root, as relative paths (folders only when no file is left).
+function Get-SmokeLeftover {
+    param([string]$Root, [int]$Max = 10)
+    $items = @(Get-ChildItem -LiteralPath $Root -Recurse -Force -File -ErrorAction SilentlyContinue)
+    if ($items.Count -eq 0) { $items = @(Get-ChildItem -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue) }
+    $prefix = $Root.TrimEnd('\', '/').Length + 1
+    return @($items | Select-Object -First $Max | ForEach-Object { $_.FullName.Substring($prefix) })
+}
+
+# The uninstaller finishes in a hidden helper, so wait for the root to go. PASS ($true)
+# only when it is gone; otherwise throw and list what is left.
+function Test-SmokeRootRemoved {
+    param([string]$Root, $Run, [int]$WaitSeconds = 30)
+    $until = [DateTime]::UtcNow.AddSeconds($WaitSeconds)
+    while ((Test-Path -LiteralPath $Root) -and [DateTime]::UtcNow -lt $until) { Start-Sleep -Milliseconds 500 }
+    if (-not (Test-Path -LiteralPath $Root)) { return $true }
+    $left = @(Get-SmokeLeftover -Root $Root)
+    throw "Uninstall (delete data) failed: the install folder is still there after $WaitSeconds seconds (exit code $($Run.ExitCode)). Left: $($left -join '; '). Output: $(Get-SmokeHead $Run.Output)"
 }
 
 function Invoke-SmokeRun {
@@ -282,12 +320,12 @@ function Invoke-SmokeRun {
         $pwshArgs = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File')
         Invoke-SmokeStep 'install' $script:StepPlan[3][1] -Required {
             $run = Invoke-SmokeProcess $bundlePwsh ($pwshArgs + @((Join-Path $bundle 'scripts\Install-ChannelForgeWindowsBundle.ps1'), '-PackageRoot', $bundle, '-SkipStart'))
-            if ($run.ExitCode -ne 0) { throw "Install exit code $($run.ExitCode). $($run.Output)" }
+            Assert-SmokeRun $run 'Install' ($run.ExitCode -eq 0) | Out-Null
             Test-Path -LiteralPath (Join-Path $install 'package-manifest.json') -PathType Leaf
         }
         Invoke-SmokeStep 'start' $script:StepPlan[4][1] -Required {
             $run = Invoke-SmokeProcess $installPwsh ($pwshArgs + @((Join-Path $install 'scripts\Start-ChannelForge.ps1'), '-NoBrowser', '-Port', [string]$Port))
-            if ($run.ExitCode -ne 0) { throw "Start exit code $($run.ExitCode). $($run.Output)" }
+            Assert-SmokeRun $run 'Start' ($run.ExitCode -eq 0) | Out-Null
             (Invoke-SmokeHttp GET "$base/health").Status -eq 200
         }
         Invoke-SmokeStep 'web-page' $script:StepPlan[5][1] {
@@ -322,10 +360,10 @@ function Invoke-SmokeRun {
         }
         Invoke-SmokeStep 'restart-state' $script:StepPlan[10][1] {
             $stopped = Invoke-SmokeProcess $installPwsh ($pwshArgs + @((Join-Path $install 'scripts\Stop-ChannelForge.ps1')))
-            if ($stopped.ExitCode -ne 0) { throw 'Stop script failed.' }
+            Assert-SmokeRun $stopped 'Stop' ($stopped.ExitCode -eq 0) | Out-Null
             if ((Invoke-SmokeHttp GET "$base/health").Status -eq 200) { throw 'The server still answers after Stop.' }
             $started = Invoke-SmokeProcess $installPwsh ($pwshArgs + @((Join-Path $install 'scripts\Start-ChannelForge.ps1'), '-NoBrowser', '-Port', [string]$Port))
-            if ($started.ExitCode -ne 0) { throw 'Start after restart failed.' }
+            Assert-SmokeRun $started 'Start after restart' ($started.ExitCode -eq 0) | Out-Null
             $after = Get-SmokeStatus $Port
             $after.LineupStatus -ceq $state.Before.LineupStatus -and $after.SourcesStatus -ceq $state.Before.SourcesStatus -and $after.PlaylistStatus -ceq $state.Before.PlaylistStatus
         }
@@ -337,30 +375,32 @@ function Invoke-SmokeRun {
         $updater = Join-Path $install 'tools\Invoke-ChannelForgeAutoUpdate.ps1'
         Invoke-SmokeStep 'update-check-local' $script:StepPlan[12][1] {
             $run = Invoke-SmokeProcess $installPwsh ($pwshArgs + @($updater, '-PackageRoot', $bundle, '-InstallRoot', $install))
-            $run.ExitCode -eq 0 -and $run.Output -match 'Package valid'
+            Assert-SmokeRun $run 'Update check' ($run.ExitCode -eq 0 -and $run.Output -match 'Package valid')
         }
         Invoke-SmokeStep 'update-same-version' $script:StepPlan[13][1] {
             $before = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
             $run = Invoke-SmokeProcess $installPwsh ($pwshArgs + @($updater, '-Apply', '-PackageRoot', $bundle, '-InstallRoot', $install))
             $after = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
-            $run.ExitCode -ne 0 -and $run.Output -match 'not newer' -and $before -ceq $after
+            Assert-SmokeRun $run 'Same-version update' ($run.ExitCode -ne 0 -and $run.Output -match 'not newer' -and $before -ceq $after)
         }
         Skip-SmokeStep 'update-check-github' $script:StepPlan[14][1] 'The sandbox has networking turned off on purpose, so a GitHub release check cannot run.'
 
+        # The sandbox does not deliver typed menu answers, so only "the menu ran and cancelled" is proven here.
         Invoke-SmokeStep 'uninstall-cancel' $script:StepPlan[15][1] {
-            [void](Invoke-SmokeUninstallCmd $bundle @('2', 'delete'))
-            (Test-Path -LiteralPath (Join-Path $install 'package-manifest.json')) -and (Test-Path -LiteralPath (Join-Path $install 'state') -PathType Container)
+            $run = Invoke-SmokeUninstallCmd $bundle @('2', 'delete')
+            $kept = (Test-Path -LiteralPath (Join-Path $install 'package-manifest.json')) -and (Test-Path -LiteralPath (Join-Path $install 'state') -PathType Container)
+            Assert-SmokeRun $run 'Uninstall menu (cancel)' ($run.Output -match 'Cancelled' -and $kept)
         }
         Invoke-SmokeStep 'uninstall-keep' $script:StepPlan[16][1] {
-            [void](Invoke-SmokeUninstallCmd $bundle @('1'))
+            $run = Invoke-SmokeUninstallCmd $bundle -ArgumentList @('-Verbose')
             $appGone = -not (Test-Path -LiteralPath (Join-Path $install 'package-manifest.json')) -and -not (Test-Path -LiteralPath (Join-Path $install 'scripts'))
             $dataKept = Test-Path -LiteralPath (Join-Path $install 'state\source-enrollment.json') -PathType Leaf
             $stopped = (Invoke-SmokeHttp GET "$base/health").Status -ne 200
-            $appGone -and $dataKept -and $stopped
+            Assert-SmokeRun $run 'Uninstall (keep data)' ($appGone -and $dataKept -and $stopped)
         }
         Invoke-SmokeStep 'uninstall-delete' $script:StepPlan[17][1] {
-            [void](Invoke-SmokeUninstallCmd $bundle @('2', 'DELETE'))
-            -not (Test-Path -LiteralPath $install)
+            $run = Invoke-SmokeUninstallCmd $bundle -ArgumentList @('-PurgeData', '-ConfirmPurge')
+            Test-SmokeRootRemoved -Root $install -Run $run
         }
     }
     catch { if ([string]$_.Exception.Message -notlike 'smoke-halt:*') { Add-SmokeStep -Id 'run' -Name 'Smoke run' -Status 'FAIL' -Detail ([string]$_.Exception.Message) } }
