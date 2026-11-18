@@ -5,6 +5,7 @@ param(
     [string]$PowerShellVersion = '7.6.6',
     [string]$PowerShellRuntimeZipPath = '',
     [string]$PowerShellRuntimeCacheRoot = '',
+    [string]$PowerShellRuntimeSha256 = '',
     [string]$SourceCommitSha = '',
     [switch]$AllowDirty
 )
@@ -38,6 +39,18 @@ function Get-TreeHash([string]$RootPath) {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { return ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLowerInvariant() } finally { $sha.Dispose() }
 }
+function Find-StagedSecret([string]$Text, [string]$Name) {
+    $patterns = [ordered]@{
+        'URL with embedded credentials' = '[a-z][a-z0-9+.-]*://[^/\s:@"'']+:[^/\s@"'']+@'
+        'API token' = '\b(?:ghp_|gho_|github_pat_|xox[bp]-|sk-)[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._-]{30,}'
+    }
+    if ($Name -like '*.json' -and $Name -notlike '*.schema.json') {
+        $patterns['long hex string'] = '"[0-9a-fA-F]{40,}"'
+        $patterns['long base64 string'] = '"(?=[^"]*\d)(?=[^"]*[A-Z])(?=[^"]*[a-z])[A-Za-z0-9+/=]{40,}"'
+    }
+    foreach ($name in $patterns.Keys) { if ($Text -match $patterns[$name]) { return $name } }
+    return $null
+}
 function Write-CanonicalJson([object]$Value, [string]$Path) {
     $json = $Value | ConvertTo-Json -Depth 20 -Compress
     [IO.File]::WriteAllText($Path, $json + "`n", [Text.UTF8Encoding]::new($false))
@@ -46,7 +59,8 @@ function Resolve-PortablePowerShellRuntime {
     param(
         [Parameter(Mandatory)][string]$Version,
         [Parameter(Mandatory)][string]$CacheRoot,
-        [string]$ArchivePath = ''
+        [string]$ArchivePath = '',
+        [string]$ExpectedSha256 = ''
     )
 
     $expectedHashes = @{
@@ -57,7 +71,7 @@ function Resolve-PortablePowerShellRuntime {
     }
 
     $archiveUrl = "https://github.com/PowerShell/PowerShell/releases/download/v$Version/PowerShell-$Version-win-x64.zip"
-    $expectedHash = $expectedHashes[$Version]
+    $expectedHash = if ([string]::IsNullOrWhiteSpace($ExpectedSha256)) { $expectedHashes[$Version] } else { $ExpectedSha256.ToLowerInvariant() }
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         New-Item -ItemType Directory -Force -Path $CacheRoot | Out-Null
         $ArchivePath = Join-Path $CacheRoot "PowerShell-$Version-win-x64.zip"
@@ -147,7 +161,7 @@ $runtimeCacheRoot = if ([string]::IsNullOrWhiteSpace($PowerShellRuntimeCacheRoot
 } else {
     Get-FullPath $PowerShellRuntimeCacheRoot
 }
-$runtimeInfo = Resolve-PortablePowerShellRuntime -Version $PowerShellVersion -CacheRoot $runtimeCacheRoot -ArchivePath $PowerShellRuntimeZipPath
+$runtimeInfo = Resolve-PortablePowerShellRuntime -Version $PowerShellVersion -CacheRoot $runtimeCacheRoot -ArchivePath $PowerShellRuntimeZipPath -ExpectedSha256 $PowerShellRuntimeSha256
 $runtimeFull = $runtimeInfo.RuntimeRoot
 
 $stageParent = Join-Path $outputFull '.staging'
@@ -177,8 +191,13 @@ try {
         'docs/user/INSTALL-WINDOWS.md', 'docs/user/UPDATE-WINDOWS.md', 'docs/user/UNINSTALL-WINDOWS.md',
         'docs/user/Build-Your-First-Lineup.md', 'docs/user/CURRENT_LIMITATIONS.md', 'docs/user/TROUBLESHOOTING.md'
     )) { Copy-File (Join-Path $rootFull $path) (Join-Path $stage $path) }
-    if ([IO.Directory]::Exists((Join-Path $rootFull 'docs/user/assets'))) {
-        Copy-Tree (Join-Path $rootFull 'docs/user/assets') (Join-Path $stage 'docs/user/assets')
+    foreach ($doc in @(Get-ChildItem -LiteralPath $stage -Recurse -File -Filter '*.md' -Force | Where-Object { $_.FullName -notlike (Join-Path $stage 'runtime*') })) {
+        foreach ($link in [regex]::Matches((Get-Content -LiteralPath $doc.FullName -Raw), '!\[[^\]]*\]\(([^)\s]+)\)')) {
+            $target = $link.Groups[1].Value
+            if ($target -match '^[a-z][a-z0-9+.-]*:') { continue }
+            $relative = [IO.Path]::GetRelativePath($stage, [IO.Path]::GetFullPath((Join-Path $doc.DirectoryName $target)))
+            Copy-File (Join-Path $rootFull $relative) (Join-Path $stage $relative)
+        }
     }
     $forbiddenNames = @('.git', '.worktrees', 'state', 'config', 'output', 'cache', 'logs', 'test-results', 'node_modules', 'target')
     foreach ($item in @(Get-ChildItem -LiteralPath $stage -Recurse -Force)) {
@@ -191,6 +210,8 @@ try {
     foreach ($item in @(Get-ChildItem -LiteralPath $stage -Recurse -File -Force | Where-Object { $_.FullName -notlike "$runtimeStage*" -and $textExtensions -contains $_.Extension.ToLowerInvariant() })) {
         $text = Get-Content -LiteralPath $item.FullName -Raw -ErrorAction Stop
         if ($text.Contains($rootFull)) { throw "Package contains an absolute source path: $($item.FullName)" }
+        $secret = Find-StagedSecret $text $item.Name
+        if ($secret) { throw "Package contains a likely secret ($secret): $($item.FullName)" }
     }
 
 
