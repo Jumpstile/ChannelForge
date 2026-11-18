@@ -112,9 +112,30 @@ BeforeAll {
         param(
             [Parameter(Mandatory)][string]$InstallRoot,
             [Parameter(Mandatory)][scriptblock]$WebRequestMock,
+            [byte[]]$ZipBytes = $null,
+            [string]$PublishedSha256 = $null,
+            [string]$EvidenceJson = $null,
             [string]$AssetName = 'ChannelForge.zip',
             [string]$AssetNamePattern = '^ChannelForge.*\.zip$'
         )
+
+        # The release publishes the ZIP's SHA-256 in its notes (or, when
+        # EvidenceJson is given, in a .evidence.json asset).
+        if ($null -ne $ZipBytes -and -not $PublishedSha256) {
+            $PublishedSha256 = [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData($ZipBytes)).Replace('-', '').ToLowerInvariant()
+        }
+        $notes = if ($PublishedSha256) { "SHA-256: $PublishedSha256" } else { 'No hash here.' }
+        $releaseAssets = @([pscustomobject]@{
+            name                  = $AssetName
+            browser_download_url = "https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/$AssetName"
+        })
+        if ($EvidenceJson) {
+            $releaseAssets += [pscustomobject]@{
+                name                  = "$AssetName.evidence.json"
+                browser_download_url = "https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/$AssetName.evidence.json"
+            }
+            Mock -ModuleName ChannelForgeAutoUpdate.Core Invoke-RestMethod { $EvidenceJson }.GetNewClosure()
+        }
 
         # Get-ChannelForgeLatestReleaseInfo is called directly by the
         # orchestrator script, which runs outside the module -- Mock
@@ -127,10 +148,8 @@ BeforeAll {
         Mock -ModuleName ChannelForgeAutoUpdate.Core Invoke-GitHubJsonRequest {
             [pscustomobject]@{
                 tag_name = 'v0.2.0'
-                assets   = @([pscustomobject]@{
-                    name                  = $AssetName
-                    browser_download_url = "https://github.com/Jumpstile/ChannelForge/releases/download/v0.2.0/$AssetName"
-                })
+                body     = $notes
+                assets   = $releaseAssets
             }
         }.GetNewClosure()
         Mock -ModuleName ChannelForgeAutoUpdate.Core Invoke-WebRequest $WebRequestMock
@@ -154,10 +173,11 @@ BeforeAll {
 Describe '1. Corrupt ZIP' {
     It 'leaves the install root untouched, preserves the backup, and reports a clear error' {
         $root = New-DestructiveInstallRoot
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+        $randomBytes = [byte[]](1..64 | ForEach-Object { Get-Random -Maximum 255 })
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $randomBytes -WebRequestMock {
             param($Uri, $Headers, $OutFile, $UseBasicParsing)
-            [System.IO.File]::WriteAllBytes($OutFile, [byte[]](1..64 | ForEach-Object { Get-Random -Maximum 255 }))
-        }
+            [System.IO.File]::WriteAllBytes($OutFile, $randomBytes)
+        }.GetNewClosure()
 
         $result.Error | Should -BeOfType ([System.Management.Automation.ErrorRecord])
         (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
@@ -177,7 +197,7 @@ Describe '2. Missing expected package paths' {
         $root = New-DestructiveInstallRoot
         $zipBytes = New-FixtureZipBytes -Entries @{ 'random-unrelated-file.txt' = 'not a real package' }
 
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -WebRequestMock {
             param($Uri, $Headers, $OutFile, $UseBasicParsing)
             [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
         }.GetNewClosure()
@@ -200,7 +220,7 @@ Describe '3. Attempted overwrite of protected config/data/output paths' {
             'config\settings.json'        = '{"malicious":true}'
         }
 
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -WebRequestMock {
             param($Uri, $Headers, $OutFile, $UseBasicParsing)
             [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
         }.GetNewClosure()
@@ -227,7 +247,7 @@ Describe '4. Read-only destination' {
         $zipBytes = New-FixtureZipBytes -Entries @{ 'src\existing.psm1' = 'new code' }
 
         try {
-            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -WebRequestMock {
                 param($Uri, $Headers, $OutFile, $UseBasicParsing)
                 [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
             }.GetNewClosure()
@@ -279,7 +299,7 @@ Describe '6. Extraction failure (corrupted entry payload, valid central director
         $largeContent = ('X' * 200 + "`n") * 300
         $corruptedBytes = Get-CorruptedFixtureZipBytes -Entries @{ 'src\new.psm1' = $largeContent }
 
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $corruptedBytes -WebRequestMock {
             param($Uri, $Headers, $OutFile, $UseBasicParsing)
             [System.IO.File]::WriteAllBytes($OutFile, $corruptedBytes)
         }.GetNewClosure()
@@ -304,7 +324,7 @@ Describe '7. Copy failure (locked allowed-target file)' {
 
         $lockHandle = [System.IO.File]::Open($lockedPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
         try {
-            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -WebRequestMock {
                 param($Uri, $Headers, $OutFile, $UseBasicParsing)
                 [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
             }.GetNewClosure()
@@ -366,5 +386,84 @@ Describe '9. Module-scope error-action regression guard' {
         InModuleScope ChannelForgeAutoUpdate.Core {
             $ErrorActionPreference | Should -Be 'Stop'
         }
+    }
+}
+
+Describe '10. Published SHA-256 and source commit check' {
+    BeforeAll {
+        function Get-TestZipEvidence {
+            param([byte[]]$Bytes, [string]$Commit)
+            $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData($Bytes)).Replace('-', '').ToLowerInvariant()
+            return (@{ PackageFilename = 'ChannelForge.zip'; PackageSha256 = $hash; PackageSourceCommitSha = $Commit } | ConvertTo-Json -Compress)
+        }
+    }
+
+    It 'installs when the published SHA-256 and source commit match' {
+        $root = New-DestructiveInstallRoot
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'data\rules\aliases.json' = '{}'; 'data\lineup\numbering_blocks.json' = '{}' }
+        $evidence = Get-TestZipEvidence -Bytes $zipBytes -Commit ('a' * 40)
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -EvidenceJson $evidence -WebRequestMock {
+            param($Uri, $Headers, $OutFile, $UseBasicParsing)
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
+
+        $result.Error | Should -BeNullOrEmpty
+        (Get-Content -LiteralPath (Join-Path $root 'src\new.psm1') -Raw) | Should -Be 'new code'
+    }
+
+    It 'stops on a SHA-256 mismatch and leaves the installed copy and user data unchanged' {
+        $root = New-DestructiveInstallRoot
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'src\existing.psm1' = 'new code' }
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -PublishedSha256 ('f' * 64) -WebRequestMock {
+            param($Uri, $Headers, $OutFile, $UseBasicParsing)
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
+
+        $result.Error.Exception.Message | Should -Match 'does not match the published SHA-256'
+        (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
+        (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw) | Should -Be '0.1.0'
+        (Get-Content -LiteralPath (Join-Path $root 'data\providers\mybunny.json') -Raw) | Should -Match 'REAL-USER-SECRET'
+        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
+        @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter 'channelforge-extract-*' -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+
+    It 'stops when the release publishes no SHA-256' {
+        $root = New-DestructiveInstallRoot
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code' }
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+            param($Uri, $Headers, $OutFile, $UseBasicParsing)
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
+
+        $result.Error.Exception.Message | Should -Match 'No valid published SHA-256'
+        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
+        (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
+    }
+
+    It 'stops when the published source commit is not 40 hex characters' {
+        $root = New-DestructiveInstallRoot
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'data\rules\aliases.json' = '{}'; 'data\lineup\numbering_blocks.json' = '{}' }
+        $evidence = Get-TestZipEvidence -Bytes $zipBytes -Commit 'not-a-commit'
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -EvidenceJson $evidence -WebRequestMock {
+            param($Uri, $Headers, $OutFile, $UseBasicParsing)
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
+
+        $result.Error.Exception.Message | Should -Match '40-character hex'
+        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
+    }
+
+    It 'stops when the published source commit differs from the package manifest' {
+        $root = New-DestructiveInstallRoot
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'data\rules\aliases.json' = '{}'; 'data\lineup\numbering_blocks.json' = '{}' }
+        $evidence = Get-TestZipEvidence -Bytes $zipBytes -Commit ('b' * 40)
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -EvidenceJson $evidence -WebRequestMock {
+            param($Uri, $Headers, $OutFile, $UseBasicParsing)
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
+
+        $result.Error.Exception.Message | Should -Match 'does not match the package manifest'
+        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
+        (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
     }
 }

@@ -14,6 +14,18 @@ This page covers the Windows x64 portable bundle. For install steps as a user, s
 
 At start, `Start-ChannelForge.ps1` checks the bundled `pwsh.exe` against the manifest (length and SHA-256 only, not the whole runtime). A mismatch stops with "The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge." A folder with no manifest (a developer checkout) skips the check.
 
+## What the updater checks before it unpacks a download
+
+`tools/Invoke-ChannelForgeAutoUpdate.ps1 -Apply` (GitHub release path) checks the downloaded ZIP before it unpacks it:
+
+1. It reads the published SHA-256 from the `<package>.evidence.json` release asset (`PackageSha256`). If the release has no evidence asset, it looks for a `SHA-256: <64 hex>` line in the release notes.
+2. It hashes the downloaded ZIP and compares. No published value, a malformed value, or a different hash stops the update with a plain message. Nothing is unpacked and the installed files and your data are left as they were.
+3. If an evidence file is used, its `PackageSourceCommitSha` must be present, a 40-character lowercase hex value, and equal `SourceCommitSha` in `package-manifest.json` (checked after unpacking to a temp folder). Anything else stops the update. A release that publishes only a hash in its notes has no commit value to compare; that is not an error.
+
+What this does not do: there is no code signing and no key trust. The evidence file and the ZIP come from the same GitHub release, so this catches a damaged or swapped download, not a release whose publisher account is compromised.
+
+The local `-PackageRoot` / `-PackagePath` developer path is unchanged: it checks the package against its own manifest only and does not check a published SHA-256. The updater says so when it runs.
+
 ## How to run it
 
 Build the GUI first (`npm run build` in `gui`), commit your changes, then from the repo root in PowerShell 7:
