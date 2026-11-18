@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ChannelForge smoke fixture">
+  <channel id="news.smoke">
+    <display-name lang="en">Smoke News</display-name>
+  </channel>
+  <channel id="sports.smoke">
+    <display-name lang="en">Smoke Sports</display-name>
+  </channel>
+  <programme start="20260815090000 +0000" stop="20260815100000 +0000" channel="news.smoke">
+    <title lang="en">Smoke Morning News</title>
+    <category lang="en">News</category>
+  </programme>
+  <programme start="20260815120000 +0000" stop="20260815130000 +0000" channel="sports.smoke">
+    <title lang="en">Smoke Big Game</title>
+    <category lang="en">Sports</category>
+  </programme>
+</tv>

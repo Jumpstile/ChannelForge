@@ -1,0 +1,25 @@
+<Configuration>
+  <!-- Filled by New-ChannelForgeSmokeLaunch.ps1. Do not put real paths in this file. -->
+  <vGPU>Disable</vGPU>
+  <Networking>Disable</Networking>
+  <AudioInput>Disable</AudioInput>
+  <VideoInput>Disable</VideoInput>
+  <PrinterRedirection>Disable</PrinterRedirection>
+  <ClipboardRedirection>Disable</ClipboardRedirection>
+  <ProtectedClient>Enable</ProtectedClient>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>{{INPUT_FOLDER}}</HostFolder>
+      <SandboxFolder>C:\Smoke\In</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <MappedFolder>
+      <HostFolder>{{RESULTS_FOLDER}}</HostFolder>
+      <SandboxFolder>C:\Smoke\Results</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Smoke\In\Invoke-ChannelForgeSmoke.ps1 -InputRoot C:\Smoke\In -ResultsRoot C:\Smoke\Results</Command>
+  </LogonCommand>
+</Configuration>

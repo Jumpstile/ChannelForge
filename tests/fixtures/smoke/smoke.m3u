@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="news.smoke" tvg-name="Smoke News" group-title="News",Smoke News
+https://example.invalid/live/smoke-news
+#EXTINF:-1 tvg-id="sports.smoke" tvg-name="Smoke Sports" group-title="Sports",Smoke Sports
+https://example.invalid/live/smoke-sports
