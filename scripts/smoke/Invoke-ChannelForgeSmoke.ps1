@@ -6,7 +6,9 @@
 param(
     [string]$InputRoot = 'C:\Smoke\In',
     [string]$ResultsRoot = 'C:\Smoke\Results',
-    [int]$Port = 8765
+    [int]$Port = 8765,
+    [int]$StepTimeoutSeconds = 120,
+    [int]$OverallTimeoutMinutes = 20
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,6 +16,10 @@ Set-StrictMode -Version 2.0
 
 $script:ValidStatuses = @('PASS', 'FAIL', 'NOT RUN')
 $script:Steps = New-Object System.Collections.ArrayList
+$script:ProgressPath = $null
+$script:StepTimeoutSec = 120
+$script:OverallMinutes = 20
+$script:RunDeadline = $null
 
 # Every step the run plans to do. A step that never ran is written as NOT RUN.
 $script:StepPlan = @(
@@ -37,16 +43,45 @@ $script:StepPlan = @(
     @('uninstall-delete', 'Uninstall option 2 with typed DELETE removes the data')
 )
 
+# One line per event in progress.txt: time, step number, id, STARTED or the result.
+# The file is closed after every line, so the host can read it while the run goes on.
+function Write-SmokeProgress {
+    param([string]$Id, [string]$Status, [string]$Detail = '')
+    if (-not $script:ProgressPath) { return }
+    $index = 0
+    for ($i = 0; $i -lt $script:StepPlan.Count; $i++) { if ($script:StepPlan[$i][0] -eq $Id) { $index = $i + 1 } }
+    $number = if ($index -gt 0) { '{0:00}' -f $index } else { '--' }
+    $line = (@([DateTime]::UtcNow.ToString('yyyy-MM-dd''T''HH:mm:ss''Z'''), $number, $Id, $Status) -join "`t")
+    if ($Detail) { $line += " [$(($Detail -replace '\s+', ' '))]" }
+    [IO.File]::AppendAllText($script:ProgressPath, $line + "`r`n", (New-Object Text.UTF8Encoding($false)))
+}
+
+# Seconds a process or wait may take now: the step limit, cut short by the overall limit.
+function Get-SmokeLimitSeconds {
+    $limit = $script:StepTimeoutSec
+    if ($script:RunDeadline) {
+        $left = [int][Math]::Ceiling(($script:RunDeadline - [DateTime]::UtcNow).TotalSeconds)
+        if ($left -lt $limit) { $limit = $left }
+    }
+    return [Math]::Max(1, $limit)
+}
+
 function Add-SmokeStep {
     param([string]$Id, [string]$Name, [string]$Status, [string]$Detail = '')
     if ($script:ValidStatuses -cnotcontains $Status) { throw "Invalid step status: $Status" }
     [void]$script:Steps.Add([pscustomobject]@{ Id = $Id; Name = $Name; Status = $Status; Detail = $Detail })
+    Write-SmokeProgress -Id $Id -Status $Status -Detail $Detail
 }
 
 # Runs one check. PASS only when the check returns $true; a throw or $false is FAIL.
 # -Required: a FAIL stops the run (later steps are written as NOT RUN).
 function Invoke-SmokeStep {
     param([string]$Id, [string]$Name, [scriptblock]$Check, [switch]$Required)
+    if ($script:RunDeadline -and [DateTime]::UtcNow -gt $script:RunDeadline) {
+        Add-SmokeStep -Id 'run' -Name 'Smoke run' -Status 'FAIL' -Detail "timed out: the overall limit of $($script:OverallMinutes) minutes was reached before step '$Id'."
+        throw "smoke-halt: overall timeout before step '$Id'."
+    }
+    Write-SmokeProgress -Id $Id -Status 'STARTED'
     $status = 'FAIL'
     $detail = ''
     try {
@@ -132,20 +167,44 @@ function Write-SmokeEvidence {
     return [pscustomobject]@{ Overall = $overall; JsonPath = $jsonPath; TextPath = $textPath }
 }
 
+# Runs a program with input closed (or fed from -StdinText) so it can never wait for a
+# key press. Past the time limit the process tree is stopped and this throws "timed out".
 function Invoke-SmokeProcess {
-    param([string]$Exe, [string[]]$Arguments, [string]$StdinText = $null)
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $output = (& $Exe @Arguments 2>&1 | Out-String)
-        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+    param([string]$Exe, [string[]]$Arguments, [string]$StdinText = '')
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName = $Exe
+    $info.Arguments = (@($Arguments | ForEach-Object { if ($_ -match '\s' -and $_ -notmatch '^"') { '"' + $_ + '"' } else { $_ } }) -join ' ')
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardInput = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::Start($info)
+    $out = $process.StandardOutput.ReadToEndAsync()
+    $err = $process.StandardError.ReadToEndAsync()
+    if ($StdinText) { $process.StandardInput.Write($StdinText) }
+    $process.StandardInput.Close()
+    $limit = Get-SmokeLimitSeconds
+    if (-not $process.WaitForExit($limit * 1000)) {
+        & taskkill.exe /T /F /PID $process.Id 2>&1 | Out-Null
+        $process.Dispose()
+        throw "timed out after $limit seconds: $([IO.Path]::GetFileName($Exe)) $($info.Arguments)"
     }
-    finally { $ErrorActionPreference = $previous }
+    $process.WaitForExit()
+    $code = $process.ExitCode
+    # A server the script left running may keep the pipes open; do not wait for them forever.
+    $text = ''
+    try {
+        if ([Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($out, $err), 5000)) { $text = [string]$out.Result + [string]$err.Result }
+    }
+    catch { $text = '' }
+    $process.Dispose()
+    return [pscustomobject]@{ ExitCode = $code; Output = $text }
 }
 
 function Invoke-SmokeHttp {
     param([string]$Method, [string]$Url, [string]$Body = $null)
-    $request = @{ Uri = $Url; Method = $Method; UseBasicParsing = $true; TimeoutSec = 120 }
+    $request = @{ Uri = $Url; Method = $Method; UseBasicParsing = $true; TimeoutSec = (Get-SmokeLimitSeconds) }
     if ($Method -eq 'POST') {
         $request.ContentType = 'application/json'
         if ($null -ne $Body) { $request.Body = [Text.Encoding]::UTF8.GetBytes($Body) }
@@ -155,8 +214,12 @@ function Invoke-SmokeHttp {
         return [pscustomobject]@{ Status = [int]$response.StatusCode; Body = [string]$response.Content }
     }
     catch {
-        $failed = $_.Exception.Response
-        if ($null -eq $failed) { return [pscustomobject]@{ Status = 0; Body = [string]$_.Exception.Message } }
+        $failed = if ($_.Exception.PSObject.Properties['Response']) { $_.Exception.Response } else { $null }
+        if ($null -eq $failed) {
+            $why = [string]$_.Exception.Message
+            if ($why -match 'time(d)?[ -]?out') { throw "timed out: $Method $Url" }
+            return [pscustomobject]@{ Status = 0; Body = $why }
+        }
         $reader = New-Object IO.StreamReader($failed.GetResponseStream())
         try { return [pscustomobject]@{ Status = [int]$failed.StatusCode; Body = $reader.ReadToEnd() } }
         finally { $reader.Dispose() }
@@ -170,21 +233,22 @@ function Get-SmokeStatus {
     return ($reply.Body | ConvertFrom-Json)
 }
 
-# Runs the real Uninstall ChannelForge.cmd with typed answers on stdin.
+# Runs the real Uninstall ChannelForge.cmd with typed answers on stdin. Input ends after
+# the answers, so its closing "pause" returns at once.
 function Invoke-SmokeUninstallCmd {
     param([string]$BundleRoot, [string[]]$Answers)
-    $inputPath = Join-Path ([IO.Path]::GetTempPath()) ('cf-smoke-answers-' + [guid]::NewGuid().ToString('N') + '.txt')
-    [IO.File]::WriteAllText($inputPath, (($Answers -join "`r`n") + "`r`n"), (New-Object Text.ASCIIEncoding))
-    try {
-        $cmdPath = Join-Path $BundleRoot 'Uninstall ChannelForge.cmd'
-        $process = Start-Process -FilePath $env:ComSpec -ArgumentList ('/c ""' + $cmdPath + '""') -WorkingDirectory $BundleRoot -RedirectStandardInput $inputPath -RedirectStandardOutput (Join-Path ([IO.Path]::GetTempPath()) 'cf-smoke-uninstall.out') -WindowStyle Hidden -Wait -PassThru
-        return $process.ExitCode
-    }
-    finally { Remove-Item -LiteralPath $inputPath -Force -ErrorAction SilentlyContinue }
+    $cmdPath = Join-Path $BundleRoot 'Uninstall ChannelForge.cmd'
+    $run = Invoke-SmokeProcess $env:ComSpec @('/c', ('"' + $cmdPath + '"')) -StdinText (($Answers -join "`r`n") + "`r`n")
+    return $run.ExitCode
 }
 
 function Invoke-SmokeRun {
-    param([string]$InputRoot, [string]$ResultsRoot, [int]$Port)
+    param([string]$InputRoot, [string]$ResultsRoot, [int]$Port, [int]$StepTimeoutSeconds = 120, [int]$OverallTimeoutMinutes = 20)
+    New-Item -ItemType Directory -Force -Path $ResultsRoot | Out-Null
+    $script:ProgressPath = Join-Path $ResultsRoot 'progress.txt'
+    $script:StepTimeoutSec = $StepTimeoutSeconds
+    $script:OverallMinutes = $OverallTimeoutMinutes
+    $script:RunDeadline = [DateTime]::UtcNow.AddMinutes($OverallTimeoutMinutes)
     $started = [DateTime]::UtcNow.ToString('yyyy-MM-dd''T''HH:mm:ss''Z''')
     $evidenceFile = @(Get-ChildItem -LiteralPath $InputRoot -Filter '*.zip.evidence.json')
     if ($evidenceFile.Count -ne 1) { throw 'Expected exactly one *.zip.evidence.json in the input folder.' }
@@ -307,6 +371,6 @@ function Invoke-SmokeRun {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    $outcome = Invoke-SmokeRun -InputRoot $InputRoot -ResultsRoot $ResultsRoot -Port $Port
+    $outcome = Invoke-SmokeRun -InputRoot $InputRoot -ResultsRoot $ResultsRoot -Port $Port -StepTimeoutSeconds $StepTimeoutSeconds -OverallTimeoutMinutes $OverallTimeoutMinutes
     Write-Output "Smoke result: $($outcome.Overall). Evidence: $($outcome.JsonPath)"
 }

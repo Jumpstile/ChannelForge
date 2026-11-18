@@ -91,3 +91,59 @@ Describe 'Smoke evidence writer' {
         { Add-SmokeStep -Id 'x' -Name 'Bad' -Status 'OK' } | Should -Throw
     }
 }
+
+Describe 'Smoke progress and time limits' {
+    BeforeEach {
+        $script:Steps.Clear()
+        $script:ProgressPath = Join-Path $TestDrive ('progress-' + [guid]::NewGuid().ToString('N') + '.txt')
+        $script:StepTimeoutSec = 2
+        $script:RunDeadline = $null
+    }
+    AfterEach {
+        $script:ProgressPath = $null
+        $script:StepTimeoutSec = 120
+        $script:RunDeadline = $null
+    }
+
+    It 'writes STARTED and the result for each step, with the step number' {
+        Invoke-SmokeStep -Id 'unzip' -Name 'Unzip' -Check { $true }
+        $lines = @(Get-Content -LiteralPath $script:ProgressPath)
+        $lines.Count | Should -Be 2
+        $lines[0] | Should -Match "^\S+\t02\tunzip\tSTARTED$"
+        $lines[1] | Should -Match "^\S+\t02\tunzip\tPASS$"
+        (Get-SmokeLatestProgress -ProgressPath $script:ProgressPath) | Should -Match 'unzip\tPASS$'
+    }
+
+    It 'records a step that outlives its limit as FAIL "timed out" and stops the process' {
+        $pwsh = (Get-Process -Id $PID).Path
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        Invoke-SmokeStep -Id 'start' -Name 'Hangs' -Check {
+            $run = Invoke-SmokeProcess $pwsh @('-NoProfile', '-Command', 'Start-Sleep -Seconds 60')
+            $run.ExitCode -eq 0
+        }
+        $watch.Stop()
+        $step = $script:Steps | Where-Object Id -eq 'start'
+        $step.Status | Should -Be 'FAIL'
+        $step.Detail | Should -Match 'timed out'
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
+        (Get-Content -LiteralPath $script:ProgressPath)[-1] | Should -Match 'FAIL \[timed out'
+    }
+
+    It 'gives a program closed input, so it cannot wait for a key press' {
+        $pwsh = (Get-Process -Id $PID).Path
+        $run = Invoke-SmokeProcess $pwsh @('-NoProfile', '-Command', '[Console]::In.ReadLine() -eq $null')
+        $run.Output.Trim() | Should -Be 'True'
+    }
+
+    It 'at the overall limit writes the evidence so far, FAIL, with later steps NOT RUN' {
+        Invoke-SmokeStep -Id 'package-hash' -Name 'Hash' -Check { $true }
+        $script:RunDeadline = [DateTime]::UtcNow.AddSeconds(-1)
+        { Invoke-SmokeStep -Id 'unzip' -Name 'Unzip' -Check { $true } } | Should -Throw 'smoke-halt*'
+        $result = Write-SmokeEvidence -Steps @($script:Steps) -PlannedIds @('package-hash', 'unzip', 'install') -ResultsRoot (Join-Path $TestDrive 'ev3') -PackageFilename 'p.zip' -PackageSha256 '' -SourceCommitSha '' -StartedUtc 'x'
+        $result.Overall | Should -Be 'FAIL'
+        $json = Get-Content -LiteralPath $result.JsonPath -Raw | ConvertFrom-Json
+        ($json.Steps | Where-Object Id -eq 'run').Detail | Should -Match 'timed out'
+        ($json.Steps | Where-Object Id -eq 'unzip').Status | Should -Be 'NOT RUN'
+        ($json.Steps | Where-Object Id -eq 'install').Status | Should -Be 'NOT RUN'
+    }
+}

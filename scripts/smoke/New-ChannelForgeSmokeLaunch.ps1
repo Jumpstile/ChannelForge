@@ -58,6 +58,22 @@ function New-SmokeInputFolder {
     Copy-Item -Path (Join-Path $RepoRoot 'tests/fixtures/smoke/*') -Destination (Join-Path $InputFolder 'fixtures')
 }
 
+# Last line of progress.txt, read without blocking the writer in the sandbox.
+function Get-SmokeLatestProgress {
+    param([string]$ProgressPath)
+    if (-not [IO.File]::Exists($ProgressPath)) { return '(no progress yet)' }
+    try {
+        $stream = New-Object IO.FileStream($ProgressPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+            $lines = @(([IO.StreamReader]::new($stream)).ReadToEnd() -split "\r?\n" | Where-Object { $_ })
+            if ($lines.Count -gt 0) { return [string]$lines[-1] }
+        }
+        finally { $stream.Dispose() }
+    }
+    catch { }
+    return '(no progress yet)'
+}
+
 function Invoke-SmokeLaunch {
     param([string]$PackagePath, [string]$ResultsRoot, [string]$RepoRoot, [int]$TimeoutMinutes)
     if ([string]::IsNullOrWhiteSpace($PackagePath)) { throw 'Give -PackagePath <candidate ZIP>.' }
@@ -78,9 +94,15 @@ function Invoke-SmokeLaunch {
 
     Start-Process -FilePath $sandboxExe -ArgumentList ('"' + $wsbPath + '"') | Out-Null
     $evidencePath = Join-Path $resultsFolder 'ChannelForge-smoke-evidence.json'
+    $progressPath = Join-Path $resultsFolder 'progress.txt'
     $deadline = [DateTime]::UtcNow.AddMinutes($TimeoutMinutes)
+    $nextShow = [DateTime]::UtcNow
     while (-not [IO.File]::Exists($evidencePath)) {
-        if ([DateTime]::UtcNow -gt $deadline) { throw "No evidence appeared in $resultsFolder within $TimeoutMinutes minutes." }
+        if ([DateTime]::UtcNow -gt $deadline) { throw "No evidence appeared in $resultsFolder within $TimeoutMinutes minutes. Last progress: $(Get-SmokeLatestProgress -ProgressPath $progressPath)" }
+        if ([DateTime]::UtcNow -ge $nextShow) {
+            Write-Output "Progress: $(Get-SmokeLatestProgress -ProgressPath $progressPath)"
+            $nextShow = [DateTime]::UtcNow.AddSeconds(15)
+        }
         Start-Sleep -Seconds 5
     }
     $record = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
