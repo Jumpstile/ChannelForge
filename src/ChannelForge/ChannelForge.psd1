@@ -124,6 +124,7 @@ FunctionsToExport = @(
     'Get-ChannelForgeEventChannelReport'
     'Set-ChannelForgeEventChannel'
     'Get-ChannelForgeGuideReadiness'
+    'Get-ChannelForgeCompatibilityProfile'
     'Get-ChannelForgeGuideQualityReport'
     'Get-ChannelForgePreflightReport'
     'Get-ChannelForgeOneGuide'

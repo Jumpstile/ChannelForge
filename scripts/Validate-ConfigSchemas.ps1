@@ -32,6 +32,7 @@ $targets = @(
     @{ Path = Join-Path $dataDir 'lineup\numbering_blocks.json'; Schema = Join-Path $schemasDir 'numbering_blocks.schema.json' }
     @{ Path = Join-Path $dataDir 'lineup\categories.json'; Schema = Join-Path $schemasDir 'categories.schema.json' }
     @{ Path = Join-Path $dataDir 'rules\aliases.json'; Schema = Join-Path $schemasDir 'aliases.schema.json' }
+    @{ Path = Join-Path $dataDir 'compatibility\generic-m3u-xmltv.profile.json'; Schema = Join-Path $schemasDir 'compatibility-profile.schema.json' }
 )
 
 $failures = [System.Collections.Generic.List[string]]::new()
