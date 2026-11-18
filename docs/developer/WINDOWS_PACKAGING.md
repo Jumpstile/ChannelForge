@@ -36,6 +36,8 @@ Build the GUI first (`npm run build` in `gui`), commit your changes, then from t
 
 Output goes to `output/packages/` by default (`-OutputRoot` changes it). The ZIP is named `ChannelForge-v<VERSION>-alpha.1-windows-x64.zip`.
 
+To build from one exact, CI-green commit and record the evidence, follow [BUILD_FROM_EXACT_SHA.md](BUILD_FROM_EXACT_SHA.md).
+
 ## What ships
 
 - `src/ChannelForge`, `gui/dist`, `schemas`, `tools`
