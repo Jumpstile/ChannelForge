@@ -1,0 +1,175 @@
+{
+  "id": "generic-m3u-xmltv",
+  "version": "1.0.0",
+  "description": "Today's generic M3U and XMLTV output. Describes what ChannelForge writes now. Makes no claim about any downstream application.",
+  "capabilities": {
+    "m3u_header_and_extinf": {
+      "value": "Writes #EXTM3U and one #EXTINF:-1 line per channel.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "tvg_id": {
+      "value": "Written when not empty.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "tvg_name": {
+      "value": "Written when not empty.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "tvg_logo": {
+      "value": "Written when not empty.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "tvg_chno": {
+      "value": "Written when not empty.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "group_title": {
+      "value": "Written when not empty.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "extended_directives_and_headers": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "duplicate_ids_and_stream_variants": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "channel_number_format_and_limits": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "xmltv_id_binding": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "xmltv_display_names": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "programme_categories": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "programme_icons": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "episode_numbering": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "timezones": {
+      "value": "Programme start and stop times are written in UTC (+0000).",
+      "evidence": {
+        "state": "tested",
+        "source": "tests/unit/XmltvSerialization.Tests.ps1"
+      }
+    },
+    "catchup_timeshift": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "local_vs_remote_artifacts": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "url_encoding": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "character_set": {
+      "value": "M3U is written as UTF-8 without a byte order mark.",
+      "evidence": {
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
+      }
+    },
+    "line_endings": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "size_and_channel_limits": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "refresh_poll_behavior": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "atomic_publication": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "authentication_secret_handling": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    }
+  }
+}

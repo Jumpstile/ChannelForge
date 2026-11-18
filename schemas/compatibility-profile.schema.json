@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Jumpstile/ChannelForge/schemas/compatibility-profile.schema.json",
+  "title": "ChannelForge Downstream Compatibility Profile",
+  "description": "Shape contract for a target compatibility profile (see docs/architecture/DOWNSTREAM_COMPATIBILITY_PROFILES.md). Every capability must carry a value and an evidence state. Unknown stays unknown.",
+  "type": "object",
+  "required": ["id", "version", "capabilities"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "m3u_header_and_extinf",
+        "tvg_id",
+        "tvg_name",
+        "tvg_logo",
+        "tvg_chno",
+        "group_title",
+        "extended_directives_and_headers",
+        "duplicate_ids_and_stream_variants",
+        "channel_number_format_and_limits",
+        "xmltv_id_binding",
+        "xmltv_display_names",
+        "programme_categories",
+        "programme_icons",
+        "episode_numbering",
+        "timezones",
+        "catchup_timeshift",
+        "local_vs_remote_artifacts",
+        "url_encoding",
+        "character_set",
+        "line_endings",
+        "size_and_channel_limits",
+        "refresh_poll_behavior",
+        "atomic_publication",
+        "authentication_secret_handling"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "m3u_header_and_extinf": {
+          "$ref": "#/definitions/capability"
+        },
+        "tvg_id": {
+          "$ref": "#/definitions/capability"
+        },
+        "tvg_name": {
+          "$ref": "#/definitions/capability"
+        },
+        "tvg_logo": {
+          "$ref": "#/definitions/capability"
+        },
+        "tvg_chno": {
+          "$ref": "#/definitions/capability"
+        },
+        "group_title": {
+          "$ref": "#/definitions/capability"
+        },
+        "extended_directives_and_headers": {
+          "$ref": "#/definitions/capability"
+        },
+        "duplicate_ids_and_stream_variants": {
+          "$ref": "#/definitions/capability"
+        },
+        "channel_number_format_and_limits": {
+          "$ref": "#/definitions/capability"
+        },
+        "xmltv_id_binding": {
+          "$ref": "#/definitions/capability"
+        },
+        "xmltv_display_names": {
+          "$ref": "#/definitions/capability"
+        },
+        "programme_categories": {
+          "$ref": "#/definitions/capability"
+        },
+        "programme_icons": {
+          "$ref": "#/definitions/capability"
+        },
+        "episode_numbering": {
+          "$ref": "#/definitions/capability"
+        },
+        "timezones": {
+          "$ref": "#/definitions/capability"
+        },
+        "catchup_timeshift": {
+          "$ref": "#/definitions/capability"
+        },
+        "local_vs_remote_artifacts": {
+          "$ref": "#/definitions/capability"
+        },
+        "url_encoding": {
+          "$ref": "#/definitions/capability"
+        },
+        "character_set": {
+          "$ref": "#/definitions/capability"
+        },
+        "line_endings": {
+          "$ref": "#/definitions/capability"
+        },
+        "size_and_channel_limits": {
+          "$ref": "#/definitions/capability"
+        },
+        "refresh_poll_behavior": {
+          "$ref": "#/definitions/capability"
+        },
+        "atomic_publication": {
+          "$ref": "#/definitions/capability"
+        },
+        "authentication_secret_handling": {
+          "$ref": "#/definitions/capability"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "required": ["state", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": ["documented", "tested", "observed", "reported", "unknown"],
+          "description": "How we know. unknown means no evidence; it is never false and never compatible."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the evidence comes from, or why there is none."
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": ["value", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Plain-words description of the behavior. Must be exactly unknown when the evidence state is unknown."
+        },
+        "evidence": {
+          "$ref": "#/definitions/evidence"
+        }
+      },
+      "if": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "state": {
+                "const": "unknown"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  }
+}
