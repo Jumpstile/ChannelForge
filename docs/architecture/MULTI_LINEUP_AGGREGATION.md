@@ -142,6 +142,8 @@ Two playlists, A and B, both carry ESPN. One guide, G.
 
 ## Not built yet (tracked in #153)
 
+The planned design for the items below is in [Aggregation policies and channel numbers](AGGREGATION_POLICIES_AND_CHANNEL_NUMBERS.md). It is a decision record. Nothing in it is built.
+
 - **User-chosen channel numbers.** Not found. `PreferredNumber` exists on `Channel` but nothing reads it. Numbers come only from numbering blocks by group. `tvg-chno` is stored as raw evidence only.
 - **The six-choice duplicate decision.** Only four choices exist (`KeepWithoutGuide`, `OwnPlaceholder`, `BindTrueMatch`, `ShareOnPurpose`). The other two are not found. The choice is only reached through `Build-My-Lineup.ps1`.
 - **Failover policy between providers.** Not found. No code searches for failover, backup order or stream health. The enrolled `Priority` only orders reading, and the first duplicate wins.
