@@ -13,8 +13,9 @@ $runtime = Join-Path $root 'runtime/pwsh/pwsh.exe'
 $serverScript = Join-Path $root 'scripts/Start-ChannelForgeWebServer.ps1'
 $moduleManifest = Join-Path $root 'src/ChannelForge/ChannelForge.psd1'
 $index = Join-Path $root 'gui/dist/index.html'
-foreach ($required in @($runtime, $serverScript, $moduleManifest, $index)) {
-    if (-not [IO.File]::Exists($required)) { throw "ChannelForge installation is incomplete. Missing: $required" }
+$missing = @(@($runtime, $serverScript, $moduleManifest, $index) | Where-Object { -not [IO.File]::Exists($_) })
+if ($missing.Count -gt 0) {
+    throw "ChannelForge installation is incomplete. Missing: $($missing -join '; '). Reinstall ChannelForge. Logs are in $(Join-Path $root 'state/runtime')."
 }
 $runtimeState = Join-Path $root 'state/runtime'
 New-Item -ItemType Directory -Force -Path $runtimeState | Out-Null
@@ -73,11 +74,11 @@ while ([DateTime]::UtcNow -lt $deadline) {
     if ($process.HasExited) { break }
 }
 if (-not $healthy) {
-    $detail = if (Test-Path -LiteralPath $stderrPath) { (Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue).Trim() } else { '' }
+    $detail = if (Test-Path -LiteralPath $stderrPath) { "$(Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue)".Trim() } else { '' }
     if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = 'The server did not answer /health before the startup timeout.' }
-    throw "ChannelForge could not start. $detail"
+    throw "ChannelForge could not start. $detail Check the logs in $runtimeState."
 }
 if (-not $NoBrowser) { Start-Process $url | Out-Null }
 Write-Output "ChannelForge started: $url"
