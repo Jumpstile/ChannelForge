@@ -29,13 +29,20 @@ if not "%CONFIRM%"=="DELETE" goto :cancelled
 set "UNINSTALL_ARGS=-PurgeData -ConfirmPurge"
 set "PURGED=1"
 :run_uninstall
+cd /d "%TEMP%"
 "%PW%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ROOT%scripts\Uninstall-ChannelForgeWindowsBundle.ps1" -InstallRoot "%LOCALAPPDATA%\ChannelForge" %UNINSTALL_ARGS%
 set "UNINSTALL_EXIT=%errorlevel%"
 for /l %%N in (1,1,60) do (
-  if not exist "%LOCALAPPDATA%\ChannelForge\package-manifest.json" goto :uninstall_done
+  if defined PURGED (
+    if not exist "%LOCALAPPDATA%\ChannelForge" goto :uninstall_done
+  ) else (
+    if not exist "%LOCALAPPDATA%\ChannelForge\package-manifest.json" goto :uninstall_done
+  )
   timeout /t 1 /nobreak >nul
 )
 :uninstall_done
+if defined PURGED if exist "%LOCALAPPDATA%\ChannelForge" set "UNINSTALL_EXIT=1"
+
 if not "%UNINSTALL_EXIT%"=="0" (
   echo.
   echo ChannelForge uninstall failed.

@@ -10,11 +10,11 @@ The portable bundle has no Windows service and no registry installer entry. Unin
 
 ### Option 1: Keep my lineup and saved sources
 
-Removes only the application files from `%LOCALAPPDATA%\ChannelForge`. Your saved sources, settings, lineup output, caches, logs, and update backups stay for a later reinstall.
+Removes every application file from `%LOCALAPPDATA%\ChannelForge`, including the built-in rules shipped in the `data` folder. Your saved sources, settings, lineup output, caches, logs, and update backups stay for a later reinstall, including any files you added to `data`.
 
 ### Option 2: Delete all ChannelForge data
 
-Removes the application and also your lineup, saved sources, and settings. This cannot be undone. Before anything is removed, the window asks you to type the word DELETE in capital letters. If you type anything else, the uninstall is cancelled and nothing is removed.
+Removes the application and also your lineup, saved sources, and settings, then removes the `ChannelForge` folder itself. This cannot be undone. Before anything is removed, the window asks you to type the word DELETE in capital letters. If you type anything else, the uninstall is cancelled and nothing is removed. If something is still in use or an unexpected file is left in the folder, the uninstall says it failed instead of saying the data was removed.
 
 Only ChannelForge's own folders are deleted. Other files that happen to sit next to them are left alone.
 
