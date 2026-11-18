@@ -6,7 +6,7 @@
 #   - state/source-enrollment.json and state/managed-sources are byte-identical
 #     after a successful update and after a failed one
 #   - a backup failure stops the update before any application file changes
-#   - what happens today when the package version is not newer
+#   - a package that is older or equal fails closed unless -AllowDowngrade is given
 #
 # Run with: Invoke-Pester -Path .\tests\unit\ChannelForgeAutoUpdate.LocalPackage.Tests.ps1
 
@@ -92,13 +92,14 @@ BeforeAll {
     }
 
     function Invoke-TestLocalUpdate {
-        param([string]$Package, [string]$Install, [switch]$SkipRestart)
+        param([string]$Package, [string]$Install, [switch]$SkipRestart, [switch]$AllowDowngrade)
         $arguments = @(
             '-NoLogo', '-NoProfile', '-NonInteractive', '-File', $script:OrchestratorPath,
             '-PackageRoot', $Package, '-InstallRoot', $Install,
             '-VersionFile', (Join-Path $Install 'VERSION'), '-Apply'
         )
         if ($SkipRestart) { $arguments += '-SkipRestart' }
+        if ($AllowDowngrade) { $arguments += '-AllowDowngrade' }
         $output = & $script:Pwsh @arguments 2>&1 | Out-String
         return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
     }
@@ -153,16 +154,51 @@ Describe 'Local package update' {
         Test-Path -LiteralPath (Join-Path $install 'package-manifest.json') | Should -BeFalse
     }
 
-    It 'does not block a package that is older than the installed version (current behavior, no version check on this path)' {
+    It 'refuses a package that is older than the installed version and changes nothing' {
         $install = New-TestInstall -Version '3.0.0'
+        $package = New-TestPackage -Version '2.0.0'
+        $before = Get-TreeSnapshot -Root $install
+
+        $run = Invoke-TestLocalUpdate -Package $package -Install $install -SkipRestart
+
+        $run.ExitCode | Should -Not -Be 0
+        $run.Output | Should -BeLike '*This package (2.0.0) is not newer than the installed version (3.0.0). Nothing was changed.*'
+        $run.Output | Should -Not -BeLike '*Update installed successfully*'
+        Get-TreeSnapshot -Root $install | Should -BeExactly $before
+        Test-Path -LiteralPath (Join-Path $install 'UpdateBackups') | Should -BeFalse
+    }
+
+    It 'refuses a package with the same version as the installed one and changes nothing' {
+        $install = New-TestInstall -Version '2.0.0'
+        $package = New-TestPackage -Version '2.0.0'
+        $before = Get-TreeSnapshot -Root $install
+
+        $run = Invoke-TestLocalUpdate -Package $package -Install $install -SkipRestart
+
+        $run.ExitCode | Should -Not -Be 0
+        $run.Output | Should -BeLike '*is not newer than the installed version*'
+        Get-TreeSnapshot -Root $install | Should -BeExactly $before
+    }
+
+    It 'installs an older package when -AllowDowngrade is given' {
+        $install = New-TestInstall -Version '3.0.0'
+        $package = New-TestPackage -Version '2.0.0'
+
+        $run = Invoke-TestLocalUpdate -Package $package -Install $install -SkipRestart -AllowDowngrade
+
+        $run.ExitCode | Should -Be 0
+        $run.Output | Should -BeLike '*Update installed successfully: 2.0.0*'
+        [IO.File]::ReadAllText((Join-Path $install 'VERSION')) | Should -BeExactly '2.0.0'
+    }
+
+    It 'still installs when there is no installed VERSION yet (first install)' {
+        $install = New-TestInstall
+        Remove-Item -LiteralPath (Join-Path $install 'VERSION')
         $package = New-TestPackage -Version '2.0.0'
 
         $run = Invoke-TestLocalUpdate -Package $package -Install $install -SkipRestart
 
         $run.ExitCode | Should -Be 0
-        $run.Output | Should -BeLike '*Update installed successfully: 2.0.0*'
-        $run.Output | Should -Not -BeLike '*older*'
-        $run.Output | Should -Not -BeLike '*downgrade*'
         [IO.File]::ReadAllText((Join-Path $install 'VERSION')) | Should -BeExactly '2.0.0'
     }
 }
