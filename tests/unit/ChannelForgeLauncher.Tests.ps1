@@ -40,6 +40,15 @@ while ($true) {
 '@
 
     $script:SilentServer = 'Start-Sleep -Seconds 120'
+
+    # Records the real pwsh.exe in a package-manifest.json; override a value to fake a swapped runtime.
+    function Write-RuntimeManifest([string]$Root, [string]$Sha256 = '', [Int64]$ByteLength = -1) {
+        $exe = Join-Path $PSHOME 'pwsh.exe'
+        if ($Sha256 -eq '') { $Sha256 = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant() }
+        if ($ByteLength -lt 0) { $ByteLength = (Get-Item -LiteralPath $exe).Length }
+        $files = @([ordered]@{ Path = 'runtime/pwsh/pwsh.exe'; ByteLength = $ByteLength; Sha256 = $Sha256 })
+        Set-Content -LiteralPath (Join-Path $Root 'package-manifest.json') -Value (@{ Files = $files } | ConvertTo-Json -Depth 4)
+    }
 }
 
 Describe 'Start-ChannelForge launcher' {
@@ -85,5 +94,31 @@ Describe 'Start-ChannelForge launcher' {
         (Get-Content -LiteralPath (Join-Path $root 'server.args.txt') -Raw) | Should -Be "127.0.0.1 $port"
         Should -Invoke Start-Process -Exactly 1 -ParameterFilter { $FilePath -ceq "http://127.0.0.1:$port/" }
         "$output" | Should -BeLike "*http://127.0.0.1:$port/*"
+    }
+
+    It 'starts when package-manifest.json matches the bundled pwsh.exe' {
+        $root = New-FakeInstall $script:ListeningServer
+        Write-RuntimeManifest $root
+        $port = Get-FreePort
+        Mock Start-Process { if ($FilePath -notlike 'http*') { & (Get-Command Start-Process -CommandType Cmdlet) @PesterBoundParameters } }
+        "$(& $script:StartPath -InstallRoot $root -Port $port -NoBrowser)" | Should -BeLike "*http://127.0.0.1:$port/*"
+    }
+
+    It 'stops with a plain message and starts nothing when pwsh.exe does not match the manifest' {
+        $root = New-FakeInstall $script:ListeningServer
+        Write-RuntimeManifest $root -Sha256 ('0' * 64)
+        $message = ''
+        try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser } catch { $message = $_.Exception.Message }
+        $message | Should -Be 'The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge.'
+        Test-Path -LiteralPath (Join-Path $root 'state\runtime\server.pid') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $root 'server.args.txt') | Should -BeFalse
+    }
+
+    It 'stops when the manifest records a different length for pwsh.exe' {
+        $root = New-FakeInstall $script:ListeningServer
+        Write-RuntimeManifest $root -ByteLength 1
+        $message = ''
+        try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser } catch { $message = $_.Exception.Message }
+        $message | Should -BeLike 'The bundled PowerShell does not match*'
     }
 }

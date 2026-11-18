@@ -10,6 +10,8 @@
 
 Your playlist and guide are private input. Keep them local; never commit or paste their contents into an issue.
 
+If you installed the Windows bundle, see [Install ChannelForge on Windows](INSTALL-WINDOWS.md) instead of setting up PowerShell yourself.
+
 ## Event guide readiness
 
 For sports and event channels, an XMLTV file alone is not enough. A reliable event guide also needs evidence for the channel identity, event title, start time, timezone, status, and source freshness. This includes PPV and fight channels, temporary event channels, league or sport groups, single-team patterns, and similar streaming-event groups when a permitted source provides them.
