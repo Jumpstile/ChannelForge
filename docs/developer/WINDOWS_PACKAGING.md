@@ -16,11 +16,11 @@ At start, `Start-ChannelForge.ps1` checks the bundled `pwsh.exe` against the man
 
 ## What the updater checks before it unpacks a download
 
-`tools/Invoke-ChannelForgeAutoUpdate.ps1 -Apply` (GitHub release path) checks the downloaded ZIP before it unpacks it:
+`tools/Invoke-ChannelForgeAutoUpdate.ps1 -Apply` (GitHub release path) downloads the ZIP and checks it first, before it stops ChannelForge, makes a backup, or unpacks anything:
 
 1. It reads the published SHA-256 from the `<package>.evidence.json` release asset (`PackageSha256`). If the release has no evidence asset, it looks for a `SHA-256: <64 hex>` line in the release notes.
-2. It hashes the downloaded ZIP and compares. No published value, a malformed value, or a different hash stops the update with a plain message. Nothing is unpacked and the installed files and your data are left as they were.
-3. If an evidence file is used, its `PackageSourceCommitSha` must be present, a 40-character lowercase hex value, and equal `SourceCommitSha` in `package-manifest.json` (checked after unpacking to a temp folder). Anything else stops the update. A release that publishes only a hash in its notes has no commit value to compare; that is not an error.
+2. It hashes the downloaded ZIP and compares. No published value, a malformed value, or a different hash stops the update with a plain message. ChannelForge is still running, no backup folder is made, and the installed files and your data are left as they were.
+3. If an evidence file is used, its `PackageSourceCommitSha` must be present and a 40-character lowercase hex value (checked at this same early point). It must also equal `SourceCommitSha` in `package-manifest.json`; that comparison needs the manifest, so it runs after the backup, on the unpacked temp folder, and a mismatch restores the backup. A release that publishes only a hash in its notes has no commit value to compare; that is not an error.
 
 What this does not do: there is no code signing and no key trust. The evidence file and the ZIP come from the same GitHub release, so this catches a damaged or swapped download, not a release whose publisher account is compromised.
 

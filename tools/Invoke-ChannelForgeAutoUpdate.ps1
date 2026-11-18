@@ -47,7 +47,7 @@ function Install-DownloadedUpdate {
             $extractPath = Join-Path ([System.IO.Path]::GetTempPath()) ("channelforge-extract-" + [guid]::NewGuid().ToString('N'))
             New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
             try {
-                Assert-ChannelForgePackageZipHash -ZipPath $DownloadedPath -Published $Published
+                # The ZIP hash was already checked before the app was stopped.
                 Expand-Archive -LiteralPath $DownloadedPath -DestinationPath $extractPath -Force
                 $manifestPath = Join-Path $extractPath 'package-manifest.json'
                 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -195,18 +195,25 @@ if ($Apply) {
 
     $downloadedPath = $null
     $backupPath = $null
+    $stopped = $false
+    $stopScript = Join-Path $InstallRoot 'scripts/Stop-ChannelForge.ps1'
+    $oldRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
     try {
-        $stopScript = Join-Path $InstallRoot 'scripts/Stop-ChannelForge.ps1'
-        $oldRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
+        # Download and verify first: a bad download stops here with the app running and nothing changed.
+        $published = if ($asset.name -like '*.zip') { Get-ChannelForgePublishedPackageEvidence -Release $release -Asset $asset -Owner $Owner -Repository $Repository } else { $null }
+        $downloadedPath = Save-ChannelForgeReleaseAsset -Asset $asset
+        Write-UpdaterInfo "Downloaded     : $downloadedPath"
+        if ($asset.name -like '*.zip') {
+            Assert-ChannelForgePackageZipHash -ZipPath $downloadedPath -Published $published
+        }
+
+        $stopped = $true
         if (-not $SkipRestart -and (Test-Path -LiteralPath $stopScript) -and (Test-Path -LiteralPath $oldRuntime)) {
             & $oldRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $stopScript
         }
         $backupPath = New-ChannelForgeUpdateBackup -Root $InstallRoot
         Write-UpdaterInfo "Backup created : $backupPath"
 
-        $published = if ($asset.name -like '*.zip') { Get-ChannelForgePublishedPackageEvidence -Release $release -Asset $asset -Owner $Owner -Repository $Repository } else { $null }
-        $downloadedPath = Save-ChannelForgeReleaseAsset -Asset $asset
-        Write-UpdaterInfo "Downloaded     : $downloadedPath"
         Install-DownloadedUpdate -DownloadedPath $downloadedPath -Root $InstallRoot -Published $published
         Test-ChannelForgeWindowsPackage -PackageRoot $InstallRoot -AllowProtectedState -AllowUnmanifestedFiles | Out-Null
         if (-not $SkipRestart) {
@@ -219,6 +226,7 @@ if ($Apply) {
         }
         Write-UpdaterInfo 'Update installed successfully.'
     } catch {
+        if (-not $stopped) { throw }
         if ($null -ne $backupPath) {
             Restore-ChannelForgeUpdateBackup -BackupRoot $backupPath -DestinationRoot $InstallRoot
         }

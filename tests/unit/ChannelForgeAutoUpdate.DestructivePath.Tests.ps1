@@ -28,6 +28,33 @@ BeforeAll {
         return $root
     }
 
+    # Makes the install root look like a running install: a Stop script that
+    # leaves a marker file if it ever runs, and a runtime folder (a junction to
+    # this pwsh) so the updater would really call it. Snapshots are compared
+    # after the run (every file path + SHA-256).
+    function Add-StopProbe {
+        param([Parameter(Mandatory)][string]$Root)
+        New-Item -ItemType Directory -Path (Join-Path $Root 'scripts') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $Root 'scripts\Stop-ChannelForge.ps1') -Value "Set-Content -LiteralPath (Join-Path (Split-Path -Parent `$PSScriptRoot) 'stop-ran.txt') -Value 'ran'" -NoNewline
+        New-Item -ItemType Directory -Path (Join-Path $Root 'runtime') -Force | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $Root 'runtime\pwsh') -Target $PSHOME | Out-Null
+    }
+
+    function Get-InstallSnapshot {
+        param([Parameter(Mandatory)][string]$Root)
+        $prefix = $Root.TrimEnd('\') + '\'
+        $lines = foreach ($file in (Get-ChildItem -LiteralPath $Root -Recurse -File -Force | Where-Object { $_.FullName -notlike (Join-Path $Root 'runtime\*') })) {
+            $file.FullName.Substring($prefix.Length) + '=' + (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+        }
+        return (@($lines) | Sort-Object) -join "`n"
+    }
+
+    function Remove-StopProbe {
+        param([Parameter(Mandatory)][string]$Root)
+        $junction = Join-Path $Root 'runtime\pwsh'
+        if (Test-Path -LiteralPath $junction) { [System.IO.Directory]::Delete($junction) }
+    }
+
     function New-FixtureZipBytes {
         param(
             [Parameter(Mandatory)][hashtable]$Entries
@@ -272,17 +299,18 @@ Describe '4. Read-only destination' {
 }
 
 Describe '5. Backup failure' {
-    It 'aborts before any download when the backup cannot be created, leaving the install root untouched' {
+    It 'downloads first, then aborts before the install when the backup cannot be created, leaving the install root untouched' {
         $root = New-DestructiveInstallRoot
 
         Mock -ModuleName ChannelForgeAutoUpdate.Core New-Item {
             throw 'Access to the path is denied (simulated backup failure).'
         } -ParameterFilter { $ItemType -eq 'Directory' }
 
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code' }
+        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -WebRequestMock {
             param($Uri, $Headers, $OutFile, $UseBasicParsing)
-            throw 'Invoke-WebRequest should never be called when backup fails first.'
-        }
+            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+        }.GetNewClosure()
 
         $result.Error | Should -BeOfType ([System.Management.Automation.ErrorRecord])
         $result.Error.Exception.Message | Should -Match 'denied'
@@ -411,46 +439,66 @@ Describe '10. Published SHA-256 and source commit check' {
         (Get-Content -LiteralPath (Join-Path $root 'src\new.psm1') -Raw) | Should -Be 'new code'
     }
 
-    It 'stops on a SHA-256 mismatch and leaves the installed copy and user data unchanged' {
+    It 'stops on a SHA-256 mismatch before the app is stopped or backed up, and leaves the install byte-identical' {
         $root = New-DestructiveInstallRoot
-        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'src\existing.psm1' = 'new code' }
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -PublishedSha256 ('f' * 64) -WebRequestMock {
-            param($Uri, $Headers, $OutFile, $UseBasicParsing)
-            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
-        }.GetNewClosure()
+        Add-StopProbe -Root $root
+        try {
+            $before = Get-InstallSnapshot -Root $root
+            $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'src\existing.psm1' = 'new code' }
+            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -ZipBytes $zipBytes -PublishedSha256 ('f' * 64) -WebRequestMock {
+                param($Uri, $Headers, $OutFile, $UseBasicParsing)
+                [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+            }.GetNewClosure()
 
-        $result.Error.Exception.Message | Should -Match 'does not match the published SHA-256'
-        (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
-        (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw) | Should -Be '0.1.0'
-        (Get-Content -LiteralPath (Join-Path $root 'data\providers\mybunny.json') -Raw) | Should -Match 'REAL-USER-SECRET'
-        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
-        @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter 'channelforge-extract-*' -ErrorAction SilentlyContinue).Count | Should -Be 0
+            $result.Error.Exception.Message | Should -Match 'does not match the published SHA-256'
+            Test-Path -LiteralPath (Join-Path $root 'stop-ran.txt') | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $root 'UpdateBackups') | Should -BeFalse
+            Get-InstallSnapshot -Root $root | Should -BeExactly $before
+            @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter 'channelforge-extract-*' -ErrorAction SilentlyContinue).Count | Should -Be 0
+        } finally {
+            Remove-StopProbe -Root $root
+        }
     }
 
-    It 'stops when the release publishes no SHA-256' {
+    It 'stops before the app is stopped or backed up when the release publishes no SHA-256' {
         $root = New-DestructiveInstallRoot
-        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code' }
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
-            param($Uri, $Headers, $OutFile, $UseBasicParsing)
-            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
-        }.GetNewClosure()
+        Add-StopProbe -Root $root
+        try {
+            $before = Get-InstallSnapshot -Root $root
+            $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code' }
+            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -WebRequestMock {
+                param($Uri, $Headers, $OutFile, $UseBasicParsing)
+                [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+            }.GetNewClosure()
 
-        $result.Error.Exception.Message | Should -Match 'No valid published SHA-256'
-        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
-        (Get-Content -LiteralPath (Join-Path $root 'src\existing.psm1') -Raw) | Should -Be 'old code'
+            $result.Error.Exception.Message | Should -Match 'No valid published SHA-256'
+            Test-Path -LiteralPath (Join-Path $root 'stop-ran.txt') | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $root 'UpdateBackups') | Should -BeFalse
+            Get-InstallSnapshot -Root $root | Should -BeExactly $before
+        } finally {
+            Remove-StopProbe -Root $root
+        }
     }
 
-    It 'stops when the published source commit is not 40 hex characters' {
+    It 'stops before the app is stopped or backed up when the published source commit is not 40 hex characters' {
         $root = New-DestructiveInstallRoot
-        $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'data\rules\aliases.json' = '{}'; 'data\lineup\numbering_blocks.json' = '{}' }
-        $evidence = Get-TestZipEvidence -Bytes $zipBytes -Commit 'not-a-commit'
-        $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -EvidenceJson $evidence -WebRequestMock {
-            param($Uri, $Headers, $OutFile, $UseBasicParsing)
-            [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
-        }.GetNewClosure()
+        Add-StopProbe -Root $root
+        try {
+            $before = Get-InstallSnapshot -Root $root
+            $zipBytes = New-FixtureZipBytes -Entries @{ 'src\new.psm1' = 'new code'; 'data\rules\aliases.json' = '{}'; 'data\lineup\numbering_blocks.json' = '{}' }
+            $evidence = Get-TestZipEvidence -Bytes $zipBytes -Commit 'not-a-commit'
+            $result = Invoke-ChannelForgeApplyWithMockedRelease -InstallRoot $root -EvidenceJson $evidence -WebRequestMock {
+                param($Uri, $Headers, $OutFile, $UseBasicParsing)
+                [System.IO.File]::WriteAllBytes($OutFile, $zipBytes)
+            }.GetNewClosure()
 
-        $result.Error.Exception.Message | Should -Match '40-character hex'
-        Test-Path -LiteralPath (Join-Path $root 'src\new.psm1') | Should -BeFalse
+            $result.Error.Exception.Message | Should -Match '40-character hex'
+            Test-Path -LiteralPath (Join-Path $root 'stop-ran.txt') | Should -BeFalse
+            Test-Path -LiteralPath (Join-Path $root 'UpdateBackups') | Should -BeFalse
+            Get-InstallSnapshot -Root $root | Should -BeExactly $before
+        } finally {
+            Remove-StopProbe -Root $root
+        }
     }
 
     It 'stops when the published source commit differs from the package manifest' {
