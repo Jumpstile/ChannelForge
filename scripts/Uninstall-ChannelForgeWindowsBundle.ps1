@@ -66,8 +66,19 @@ foreach ($name in $applicationNames) {
     }
 }
 
+# Shipped data files are package-owned; the rest of data\ may hold user edits, so only prune empty folders.
+foreach ($relative in @('data\rules\aliases.json', 'data\lineup\numbering_blocks.json', 'data\rules', 'data\lineup', 'data')) {
+    $path = Join-Path $actualRoot $relative
+    $isShippedFile = $relative -like '*.json'
+    if (-not (Test-Path -LiteralPath $path)) { continue }
+    if (-not $isShippedFile -and @(Get-ChildItem -LiteralPath $path -Force).Count -gt 0) { continue }
+    if ($PSCmdlet.ShouldProcess($path, 'remove ChannelForge application files')) {
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
 if ($PurgeData) {
-    $dataNames = @('state', 'config', 'output', 'cache', 'logs', 'UpdateBackups')
+    $dataNames = @('state', 'config', 'data', 'output', 'cache', 'logs', 'UpdateBackups')
     foreach ($name in $dataNames) {
         $path = Join-Path $actualRoot $name
         if (Test-Path -LiteralPath $path) {
@@ -81,6 +92,10 @@ if ($PurgeData) {
 $remaining = @(Get-ChildItem -LiteralPath $actualRoot -Force -ErrorAction SilentlyContinue)
 if ($remaining.Count -eq 0) {
     Remove-Item -LiteralPath $actualRoot -Force -ErrorAction SilentlyContinue
+}
+if ($PurgeData -and -not $WhatIfPreference -and (Test-Path -LiteralPath $actualRoot)) {
+    $left = @(Get-ChildItem -LiteralPath $actualRoot -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', '
+    throw "ChannelForge data was not fully removed. These items are still in ${actualRoot}: $left"
 }
 if ($PurgeData) {
     Write-Output 'ChannelForge application and user data removed.'

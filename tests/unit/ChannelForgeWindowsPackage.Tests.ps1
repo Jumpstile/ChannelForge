@@ -130,6 +130,36 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
         }
     }
 
+    It 'removes the shipped data folder on keep, and purge fails honestly when an unexpected file is left' {
+        $oldLocalAppData = $env:LOCALAPPDATA
+        $local = Join-Path $TestDrive 'local-app-data-shipped-data'
+        $env:LOCALAPPDATA = $local
+        try {
+            $root = Join-Path $local 'ChannelForge'
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'src'), (Join-Path $root 'data\rules'), (Join-Path $root 'data\lineup'), (Join-Path $root 'state') | Out-Null
+            Set-Content -LiteralPath (Join-Path $root 'src\app.ps1') -Value 'app' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Value '{}' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'data\lineup\numbering_blocks.json') -Value '{}' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'state\marker.txt') -Value 'mine' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'my-notes.txt') -Value 'mine' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'data\providers.local.json') -Value 'mine' -NoNewline
+
+            & $script:UninstallPath -InstallRoot $root
+            @(Get-ChildItem -LiteralPath $root -Force | ForEach-Object Name | Sort-Object) | Should -Be @('data', 'my-notes.txt', 'state')
+            @(Get-ChildItem -LiteralPath (Join-Path $root 'data') -Recurse -File | ForEach-Object Name) | Should -Be @('providers.local.json')
+
+            { & $script:UninstallPath -InstallRoot $root -PurgeData -ConfirmPurge } | Should -Throw '*my-notes.txt*'
+            Test-Path -LiteralPath (Join-Path $root 'my-notes.txt') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $root 'state') | Should -BeFalse
+
+            Remove-Item -LiteralPath (Join-Path $root 'my-notes.txt')
+            & $script:UninstallPath -InstallRoot $root -PurgeData -ConfirmPurge
+            Test-Path -LiteralPath $root | Should -BeFalse
+        } finally {
+            $env:LOCALAPPDATA = $oldLocalAppData
+        }
+    }
+
     It 'offers both plain choices and requires the typed word DELETE in the cmd' {
         $cmd = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'Uninstall ChannelForge.cmd') -Raw
         $cmd | Should -Match 'Keep my lineup and saved sources'
