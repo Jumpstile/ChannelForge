@@ -279,6 +279,76 @@ function Save-ChannelForgeReleaseAsset {
     return $tempPath
 }
 
+function Get-ChannelForgePublishedPackageEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Release,
+        [Parameter(Mandatory)] $Asset,
+        [Parameter(Mandatory)][string]$Owner,
+        [Parameter(Mandatory)][string]$Repository
+    )
+
+    # Published value = the .evidence.json release asset the build writes,
+    # else a "SHA-256: <64 hex>" line in the release notes. No value = stop.
+    $evidenceName = ([string]$Asset.name) + '.evidence.json'
+    $evidenceAsset = @($Release.assets | Where-Object { $_.name -ceq $evidenceName } | Select-Object -First 1)
+    if ($evidenceAsset.Count -gt 0) {
+        $url = [string]$evidenceAsset[0].browser_download_url
+        if (-not (Test-ChannelForgeUpdateAssetUrl -Url $url -Owner $Owner -Repository $Repository)) {
+            throw "Refusing non-release GitHub asset URL: $url"
+        }
+        $doc = Invoke-RestMethod -Uri $url -UseBasicParsing
+        if ($doc -is [string]) { $doc = $doc | ConvertFrom-Json -ErrorAction Stop }
+        if ([string]$doc.PackageFilename -cne [string]$Asset.name) {
+            throw 'The published evidence file is for a different package. Update stopped; nothing was changed.'
+        }
+        $commit = if ($null -ne $doc.PSObject.Properties['PackageSourceCommitSha']) { [string]$doc.PackageSourceCommitSha } else { '' }
+        if ([string]::IsNullOrEmpty($commit)) {
+            throw 'The published evidence file has no source commit. Update stopped; nothing was changed.'
+        }
+        return [pscustomobject]@{ Sha256 = [string]$doc.PackageSha256; SourceCommitSha = $commit }
+    }
+
+    $notesHash = ''
+    if ($Release.PSObject.Properties['body'] -and ([string]$Release.body) -match '(?im)SHA-?256[^0-9a-f\r\n]*([0-9a-f]{64})\b') {
+        $notesHash = $Matches[1]
+    }
+    return [pscustomobject]@{ Sha256 = $notesHash; SourceCommitSha = '' }
+}
+
+function Assert-ChannelForgePackageZipHash {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ZipPath,
+        [AllowNull()] $Published
+    )
+
+    $expected = if ($null -ne $Published) { ([string]$Published.Sha256).Trim().ToLowerInvariant() } else { '' }
+    if ($expected -cnotmatch '^[0-9a-f]{64}$') {
+        throw 'No valid published SHA-256 was found for this release. Update stopped; nothing was changed.'
+    }
+    if ((Get-ChannelForgePackageFileHash -Path $ZipPath) -cne $expected) {
+        throw 'The downloaded package does not match the published SHA-256. Update stopped; nothing was changed.'
+    }
+}
+
+function Assert-ChannelForgePublishedSourceCommit {
+    [CmdletBinding()]
+    param(
+        [AllowNull()] $Published,
+        [Parameter(Mandatory)][string]$ManifestCommitSha
+    )
+
+    $commit = if ($null -ne $Published) { [string]$Published.SourceCommitSha } else { '' }
+    if ([string]::IsNullOrEmpty($commit)) { return }
+    if ($commit -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'The published source commit is not a 40-character hex value. Update stopped; nothing was changed.'
+    }
+    if ($commit -cne $ManifestCommitSha.ToLowerInvariant()) {
+        throw 'The published source commit does not match the package manifest. Update stopped; nothing was changed.'
+    }
+}
+
 function Copy-ChannelForgeUpdatePackageContent {
     [CmdletBinding()]
     param(
@@ -482,5 +552,8 @@ Export-ModuleMember -Function @(
     'Copy-ChannelForgeUpdatePackageContent',
     'Get-ChannelForgePackageFileHash',
     'Test-ChannelForgeWindowsPackage',
+    'Get-ChannelForgePublishedPackageEvidence',
+    'Assert-ChannelForgePackageZipHash',
+    'Assert-ChannelForgePublishedSourceCommit',
     'Restore-ChannelForgeUpdateBackup'
 )

@@ -134,6 +134,7 @@ Describe 'Local package update' {
 
         $run.ExitCode | Should -Be 0
         $run.Output | Should -BeLike '*Update installed successfully: 2.0.0*'
+        $run.Output | Should -BeLike '*no published SHA-256 is checked on this path*'
         Get-TreeSnapshot -Root $install -Filter 'state/*' | Should -BeExactly $stateBefore
         Get-TreeSnapshot -Root $install -Filter 'src/app.ps1' | Should -BeExactly (Get-TreeSnapshot -Root $package -Filter 'src/app.ps1')
         [IO.File]::ReadAllText((Join-Path $install 'VERSION')) | Should -BeExactly '2.0.0'

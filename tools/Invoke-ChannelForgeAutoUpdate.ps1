@@ -39,7 +39,7 @@ function Write-UpdaterInfo {
 }
 
 function Install-DownloadedUpdate {
-    param([string]$DownloadedPath, [string]$Root)
+    param([string]$DownloadedPath, [string]$Root, $Published = $null)
 
     $extension = [System.IO.Path]::GetExtension($DownloadedPath)
     switch -Regex ($extension) {
@@ -47,12 +47,14 @@ function Install-DownloadedUpdate {
             $extractPath = Join-Path ([System.IO.Path]::GetTempPath()) ("channelforge-extract-" + [guid]::NewGuid().ToString('N'))
             New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
             try {
+                Assert-ChannelForgePackageZipHash -ZipPath $DownloadedPath -Published $Published
                 Expand-Archive -LiteralPath $DownloadedPath -DestinationPath $extractPath -Force
                 $manifestPath = Join-Path $extractPath 'package-manifest.json'
                 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
                     throw 'Windows package manifest is missing.'
                 }
-                Test-ChannelForgeWindowsPackage -PackageRoot $extractPath | Out-Null
+                $package = Test-ChannelForgeWindowsPackage -PackageRoot $extractPath
+                Assert-ChannelForgePublishedSourceCommit -Published $Published -ManifestCommitSha ([string]$package.Manifest.SourceCommitSha)
                 $result = Copy-ChannelForgeUpdatePackageContent -SourcePath $extractPath -DestinationRoot $Root
                 if ($result.Copied.Count -gt 0) {
                     Write-UpdaterInfo "Updated       : $($result.Copied -join ', ')"
@@ -142,6 +144,7 @@ if (-not [string]::IsNullOrWhiteSpace($PackagePath) -or -not [string]::IsNullOrW
         $validated = Test-ChannelForgeWindowsPackage -PackageRoot $source.Root
         Write-UpdaterInfo "Package valid   : $($validated.Manifest.ChannelForgeVersion)"
         Write-UpdaterInfo "Package source  : $($validated.Manifest.SourceCommitSha)"
+        Write-UpdaterInfo 'Local package   : no published SHA-256 is checked on this path (developer/offline use).'
         if ($Apply) { Invoke-ChannelForgeLocalPackageUpdate -SourceRoot $source.Root }
     } finally {
         if ($source.Temporary -and (Test-Path -LiteralPath $source.Root)) { Remove-Item -LiteralPath $source.Root -Recurse -Force -ErrorAction SilentlyContinue }
@@ -201,9 +204,10 @@ if ($Apply) {
         $backupPath = New-ChannelForgeUpdateBackup -Root $InstallRoot
         Write-UpdaterInfo "Backup created : $backupPath"
 
+        $published = if ($asset.name -like '*.zip') { Get-ChannelForgePublishedPackageEvidence -Release $release -Asset $asset -Owner $Owner -Repository $Repository } else { $null }
         $downloadedPath = Save-ChannelForgeReleaseAsset -Asset $asset
         Write-UpdaterInfo "Downloaded     : $downloadedPath"
-        Install-DownloadedUpdate -DownloadedPath $downloadedPath -Root $InstallRoot
+        Install-DownloadedUpdate -DownloadedPath $downloadedPath -Root $InstallRoot -Published $published
         Test-ChannelForgeWindowsPackage -PackageRoot $InstallRoot -AllowProtectedState -AllowUnmanifestedFiles | Out-Null
         if (-not $SkipRestart) {
             $newRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
