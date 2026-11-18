@@ -155,3 +155,52 @@ Describe 'Smoke progress and time limits' {
         ($json.Steps | Where-Object Id -eq 'install').Status | Should -Be 'NOT RUN'
     }
 }
+
+Describe 'Smoke uninstall steps' -Skip:(-not $IsWindows) {
+    BeforeEach {
+        $script:Steps.Clear()
+        $script:StepTimeoutSec = 20
+        $script:RunDeadline = $null
+    }
+    AfterEach { $script:StepTimeoutSec = 120 }
+
+    It 'builds the .cmd command line with its arguments' {
+        $bundle = Join-Path $TestDrive 'my bundle'
+        New-Item -ItemType Directory -Path $bundle | Out-Null
+        Set-Content -LiteralPath (Join-Path $bundle 'Uninstall ChannelForge.cmd') -Value '@echo ARGS=[%*]' -Encoding ascii
+        $run = Invoke-SmokeUninstallCmd -BundleRoot $bundle -ArgumentList @('-PurgeData', '-ConfirmPurge')
+        $run.Output | Should -Match ([regex]::Escape('ARGS=[-PurgeData -ConfirmPurge]'))
+        (Invoke-SmokeUninstallCmd -BundleRoot $bundle).Output | Should -Match ([regex]::Escape('ARGS=[]'))
+    }
+
+    It 'does not pass the cancel check when the output lacks "Cancelled"' {
+        $run = [pscustomobject]@{ ExitCode = 0; Output = 'Choose 1 or 2: ' }
+        Invoke-SmokeStep -Id 'uninstall-cancel' -Name 'Cancel' -Check {
+            Assert-SmokeRun $run 'Uninstall menu' ($run.Output -match 'Cancelled')
+        }
+        $step = $script:Steps | Where-Object Id -eq 'uninstall-cancel'
+        $step.Status | Should -Be 'FAIL'
+        $step.Detail | Should -Match 'Choose 1 or 2'
+    }
+
+    It 'reports leftovers (at most 10) when the install root is not removed' {
+        $root = Join-Path $TestDrive 'left'
+        New-Item -ItemType Directory -Path (Join-Path $root 'data\lineup') -Force | Out-Null
+        1..12 | ForEach-Object { Set-Content -LiteralPath (Join-Path $root "data\lineup\f$_.json") -Value 'x' }
+        $run = [pscustomobject]@{ ExitCode = 0; Output = 'application and user data removed' }
+        Invoke-SmokeStep -Id 'uninstall-delete' -Name 'Delete' -Check { Test-SmokeRootRemoved -Root $root -Run $run -WaitSeconds 1 }
+        $step = $script:Steps | Where-Object Id -eq 'uninstall-delete'
+        $step.Status | Should -Be 'FAIL'
+        ([regex]::Matches($step.Detail, 'data\\lineup\\f')).Count | Should -Be 10
+    }
+
+    It 'passes when the install root is gone within the wait' {
+        $root = Join-Path $TestDrive 'going'
+        New-Item -ItemType Directory -Path $root | Out-Null
+        $job = Start-Job { Start-Sleep -Seconds 1; Remove-Item -LiteralPath $using:root -Recurse -Force }
+        try {
+            Test-SmokeRootRemoved -Root $root -Run ([pscustomobject]@{ ExitCode = 0; Output = '' }) -WaitSeconds 15 | Should -BeTrue
+        }
+        finally { Remove-Job $job -Force }
+    }
+}
