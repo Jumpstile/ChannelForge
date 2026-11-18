@@ -31,6 +31,7 @@ Core engineering documentation:
 - [Release checklist](docs/templates/release-checklist.md)
 - [Developer guide](docs/developer/DEVELOPER_GUIDE.md)
 - [Architecture docs](docs/architecture/)
+- [IPTVBoss parity matrix](docs/architecture/IPTVBOSS_PARITY.md)
 - [Architecture Decision Records](docs/adr/)
 - [User documentation](docs/user/README.md)
 

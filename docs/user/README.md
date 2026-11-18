@@ -18,3 +18,4 @@ This directory is the task-oriented, user-facing documentation for ChannelForge 
 - [Reference](Reference/README.md) — quick-lookup configuration and command reference
 - [The ChannelForge Way](THE_CHANNELFORGE_WAY.md) — project mindset and philosophy
 - [First Plex Smoke Test](PLEX_SMOKE_TEST.md) — detailed, hands-on walkthrough of testing a real lineup in Plex
+- [Coming From IPTVBoss](Coming-From-IPTVBoss.md) - what ChannelForge does today for IPTVBoss users, with honest "not yet" lines
