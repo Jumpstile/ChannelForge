@@ -248,12 +248,12 @@ function Assert-SmokeRun {
     return $true
 }
 
-# Runs the real Uninstall ChannelForge.cmd and returns the run (ExitCode, Output).
+# Runs a real bundle .cmd (for example 'Uninstall ChannelForge.cmd') and returns the run (ExitCode, Output).
 # -ArgumentList (for example -Verbose) skips the typed menu. -Answers are typed answers
 # on stdin; input ends after them, so the closing "pause" returns at once.
-function Invoke-SmokeUninstallCmd {
-    param([string]$BundleRoot, [string[]]$Answers = @(), [string[]]$ArgumentList = @())
-    $cmdPath = Join-Path $BundleRoot 'Uninstall ChannelForge.cmd'
+function Invoke-SmokeBundleCmd {
+    param([string]$BundleRoot, [string]$CmdName, [string[]]$Answers = @(), [string[]]$ArgumentList = @())
+    $cmdPath = Join-Path $BundleRoot $CmdName
     # The whole command is wrapped in one more pair of quotes: cmd /c keeps the quoted .cmd path intact.
     $line = '"' + (@('"' + $cmdPath + '"') + $ArgumentList -join ' ') + '"'
     $stdin = if ($Answers.Count -gt 0) { ($Answers -join "`r`n") + "`r`n" } else { '' }
@@ -315,11 +315,10 @@ function Invoke-SmokeRun {
             $script:manifestCommit = [string]$manifest.SourceCommitSha
             $script:manifestCommit -ceq [string]$expected.PackageSourceCommitSha
         }
-        $bundlePwsh = Join-Path $bundle 'runtime\pwsh\pwsh.exe'
         $installPwsh = Join-Path $install 'runtime\pwsh\pwsh.exe'
         $pwshArgs = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File')
         Invoke-SmokeStep 'install' $script:StepPlan[3][1] -Required {
-            $run = Invoke-SmokeProcess $bundlePwsh ($pwshArgs + @((Join-Path $bundle 'scripts\Install-ChannelForgeWindowsBundle.ps1'), '-PackageRoot', $bundle, '-SkipStart'))
+            $run = Invoke-SmokeBundleCmd $bundle 'Install ChannelForge.cmd' -ArgumentList @('-SkipStart')
             Assert-SmokeRun $run 'Install' ($run.ExitCode -eq 0) | Out-Null
             Test-Path -LiteralPath (Join-Path $install 'package-manifest.json') -PathType Leaf
         }
@@ -372,14 +371,16 @@ function Invoke-SmokeRun {
             if ($reply.Status -ne 200) { throw "Refresh answered $($reply.Status): $($reply.Body)" }
             ($reply.Body | ConvertFrom-Json).Status -cin @('UP_TO_DATE', 'CHANGES_FOUND')
         }
-        $updater = Join-Path $install 'tools\Invoke-ChannelForgeAutoUpdate.ps1'
+        # The real Update ChannelForge.cmd always applies. The bundle has the installed version, so it must refuse and change nothing.
         Invoke-SmokeStep 'update-check-local' $script:StepPlan[12][1] {
-            $run = Invoke-SmokeProcess $installPwsh ($pwshArgs + @($updater, '-PackageRoot', $bundle, '-InstallRoot', $install))
-            Assert-SmokeRun $run 'Update check' ($run.ExitCode -eq 0 -and $run.Output -match 'Package valid')
+            $before = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
+            $run = Invoke-SmokeBundleCmd $bundle 'Update ChannelForge.cmd'
+            $after = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
+            Assert-SmokeRun $run 'Update check' ($run.Output -match 'Package valid' -and $before -ceq $after)
         }
         Invoke-SmokeStep 'update-same-version' $script:StepPlan[13][1] {
             $before = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
-            $run = Invoke-SmokeProcess $installPwsh ($pwshArgs + @($updater, '-Apply', '-PackageRoot', $bundle, '-InstallRoot', $install))
+            $run = Invoke-SmokeBundleCmd $bundle 'Update ChannelForge.cmd'
             $after = (Get-FileHash -LiteralPath (Join-Path $install 'package-manifest.json') -Algorithm SHA256).Hash
             Assert-SmokeRun $run 'Same-version update' ($run.ExitCode -ne 0 -and $run.Output -match 'not newer' -and $before -ceq $after)
         }
@@ -387,19 +388,19 @@ function Invoke-SmokeRun {
 
         # The sandbox does not deliver typed menu answers, so only "the menu ran and cancelled" is proven here.
         Invoke-SmokeStep 'uninstall-cancel' $script:StepPlan[15][1] {
-            $run = Invoke-SmokeUninstallCmd $bundle @('2', 'delete')
+            $run = Invoke-SmokeBundleCmd $bundle 'Uninstall ChannelForge.cmd' @('2', 'delete')
             $kept = (Test-Path -LiteralPath (Join-Path $install 'package-manifest.json')) -and (Test-Path -LiteralPath (Join-Path $install 'state') -PathType Container)
             Assert-SmokeRun $run 'Uninstall menu (cancel)' ($run.Output -match 'Cancelled' -and $kept)
         }
         Invoke-SmokeStep 'uninstall-keep' $script:StepPlan[16][1] {
-            $run = Invoke-SmokeUninstallCmd $bundle -ArgumentList @('-Verbose')
+            $run = Invoke-SmokeBundleCmd $bundle 'Uninstall ChannelForge.cmd' -ArgumentList @('-Verbose')
             $appGone = -not (Test-Path -LiteralPath (Join-Path $install 'package-manifest.json')) -and -not (Test-Path -LiteralPath (Join-Path $install 'scripts'))
             $dataKept = Test-Path -LiteralPath (Join-Path $install 'state\source-enrollment.json') -PathType Leaf
             $stopped = (Invoke-SmokeHttp GET "$base/health").Status -ne 200
             Assert-SmokeRun $run 'Uninstall (keep data)' ($appGone -and $dataKept -and $stopped)
         }
         Invoke-SmokeStep 'uninstall-delete' $script:StepPlan[17][1] {
-            $run = Invoke-SmokeUninstallCmd $bundle -ArgumentList @('-PurgeData', '-ConfirmPurge')
+            $run = Invoke-SmokeBundleCmd $bundle 'Uninstall ChannelForge.cmd' -ArgumentList @('-PurgeData', '-ConfirmPurge')
             Test-SmokeRootRemoved -Root $install -Run $run
         }
     }

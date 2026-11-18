@@ -7,7 +7,7 @@ if not exist "%PW%" (
   pause
   exit /b 1
 )
-"%PW%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ROOT%scripts\Install-ChannelForgeWindowsBundle.ps1" -PackageRoot "%ROOT%" %*
+"%PW%" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%ROOT%scripts\Install-ChannelForgeWindowsBundle.ps1" -PackageRoot "%ROOT:~0,-1%" %*
 if errorlevel 1 (
   echo.
   echo ChannelForge installation failed.

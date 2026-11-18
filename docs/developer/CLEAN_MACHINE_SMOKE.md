@@ -37,26 +37,26 @@ Both hold the ZIP SHA-256, the source commit from the package manifest, and ever
 
 ## What each step proves
 
-| Step                  | What it proves                                                           |
-| --------------------- | ------------------------------------------------------------------------ |
-| `package-hash`        | The ZIP inside the sandbox is the ZIP the build recorded.                |
-| `unzip`               | The ZIP unpacks and carries `package-manifest.json`.                     |
-| `commit-match`        | The package manifest names the same source commit as the evidence file.  |
-| `install`             | The install script copies the app to `%LOCALAPPDATA%\ChannelForge`.      |
-| `start`               | The bundled PowerShell starts the server and `/health` answers.          |
-| `web-page`            | The local page at `http://127.0.0.1:8765/` answers with HTML.            |
-| `status-empty`        | A fresh install says no lineup is accepted yet.                          |
-| `proposal`            | Fixture M3U and XMLTV files analyze to a reviewable proposal.            |
-| `accept`              | Accepting the proposal saves a lineup and the sources.                   |
-| `status-accepted`     | The status API reports the accepted lineup and saved sources.            |
-| `restart-state`       | After stop and start, the accepted lineup and sources are still there.   |
-| `refresh`             | Refresh of the saved fixture sources answers with a normal result.       |
-| `update-check-local`  | The updater reads the local package and reports it valid.                |
-| `update-same-version` | Updating to the same version is refused and no file changes.             |
-| `update-check-github` | Always NOT RUN. The sandbox has no network on purpose.                   |
-| `uninstall-cancel`    | A wrong confirmation word shows "Cancelled" and removes nothing.         |
-| `uninstall-keep`      | `-Verbose` (no menu) removes the app and keeps the lineup and sources.   |
-| `uninstall-delete`    | `-PurgeData -ConfirmPurge` removes the install folder (waits up to 30s). |
+| Step                  | What it proves                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `package-hash`        | The ZIP inside the sandbox is the ZIP the build recorded.                                 |
+| `unzip`               | The ZIP unpacks and carries `package-manifest.json`.                                      |
+| `commit-match`        | The package manifest names the same source commit as the evidence file.                   |
+| `install`             | `Install ChannelForge.cmd -SkipStart` copies the app to `%LOCALAPPDATA%\ChannelForge`.    |
+| `start`               | The bundled PowerShell starts the server and `/health` answers.                           |
+| `web-page`            | The local page at `http://127.0.0.1:8765/` answers with HTML.                             |
+| `status-empty`        | A fresh install says no lineup is accepted yet.                                           |
+| `proposal`            | Fixture M3U and XMLTV files analyze to a reviewable proposal.                             |
+| `accept`              | Accepting the proposal saves a lineup and the sources.                                    |
+| `status-accepted`     | The status API reports the accepted lineup and saved sources.                             |
+| `restart-state`       | After stop and start, the accepted lineup and sources are still there.                    |
+| `refresh`             | Refresh of the saved fixture sources answers with a normal result.                        |
+| `update-check-local`  | `Update ChannelForge.cmd` reads the local package, reports it valid, and changes nothing. |
+| `update-same-version` | `Update ChannelForge.cmd` refuses the same version and no file changes.                   |
+| `update-check-github` | Always NOT RUN. The sandbox has no network on purpose.                                    |
+| `uninstall-cancel`    | A wrong confirmation word shows "Cancelled" and removes nothing.                          |
+| `uninstall-keep`      | `-Verbose` (no menu) removes the app and keeps the lineup and sources.                    |
+| `uninstall-delete`    | `-PurgeData -ConfirmPurge` removes the install folder (waits up to 30s).                  |
 
 The proposal, accept, and refresh steps call the product's own local API with the files in `tests/fixtures/smoke`. They use `example.invalid` addresses and no credentials.
 
@@ -77,7 +77,7 @@ Read the detail in brackets on the failing line. Later steps that depend on it s
 
 - Every step that starts a program has a hard limit of 120 seconds (`-StepTimeoutSeconds` on `Invoke-ChannelForgeSmoke.ps1`). A step that reaches it is FAIL with the detail "timed out", never PASS. Its programs are stopped, and the run goes on. Steps that need the failed one show FAIL or NOT RUN, never PASS.
 - The whole run has a limit of 20 minutes (`-OverallTimeoutMinutes`). When it is reached, the evidence so far is written. A `run` line is FAIL with "timed out", and steps not reached are NOT RUN.
-- Programs run with their input closed, so none can wait for a key press. The only `.cmd` the smoke runs is `Uninstall ChannelForge.cmd`. Two steps run it with command-line options, which skip the menu. The cancel step feeds it typed answers from a file; its closing `pause` returns when the file ends.
+- Programs run with their input closed, so none can wait for a key press. The smoke runs the real `Install ChannelForge.cmd`, `Update ChannelForge.cmd`, and `Uninstall ChannelForge.cmd`. Install runs with `-SkipStart`, and two uninstall steps run with command-line options, which skip the menu. The cancel step feeds the menu typed answers from a file; its closing `pause` returns when the file ends. `Update ChannelForge.cmd` always applies, so the update steps expect a refusal (the bundle is the installed version).
 
 ## Run the tests for the smoke files
 
