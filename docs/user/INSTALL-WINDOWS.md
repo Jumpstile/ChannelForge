@@ -17,7 +17,15 @@ launcher uses loopback only and stores runtime logs under
 
 ## First run
 
-Use the guided setup screen to select the provider source, configure guide access, validate the setup, and accept the generated restart plan. Then use **Refresh now** to create the first lineup.
+Use the guided setup screen to add your playlist, add an optional guide, check which guide goes with which playlist, and select **Analyze source set**. Read the results, tick the box that says you reviewed them, and select **Accept reviewed proposal**. Then open **Workbench** and use **Refresh now** to refresh your sources.
+
+![Guided Setup with one playlist and one guide added](assets/alpha1-windows/03-guided-setup.png)
+
+![Accepted lineup after review](assets/alpha1-windows/04-accepted-restart.png)
+
+![Workbench with the Refresh now button](assets/alpha1-windows/05-refresh-now.png)
+
+The pictures use sample files that ship with the project, not real provider data.
 
 Do not place secrets in the extracted ZIP or commit provider files. Follow [SECURITY.md](../reference/SECURITY.md) for local provider-file rules.
 
