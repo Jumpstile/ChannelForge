@@ -330,6 +330,10 @@ function Assert-ChannelForgePackageZipHash {
     if ((Get-ChannelForgePackageFileHash -Path $ZipPath) -cne $expected) {
         throw 'The downloaded package does not match the published SHA-256. Update stopped; nothing was changed.'
     }
+    $commit = if ($null -ne $Published) { [string]$Published.SourceCommitSha } else { '' }
+    if (-not [string]::IsNullOrEmpty($commit) -and $commit -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'The published source commit is not a 40-character hex value. Update stopped; nothing was changed.'
+    }
 }
 
 function Assert-ChannelForgePublishedSourceCommit {
@@ -341,9 +345,6 @@ function Assert-ChannelForgePublishedSourceCommit {
 
     $commit = if ($null -ne $Published) { [string]$Published.SourceCommitSha } else { '' }
     if ([string]::IsNullOrEmpty($commit)) { return }
-    if ($commit -cnotmatch '^[0-9a-f]{40}$') {
-        throw 'The published source commit is not a 40-character hex value. Update stopped; nothing was changed.'
-    }
     if ($commit -cne $ManifestCommitSha.ToLowerInvariant()) {
         throw 'The published source commit does not match the package manifest. Update stopped; nothing was changed.'
     }
