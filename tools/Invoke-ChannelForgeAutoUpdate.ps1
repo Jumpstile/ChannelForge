@@ -14,6 +14,7 @@ param(
     [string]$PackagePath = '',
     [string]$PackageRoot = '',
     [switch]$SkipRestart,
+    [switch]$AllowDowngrade,
     [string]$VersionFile = (Join-Path (Split-Path -Parent $PSScriptRoot) 'VERSION'),
     [string]$InstallRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$Owner = 'Jumpstile',
@@ -93,6 +94,14 @@ function Resolve-ChannelForgePackageRoot {
 function Invoke-ChannelForgeLocalPackageUpdate {
     param([Parameter(Mandatory)][string]$SourceRoot)
     $validated = Test-ChannelForgeWindowsPackage -PackageRoot $SourceRoot
+    $installedVersionFile = Join-Path $InstallRoot 'VERSION'
+    if (-not $AllowDowngrade -and [IO.File]::Exists($installedVersionFile)) {
+        $installedText = Get-ChannelForgeLocalVersion -Path $installedVersionFile
+        $packageText = [string]$validated.Manifest.ChannelForgeVersion
+        if ((ConvertTo-ChannelForgeUpdateVersion -VersionText $packageText) -le (ConvertTo-ChannelForgeUpdateVersion -VersionText $installedText)) {
+            throw "This package ($packageText) is not newer than the installed version ($installedText). Nothing was changed."
+        }
+    }
     if (-not $PSCmdlet.ShouldProcess($InstallRoot, "update ChannelForge to $($validated.Manifest.ChannelForgeVersion)")) { return }
     $stopScript = Join-Path $InstallRoot 'scripts/Stop-ChannelForge.ps1'
     $startScript = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
