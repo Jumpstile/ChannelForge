@@ -32,7 +32,7 @@ function Start-ChannelForgeWebServer {
             try {
                 $requestPath = $context.Request.Url.AbsolutePath
                 $requestPathAndQuery = $context.Request.Url.PathAndQuery
-                $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh')
+                $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')
                 if ($isBodyPost) {
                     try {
                         $bodyBytes = Read-ChannelForgeWebRequestBody -Stream $context.Request.InputStream -ContentLength $context.Request.ContentLength64

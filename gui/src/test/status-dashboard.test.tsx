@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { StatusDashboard } from '../components/StatusDashboard'
 
@@ -21,7 +22,7 @@ describe('read-only status dashboard', () => {
 
     expect(await screen.findByText('No lineup has been accepted yet.')).toBeInTheDocument()
     expect(screen.getByText('Open Guided Setup to begin.')).toBeInTheDocument()
-    expect(screen.getByText(/this page can show status, but it cannot change your lineup yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/your accepted lineup is not changed here/i)).toBeInTheDocument()
   })
 
   it('renders the accepted status and review next action', async () => {
@@ -100,5 +101,53 @@ describe('read-only status dashboard', () => {
 
     const renderedText = document.body.textContent ?? ''
     expect(renderedText).not.toMatch(/https?:\/\/|password|private|hash|generation|parser/i)
+  })
+})
+
+describe('remove one saved source', () => {
+  const twoSources = {
+    lineupAccepted: true,
+    sourcesStatus: 'saved',
+    sources: [
+      { kind: 'playlist', label: 'Home playlist', state: 'ready' },
+      { kind: 'playlist', label: 'Backup playlist', state: 'ready' },
+    ],
+  }
+
+  it('asks first, and keeping the source changes nothing', async () => {
+    const removeSource = vi.fn()
+    render(<StatusDashboard fetchStatus={vi.fn().mockResolvedValue(twoSources)} removeSource={removeSource} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Backup playlist' }))
+    expect(screen.getByText(/Your other sources stay as they are/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep this source' }))
+
+    expect(removeSource).not.toHaveBeenCalled()
+    expect(screen.getByText('Backup playlist')).toBeInTheDocument()
+  })
+
+  it('removes only the confirmed source and shows the list the server returns', async () => {
+    const fetchStatus = vi.fn().mockResolvedValueOnce(twoSources).mockResolvedValue({ ...twoSources, sources: [twoSources.sources[0]] })
+    const removeSource = vi.fn().mockResolvedValue({ ok: true })
+    render(<StatusDashboard fetchStatus={fetchStatus} removeSource={removeSource} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Backup playlist' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, remove this source' }))
+
+    expect(removeSource).toHaveBeenCalledWith({ kind: 'playlist', label: 'Backup playlist', state: 'ready' })
+    expect(await screen.findByText(/Removed "Backup playlist"/)).toBeInTheDocument()
+    expect(screen.getByText('Home playlist')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Backup playlist' })).not.toBeInTheDocument()
+  })
+
+  it('shows a plain message and keeps the source when the remove fails', async () => {
+    const removeSource = vi.fn().mockResolvedValue({ ok: false, message: 'The source could not be removed. Your saved sources were not changed.' })
+    render(<StatusDashboard fetchStatus={vi.fn().mockResolvedValue(twoSources)} removeSource={removeSource} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Backup playlist' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, remove this source' }))
+
+    expect(await screen.findByText(/could not be removed/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Backup playlist' })).toBeInTheDocument()
   })
 })

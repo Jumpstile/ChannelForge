@@ -227,6 +227,19 @@ function Get-ChannelForgeWebResponse {
         return Get-ChannelForgeWebSourceRefreshResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
     }
 
+    $removePath = '/api/sources/remove'
+    if ($requestPath.ToLowerInvariant() -eq $removePath) {
+        if ($methodName -ne 'POST') {
+            $headers = [ordered]@{}
+            foreach ($header in $commonHeaders.GetEnumerator()) { $headers[$header.Key] = $header.Value }
+            $headers['Allow'] = 'POST'
+            return New-ChannelForgeWebProposalErrorResponse -StatusCode 405 -ErrorCode 'method-not-allowed' -Message 'Only POST requests are supported for source removal.' -Headers $headers
+        }
+        if ($null -eq $BodyBytes -or $BodyBytes.Length -eq 0) { return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'missing-request-body' -Message 'A remove request is required.' -Headers $commonHeaders }
+        if ($BodyBytes.Length -gt (Get-ChannelForgeWebAcceptanceLimits).MaxRequestBodyBytes) { return New-ChannelForgeWebProposalErrorResponse -StatusCode 413 -ErrorCode 'request-too-large' -Message 'The remove request is too large.' -Headers $commonHeaders }
+        return Get-ChannelForgeWebSourceRemoveResponse -BodyBytes $BodyBytes -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
+    }
+
     $proposalPath = '/api/guided-setup/proposal'
     if ($requestPath.ToLowerInvariant() -eq $proposalPath) {
         if ($methodName -ne 'POST') {
