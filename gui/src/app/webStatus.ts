@@ -1,6 +1,8 @@
 export type SourcesStatus = 'not-enrolled' | 'saved' | 'up-to-date' | 'changes-found' | 'needs-attention' | 'source-unavailable'
 export type PlaylistStatus = 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable'
 export type GuideStatus = 'no-guide' | 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable' | 'needs-attention'
+export type SourceRowState = 'ready' | 'changes-found' | 'source-unavailable' | 'not-refreshed'
+export type SourceRow = { kind: 'playlist' | 'guide'; label: string; state: SourceRowState }
 
 export type WebStatusSnapshot = {
   lineupAccepted: boolean
@@ -10,6 +12,7 @@ export type WebStatusSnapshot = {
   lastCheckedUtc?: string | null
   canRefreshSources?: boolean
   sourcesGuidance?: string
+  sources?: SourceRow[]
 }
 
 export type WebStatusFetcher = () => Promise<WebStatusSnapshot | null>
@@ -36,6 +39,21 @@ function isOneOf<T extends string>(value: unknown, values: T[]): value is T {
   return typeof value === 'string' && values.includes(value as T)
 }
 
+const sourceRowStates: SourceRowState[] = ['ready', 'changes-found', 'source-unavailable', 'not-refreshed']
+
+// A missing or malformed list means "no per-source rows": the single summary still shows.
+function normalizeSourceRows(value: unknown): SourceRow[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const rows: SourceRow[] = []
+  for (const item of value) {
+    if (!isJsonRecord(item) || typeof item.Label !== 'string') continue
+    const kind = item.Kind === 'M3U' ? 'playlist' : item.Kind === 'XMLTV' ? 'guide' : null
+    if (kind === null) continue
+    rows.push({ kind, label: item.Label, state: isOneOf(item.State, sourceRowStates) ? item.State : 'not-refreshed' })
+  }
+  return rows
+}
+
 function normalizeStatus(payload: JsonRecord): WebStatusSnapshot | null {
   if (payload.LineupStatus !== 'not-accepted' && payload.LineupStatus !== 'accepted') return null
   const lineupAccepted = payload.LineupStatus === 'accepted'
@@ -52,6 +70,7 @@ function normalizeStatus(payload: JsonRecord): WebStatusSnapshot | null {
     lastCheckedUtc,
     canRefreshSources: payload.CanRefreshSources === true,
     sourcesGuidance: typeof payload.SourcesGuidance === 'string' ? payload.SourcesGuidance : undefined,
+    sources: normalizeSourceRows(payload.Sources),
   }
 }
 

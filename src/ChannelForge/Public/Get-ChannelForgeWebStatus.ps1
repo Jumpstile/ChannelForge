@@ -32,5 +32,17 @@ function Get-ChannelForgeWebStatus {
         LastCheckedUtc        = $sourceStatus.LastCheckedUtc
         CanRefreshSources     = [bool]$sourceStatus.CanRefresh
         SourcesGuidance       = [string]$sourceStatus.Guidance
+        Sources               = @($sourceStatus.Sources | Where-Object { $_.Kind } | ForEach-Object {
+            [ordered]@{
+                Kind  = [string]$_.Kind
+                Label = [string]$_.Label
+                State = switch ([string]$_.State) {
+                    'Ready' { 'ready' }
+                    'Changed' { 'changes-found' }
+                    'Unavailable' { 'source-unavailable' }
+                    default { 'not-refreshed' }
+                }
+            }
+        })
     }
 }

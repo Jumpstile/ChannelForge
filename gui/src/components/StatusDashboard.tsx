@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
-import { fetchWebStatus, refreshSavedSources, type SourceRefreshAction, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
+import { fetchWebStatus, refreshSavedSources, type SourceRefreshAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
 type DashboardState = 'loading' | 'ready' | 'unavailable'
 
@@ -30,6 +30,15 @@ function detailLabel(status: WebStatusSnapshot['playlistStatus'] | WebStatusSnap
     case 'source-unavailable': return 'Source unavailable'
     case 'needs-attention': return 'Needs attention'
     default: return 'Not saved'
+  }
+}
+
+function sourceRowState(state: SourceRow['state']): string {
+  switch (state) {
+    case 'ready': return 'Up to date'
+    case 'changes-found': return 'Changes found. Refresh, then review before replacing sources.'
+    case 'source-unavailable': return 'Needs attention: this source could not be read. Your last saved copy is kept.'
+    default: return 'Not refreshed yet'
   }
 }
 
@@ -140,6 +149,17 @@ export function StatusDashboard({
           <span className="summary-card-detail">{refreshMessage ?? 'Refresh checks for changed source bytes.'}</span>
         </article>
       </section>
+      {snapshot.sources && snapshot.sources.length > 0 ? (
+        <section className="workbench-grid" aria-label="Status of each saved source">
+          {snapshot.sources.map((source, index) => (
+            <article className="summary-card" key={`${source.kind}-${index}`}>
+              <span className="summary-card-label">{source.kind === 'guide' ? 'Guide' : 'Playlist'}</span>
+              <strong>{source.label}</strong>
+              <span className="summary-card-detail">{sourceRowState(source.state)}</span>
+            </article>
+          ))}
+        </section>
+      ) : null}
       <div className="next-action-card">
         <div className="next-action-copy">
           <p className="eyebrow">Saved sources</p>
