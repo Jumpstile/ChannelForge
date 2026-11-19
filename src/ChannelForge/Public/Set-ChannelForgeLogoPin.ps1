@@ -5,8 +5,8 @@ function Set-ChannelForgeLogoPin {
     .DESCRIPTION
     The channel is matched by exact, case-sensitive TvgId. The link must be a
     public https link without a user name or password. Nothing is fetched.
-    Pins are stored but not yet applied to builds, and the build report does
-    not mention them yet. A corrupt pin file is never overwritten: the command
+    Pins are applied to builds: a pinned logo link is used for that channel when a
+    lineup is built. A corrupt pin file is never overwritten: the command
     refuses and the file stays as it is.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Set')]
