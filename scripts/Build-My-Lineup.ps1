@@ -809,7 +809,7 @@ try {
             try { $eventOverride = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeEventChannelOverrides' -Arguments @{ Path = (Join-Path $rootFull 'state\event-channels.json') }) }
             catch { Write-Warning 'The event channel overrides file is damaged, so it is ignored. Fix or delete state\event-channels.json.' }
             $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }); Override = $eventOverride } | Select-Object -Last 1
-            $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback)
+            $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback) + @($eventPlan.Review)
             $ownChannels = @($ownChannels) + @($eventPlan.Channel)
             foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
         }

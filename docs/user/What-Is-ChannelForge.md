@@ -25,6 +25,8 @@ ChannelForge is **Early Alpha**. The primary UI direction is a browser-based loc
 
 An **event guide** describes changing programming such as a UFC or other fight, PPV, temporary sports event, league schedule, single-team event, or a permitted ESPN+-style event group. It is more than a channel name: the guide must connect the event, time, timezone, status, and source evidence to a stable channel identity.
 
+ChannelForge builds an event guide for a pay-per-view style channel from the provider's own guide. If the provider guide shows an error instead of an event (for example "No data" or "Guide unavailable", listed in `data/rules/event-provider-errors.json`), the channel keeps its normal guide and the build report says why. If the same two teams, or the same event name, play twice on one channel on one day, the guide shows Game 1 and Game 2 (or Part 1 and Part 2) in time order. If the order or times are unclear, nothing new is made and the report asks one plain question. No channel is ever dropped.
+
 An **AED-derived** guide is XMLTV or M3U metadata exported by an external tool such as IPTVBoss. ChannelForge can consume a documented export as a migration or bootstrap input, but the export is evidence, not automatic truth. ChannelForge compares it with other permitted evidence, preserves freshness and provenance, and sends ambiguity to review.
 
 Normal users should not write regular expressions. The native Stage B preview and Stage C beginner review surface infer and explain bounded semantic fields from representative examples. Expert regex/date/time controls are not part of this slice; low-confidence or contradictory timing is never silently accepted.

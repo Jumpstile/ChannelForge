@@ -15,6 +15,8 @@ function Get-ChannelForgeEventProgrammeBlocks {
 
     if ($Programme.Count -eq 0) { return [pscustomobject]@{ Blocks = @(); Reason = 'the provider guide has no programs for this channel' } }
     if (@($Programme | Where-Object { -not $_.Valid }).Count -gt 0) { return [pscustomobject]@{ Blocks = @(); Reason = 'a program time in the provider guide could not be read' } }
+    $errorRow = @($Programme | Where-Object { (Test-ChannelForgeEventProviderError -Text ([string]$_.Title)) -or (Test-ChannelForgeEventProviderError -Text ([string]$_.Description)) })
+    if ($errorRow.Count -gt 0) { return [pscustomobject]@{ Blocks = @(); Reason = 'the provider guide reports an error, not an event' } }
 
     # Filler titles: Test-ChannelForgeEventFillerKey
     $nameKey = ConvertTo-ChannelForgeEventTitleKey -Text $ChannelName
@@ -23,6 +25,7 @@ function Get-ChannelForgeEventProgrammeBlocks {
             $key -and -not (Test-ChannelForgeEventFillerKey -Key $key) -and $key -cne $nameKey
         } | Sort-Object { $_.Start.UtcDateTime } | Group-Object { $_.Start.UtcDateTime } | ForEach-Object { $_.Group[0] })
 
+    $double = Get-ChannelForgeEventDoubleheader -Programme $real
     $name = ConvertTo-ChannelForgeGuideSafeText -Value $ChannelName -MaximumLength 200
     $blocks = [System.Collections.Generic.List[object]]::new()
     $cursor = $WindowStart
@@ -36,9 +39,10 @@ function Get-ChannelForgeEventProgrammeBlocks {
         if ($stop -le $start) { continue }
         if ($start -gt $cursor) { [void]$blocks.Add([pscustomobject]@{ Start = $cursor; Stop = $start; Title = $name }) }
         $title = ConvertTo-ChannelForgeGuideSafeText -Value $real[$i].Title -MaximumLength 200
-        [void]$blocks.Add([pscustomobject]@{ Start = $start; Stop = $stop; Title = $(if ($title) { $title } else { $name }) })
+        $prefix = $double.Label[$real[$i].Start.UtcDateTime.Ticks]
+        [void]$blocks.Add([pscustomobject]@{ Start = $start; Stop = $stop; Title = $(if ($title) { "$prefix$title" } else { $name }) })
         $cursor = $stop
     }
     if ($WindowEnd -gt $cursor) { [void]$blocks.Add([pscustomobject]@{ Start = $cursor; Stop = $WindowEnd; Title = $name }) }
-    [pscustomobject]@{ Blocks = @($blocks.ToArray()); Reason = $null }
+    [pscustomobject]@{ Blocks = @($blocks.ToArray()); Reason = $null; Review = $double.Review }
 }
