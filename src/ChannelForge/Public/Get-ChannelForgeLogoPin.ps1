@@ -3,8 +3,8 @@ function Get-ChannelForgeLogoPin {
     .SYNOPSIS
     Lists the stored channel logo pins (state\logo-pins.json, logo-identity/v1).
     .DESCRIPTION
-    Pins are stored but not yet applied to builds, and the build report does
-    not mention them yet. A missing file returns nothing and creates nothing.
+    Pins are applied to builds: a pinned logo link is used for that channel when a
+    lineup is built. A missing file returns nothing and creates nothing.
     A corrupt file gives a warning with the reason, returns nothing and is
     left as it is.
     #>
