@@ -77,7 +77,7 @@ Where this lives (names): `Normalize-ChannelForgeName.ps1`, `Resolve-ChannelForg
 4. **Apply aliases.** An exact, case-insensitive match against the alias file swaps in the canonical name. There is no fuzzy matching. Where this lives: `Resolve-ChannelForgeAlias.ps1`.
 5. **Remove duplicates.** The key is the lowercase `tvg-id` when there is one. Otherwise it is the lowercase display name. The first channel in the step 1 order wins. Channels that shared a key are also recorded as `IdentityCollisions`, so the guide step can refuse an automatic bind for them. Where this lives: `Merge-ChannelForgeLineup.ps1`.
 6. **Number the channels.** A channel gets a number only if its group name equals a block category in the numbering blocks file. Numbers go up inside the block in name order. A full block leaves the extra channels unnumbered, with a warning. Output order is numbered channels first, then the rest by name. Where this lives: `Set-ChannelForgeChannelNumber.ps1`, `Merge-ChannelForgeLineup.ps1`.
-6a. **Apply your own numbers.** A number you saved for a channel replaces its block number (see "Your own channel numbers" below). Where this lives: `Set-ChannelForgeUserNumber.ps1`.
+   6a. **Apply your own numbers.** A number you saved for a channel replaces its block number (see "Your own channel numbers" below). Where this lives: `Set-ChannelForgeUserNumber.ps1`.
 7. **Build the saved source set.** Playlists and guides are saved as enrolled sources with a priority. They are read in priority order. Where this lives: `Invoke-ChannelForgeSourceEnrollment.ps1`, `New-ChannelForgeEnrolledCandidate.ps1`, `New-ChannelForgeCandidateProposalFromSourceSet.ps1`.
 
 ## Guide-to-playlist bindings
