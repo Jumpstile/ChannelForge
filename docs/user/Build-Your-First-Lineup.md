@@ -255,6 +255,13 @@ found**, **Needs attention** (with the reason) or **Not refreshed yet**. One
 source that needs attention does not change the cards of the others. Web
 addresses are never shown.
 
+Each card has a **Remove** button. Select it and ChannelForge asks you to
+confirm first. Choose **Keep this source** to change nothing, or **Yes, remove
+this source** to take only that source out of ChannelForge. Your original
+playlist or guide file is never touched, and your other sources stay as they
+are. You cannot remove your only playlist. ChannelForge tells you why and keeps
+it.
+
 **Replace sources** returns to Guided Setup, where a new browser-selected source
 set must be reviewed and explicitly accepted. Credentials, tokenized URLs, and
 raw source bytes never enter status responses or public reports.
