@@ -53,6 +53,29 @@ describe('read-only status dashboard', () => {
     expect(screen.queryByText(/managed-sources|hash|generation/i)).not.toBeInTheDocument()
   })
 
+  it('shows one row per saved source and does not blame healthy sources for one failure', async () => {
+    const fetchStatus = vi.fn().mockResolvedValue({
+      lineupAccepted: true,
+      sourcesStatus: 'source-unavailable',
+      playlistStatus: 'ready',
+      guideStatus: 'source-unavailable',
+      sources: [
+        { kind: 'playlist', label: 'Home playlist', state: 'ready' },
+        { kind: 'guide', label: 'Sports guide', state: 'source-unavailable' },
+        { kind: 'guide', label: 'News guide', state: 'ready' },
+        { kind: 'guide', label: 'Weekend guide', state: 'not-refreshed' },
+      ],
+    })
+
+    render(<StatusDashboard fetchStatus={fetchStatus} />)
+
+    expect(await screen.findByText('Sports guide')).toBeInTheDocument()
+    expect(screen.getAllByText('Up to date')).toHaveLength(2)
+    expect(screen.getAllByText(/^Needs attention: this source could not be read/)).toHaveLength(1)
+    expect(screen.getByText('Not refreshed yet')).toBeInTheDocument()
+    expect(screen.queryByText(/https?:\/\/|token/i)).not.toBeInTheDocument()
+  })
+
   it('renders a safe unavailable state for a 503 result', async () => {
     render(<StatusDashboard fetchStatus={unavailable} />)
 

@@ -387,6 +387,35 @@ Describe 'ChannelForge web server foundation' {
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
 
+    It 'lists every saved source in the status and keeps healthy ones healthy when one guide fails, without any address' {
+        $root = Join-Path $TestDrive 'per-source-status'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        $m3u = { param($n) [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"$n`",$n`nhttps://example.invalid/$n`n") }
+        $xml = { param($n) [Text.Encoding]::UTF8.GetBytes("<?xml version=`"1.0`"?><tv><channel id=`"$n`"><display-name>$n</display-name></channel></tv>") }
+        $src = { param($kind, $key, $id, $remote, $bytes, $priority) [pscustomobject]@{
+            Kind = $kind; SourceKind = $(if ($remote) { 'public-https' } else { 'managed-file' }); SourceKey = $key; SourceId = $id; Label = $key
+            Priority = $priority; Url = $(if ($remote) { "https://example.invalid/private-token-8f3a/$key" } else { $null }); Bytes = $bytes } }
+        $playlists = @((& $src 'M3U' 'Home playlist' ('1' * 64) $false (& $m3u 'a') 1), (& $src 'M3U' 'Backup playlist' ('2' * 64) $true (& $m3u 'b') 2))
+        $guides = @((& $src 'XMLTV' 'Sports guide' ('3' * 64) $false (& $xml 'a') 1), (& $src 'XMLTV' 'News guide' ('4' * 64) $true (& $xml 'b') 2))
+        & (Get-Module ChannelForge) {
+            param($root, $p, $g)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($p) -GuideSources @($g) -Bindings @() `
+                -AcceptedGenerationManifestHash ('a' * 64) -AcceptedStateHash ('b' * 64) -AcceptedOutputManifestHash ('c' * 64) | Out-Null
+        } $root $playlists $guides
+        Remove-Item -LiteralPath (Join-Path $root "state\managed-sources\$('3' * 64).xml") -Force
+
+        $payload = (Get-TestWebResponse -Method GET -Path '/api/status' -RepositoryRoot $root).Body
+        $sources = @(($payload | ConvertFrom-Json).Sources)
+
+        $sources.Count | Should -Be 4
+        @($sources | Where-Object Label -eq 'Sports guide')[0].State | Should -Be 'source-unavailable'
+        @($sources | Where-Object Label -eq 'Sports guide')[0].Kind | Should -Be 'XMLTV'
+        @($sources | Where-Object Label -eq 'News guide')[0].State | Should -Be 'ready'
+        @($sources | Where-Object Label -eq 'Home playlist')[0].State | Should -Be 'ready'
+        @($sources | Where-Object Label -eq 'Backup playlist')[0].State | Should -Be 'ready'
+        $payload | Should -Not -Match 'example\.invalid|private-token|https?://|managed-sources'
+    }
+
     It 'returns safe service-unavailable responses for corrupt accepted state' {
         $root = Join-Path $TestDrive 'corrupt-status'
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'state') | Out-Null

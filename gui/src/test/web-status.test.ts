@@ -82,4 +82,20 @@ describe('web status client', () => {
       body: '',
     })
   })
+
+  it('reads the per-source list when present and ignores it when absent', async () => {
+    const withSources = vi.fn().mockResolvedValue(response(200, {
+      ...acceptedPayload,
+      SourcesStatus: 'saved',
+      Sources: [{ Kind: 'M3U', Label: 'Home', State: 'ready' }, { Kind: 'XMLTV', Label: 'Guide', State: 'source-unavailable' }, { Kind: 'bad' }],
+    }))
+    const withoutSources = vi.fn().mockResolvedValue(response(200, { ...acceptedPayload, SourcesStatus: 'saved' }))
+
+    const a = await fetchWebStatus(withSources as unknown as typeof fetch)
+    expect(a?.sources).toEqual([
+      { kind: 'playlist', label: 'Home', state: 'ready' },
+      { kind: 'guide', label: 'Guide', state: 'source-unavailable' },
+    ])
+    expect((await fetchWebStatus(withoutSources as unknown as typeof fetch))?.sources).toBeUndefined()
+  })
 })

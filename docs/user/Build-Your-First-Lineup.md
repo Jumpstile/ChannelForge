@@ -249,6 +249,12 @@ or publishes a changed lineup.
 After restart, the Workbench summary cards also reflect the saved source
 configuration and accepted lineup instead of showing first-run values.
 
+Below the summary cards, the dashboard lists each saved playlist and guide on
+its own card with the name you gave it and one of **Up to date**, **Changes
+found**, **Needs attention** (with the reason) or **Not refreshed yet**. One
+source that needs attention does not change the cards of the others. Web
+addresses are never shown.
+
 **Replace sources** returns to Guided Setup, where a new browser-selected source
 set must be reviewed and explicitly accepted. Credentials, tokenized URLs, and
 raw source bytes never enter status responses or public reports.
@@ -337,10 +343,6 @@ Your answers are saved in `state/channel-decisions.json`, one record per channel
 If a `BindTrueMatch` guide ID is not in your guide, normal mode keeps that channel without a guide and says why; strict mode stops. If the decisions file is damaged, every run stops with a message so nothing is silently ignored. The per-channel result (`guide` is `null` when a channel has no guide) is in `output/reports/guided-setup-summary.json`.
 
 Choices change the published lineup, so a rerun with new decisions publishes a new accepted version even when the playlist and guide did not change.
-
-### Your own channel numbers
-
-To give a channel your own number, run `Set-ChannelForgeUserChannelNumber -Root <your folder> -TvgId <guide id> -Number 206`. The number must be a whole number from 1 to 9999. Your number wins over a number from a numbering block, and the next run keeps it. It goes into the lineup as `tvg-chno`; the guide does not change. If two channels get the same number, `Build-My-Lineup.ps1` lists both as "Review needed" and `-Accept` stops until you change one. Saving a number also changes `state/channel-decisions.json` to the newer shape; your guide choices stay the same. Guide choices and channel numbers use different keys: a guide choice follows the stream address, so renaming a channel keeps it; a number follows the guide ID (or the display name for a channel with no guide ID), so renaming a channel that has no guide ID loses its number. The example above shows the older plain-list shape; after you save a number the file is an object with `guideChoices` and `channelNumbers`.
 
 ## What you'll have at the end
 
