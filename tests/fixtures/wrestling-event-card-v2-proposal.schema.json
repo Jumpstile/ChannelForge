@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://channelforge.invalid/proposals/wrestling-event-card-v2.schema.json",
+  "title": "UNAPPROVED ChannelForgeExternalEvidenceObservation/v2 wrestling card proposal",
+  "description": "Synthetic design fixture only. Not a production contract; requires architecture and source-access approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ProposalStatus", "ProposalVersion", "BaseEventObservationReference", "SourceRecords", "SourceClockObservations", "CardRevisionObservations"],
+  "properties": {
+    "ProposalStatus": { "const": "UnapprovedArchitectureProposal" },
+    "ProposalVersion": { "const": "ChannelForgeExternalEvidenceObservation/v2-proposal" },
+    "BaseEventObservationReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ContractVersion", "ObservationId", "SourceRecordReference", "ProvisionalSubjectKey"],
+      "properties": {
+        "ContractVersion": { "const": "ChannelForgeExternalEvidenceObservation/v1" },
+        "ObservationId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "SourceRecordReference": { "$ref": "#/$defs/sourceRef" },
+        "ProvisionalSubjectKey": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "SourceRecords": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["SourceRecordReference", "DocumentKind", "SourceRevisionReference", "SourceDataTimeUtc", "ObservationTimeUtc", "FetchTimeUtc"],
+        "properties": {
+          "SourceRecordReference": { "$ref": "#/$defs/sourceRef" },
+          "DocumentKind": { "enum": ["CanonicalEventPage", "DatedCardArticle", "OfficialCalendar"] },
+          "SourceRevisionReference": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+          "ObservationTimeUtc": { "type": "string", "format": "date-time" },
+          "FetchTimeUtc": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "SourceClockObservations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ClockRole", "RawDisplayValue", "ZoneResolution", "TimeZoneId", "NormalizedUtc", "Evidence"],
+        "properties": {
+          "ClockRole": { "enum": ["EventLocalStart", "BroadcastStart", "Unknown"] },
+          "RawDisplayValue": { "type": ["string", "null"], "maxLength": 128 },
+          "ZoneResolution": { "enum": ["ExplicitOffset", "NamedZone", "Unknown", "NotPublished"] },
+          "TimeZoneId": { "type": ["string", "null"], "maxLength": 128 },
+          "NormalizedUtc": { "type": ["string", "null"], "format": "date-time" },
+          "Evidence": { "$ref": "#/$defs/fieldEvidence" }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "ZoneResolution": { "enum": ["Unknown", "NotPublished"] },
+              "TimeZoneId": { "type": "null" },
+              "NormalizedUtc": { "type": "null" }
+            }
+          },
+          {
+            "properties": {
+              "ZoneResolution": { "enum": ["NamedZone"] },
+              "TimeZoneId": { "type": "string", "minLength": 1 },
+              "NormalizedUtc": { "type": "string", "format": "date-time" }
+            }
+          },
+          {
+            "properties": {
+              "ZoneResolution": { "enum": ["ExplicitOffset"] },
+              "RawDisplayValue": { "type": "string", "minLength": 1, "pattern": "(?:Z|[+-](?:0[0-9]|1[0-4]):[0-5][0-9])$" },
+              "NormalizedUtc": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
+      }
+    },
+    "CardRevisionObservations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["RevisionId", "SourceRecordReference", "SourceDataTimeUtc", "ObservationTimeUtc", "FetchTimeUtc", "CardDisclosure", "Completeness", "MatchObservations"],
+        "properties": {
+          "RevisionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "SourceRecordReference": { "$ref": "#/$defs/sourceRef" },
+          "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+          "ObservationTimeUtc": { "type": "string", "format": "date-time" },
+          "FetchTimeUtc": { "type": "string", "format": "date-time" },
+          "CardDisclosure": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["State", "Assertion", "EvidenceSourceRecordReference"],
+            "properties": {
+              "State": { "enum": ["Unknown", "ExplicitlyUnannounced", "ItemsObserved"] },
+              "Assertion": { "enum": ["NotEstablished", "ExplicitSourceStatement", "ObservedContent"] },
+              "EvidenceSourceRecordReference": { "$ref": "#/$defs/sourceRef" }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "State": { "enum": ["ExplicitlyUnannounced"] },
+                  "Assertion": { "enum": ["ExplicitSourceStatement"] }
+                }
+              },
+              {
+                "properties": {
+                  "State": { "enum": ["ItemsObserved"] },
+                  "Assertion": { "enum": ["ObservedContent"] }
+                }
+              },
+              {
+                "properties": {
+                  "State": { "enum": ["Unknown"] },
+                  "Assertion": { "enum": ["NotEstablished"] }
+                }
+              }
+            ]
+          },
+          "Completeness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Value", "EvidenceSourceRecordReference"],
+            "properties": {
+              "Value": { "enum": ["Unknown", "ExplicitlyComplete"] },
+              "EvidenceSourceRecordReference": { "type": ["string", "null"] }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "Value": { "enum": ["Unknown"] },
+                  "EvidenceSourceRecordReference": { "type": "null" }
+                }
+              },
+              {
+                "properties": {
+                  "Value": { "enum": ["ExplicitlyComplete"] },
+                  "EvidenceSourceRecordReference": { "$ref": "#/$defs/sourceRef" }
+                }
+              }
+            ]
+          },
+          "MatchObservations": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/matchObservation" }
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "CardDisclosure": { "properties": { "State": { "enum": ["ExplicitlyUnannounced"] } } },
+              "MatchObservations": { "maxItems": 0 }
+            }
+          },
+          {
+            "properties": {
+              "CardDisclosure": { "properties": { "State": { "enum": ["ItemsObserved"] } } },
+              "MatchObservations": { "minItems": 1 }
+            }
+          },
+          {
+            "properties": {
+              "CardDisclosure": { "properties": { "State": { "enum": ["Unknown"] } } },
+              "MatchObservations": { "maxItems": 0 }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sourceRef": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+    "fieldEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SourceRecordReference", "SourceDataTimeUtc", "ObservationTimeUtc", "FetchTimeUtc"],
+      "properties": {
+        "SourceRecordReference": { "$ref": "#/$defs/sourceRef" },
+        "SourceDataTimeUtc": { "type": ["string", "null"], "format": "date-time" },
+        "ObservationTimeUtc": { "type": "string", "format": "date-time" },
+        "FetchTimeUtc": { "type": "string", "format": "date-time" }
+      }
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SourceParticipantReference", "DisplayName", "Role", "Evidence"],
+      "properties": {
+        "SourceParticipantReference": { "type": ["string", "null"], "maxLength": 128 },
+        "DisplayName": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "Role": { "enum": ["Competitor", "Team", "Other", "Unknown"] },
+        "Evidence": { "$ref": "#/$defs/fieldEvidence" }
+      }
+    },
+    "matchObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SourceMatchReference", "SourceMatchReferenceEvidence", "Status", "Participants", "Stipulations", "CardPosition"],
+      "properties": {
+        "SourceMatchReference": { "type": ["string", "null"], "maxLength": 128 },
+        "SourceMatchReferenceEvidence": { "type": ["object", "null"] },
+        "Status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Value", "Assertion", "Evidence"],
+          "properties": {
+            "Value": { "enum": ["Advertised", "ExplicitlyCancelled", "Completed", "Unknown"] },
+            "Assertion": { "enum": ["ObservedContent", "ExplicitSourceStatement", "NotEstablished"] },
+            "Evidence": { "$ref": "#/$defs/fieldEvidence" }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "Value": { "enum": ["ExplicitlyCancelled"] },
+                "Assertion": { "enum": ["ExplicitSourceStatement"] }
+              }
+            },
+            {
+              "properties": {
+                "Value": { "enum": ["Advertised", "Completed"] },
+                "Assertion": { "enum": ["ObservedContent", "ExplicitSourceStatement"] }
+              }
+            },
+            {
+              "properties": {
+                "Value": { "enum": ["Unknown"] },
+                "Assertion": { "enum": ["NotEstablished"] }
+              }
+            }
+          ]
+        },
+        "Participants": { "type": "array", "items": { "$ref": "#/$defs/participant" } },
+        "Stipulations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Text", "Evidence"],
+            "properties": {
+              "Text": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "Evidence": { "$ref": "#/$defs/fieldEvidence" }
+            }
+          }
+        },
+        "CardPosition": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["Value", "Evidence"],
+          "properties": {
+            "Value": { "type": "integer", "minimum": 1 },
+            "Evidence": { "$ref": "#/$defs/fieldEvidence" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "SourceMatchReference": { "type": "null" },
+                "SourceMatchReferenceEvidence": { "type": "null" }
+              }
+            },
+            {
+              "properties": {
+                "SourceMatchReference": { "type": "string", "minLength": 1 },
+                "SourceMatchReferenceEvidence": { "$ref": "#/$defs/fieldEvidence" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

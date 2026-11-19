@@ -1,0 +1,55 @@
+{
+  "ObservationStatus": "Observed",
+  "ObservationKind": "ScheduleEvent",
+  "EntityType": "Event",
+  "AdapterId": "aew.offline-fixture",
+  "AdapterVersion": "0.1.0",
+  "ParserVersion": "offline-fixture-v1",
+  "SourceId": "aew.official-site",
+  "SourceFamily": "promotion.official",
+  "EvidenceClass": "OfficialOrganizer",
+  "SourceRelationship": "Authoritative",
+  "SourceRecordReference": "aew.fixture.event-revision-2",
+  "ProvisionalSubjectKey": "aew:fixture:event-001",
+  "SourceChannelReference": null,
+  "BindingContext": null,
+  "FieldObservations": [
+    {
+      "FieldName": "Title",
+      "ValueType": "String",
+      "NormalizedValue": "Synthetic AEW event",
+      "OriginalValueOrFingerprint": "Synthetic AEW event",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "ReasonCodes": [],
+      "Redacted": false
+    },
+    {
+      "FieldName": "ScheduledStartUtc",
+      "ValueType": "Instant",
+      "NormalizedValue": null,
+      "OriginalValueOrFingerprint": "7:00 PM (synthetic; timezone unknown)",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "ReasonCodes": ["SourceTimezoneUnknown"],
+      "Redacted": false
+    },
+    {
+      "FieldName": "EventStatus",
+      "ValueType": "String",
+      "NormalizedValue": "Cancelled",
+      "OriginalValueOrFingerprint": "Explicit synthetic source statement",
+      "SourceDataTimeUtc": null,
+      "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+      "ReasonCodes": ["ExplicitStatusEvidence"],
+      "Redacted": false
+    }
+  ],
+  "SourceDataTimeUtc": null,
+  "ObservationTimeUtc": "2026-01-02T12:00:00Z",
+  "FetchTimeUtc": "2026-01-02T12:00:00Z",
+  "InputArtifactFingerprint": null,
+  "ReasonCodes": [],
+  "RedactedFields": [],
+  "ReadOnly": true
+}
