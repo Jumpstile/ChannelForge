@@ -338,6 +338,10 @@ If a `BindTrueMatch` guide ID is not in your guide, normal mode keeps that chann
 
 Choices change the published lineup, so a rerun with new decisions publishes a new accepted version even when the playlist and guide did not change.
 
+### Your own channel numbers
+
+To give a channel your own number, run `Set-ChannelForgeUserChannelNumber -Root <your folder> -TvgId <guide id> -Number 206`. The number must be a whole number from 1 to 9999. Your number wins over a number from a numbering block, and the next run keeps it. It goes into the lineup as `tvg-chno`; the guide does not change. If two channels get the same number, `Build-My-Lineup.ps1` lists both as "Review needed" and `-Accept` stops until you change one. Saving a number also changes `state/channel-decisions.json` to the newer shape; your guide choices stay the same. Guide choices and channel numbers use different keys: a guide choice follows the stream address, so renaming a channel keeps it; a number follows the guide ID (or the display name for a channel with no guide ID), so renaming a channel that has no guide ID loses its number. The example above shows the older plain-list shape; after you save a number the file is an object with `guideChoices` and `channelNumbers`.
+
 ## What you'll have at the end
 
 - An accepted M3U lineup and, when selected, an accepted XMLTV guide.

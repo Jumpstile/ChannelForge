@@ -622,6 +622,11 @@ try {
     if ($report.ChannelCount -eq 0) {
         throw 'No channels were found in the IPTV playlist.'
     }
+    $numberReview = $candidateResult[0].NumberReview
+    foreach ($numberLine in @($numberReview.Applied) + @($numberReview.Collisions)) { Write-Host $numberLine -ForegroundColor Yellow }
+    if ($Accept -and @($numberReview.Collisions).Count -gt 0) {
+        throw 'Two channels have the same saved channel number, so nothing was published. Change one of them in state/channel-decisions.json, then run again.'
+    }
     $m3uBindings = @($manifest.BindingRecords | Where-Object { [string]$_.BindingKind -eq 'M3U' })
     $report.ExactGuideMatchCount = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ExactBound' }).Count
     $report.AmbiguityCount = @($m3uBindings | Where-Object { [string]$_.Status -eq 'ReviewNeeded' }).Count

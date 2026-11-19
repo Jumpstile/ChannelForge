@@ -1,8 +1,15 @@
 function Read-ChannelForgeChannelDecisions {
-    # Returns every record in channel-decisions.json (none when the file is absent).
-    # A damaged file stops the run; it is never ignored and never replaced by defaults.
+    # Returns the records of one section of channel-decisions.json (none when the file is absent).
+    # GuideChoices (the default) is the stream-keyed guide choices. ChannelNumbers is the user's
+    # saved channel numbers, which exist only in a v2 file.
+    # The file is either v1 (a bare array of guide choices) or v2 (an object with schemaVersion
+    # 'channel-decisions/v2'). A damaged file or an unknown version stops the run; it is never
+    # ignored and never replaced by defaults.
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Path)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [ValidateSet('GuideChoices', 'ChannelNumbers')][string]$Section = 'GuideChoices'
+    )
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @() }
     $fix = 'Fix or delete the file, then run again. Nothing was published.'
@@ -12,6 +19,18 @@ function Read-ChannelForgeChannelDecisions {
     catch {
         throw "The channel decisions file could not be read (it is not valid JSON). $fix"
     }
+
+    $numbers = @()
+    if ($items.Count -eq 1 -and $null -ne $items[0] -and $items[0] -is [pscustomobject] -and @($items[0].PSObject.Properties.Name) -contains 'schemaVersion') {
+        $document = $items[0]
+        if ([string]$document.schemaVersion -cne 'channel-decisions/v2') {
+            throw "The channel decisions file has an unknown version '$([string]$document.schemaVersion)'. This build reads channel-decisions/v2 and the older plain list. $fix"
+        }
+        $names = @($document.PSObject.Properties.Name)
+        $items = if ($names -contains 'guideChoices') { @($document.guideChoices) } else { @() }
+        $numbers = if ($names -contains 'channelNumbers') { @($document.channelNumbers) } else { @() }
+    }
+    if ($Section -eq 'ChannelNumbers') { return @(ConvertTo-ChannelForgeChannelNumberRecord -Item $numbers) }
 
     $choices = @('KeepWithoutGuide', 'OwnPlaceholder', 'BindTrueMatch', 'ShareOnPurpose')
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)

@@ -135,6 +135,7 @@ FunctionsToExport = @(
     'Resolve-ChannelForgeM3UXmltvBinding'
     'Resolve-ChannelForgeProviderConfigPath'
     'Set-ChannelForgeChannelNumber'
+    'Set-ChannelForgeUserChannelNumber'
     'New-ChannelForgeWebServer'
     'Start-ChannelForgeWebServer'
 )

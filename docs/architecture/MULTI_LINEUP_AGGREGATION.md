@@ -77,6 +77,7 @@ Where this lives (names): `Normalize-ChannelForgeName.ps1`, `Resolve-ChannelForg
 4. **Apply aliases.** An exact, case-insensitive match against the alias file swaps in the canonical name. There is no fuzzy matching. Where this lives: `Resolve-ChannelForgeAlias.ps1`.
 5. **Remove duplicates.** The key is the lowercase `tvg-id` when there is one. Otherwise it is the lowercase display name. The first channel in the step 1 order wins. Channels that shared a key are also recorded as `IdentityCollisions`, so the guide step can refuse an automatic bind for them. Where this lives: `Merge-ChannelForgeLineup.ps1`.
 6. **Number the channels.** A channel gets a number only if its group name equals a block category in the numbering blocks file. Numbers go up inside the block in name order. A full block leaves the extra channels unnumbered, with a warning. Output order is numbered channels first, then the rest by name. Where this lives: `Set-ChannelForgeChannelNumber.ps1`, `Merge-ChannelForgeLineup.ps1`.
+6a. **Apply your own numbers.** A number you saved for a channel replaces its block number (see "Your own channel numbers" below). Where this lives: `Set-ChannelForgeUserNumber.ps1`.
 7. **Build the saved source set.** Playlists and guides are saved as enrolled sources with a priority. They are read in priority order. Where this lives: `Invoke-ChannelForgeSourceEnrollment.ps1`, `New-ChannelForgeEnrolledCandidate.ps1`, `New-ChannelForgeCandidateProposalFromSourceSet.ps1`.
 
 ## Guide-to-playlist bindings
@@ -122,6 +123,21 @@ Strict mode (`-AmbiguousAction Cancel`) stops if any held channel has no saved c
 
 Where this lives: `Read-ChannelForgeChannelDecisions.ps1`, `Resolve-ChannelForgeGuideChoices.ps1`, `Add-ChannelForgePlaceholderGuide.ps1`, `scripts\Build-My-Lineup.ps1`.
 
+## Your own channel numbers
+
+You can save your own number for a channel. It is a whole number from 1 to 9999. Save it with `Set-ChannelForgeUserChannelNumber -Root <repo> -TvgId <guide id>` (or `-Name <display name>` for a channel with no guide id), or by editing `state\channel-decisions.json` by hand.
+
+- The channel is keyed by its lineup identity key: `id:` plus the lowercase `tvg-id`, or `name:` plus the lowercase display name. This is the same key step 5 above uses to remove duplicates. It is not the stream-address hash that guide choices use.
+- The number goes into `Channel.AssignedNumber`, so the existing `tvg-chno` output carries it. The provider's own `tvg-chno` stays raw evidence. No output field was added.
+- Your number beats a block number. The channel that held that number moves to the next free number in its block, or is left unnumbered with the "block is full" warning.
+- Two saved numbers that are equal: neither is used, nothing is picked, and `Build-My-Lineup.ps1` lists both channels as "Review needed" in its output and in `lineup-change-review.md`. With `-Accept` the run stops and publishes nothing until you change one. The channels stay in the lineup.
+- A re-run keeps your numbers. A number never changes an XMLTV channel id; the guide is matched on the guide id only.
+- A saved number for a channel that is not in the playlist is ignored.
+
+The file `state\channel-decisions.json` has two shapes. The old shape is a plain list of guide choices (v1). It is still read, and it stays v1 on disk until you save a channel number. Then it is written as `{ "schemaVersion": "channel-decisions/v2", "guideChoices": [...], "channelNumbers": [...] }`, and the guide choices keep their meaning. There is no separate migration step. A file with any other `schemaVersion` stops the run and publishes nothing, like a damaged file. `duplicatePolicies` is not part of this file yet. The file is not named in any ADR, contract or state matrix in this repository (checked by searching for its name; it is a keyword search only), so it is not treated as a frozen contract.
+
+What was not built for numbers: the legacy `Build-Lineup.ps1` and the saved source-set candidate path do not read saved numbers. Only the guided path (`Build-My-Lineup.ps1`, through `New-ChannelForgeCandidateProposal`) does.
+
 ## Comparing guides
 
 `Compare-ChannelForgeXmltvGuides.ps1` is a report. It does not change the output. It checks guide observations for agreement and conflict. Its findings include `ExactAgreement`, `TitleConflict`, `TimeConflict`, `ProgrammeMissing`, `StaleObservation`, `CoverageGap` and `AmbiguousCorrelation`. See [Guide comparison intelligence](GUIDE_COMPARISON_INTELLIGENCE.md).
@@ -142,9 +158,9 @@ Two playlists, A and B, both carry ESPN. One guide, G.
 
 ## Not built yet (tracked in #153)
 
-The planned design for the items below is in [Aggregation policies and channel numbers](AGGREGATION_POLICIES_AND_CHANNEL_NUMBERS.md). It is a decision record. Nothing in it is built.
+The planned design for the items below is in [Aggregation policies and channel numbers](AGGREGATION_POLICIES_AND_CHANNEL_NUMBERS.md). It is a decision record. Only the channel-number slice is built; the other items are not.
 
-- **User-chosen channel numbers.** Not found. `PreferredNumber` exists on `Channel` but nothing reads it. Numbers come only from numbering blocks by group. `tvg-chno` is stored as raw evidence only.
+- **Your own channel numbers: built for the guided path.** See "Your own channel numbers" above. `PreferredNumber` on `Channel` is still unread. Not built: reading saved numbers in `Build-Lineup.ps1` and the source-set candidate path, and recording the number in the decision manifest (slice 6).
 - **The six-choice duplicate decision.** Only four choices exist (`KeepWithoutGuide`, `OwnPlaceholder`, `BindTrueMatch`, `ShareOnPurpose`). The other two are not found. The choice is only reached through `Build-My-Lineup.ps1`.
 - **Failover policy between providers.** Not found. No code searches for failover, backup order or stream health. The enrolled `Priority` only orders reading, and the first duplicate wins.
 - **Regional variant detection.** Not found (see the table above).
