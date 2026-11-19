@@ -132,6 +132,7 @@ FunctionsToExport = @(
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
+    'Resolve-ChannelForgeTeamAlias'
     'Resolve-ChannelForgeM3UXmltvBinding'
     'Resolve-ChannelForgeProviderConfigPath'
     'Set-ChannelForgeChannelNumber'

@@ -1,0 +1,63 @@
+{
+  "clues": [
+    { "text": "nfl", "leagues": ["NFL"] },
+    { "text": "football", "leagues": ["NFL"] },
+    { "text": "mlb", "leagues": ["MLB"] },
+    { "text": "baseball", "leagues": ["MLB", "NPB"] },
+    { "text": "npb", "leagues": ["NPB"] },
+    { "text": "japan", "leagues": ["NPB"] },
+    { "text": "japanese", "leagues": ["NPB"] },
+    { "text": "nba", "leagues": ["NBA"] },
+    { "text": "basketball", "leagues": ["NBA"] }
+  ],
+  "teams": [
+    {
+      "team": "New York Giants",
+      "league": "NFL",
+      "sport": "Football",
+      "aliases": ["Giants", "NY Giants"]
+    },
+    {
+      "team": "San Francisco Giants",
+      "league": "MLB",
+      "sport": "Baseball",
+      "aliases": ["Giants", "SF Giants"]
+    },
+    {
+      "team": "Yomiuri Giants",
+      "league": "NPB",
+      "sport": "Baseball",
+      "aliases": ["Giants", "Tokyo Giants"]
+    },
+    {
+      "team": "Detroit Tigers",
+      "league": "MLB",
+      "sport": "Baseball",
+      "aliases": ["Tigers"]
+    },
+    {
+      "team": "Hanshin Tigers",
+      "league": "NPB",
+      "sport": "Baseball",
+      "aliases": ["Tigers"]
+    },
+    {
+      "team": "Dallas Cowboys",
+      "league": "NFL",
+      "sport": "Football",
+      "aliases": ["Cowboys"]
+    },
+    {
+      "team": "Los Angeles Dodgers",
+      "league": "MLB",
+      "sport": "Baseball",
+      "aliases": ["Dodgers", "LA Dodgers"]
+    },
+    {
+      "team": "Boston Celtics",
+      "league": "NBA",
+      "sport": "Basketball",
+      "aliases": ["Celtics"]
+    }
+  ]
+}
