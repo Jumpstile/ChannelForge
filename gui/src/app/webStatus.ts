@@ -129,3 +129,25 @@ export async function refreshSavedSources(request: typeof fetch = fetch): Promis
     return null
   }
 }
+
+export type SourceRemoveResult = { ok: true } | { ok: false; message: string }
+export type SourceRemoveAction = (source: Pick<SourceRow, 'kind' | 'label'>) => Promise<SourceRemoveResult>
+
+const removeFailureMessage = 'The source could not be removed. Your saved sources were not changed.'
+
+export async function removeSavedSource(source: Pick<SourceRow, 'kind' | 'label'>, request: typeof fetch = fetch): Promise<SourceRemoveResult> {
+  try {
+    const response = await request('/api/sources/remove', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Label: source.label, Kind: source.kind === 'guide' ? 'XMLTV' : 'M3U' }),
+    })
+    const payload: unknown = await response.json()
+    if (response.status === 200 && isJsonRecord(payload) && payload.Version === 'source-remove/v1' && payload.Status === 'REMOVED') return { ok: true }
+    // Only the server's plain-words message is shown; anything else gets the fixed text.
+    if (isJsonRecord(payload) && typeof payload.Message === 'string' && response.status >= 400 && response.status < 500) return { ok: false, message: payload.Message }
+    return { ok: false, message: removeFailureMessage }
+  } catch {
+    return { ok: false, message: removeFailureMessage }
+  }
+}

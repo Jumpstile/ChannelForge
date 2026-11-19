@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
-import { fetchWebStatus, refreshSavedSources, type SourceRefreshAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
+import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
 type DashboardState = 'loading' | 'ready' | 'unavailable'
 
 type StatusDashboardProps = {
   fetchStatus?: WebStatusFetcher
   refreshSources?: SourceRefreshAction
+  removeSource?: SourceRemoveAction
   onReplaceSources?: () => void
   onSnapshotChange?: (snapshot: WebStatusSnapshot | null) => void
 }
@@ -45,6 +46,7 @@ function sourceRowState(state: SourceRow['state']): string {
 export function StatusDashboard({
   fetchStatus = fetchWebStatus,
   refreshSources = refreshSavedSources,
+  removeSource = removeSavedSource,
   onReplaceSources,
   onSnapshotChange,
 }: StatusDashboardProps) {
@@ -52,6 +54,9 @@ export function StatusDashboard({
   const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<number | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [removeMessage, setRemoveMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -96,6 +101,23 @@ export function StatusDashboard({
     setRefreshing(false)
   }
 
+  async function handleRemove(source: SourceRow) {
+    setRemoving(true)
+    const result = await removeSource(source)
+    setRemoving(false)
+    setConfirming(null)
+    if ('message' in result) {
+      setRemoveMessage(result.message)
+      return
+    }
+    setRemoveMessage(`Removed "${source.label}". Your other sources were not changed.`)
+    const next = await fetchStatus()
+    if (next !== null) {
+      setSnapshot(next)
+      onSnapshotChange?.(next)
+    }
+  }
+
   if (state === 'loading') {
     return (
       <StatusBanner status="Not checked" title="Checking ChannelForge status">
@@ -125,7 +147,7 @@ export function StatusDashboard({
       <StatusBanner status="Ready" title="ChannelForge is running">
         <p>{snapshot.lineupAccepted ? 'An accepted lineup is available.' : 'No lineup has been accepted yet.'}</p>
         <p>{snapshot.lineupAccepted ? 'Open Guided Setup to review.' : 'Open Guided Setup to begin.'}</p>
-        <p><strong>Read-only status.</strong> This page can show status, but it cannot change your lineup yet.</p>
+        <p><strong>Your accepted lineup is not changed here.</strong> You can check saved sources and remove one you no longer want.</p>
       </StatusBanner>
       <section className="workbench-grid" aria-label="Saved source status">
         <article className="summary-card">
@@ -156,6 +178,19 @@ export function StatusDashboard({
               <span className="summary-card-label">{source.kind === 'guide' ? 'Guide' : 'Playlist'}</span>
               <strong>{source.label}</strong>
               <span className="summary-card-detail">{sourceRowState(source.state)}</span>
+              {confirming === index ? (
+                <div role="group" aria-label={`Remove ${source.label}`}>
+                  <p>Remove "{source.label}" from ChannelForge? Your other sources stay as they are. Your own file is not deleted.</p>
+                  <button className="button button-primary" type="button" onClick={() => void handleRemove(source)} disabled={removing}>
+                    {removing ? 'Removing…' : 'Yes, remove this source'}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => setConfirming(null)} disabled={removing}>Keep this source</button>
+                </div>
+              ) : (
+                <button className="button button-secondary" type="button" onClick={() => { setRemoveMessage(null); setConfirming(index) }} disabled={removing}>
+                  {`Remove ${source.label}`}
+                </button>
+              )}
             </article>
           ))}
         </section>
@@ -165,6 +200,7 @@ export function StatusDashboard({
           <p className="eyebrow">Saved sources</p>
           <h2>{refreshMessage ?? sourceStatusLabel(sourcesStatus)}</h2>
           <p>Refreshing never replaces your accepted lineup automatically.</p>
+          {removeMessage ? <p role="status">{removeMessage}</p> : null}
         </div>
         <div className="next-action-buttons">
           <button className="button button-primary" type="button" onClick={() => void handleRefresh()} disabled={!canRefresh || refreshing}>
