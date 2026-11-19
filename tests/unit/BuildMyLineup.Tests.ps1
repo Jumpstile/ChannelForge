@@ -682,3 +682,50 @@ Describe 'Event channel guide in the accepted lineup' {
         $run.Output | Should -Not -BeLike '*could not be built*'
     }
 }
+
+Describe 'Build-My-Lineup.ps1 saved channel numbers' {
+    BeforeAll {
+    function Set-TestNumbers {
+        param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][hashtable]$Number)
+        New-Item -ItemType Directory -Force -Path (Join-Path $Root 'state') | Out-Null
+        $rows = @($Number.Keys | Sort-Object | ForEach-Object { [ordered]@{ channelKey = $_; number = $Number[$_]; decidedAt = '2026-11-18T00:00:00Z' } })
+        $document = [ordered]@{ schemaVersion = 'channel-decisions/v2'; guideChoices = @(); channelNumbers = $rows }
+        ConvertTo-Json -InputObject $document -Depth 5 | Set-Content -LiteralPath (Join-Path $Root 'state\channel-decisions.json') -Encoding utf8
+    }
+    }
+
+    It 'keeps every XMLTV channel id, puts the number in the lineup, and keeps it on a re-run' {
+        $plain = New-SharedIdFixture -Name 'number-plain'
+        $numbered = New-SharedIdFixture -Name 'number-set'
+        Set-TestNumbers -Root $numbered.Root -Number @{ 'id:real.us' = 206 }
+
+        (Invoke-NoKeyboardBuild -Fixture $plain).ExitCode | Should -Be 0
+        $run = Invoke-NoKeyboardBuild -Fixture $numbered
+        $run.ExitCode | Should -Be 0
+        $run.Output | Should -Match "'Real' uses your saved channel number 206"
+
+        $plainDir = Join-Path $plain.Root 'output\guided-setup\accepted'
+        $numberedDir = Join-Path $numbered.Root 'output\guided-setup\accepted'
+        $lineup = Get-Content -LiteralPath (Join-Path $numberedDir 'lineup.m3u') -Raw
+        $lineup | Should -Match 'tvg-chno="206"[^\r\n]*,Real'
+        ($lineup -replace ' tvg-chno="206"', '') | Should -Be (Get-Content -LiteralPath (Join-Path $plainDir 'lineup.m3u') -Raw)
+        (Get-FileHash -LiteralPath (Join-Path $numberedDir 'guide.xml')).Hash | Should -Be (Get-FileHash -LiteralPath (Join-Path $plainDir 'guide.xml')).Hash
+
+        $before = (Get-FileHash -LiteralPath (Join-Path $numbered.Root 'state\channel-decisions.json')).Hash
+        (Invoke-NoKeyboardBuild -Fixture $numbered).ExitCode | Should -Be 0
+        (Get-Content -LiteralPath (Join-Path $numberedDir 'lineup.m3u') -Raw) | Should -Match 'tvg-chno="206"[^\r\n]*,Real'
+        (Get-FileHash -LiteralPath (Join-Path $numbered.Root 'state\channel-decisions.json')).Hash | Should -Be $before
+    }
+
+    It 'shows two equal saved numbers as a review item and publishes nothing' {
+        $fixture = New-SharedIdFixture -Name 'number-collision'
+        Set-TestNumbers -Root $fixture.Root -Number @{ 'id:real.us' = 206; 'id:a.us' = 206 }
+
+        $run = Invoke-NoKeyboardBuild -Fixture $fixture
+
+        $run.ExitCode | Should -Not -Be 0
+        $run.Output | Should -Match 'channel number 206 is saved for'
+        $run.Output | Should -Match 'Nothing was picked'
+        Test-Path -LiteralPath (Join-Path $fixture.Root 'state\accepted-lineup.json') | Should -BeFalse
+    }
+}

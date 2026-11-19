@@ -20,6 +20,7 @@ function New-ChannelForgeCandidateProposal {
     $providerDir = Join-Path $dataDir 'providers'
     $aliasPath = Join-Path $dataDir 'rules\aliases.json'
     $blocksPath = Join-Path $dataDir 'lineup\numbering_blocks.json'
+    $userNumbers = @(Read-ChannelForgeChannelDecisions -Path (Join-Path $Root 'state\channel-decisions.json') -Section ChannelNumbers)
     $sourceList = [System.Collections.Generic.List[object]]::new()
     $index = 0
 
@@ -77,7 +78,7 @@ function New-ChannelForgeCandidateProposal {
                      OrderKey = $_.LogicalSourceId
                  }
              })
-         $merge = Merge-ChannelForgeLineup -Source $mergeSources -AliasPath $aliasPath -NumberingBlocksPath $blocksPath
+        $merge = Merge-ChannelForgeLineup -Source $mergeSources -AliasPath $aliasPath -NumberingBlocksPath $blocksPath -UserNumber $userNumbers
      }
      foreach ($sourceRecord in @($sourceList)) {
          $sourceRecord.Raw = @($sourceRecord.Raw | Sort-Object EntryId)
@@ -91,10 +92,12 @@ function New-ChannelForgeCandidateProposal {
                      Playlist = $_.SourceName
                      OrderKey = $_.LogicalSourceId
                  }
-             }) -AliasPath $aliasPath -NumberingBlocksPath $blocksPath
+            }) -AliasPath $aliasPath -NumberingBlocksPath $blocksPath -UserNumber $userNumbers
+        $numberReview = $merge.NumberReview
      }
      else {
-         $merge.Channels = @($sourceList | ForEach-Object Channels)
+        $merge.Channels = @($sourceList | ForEach-Object Channels)
+        $numberReview = Set-ChannelForgeUserNumber -Channel @($merge.Channels) -Record $userNumbers
      }
      $rawAll = @($sourceList | ForEach-Object Raw)
      $inputArtifactHashes = [System.Collections.Generic.List[object]]::new()
@@ -187,7 +190,12 @@ function New-ChannelForgeCandidateProposal {
          "Unbound M3U channels: $($counts.UnboundCount)"
          "Review-needed identities: $($counts.ReviewNeededCount)"
          "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
-         ''
+        ''
+        @(if ($numberReview.Applied.Count -gt 0 -or $numberReview.Collisions.Count -gt 0) {
+                'Your channel numbers'
+                @($numberReview.Applied) + @($numberReview.Collisions)
+                ''
+            })
          'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
      ) -join "`n"
      $reviewMdBytes = $utf8.GetBytes($reviewMarkdown + "`n")
@@ -210,7 +218,7 @@ function New-ChannelForgeCandidateProposal {
         Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
         $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
         $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin) -LogoPin $logoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $Root)
-        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport; GuideTrim = $guideTrim }
+        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport; GuideTrim = $guideTrim; NumberReview = $numberReview }
     }
     catch {
         if (Test-Path -LiteralPath $txRoot) {

@@ -13,6 +13,10 @@ function Merge-ChannelForgeLineup {
 
         [string]$NumberingBlocksPath,
 
+        # The user's saved channel numbers (channelKey, number). They win over block numbers.
+        [AllowEmptyCollection()]
+        [object[]]$UserNumber = @(),
+
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -89,7 +93,7 @@ function Merge-ChannelForgeLineup {
         [System.StringComparer]::Ordinal)
 
     foreach ($ch in $channels) {
-        $key = if ($ch.TvgId) { "id:$($ch.TvgId.Trim().ToLowerInvariant())" } else { "name:$($ch.DisplayName.Trim().ToLowerInvariant())" }
+        $key = Get-ChannelForgeChannelIdentityKey -Channel $ch
 
         if (-not $identityGroups.ContainsKey($key)) {
             $identityGroups[$key] = [System.Collections.Generic.List[Channel]]::new()
@@ -131,6 +135,7 @@ function Merge-ChannelForgeLineup {
     }
     $numberingConfig = Get-Content -LiteralPath $NumberingBlocksPath -Raw | ConvertFrom-Json
     Set-ChannelForgeChannelNumber -Channel $survivors -NumberingBlock @($numberingConfig.blocks) | Out-Null
+    $numberReview = Set-ChannelForgeUserNumber -Channel $survivors -Record $UserNumber -NumberingBlock @($numberingConfig.blocks)
 
     # Final output order: numbered channels first in ascending channel-number
     # order, then unassigned channels by display name. This is the order
@@ -148,5 +153,6 @@ function Merge-ChannelForgeLineup {
         Duplicates     = @($duplicates)
         IdentityCollisions = @($identityCollisions.ToArray())
         WarningCount   = @($channels | Where-Object { $_.Warnings.Count -gt 0 }).Count
+        NumberReview   = $numberReview
     }
 }

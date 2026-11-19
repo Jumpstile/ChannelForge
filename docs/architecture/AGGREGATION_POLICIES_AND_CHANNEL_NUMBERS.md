@@ -1,6 +1,6 @@
 # Aggregation Policies and Channel Numbers
 
-Status: decision record for issue 153, slice 1. Docs only. No code, schema or test changed. Everything here that is not already in [Multi-lineup and guide aggregation](MULTI_LINEUP_AGGREGATION.md) is **NOT BUILT**. That note says what the code does today. This note says what later slices must build, and in what order.
+Status: decision record for issue 153. Slice 1 (this note) is docs only. Slice 2 (your own channel numbers) is now built, using the recommendations for owner decisions 4, 5, 6 and 7 below; the owner has not answered them yet. Everything else here that is not already in [Multi-lineup and guide aggregation](MULTI_LINEUP_AGGREGATION.md) is still **NOT BUILT**. That note says what the code does today. This note says what later slices must build, and in what order.
 
 ## In plain words
 
