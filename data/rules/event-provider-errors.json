@@ -1,0 +1,20 @@
+{
+  "phrases": [
+    "no data",
+    "no data available",
+    "guide unavailable",
+    "guide data unavailable",
+    "guide not available",
+    "event cancelled",
+    "event canceled",
+    "service unavailable",
+    "http error",
+    "internal server error",
+    "bad gateway",
+    "gateway timeout",
+    "404 not found",
+    "error 404",
+    "error 500",
+    "error 503"
+  ]
+}

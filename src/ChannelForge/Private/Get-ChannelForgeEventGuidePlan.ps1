@@ -36,6 +36,7 @@ function Get-ChannelForgeEventGuidePlan {
     foreach ($forcedKey in @($overrideOf.Keys | Where-Object { $overrideOf[$_] -ceq 'forceOn' -and $byKey.Contains($_) -and @($todo.Key) -cnotcontains $_ })) {
         $todo += [pscustomobject]@{ Key = $forcedKey; DisplayName = [string]$byKey[$forcedKey][0].Name; Reasons = @() }
     }
+    $review = [System.Collections.Generic.List[object]]::new()
     foreach ($rated in $todo) {
         $group = $byKey[$rated.Key]
         $reason = $null
@@ -46,10 +47,11 @@ function Get-ChannelForgeEventGuidePlan {
             if ($group[0].GuideId -and $programmes.ContainsKey([string]$group[0].GuideId)) { $guideRows = @($programmes[[string]$group[0].GuideId]) }
             $built = Get-ChannelForgeEventProgrammeBlocks -Programme $guideRows -ChannelName $rated.DisplayName -WindowStart $window.Start -WindowEnd $window.End
             $reason = $built.Reason
+            foreach ($question in @($built.Review)) { [void]$review.Add([pscustomobject]@{ Key = $rated.Key; Name = $rated.DisplayName; Reason = "review: $question" }) }
         }
         if ($reason) { [void]$fallback.Add([pscustomobject]@{ Key = $rated.Key; Name = $rated.DisplayName; Reason = "normal guide kept: $reason" }); continue }
         [void]$channels.Add([pscustomobject]@{ Id = 'ChannelForge-' + $rated.Key.Substring(0, 32); Name = $rated.DisplayName; Blocks = $built.Blocks; Key = $rated.Key; EntryIds = @($group | ForEach-Object { [string]$_.EntryId }) })
         [void]$applied.Add([pscustomobject]@{ Key = $rated.Key; Name = $rated.DisplayName; Reason = $(if ($overrideOf[$rated.Key] -ceq 'forceOn') { 'event guide applied (overridden: you forced this channel on)' } else { "event guide applied: $($rated.Reasons -join '; ')" }) })
     }
-    [pscustomobject]@{ Channel = @($channels.ToArray()); Applied = @($applied.ToArray()); Fallback = @($fallback.ToArray()) }
+    [pscustomobject]@{ Channel = @($channels.ToArray()); Applied = @($applied.ToArray()); Fallback = @($fallback.ToArray()); Review = @($review.ToArray()) }
 }

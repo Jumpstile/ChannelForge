@@ -26,9 +26,11 @@ function Read-ChannelForgeEventGuideProgramme {
         $start = & $readTime ([string]$attribute['start'])
         $stop = & $readTime ([string]$attribute['stop'])
         $title = [regex]::Match($match.Groups[2].Value, '<title\b[^>]*>(.*?)</title>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+        $description = [regex]::Match($match.Groups[2].Value, '<desc\b[^>]*>(.*?)</desc>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
         if (-not $result.ContainsKey($channelId)) { $result[$channelId] = [System.Collections.Generic.List[object]]::new() }
         $result[$channelId].Add([pscustomobject]@{
                 Title = $(if ($title.Success) { [System.Net.WebUtility]::HtmlDecode($title.Groups[1].Value) } else { '' })
+                Description = $(if ($description.Success) { [System.Net.WebUtility]::HtmlDecode($description.Groups[1].Value) } else { '' })
                 Start = $start; Stop = $stop
                 Valid = ($null -ne $start -and ($attribute.ContainsKey('stop') -eq ($null -ne $stop)))
             })
