@@ -1,40 +1,27 @@
-import type { ReactNode } from "react";
-import { CircleHelp, ShieldCheck } from "lucide-react";
-import { demoWorkspaceIdentity } from "./workspaceIdentity";
-import type { NavigationId } from "./navigation";
-import { SideNav } from "../components/SideNav";
-import { WorkspaceIdentity } from "../components/WorkspaceIdentity";
-import { TopBar } from "../components/TopBar";
+import type { ReactNode } from 'react'
+import { CircleHelp, ShieldCheck } from 'lucide-react'
+import { demoWorkspaceIdentity } from './workspaceIdentity'
+import type { NavigationId } from './navigation'
+import { SideNav } from '../components/SideNav'
+import { WorkspaceIdentity } from '../components/WorkspaceIdentity'
+import { TopBar } from '../components/TopBar'
 
 type AppShellProps = {
-  activePage: NavigationId;
-  onNavigate: (page: NavigationId) => void;
-  navigationAvailability?: Partial<Record<NavigationId, boolean>>;
-  children: ReactNode;
-};
+  activePage: NavigationId
+  onNavigate: (page: NavigationId) => void
+  navigationAvailability?: Partial<Record<NavigationId, boolean>>
+  children: ReactNode
+}
 
-export function AppShell({
-  activePage,
-  onNavigate,
-  navigationAvailability,
-  children,
-}: AppShellProps) {
+export function AppShell({ activePage, onNavigate, navigationAvailability, children }: AppShellProps) {
   return (
     <div className="app-frame">
-      <SideNav
-        activePage={activePage}
-        navigationAvailability={navigationAvailability}
-        onNavigate={onNavigate}
-      />
+      <SideNav activePage={activePage} navigationAvailability={navigationAvailability} onNavigate={onNavigate} />
       <div className="app-content">
         <TopBar>
           <WorkspaceIdentity identity={demoWorkspaceIdentity} />
           <div className="top-bar-status" aria-label="Workspace actions">
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="Open help"
-            >
+            <button className="icon-button" type="button" aria-label="Open help">
               <CircleHelp size={18} aria-hidden="true" />
             </button>
           </div>
@@ -49,5 +36,5 @@ export function AppShell({
         </footer>
       </div>
     </div>
-  );
+  )
 }

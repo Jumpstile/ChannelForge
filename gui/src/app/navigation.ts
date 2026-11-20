@@ -1,112 +1,51 @@
-export type NavigationId =
-  | "workbench"
-  | "live-now"
-  | "wrestling"
-  | "setup"
-  | "sources"
-  | "validation"
-  | "build"
-  | "accepted"
-  | "schedule"
-  | "learn"
-  | "gallery";
+export type NavigationId = 'workbench' | 'live-now' | 'wrestling' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'schedule' | 'learn' | 'gallery'
 
 export type NavigationItem = {
-  id: NavigationId;
-  label: string;
-  description: string;
-  available: boolean;
-};
+  id: NavigationId
+  label: string
+  description: string
+  available: boolean
+}
 
 export type NavigationGroup = {
-  label: string;
-  items: NavigationItem[];
-};
+  label: string
+  items: NavigationItem[]
+}
 
 export const navigationGroups: NavigationGroup[] = [
   {
-    label: "Workspace",
+    label: 'Workspace',
     items: [
-      {
-        id: "workbench",
-        label: "Workbench",
-        description: "See the safest next step",
-        available: true,
-      },
-      {
-        id: "live-now",
-        label: "Live Now",
-        description: "See what is on now",
-        available: true,
-      },
-      {
-        id: "wrestling",
-        label: "Wrestling",
-        description: "Browse wrestling by when it airs",
-        available: true,
-      },
+      { id: 'workbench', label: 'Workbench', description: 'See the safest next step', available: true },
+      { id: 'live-now', label: 'Live Now', description: 'See what is on now', available: true },
+      { id: 'wrestling', label: 'Wrestling', description: 'Browse wrestling by when it airs', available: true },
     ],
   },
   {
-    label: "Setup",
+    label: 'Setup',
     items: [
-      {
-        id: "setup",
-        label: "Guided Setup",
-        description: "Choose a workspace, playlist, and guide",
-        available: true,
-      },
-      {
-        id: "sources",
-        label: "Playlist",
-        description: "Add playlist",
-        available: false,
-      },
-      {
-        id: "validation",
-        label: "Guide",
-        description: "Add guide",
-        available: false,
-      },
+      { id: 'setup', label: 'Guided Setup', description: 'Choose a workspace, playlist, and guide', available: true },
+      { id: 'sources', label: 'Playlist', description: 'Add playlist', available: false },
+      { id: 'validation', label: 'Guide', description: 'Add guide', available: false },
     ],
   },
   {
-    label: "Decide",
+    label: 'Decide',
     items: [
-      {
-        id: "build",
-        label: "Lineup",
-        description: "Review your lineup",
-        available: false,
-      },
-      {
-        id: "accepted",
-        label: "Saved lineup",
-        description: "See what you saved",
-        available: false,
-      },
+      { id: 'build', label: 'Lineup', description: 'Review your lineup', available: false },
+      { id: 'accepted', label: 'Saved lineup', description: 'See what you saved', available: false },
     ],
   },
   {
-    label: "Operate",
+    label: 'Operate',
     items: [
-      {
-        id: "schedule",
-        label: "Automatic updates",
-        description: "Review automatic updates",
-        available: false,
-      },
+      { id: 'schedule', label: 'Automatic updates', description: 'Review automatic updates', available: false },
     ],
   },
   {
-    label: "Help",
+    label: 'Help',
     items: [
-      {
-        id: "learn",
-        label: "Learn",
-        description: "Understand ChannelForge terms",
-        available: false,
-      },
+      { id: 'learn', label: 'Learn', description: 'Understand ChannelForge terms', available: false },
     ],
   },
-];
+]

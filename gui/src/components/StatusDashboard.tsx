@@ -1,73 +1,45 @@
-import { useEffect, useState } from "react";
-import { StatusBanner } from "./StatusBanner";
-import {
-  fetchWebStatus,
-  refreshSavedSources,
-  removeSavedSource,
-  type SourceRefreshAction,
-  type SourceRemoveAction,
-  type SourceRow,
-  type WebStatusFetcher,
-  type WebStatusSnapshot,
-} from "../app/webStatus";
+import { useEffect, useState } from 'react'
+import { StatusBanner } from './StatusBanner'
+import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
-type DashboardState = "loading" | "ready" | "unavailable";
+type DashboardState = 'loading' | 'ready' | 'unavailable'
 
 type StatusDashboardProps = {
-  fetchStatus?: WebStatusFetcher;
-  refreshSources?: SourceRefreshAction;
-  removeSource?: SourceRemoveAction;
-  onReplaceSources?: () => void;
-  onSnapshotChange?: (snapshot: WebStatusSnapshot | null) => void;
-};
+  fetchStatus?: WebStatusFetcher
+  refreshSources?: SourceRefreshAction
+  removeSource?: SourceRemoveAction
+  onReplaceSources?: () => void
+  onSnapshotChange?: (snapshot: WebStatusSnapshot | null) => void
+}
 
-function sourceStatusLabel(status: WebStatusSnapshot["sourcesStatus"]): string {
+function sourceStatusLabel(status: WebStatusSnapshot['sourcesStatus']): string {
   switch (status) {
-    case "saved":
-      return "Sources saved";
-    case "up-to-date":
-      return "Up to date";
-    case "changes-found":
-      return "Changes found";
-    case "source-unavailable":
-      return "Source unavailable";
-    case "needs-attention":
-      return "Needs attention";
-    default:
-      return "Sources not saved";
+    case 'saved': return 'Sources saved'
+    case 'up-to-date': return 'Up to date'
+    case 'changes-found': return 'Changes found'
+    case 'source-unavailable': return 'Source unavailable'
+    case 'needs-attention': return 'Needs attention'
+    default: return 'Sources not saved'
   }
 }
 
-function detailLabel(
-  status:
-    WebStatusSnapshot["playlistStatus"] | WebStatusSnapshot["guideStatus"],
-): string {
+function detailLabel(status: WebStatusSnapshot['playlistStatus'] | WebStatusSnapshot['guideStatus']): string {
   switch (status) {
-    case "ready":
-      return "Ready";
-    case "no-guide":
-      return "No guide selected";
-    case "changes-found":
-      return "Changes found";
-    case "source-unavailable":
-      return "Source unavailable";
-    case "needs-attention":
-      return "Needs attention";
-    default:
-      return "Not saved";
+    case 'ready': return 'Ready'
+    case 'no-guide': return 'No guide selected'
+    case 'changes-found': return 'Changes found'
+    case 'source-unavailable': return 'Source unavailable'
+    case 'needs-attention': return 'Needs attention'
+    default: return 'Not saved'
   }
 }
 
-function sourceRowState(state: SourceRow["state"]): string {
+function sourceRowState(state: SourceRow['state']): string {
   switch (state) {
-    case "ready":
-      return "Up to date";
-    case "changes-found":
-      return "Changes found. Refresh, then review before replacing sources.";
-    case "source-unavailable":
-      return "Needs attention: this source could not be read. Your last saved copy is kept.";
-    default:
-      return "Not refreshed yet";
+    case 'ready': return 'Up to date'
+    case 'changes-found': return 'Changes found. Refresh, then review before replacing sources.'
+    case 'source-unavailable': return 'Needs attention: this source could not be read. Your last saved copy is kept.'
+    default: return 'Not refreshed yet'
   }
 }
 
@@ -78,143 +50,110 @@ export function StatusDashboard({
   onReplaceSources,
   onSnapshotChange,
 }: StatusDashboardProps) {
-  const [state, setState] = useState<DashboardState>("loading");
-  const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<number | null>(null);
-  const [removing, setRemoving] = useState(false);
-  const [removeMessage, setRemoveMessage] = useState<string | null>(null);
+  const [state, setState] = useState<DashboardState>('loading')
+  const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<number | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [removeMessage, setRemoveMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
     void fetchStatus()
       .then((next) => {
-        if (!mounted) return;
+        if (!mounted) return
         if (next === null) {
-          onSnapshotChange?.(null);
-          setState("unavailable");
-          return;
+          onSnapshotChange?.(null)
+          setState('unavailable')
+          return
         }
-        setSnapshot(next);
-        onSnapshotChange?.(next);
-        setState("ready");
+        setSnapshot(next)
+        onSnapshotChange?.(next)
+        setState('ready')
       })
       .catch(() => {
         if (mounted) {
-          onSnapshotChange?.(null);
-          setState("unavailable");
+          onSnapshotChange?.(null)
+          setState('unavailable')
         }
-      });
+      })
     return () => {
-      mounted = false;
-    };
-  }, [fetchStatus, onSnapshotChange]);
+      mounted = false
+    }
+  }, [fetchStatus, onSnapshotChange])
 
   async function handleRefresh() {
-    setRefreshing(true);
-    setRefreshMessage(null);
-    const result = await refreshSources();
+    setRefreshing(true)
+    setRefreshMessage(null)
+    const result = await refreshSources()
     if (result === null) {
-      setRefreshMessage(
-        "Refresh could not complete safely. Your accepted lineup was not changed.",
-      );
-      setRefreshing(false);
-      return;
+      setRefreshMessage('Refresh could not complete safely. Your accepted lineup was not changed.')
+      setRefreshing(false)
+      return
     }
-    setRefreshMessage(
-      result.status === "UP_TO_DATE"
-        ? "Sources are up to date."
-        : "Changes found. Review before replacing sources.",
-    );
-    const next = await fetchStatus();
+    setRefreshMessage(result.status === 'UP_TO_DATE' ? 'Sources are up to date.' : 'Changes found. Review before replacing sources.')
+    const next = await fetchStatus()
     if (next !== null) {
-      setSnapshot(next);
-      onSnapshotChange?.(next);
+      setSnapshot(next)
+      onSnapshotChange?.(next)
     }
-    setRefreshing(false);
+    setRefreshing(false)
   }
 
   async function handleRemove(source: SourceRow) {
-    setRemoving(true);
-    const result = await removeSource(source);
-    setRemoving(false);
-    setConfirming(null);
-    if ("message" in result) {
-      setRemoveMessage(result.message);
-      return;
+    setRemoving(true)
+    const result = await removeSource(source)
+    setRemoving(false)
+    setConfirming(null)
+    if ('message' in result) {
+      setRemoveMessage(result.message)
+      return
     }
-    setRemoveMessage(
-      `Removed "${source.label}". Your other sources were not changed.`,
-    );
-    const next = await fetchStatus();
+    setRemoveMessage(`Removed "${source.label}". Your other sources were not changed.`)
+    const next = await fetchStatus()
     if (next !== null) {
-      setSnapshot(next);
-      onSnapshotChange?.(next);
+      setSnapshot(next)
+      onSnapshotChange?.(next)
     }
   }
 
-  if (state === "loading") {
+  if (state === 'loading') {
     return (
       <StatusBanner status="Not checked" title="Checking ChannelForge status">
         <p>Checking whether your local ChannelForge server is ready.</p>
-        <p>
-          <strong>Read-only status.</strong> This page can show status, but it
-          cannot change your lineup yet.
-        </p>
+        <p><strong>Read-only status.</strong> This page can show status, but it cannot change your lineup yet.</p>
       </StatusBanner>
-    );
+    )
   }
 
-  if (state === "unavailable" || snapshot === null) {
+  if (state === 'unavailable' || snapshot === null) {
     return (
       <StatusBanner status="Warning" title="ChannelForge status is unavailable">
-        <p>
-          We could not read the local server status. Check that ChannelForge is
-          running, then refresh this page.
-        </p>
-        <p>
-          <strong>Read-only status.</strong> This page can show status, but it
-          cannot change your lineup yet.
-        </p>
+        <p>We could not read the local server status. Check that ChannelForge is running, then refresh this page.</p>
+        <p><strong>Read-only status.</strong> This page can show status, but it cannot change your lineup yet.</p>
       </StatusBanner>
-    );
+    )
   }
 
-  const sourcesStatus = snapshot.sourcesStatus ?? "not-enrolled";
-  const playlistStatus = snapshot.playlistStatus ?? "not-enrolled";
-  const guideStatus = snapshot.guideStatus ?? "no-guide";
-  const canRefresh = snapshot.canRefreshSources === true;
-  const lastChecked = snapshot.lastCheckedUtc
-    ? new Date(snapshot.lastCheckedUtc).toLocaleString()
-    : "Not checked yet";
+  const sourcesStatus = snapshot.sourcesStatus ?? 'not-enrolled'
+  const playlistStatus = snapshot.playlistStatus ?? 'not-enrolled'
+  const guideStatus = snapshot.guideStatus ?? 'no-guide'
+  const canRefresh = snapshot.canRefreshSources === true
+  const lastChecked = snapshot.lastCheckedUtc ? new Date(snapshot.lastCheckedUtc).toLocaleString() : 'Not checked yet'
 
   return (
     <>
       <StatusBanner status="Ready" title="ChannelForge is running">
-        <p>
-          {snapshot.lineupAccepted
-            ? "An accepted lineup is available."
-            : "No lineup has been accepted yet."}
-        </p>
-        <p>
-          {snapshot.lineupAccepted
-            ? "Open Guided Setup to review."
-            : "Open Guided Setup to begin."}
-        </p>
-        <p>
-          <strong>Your accepted lineup is not changed here.</strong> You can
-          check saved sources and remove one you no longer want.
-        </p>
+        <p>{snapshot.lineupAccepted ? 'An accepted lineup is available.' : 'No lineup has been accepted yet.'}</p>
+        <p>{snapshot.lineupAccepted ? 'Open Guided Setup to review.' : 'Open Guided Setup to begin.'}</p>
+        <p><strong>Your accepted lineup is not changed here.</strong> You can check saved sources and remove one you no longer want.</p>
       </StatusBanner>
       <section className="workbench-grid" aria-label="Saved source status">
         <article className="summary-card">
           <span className="summary-card-label">Sources</span>
           <strong>{sourceStatusLabel(sourcesStatus)}</strong>
-          <span className="summary-card-detail">
-            {snapshot.sourcesGuidance ??
-              "Your saved playlist stays on this computer."}
-          </span>
+          <span className="summary-card-detail">{snapshot.sourcesGuidance ?? 'Your saved playlist stays on this computer.'}</span>
         </article>
         <article className="summary-card">
           <span className="summary-card-label">Playlist</span>
@@ -229,58 +168,26 @@ export function StatusDashboard({
         <article className="summary-card">
           <span className="summary-card-label">Last checked</span>
           <strong>{lastChecked}</strong>
-          <span className="summary-card-detail">
-            {refreshMessage ?? "Refresh checks for changed source bytes."}
-          </span>
+          <span className="summary-card-detail">{refreshMessage ?? 'Refresh checks for changed source bytes.'}</span>
         </article>
       </section>
       {snapshot.sources && snapshot.sources.length > 0 ? (
-        <section
-          className="workbench-grid"
-          aria-label="Status of each saved source"
-        >
+        <section className="workbench-grid" aria-label="Status of each saved source">
           {snapshot.sources.map((source, index) => (
             <article className="summary-card" key={`${source.kind}-${index}`}>
-              <span className="summary-card-label">
-                {source.kind === "guide" ? "Guide" : "Playlist"}
-              </span>
+              <span className="summary-card-label">{source.kind === 'guide' ? 'Guide' : 'Playlist'}</span>
               <strong>{source.label}</strong>
-              <span className="summary-card-detail">
-                {sourceRowState(source.state)}
-              </span>
+              <span className="summary-card-detail">{sourceRowState(source.state)}</span>
               {confirming === index ? (
                 <div role="group" aria-label={`Remove ${source.label}`}>
-                  <p>
-                    Remove "{source.label}" from ChannelForge? Your other
-                    sources stay as they are. Your own file is not deleted.
-                  </p>
-                  <button
-                    className="button button-primary"
-                    type="button"
-                    onClick={() => void handleRemove(source)}
-                    disabled={removing}
-                  >
-                    {removing ? "Removing…" : "Yes, remove this source"}
+                  <p>Remove "{source.label}" from ChannelForge? Your other sources stay as they are. Your own file is not deleted.</p>
+                  <button className="button button-primary" type="button" onClick={() => void handleRemove(source)} disabled={removing}>
+                    {removing ? 'Removing…' : 'Yes, remove this source'}
                   </button>
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    onClick={() => setConfirming(null)}
-                    disabled={removing}
-                  >
-                    Keep this source
-                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => setConfirming(null)} disabled={removing}>Keep this source</button>
                 </div>
               ) : (
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => {
-                    setRemoveMessage(null);
-                    setConfirming(index);
-                  }}
-                  disabled={removing}
-                >
+                <button className="button button-secondary" type="button" onClick={() => { setRemoveMessage(null); setConfirming(index) }} disabled={removing}>
                   {`Remove ${source.label}`}
                 </button>
               )}
@@ -296,25 +203,12 @@ export function StatusDashboard({
           {removeMessage ? <p role="status">{removeMessage}</p> : null}
         </div>
         <div className="next-action-buttons">
-          <button
-            className="button button-primary"
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={!canRefresh || refreshing}
-          >
-            {refreshing ? "Refreshing…" : "Refresh now"}
+          <button className="button button-primary" type="button" onClick={() => void handleRefresh()} disabled={!canRefresh || refreshing}>
+            {refreshing ? 'Refreshing…' : 'Refresh now'}
           </button>
-          {onReplaceSources ? (
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={onReplaceSources}
-            >
-              Replace sources
-            </button>
-          ) : null}
+          {onReplaceSources ? <button className="button button-secondary" type="button" onClick={onReplaceSources}>Replace sources</button> : null}
         </div>
       </div>
     </>
-  );
+  )
 }
