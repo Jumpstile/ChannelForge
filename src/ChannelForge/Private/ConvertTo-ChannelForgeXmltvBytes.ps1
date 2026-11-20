@@ -2,7 +2,11 @@ function ConvertTo-ChannelForgeXmltvBytes {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, Position = 0)]
-        [object]$MergeResult
+        [object]$MergeResult,
+
+        # Optional channel reference -> public https logo link. A channel with an entry gets one
+        # <icon src="..."/> right after its <display-name>. No map or no entry: bytes are unchanged.
+        [hashtable]$IconByChannelRef = @{}
     )
 
     if ($null -eq $MergeResult) {
@@ -333,6 +337,12 @@ function ConvertTo-ChannelForgeXmltvBytes {
             $writer.WriteStartElement('channel')
             $writer.WriteAttributeString('id', $channel.BindingKey)
             Write-XmltvTextElement -Writer $writer -Name 'display-name' -Value $channel.ChannelReference
+            $icon = [string]$IconByChannelRef[$channel.ChannelReference]
+            if ($icon.Length -gt 0 -and (Get-ChannelForgeLogoStatus -Url $icon) -eq 'Public') {
+                $writer.WriteStartElement('icon')
+                $writer.WriteAttributeString('src', $icon.Trim())
+                $writer.WriteEndElement()
+            }
             Write-XmltvTextElement -Writer $writer -Name 'source-id' -Value $channel.SourceId -Namespaced $true
             Write-XmltvTextElement -Writer $writer -Name 'channel-reference' -Value $channel.ChannelReference -Namespaced $true
             $writer.WriteEndElement()
