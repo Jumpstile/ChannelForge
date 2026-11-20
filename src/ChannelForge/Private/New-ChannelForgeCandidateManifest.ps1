@@ -263,7 +263,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
         foreach ($entryId in $artifactOrder) {
             $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entryId }) | Select-Object -First 1
             if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
-            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel
+            $publishGroup = @(Get-ChannelForgePublishGroup -Channel @($source.Channel))[0].Group
+            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel -PublishGroup $publishGroup
             $offset = -1
             for ($i = $cursor; $i -le $M3UBytes.Length - $bytes.Length; $i++) {
                 $same = $true

@@ -1,0 +1,76 @@
+{
+  "blocker-2-contract/v8": {
+    "M3UBase64": "I0VYVE0zVQojRVhUSU5GOi0xIHR2Zy1pZD0idGhyZWUuaW52YWxpZCIgZ3JvdXAtdGl0bGU9Ik5ld3MiLEV4YW1wbGUgVGhyZWUKaHR0cHM6Ly90aHJlZS5leGFtcGxlLmludmFsaWQvcwojRVhUSU5GOi0xIHR2Zy1pZD0ib25lLmludmFsaWQiIHR2Zy1sb2dvPSJodHRwczovL2ltZy5leGFtcGxlLmludmFsaWQvb25lLnBuZyIgZ3JvdXAtdGl0bGU9Ik15IFNwb3J0cyIsRXhhbXBsZSBPbmUKaHR0cHM6Ly9vbmUuZXhhbXBsZS5pbnZhbGlkL3MKI0VYVElORjotMSB0dmctaWQ9InR3by5pbnZhbGlkIiB0dmctbG9nbz0iaHR0cHM6Ly9pbWcuZXhhbXBsZS5pbnZhbGlkL3R3by5wbmciLEV4YW1wbGUgVHdvCmh0dHBzOi8vdHdvLmV4YW1wbGUuaW52YWxpZC9zCiNFWFRJTkY6LTEsRXhhbXBsZSBGb3VyCmh0dHBzOi8vZm91ci5leGFtcGxlLmludmFsaWQvcwo=",
+    "Entries": [
+      {
+        "EntryId": "213a4dea4b971b30c182a4f6bc9650fc41b334fa3f48412f6637d591998b6b52",
+        "GroupTitle": "News",
+        "PresentationFingerprint": "26f298f3f0087c1b27025b411a3a9bab461d78040a535d1ca54f4e8ed624e3cc",
+        "ByteOffset": 8,
+        "ByteLength": 99,
+        "EntryContentHash": "22e384ea79081831331c86ab88cb751f2777c156c9b40d146efaa269afb9eb71"
+      },
+      {
+        "EntryId": "45fba1e37f137214c46200d19ffef47aa030a0dd92189d00b9305c2ee6fd30ef",
+        "GroupTitle": "My Sports",
+        "PresentationFingerprint": "cfabcfecaff21ca624821db8791f48fa72bf9d3a71aae832d74f23e394998f2d",
+        "ByteOffset": 107,
+        "ByteLength": 145,
+        "EntryContentHash": "30383308e220305b18053af2c4e09bb731e075f3849a283118ab6183151e89ef"
+      },
+      {
+        "EntryId": "7812cae2ed16cd6a446d2c621424fb0cc8042b66634836aed6d4fc7af2f35d43",
+        "GroupTitle": "",
+        "PresentationFingerprint": "c2eed1a277282ddb91e9352344439f0b78c377dcb5e32236e58a452552e6d476",
+        "ByteOffset": 252,
+        "ByteLength": 121,
+        "EntryContentHash": "63491e90d4e91e322bf689976b0c7ce6c4ae4c02fa9bc03b148502059bcbb48d"
+      },
+      {
+        "EntryId": "9ae181bac9b52e906a93354178c7afaedfe753fc7dbc74ec4055fe8bbe7f20f0",
+        "GroupTitle": "",
+        "PresentationFingerprint": "3b44b132fcd79e861a964cfc1d71289d2a0b9f903cb21713e74edd1fbb10a974",
+        "ByteOffset": 373,
+        "ByteLength": 55,
+        "EntryContentHash": "e257e18c4f810d60166d5328128c6eef5249e4deee6fa9c875779dba090e434b"
+      }
+    ]
+  },
+  "blocker-2-contract/v7": {
+    "M3UBase64": "I0VYVE0zVQojRVhUSU5GOi0xIHR2Zy1pZD0idGhyZWUuaW52YWxpZCIgZ3JvdXAtdGl0bGU9Ik5ld3MiLEV4YW1wbGUgVGhyZWUKaHR0cHM6Ly90aHJlZS5leGFtcGxlLmludmFsaWQvcwojRVhUSU5GOi0xLEV4YW1wbGUgRm91cgpodHRwczovL2ZvdXIuZXhhbXBsZS5pbnZhbGlkL3MKI0VYVElORjotMSB0dmctaWQ9Im9uZS5pbnZhbGlkIiB0dmctbG9nbz0iaHR0cHM6Ly9pbWcuZXhhbXBsZS5pbnZhbGlkL29uZS5wbmciIGdyb3VwLXRpdGxlPSJNeSBTcG9ydHMiLEV4YW1wbGUgT25lCmh0dHBzOi8vb25lLmV4YW1wbGUuaW52YWxpZC9zCiNFWFRJTkY6LTEgdHZnLWlkPSJ0d28uaW52YWxpZCIgdHZnLWxvZ289Imh0dHBzOi8vaW1nLmV4YW1wbGUuaW52YWxpZC90d28ucG5nIixFeGFtcGxlIFR3bwpodHRwczovL3R3by5leGFtcGxlLmludmFsaWQvcwo=",
+    "Entries": [
+      {
+        "EntryId": "8228fae4f4448d58e393b0262c15c082dacff641d0f0faab790c751ee454e87b",
+        "GroupTitle": "News",
+        "PresentationFingerprint": "0dba7aa87408d0b709b0e745344f8071e1c137b3e7d1949292e590ec1c09c791",
+        "ByteOffset": null,
+        "ByteLength": null,
+        "EntryContentHash": null
+      },
+      {
+        "EntryId": "b79a4a0473ffbf5db22a1b2a4df0beb57a776a446ac6c4ca0438bf1e0be9a43f",
+        "GroupTitle": "",
+        "PresentationFingerprint": "f225067c00a18d23df8c7e0d98354cd4ac08de5a972695d9e3a6c0dcb21c8320",
+        "ByteOffset": null,
+        "ByteLength": null,
+        "EntryContentHash": null
+      },
+      {
+        "EntryId": "c54aca6e41f3519e191eed2c547ae49f722c99272d3d4df1f585e7c2e527a6d7",
+        "GroupTitle": "My Sports",
+        "PresentationFingerprint": "ee4c4f3927c0f8d9d5d57cb82ba976d176d1499fe173ed3bd523c8a50d7541da",
+        "ByteOffset": null,
+        "ByteLength": null,
+        "EntryContentHash": null
+      },
+      {
+        "EntryId": "f2189ca05a96a8717761988d0a08f3a9f909a0ba3dc307b1bcde632e63b588ce",
+        "GroupTitle": "",
+        "PresentationFingerprint": "1d301c72d60a4e87b9e3c86c46e5bb42c30cd3cc7894051598171565d88011c4",
+        "ByteOffset": null,
+        "ByteLength": null,
+        "EntryContentHash": null
+      }
+    ]
+  }
+}

@@ -44,11 +44,12 @@ function Export-ChannelForgeM3UPlaylist {
         # writing, never earlier, so the domain object always keeps the
         # original value.
         $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
+        $publishedGroup = @(Get-ChannelForgePublishGroup -Channel $allChannels.ToArray())
         for ($i = 0; $i -lt $allChannels.Count; $i++) {
             $ch = $allChannels[$i]
             $sourceLogo = $ch.Logo
             $ch.Logo = $published[$i].Logo
-            try { $entryBytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $ch }
+            try { $entryBytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $ch -PublishGroup $publishedGroup[$i].Group }
             finally { $ch.Logo = $sourceLogo }
             $entryText = [System.Text.UTF8Encoding]::new($false, $true).GetString($entryBytes)
             $lines.Add($entryText.TrimEnd("`n"))
