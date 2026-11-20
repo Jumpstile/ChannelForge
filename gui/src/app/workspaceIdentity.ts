@@ -1,7 +1,7 @@
 export type WorkspaceIdentityValue = {
-  label: string
-}
+  label: string;
+};
 
 export const demoWorkspaceIdentity: WorkspaceIdentityValue = {
-  label: 'Demo workspace',
-}
+  label: "Demo workspace",
+};

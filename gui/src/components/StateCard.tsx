@@ -1,13 +1,13 @@
-import type { UiStatus } from './StatusBadge'
-import { StatusBadge } from './StatusBadge'
+import type { UiStatus } from "./StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 
 export type GalleryState = {
-  id: string
-  status: UiStatus
-  title: string
-  summary: string
-  nextAction: string
-}
+  id: string;
+  status: UiStatus;
+  title: string;
+  summary: string;
+  nextAction: string;
+};
 
 export function StateCard({ state }: { state: GalleryState }) {
   return (
@@ -23,5 +23,5 @@ export function StateCard({ state }: { state: GalleryState }) {
         <span>{state.nextAction}</span>
       </div>
     </article>
-  )
+  );
 }
