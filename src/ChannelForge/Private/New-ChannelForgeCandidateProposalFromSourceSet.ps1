@@ -10,6 +10,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         [string]$FaultHook = '',
         [hashtable]$GroupDefaultLogo = @{},
         [hashtable]$LogoPin,
+        [hashtable]$LogoLookup,
         [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
@@ -17,6 +18,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     if (@($PlaylistSources).Count -eq 0) { throw 'A source-set candidate requires at least one playlist.' }
     $rootFull = [System.IO.Path]::GetFullPath($Root)
     if ($null -eq $LogoPin) { $LogoPin = Get-ChannelForgeLogoPinMap -RepositoryRoot $rootFull }
+    if ($null -eq $LogoLookup) { $LogoLookup = Get-ChannelForgeLogoLookupMap -RepositoryRoot $rootFull }
     $outputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
     $aliasPath = Join-Path $rootFull 'data\rules\aliases.json'
     $blocksPath = Join-Path $rootFull 'data\lineup\numbering_blocks.json'
@@ -231,7 +233,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
 
     New-Item -ItemType Directory -Force -Path $txRoot | Out-Null
     $m3uTemp = Join-Path $txRoot 'merged.m3u'
-    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -AllowedRoot $txRoot
+    $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -LogoLookup $LogoLookup -AllowedRoot $txRoot
     $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
     Remove-Item -LiteralPath $m3uTemp -Force
 
@@ -240,7 +242,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme @($programmesForOutput.ToArray())
         $xmlTemp = Join-Path $txRoot 'merged.xml'
         # The guide file carries the same public https logos as the playlist, for exactly bound channels.
-        $iconByChannelRef = Get-ChannelForgeGuideIconMap -ExactBinding @($bindingResult.ExactBindings) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -WarningAction SilentlyContinue
+        $iconByChannelRef = Get-ChannelForgeGuideIconMap -ExactBinding @($bindingResult.ExactBindings) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -LogoLookup $LogoLookup -WarningAction SilentlyContinue
         Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot -IconByChannelRef $iconByChannelRef
         $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
         Remove-Item -LiteralPath $xmlTemp -Force
@@ -267,6 +269,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
         CandidateContractVersion = $CandidateContractVersion
         GroupDefaultLogo = $GroupDefaultLogo
         LogoPin = $LogoPin
+        LogoLookup = $LogoLookup
         SelectedSourceIds = $selectedLogicalSourceIds
     }
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
@@ -304,7 +307,7 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     $manifestArguments.ReviewMarkdownBytes = $reviewMdBytes
     $manifestArguments.ReviewCounts = $counts
     $manifestResult = ConvertTo-ChannelForgeCandidateManifest @manifestArguments
-    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin) -LogoPin $LogoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $rootFull)
+    $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -LogoLookup $LogoLookup) -LogoPin $LogoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $rootFull) -LogoLookup $LogoLookup
     $manifest = [ordered]@{}
     foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) { $manifest[$property.Name] = $property.Value }
     $manifestHash = [string]$manifestResult.CandidateManifestHash

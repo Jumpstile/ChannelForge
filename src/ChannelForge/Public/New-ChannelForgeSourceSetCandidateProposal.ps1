@@ -10,6 +10,7 @@ function New-ChannelForgeSourceSetCandidateProposal {
         [string]$FaultHook = '',
         [hashtable]$GroupDefaultLogo = @{},
         [hashtable]$LogoPin,
+        [hashtable]$LogoLookup,
         [ValidateSet('blocker-2-contract/v7')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )

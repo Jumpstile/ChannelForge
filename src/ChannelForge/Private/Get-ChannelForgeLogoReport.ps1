@@ -12,7 +12,10 @@ function Get-ChannelForgeLogoReport {
         [hashtable]$LogoPin = @{},
 
         [AllowNull()]
-        [object]$PinRead = $null
+        [object]$PinRead = $null,
+
+        # Get-ChannelForgeLogoLookupMap result (Status, Ignored). Optional.
+        [hashtable]$LogoLookup = @{}
     )
 
     # Report only (issue #191): counts logo status per channel and lists
@@ -30,7 +33,13 @@ function Get-ChannelForgeLogoReport {
         PinsIgnored    = @(if ($PinRead -and $PinRead.Status -eq 'Corrupt') { $PinRead.Problems })
         PinsUnused     = @()
         Warning        = $null
+        LookedUp       = 0
+        LookupStatus   = if ($LogoLookup.Status) { [string]$LogoLookup.Status } else { 'None' }
+        LookupIgnored  = @($LogoLookup.Ignored | Where-Object { $null -ne $_ })
+        LookupAmbiguous = @()
+        LookupAmbiguousNotShown = 0
     }
+    $ambiguousNames = [System.Collections.Generic.List[string]]::new()
     $all = @{ Empty = @(); NotHttps = @(); PrivateAddress = @() }
     $seenIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($ch in @($Channel | Where-Object { $null -ne $_ })) {
@@ -38,6 +47,8 @@ function Get-ChannelForgeLogoReport {
         $report[$status]++
         if ($ch.PSObject.Properties['Replaced'] -and $ch.Replaced) { $report.Replaced++ }
         if ($ch.PSObject.Properties['Pinned'] -and $ch.Pinned) { $report.Pinned++ }
+        if ($ch.PSObject.Properties['LookedUp'] -and $ch.LookedUp) { $report.LookedUp++ }
+        if ($ch.PSObject.Properties['LookupAmbiguous'] -and $ch.LookupAmbiguous -and -not $ambiguousNames.Contains([string]$ch.DisplayName)) { $ambiguousNames.Add([string]$ch.DisplayName) }
         if ($ch.PSObject.Properties['TvgId']) { [void]$seenIds.Add([string]$ch.TvgId) }
         if ($status -ne 'Public') { $all[$status] += [string]$ch.DisplayName }
     }
@@ -65,6 +76,19 @@ function Get-ChannelForgeLogoReport {
     if ($report.PinsStatus -eq 'Corrupt') { $pinText += "file unreadable, none applied ($($report.PinsIgnored -join '; '))" }
     if ($pinText.Count -gt 0) {
         $report.Warning = ("$($report.Warning) Logo pins: $($pinText -join ', ').").Trim()
+    }
+    $report.LookupAmbiguous = @($ambiguousNames | Select-Object -First $MaxNames)
+    $report.LookupAmbiguousNotShown = [Math]::Max(0, $ambiguousNames.Count - $MaxNames)
+    $lookupText = @()
+    if ($report.LookedUp -gt 0) { $lookupText += "$($report.LookedUp) $(if ($report.LookedUp -eq 1) { 'channel' } else { 'channels' }) got a looked-up logo" }
+    if ($ambiguousNames.Count -gt 0) {
+        $more = if ($report.LookupAmbiguousNotShown -gt 0) { " +$($report.LookupAmbiguousNotShown) more" } else { '' }
+        $lookupText += "$($ambiguousNames.Count) ambiguous ($($report.LookupAmbiguous -join ', ')$more)"
+    }
+    if ($report.LookupStatus -eq 'Corrupt') { $lookupText += 'file unreadable, none applied' }
+    if ($report.LookupIgnored.Count -gt 0) { $lookupText += "$($report.LookupIgnored.Count) $(if ($report.LookupIgnored.Count -eq 1) { 'entry' } else { 'entries' }) ignored" }
+    if ($lookupText.Count -gt 0) {
+        $report.Warning = ("$($report.Warning) Logo lookup: $($lookupText -join ', ').").Trim()
     }
     return [pscustomobject]$report
 }

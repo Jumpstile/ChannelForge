@@ -13,6 +13,9 @@ function Export-ChannelForgeM3UPlaylist {
         # Optional TvgId -> pinned logo link (Get-ChannelForgeLogoPinMap).
         [hashtable]$LogoPin = @{},
 
+        # Optional logo-lookup/v1 map (Get-ChannelForgeLogoLookupMap). Fills a gap only.
+        [hashtable]$LogoLookup = @{},
+
         # Optional TvgId -> pinned group (Get-ChannelForgePublishGroup).
         [hashtable]$GroupPin = @{},
 
@@ -49,7 +52,7 @@ function Export-ChannelForgeM3UPlaylist {
         # attributes, alias-resolved names) and is sanitized just before
         # writing, never earlier, so the domain object always keeps the
         # original value.
-        $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
+        $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -LogoLookup $LogoLookup)
         $publishedGroup = @(Get-ChannelForgePublishGroup -Channel $allChannels.ToArray() -GroupPin $GroupPin -FillFromCategories:$FillEmptyGroups)
         for ($i = 0; $i -lt $allChannels.Count; $i++) {
             $ch = $allChannels[$i]
@@ -61,7 +64,7 @@ function Export-ChannelForgeM3UPlaylist {
             $lines.Add($entryText.TrimEnd("`n"))
         }
 
-        $logoReport = Get-ChannelForgeLogoReport -Channel $published
+        $logoReport = Get-ChannelForgeLogoReport -Channel $published -LogoLookup $LogoLookup
         if ($logoReport.Warning) { Write-Warning $logoReport.Warning }
 
         # -NoNewline plus an explicit trailing "`n" gives one deterministic
