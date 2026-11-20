@@ -796,7 +796,7 @@ try {
     foreach ($outcome in @($choices.Outcomes)) {
         if ($outcome.Choice -ne 'ShareOnPurpose') { $tvgIdByEntry[$outcome.EntryId] = $outcome.Guide }
     }
-    $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name } })
+    $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name; EntryId = $_.EntryId } })
     # Event channels (event-channel/v2, slice 3): channels rated high get an event guide from their own provider
     # guide. A saved user choice wins. Any problem leaves every channel on its normal guide.
     $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @()
@@ -816,8 +816,12 @@ try {
         catch { Write-Warning 'The event channel guide could not be built, so every channel keeps its normal guide.' }
     }
     if ($ownChannels.Count -gt 0) {
+        # Each placeholder channel gets the logo its own playlist entry was published with.
+        $iconRows = @($ownChannels | ForEach-Object { [pscustomobject]@{ Id = $_.Id; EntryId = if ($_.PSObject.Properties['EntryId']) { $_.EntryId } else { @($_.EntryIds)[0] } } })
+        $iconByChannelRef = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgePlaceholderIconMap' -Arguments @{
+                Channel = $iconRows; Entry = @($manifest.Entries); M3UBytes = $candidateM3UBytes } | Select-Object -Last 1
         $candidateXMLTVBytes = [byte[]](Invoke-ChannelForgePrivate -Name 'Add-ChannelForgePlaceholderGuide' -Arguments @{
-                XmltvBytes = $candidateXMLTVBytes; Channel = $ownChannels; TimeZone = [System.TimeZoneInfo]::Local } | Select-Object -Last 1)
+                XmltvBytes = $candidateXMLTVBytes; Channel = $ownChannels; TimeZone = [System.TimeZoneInfo]::Local; IconByChannelRef = $iconByChannelRef } | Select-Object -Last 1)
     }
     $exactEntryIds = @{}
     foreach ($binding in @($m3uBindings | Where-Object { [string]$_.Status -eq 'ExactBound' })) { $exactEntryIds[[string]$binding.EntryId] = [string]$binding.M3URawId }
