@@ -137,7 +137,7 @@ Describe 'Build summary guide comparison section' {
         # A copy of the tool whose comparison always fails.
         $copy = Join-Path $TestDrive 'tool-copy'
         New-Item -ItemType Directory -Force -Path $copy | Out-Null
-        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'src'), (Join-Path $script:RepoRoot 'scripts'), (Join-Path $script:RepoRoot 'schemas'), (Join-Path $script:RepoRoot 'config') -Destination $copy -Recurse
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'src'), (Join-Path $script:RepoRoot 'scripts'), (Join-Path $script:RepoRoot 'schemas'), (Join-Path $script:RepoRoot 'config'), (Join-Path $script:RepoRoot 'data') -Destination $copy -Recurse
         Set-Content -LiteralPath (Join-Path $copy 'src\ChannelForge\Private\Get-ChannelForgeXguideReport.ps1') -Value 'function Get-ChannelForgeXguideReport { throw ''boom'' }'
         $broken = Invoke-XgBuild -Root (New-XgBuildRoot -Name 'broken') -Script (Join-Path $copy 'scripts\Build-Lineup.ps1')
         @($broken.Warnings | Where-Object { $_ -like '*guide comparison*' }).Count | Should -Be 1

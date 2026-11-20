@@ -31,10 +31,6 @@ Normal users should not write regular expressions. The native Stage B preview an
 
 Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
 
-### Schedule check for event channels
-
-If you keep a file of saved game facts at `state\schedule-evidence.json` (sport, home team, away team, date, start time, source, and when it was seen), ChannelForge compares it with each event channel for that day. It never changes your guide or playlist. When the schedule has no game for the teams in the guide, or has a game the guide lacks, or a team name has no sport to go with it, the build report asks one plain question, such as "Keep the guide as is, or mark it cancelled?". When the guide and schedule agree, or there is no file, it says nothing. Saved facts stay in use after you remove their source.
-
 ### Native event-pattern preview
 
 Give ChannelForge a few representative event-channel names. It returns a read-only candidate rule and an extraction preview; it does not publish a guide or change a lineup:
@@ -82,7 +78,7 @@ ChannelForge has a hard rule: it does not fabricate data it cannot verify (see [
 
 ## Categories
 
-ChannelForge sorts channels and programs into these categories, A to Z: Auto Racing, Baseball, Basketball, Boxing, College Football, Documentaries, Football, Golf, Hockey, Kids, MMA, Movies, NASCAR, News, Soccer, Tennis and Wrestling. They show up as playlist groups and as genres in the guide file. A group name you set yourself always wins. When two categories fit one title, ChannelForge leaves it unset and flags it for review.
+ChannelForge sorts channels and programs into these categories, A to Z: Auto Racing, Baseball, Basketball, Boxing, College Football, Documentaries, Football, Golf, Hockey, Kids, MMA, Movies, NASCAR, News, Soccer, Tennis and Wrestling. They are meant to show up as playlist groups and as genres in the guide file. For now, only genres are filled: a program gets a genre from its title only when it has none, and a genre already set is never changed. Playlist groups are not filled this way yet; that comes later. A group name you set yourself always wins. When two categories fit one title, ChannelForge leaves it unset and flags it for review.
 
 ## Where to go next
 
