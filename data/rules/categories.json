@@ -1,6 +1,7 @@
 {
   "version": "categories/v1",
   "categories": [
+    { "id": "adult", "name": "Adult", "match": ["adult", "xxx"] },
     {
       "id": "auto-racing",
       "name": "Auto Racing",
@@ -37,8 +38,14 @@
       "name": "Movies",
       "match": ["movie", "movies", "film", "films"]
     },
+    { "id": "music", "name": "Music", "match": ["music", "radio"] },
     { "id": "nascar", "name": "NASCAR", "match": ["nascar"] },
     { "id": "news", "name": "News", "match": ["news"] },
+    {
+      "id": "pay-per-view",
+      "name": "Pay-per-view",
+      "match": ["ppv", "pay per view", "pay-per-view"]
+    },
     {
       "id": "soccer",
       "name": "Soccer",

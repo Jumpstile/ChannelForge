@@ -17,6 +17,7 @@ function Get-ChannelForgeGuideQualityScorecard {
         Accuracy:       NotMeasured unless guides share a channel or readiness found a Contradiction (a clean readiness alone compared nothing). Fail = readiness Contradiction. Review = xguide TitleDiffers or StartShift.
         Completeness:   Measured by shared guide channels, an empty guide, or PlaylistGuideId plus Programme. Fail = a guide with no programmes.
                         Review = xguide MissingChannel, or a playlist channel with no programmes.
+                        Readiness records flagged NoGuideExpected (adult or music group, Test-ChannelForgeNoGuideExpectedGroup) are shown as NoGuideExpected, never as gaps.
         Freshness:      Fail = a guide that ended before the build. Review = a guide more than 24 h behind, or readiness StaleSource.
         Deduplication:  Measured only when programmes carry a CanonicalEventId; without it same title and start is a normal repeat
                         (syndication), so NotMeasured. Review = same title and start on different channels with no CanonicalEventId.
@@ -34,13 +35,14 @@ function Get-ChannelForgeGuideQualityScorecard {
         [AllowNull()][string[]]$PlaylistGuideId = $null
     )
 
-    function New-Gate([string]$Name, [bool]$Measured, [System.Collections.IDictionary]$Counts, [string[]]$Fail, [string[]]$Review, [string]$NotMeasuredReason = 'No report was supplied for this gate, so nothing is claimed.') {
+    function New-Gate([string]$Name, [bool]$Measured, [System.Collections.IDictionary]$Counts, [string[]]$Fail, [string[]]$Review, [string]$NotMeasuredReason = 'No report was supplied for this gate, so nothing is claimed.', [string]$Note = '') {
         $Fail = @($Fail | Where-Object { $_ })
         $Review = @($Review | Where-Object { $_ })
         if (-not $Measured) { $verdict = 'NotMeasured'; $reason = $NotMeasuredReason }
         elseif ($Fail.Count -gt 0) { $verdict = 'Fail'; $reason = $Fail -join '; ' }
         elseif ($Review.Count -gt 0) { $verdict = 'Review'; $reason = $Review -join '; ' }
         else { $verdict = 'Pass'; $reason = 'No problems found in the supplied report.' }
+        if ($Note -and $Measured) { $reason = "$reason; $Note" }
         [pscustomobject][ordered]@{ Name = $Name; Verdict = $verdict; Counts = [pscustomobject]$Counts; Reason = $reason }
     }
     function Get-Number($Source, [string]$Name) { if ($null -eq $Source) { 0 } else { [int]$Source.$Name } }
@@ -68,7 +70,9 @@ function Get-ChannelForgeGuideQualityScorecard {
     $behind = [math]::Max(0, (Get-Number $xCounts 'GuideBehind') - $ended - $empty)
     $titleDiffers = Get-Number $xCounts 'TitleDiffers'; $startShift = Get-Number $xCounts 'StartShift'
     $contradiction = Get-Number $rCounts 'Contradiction'; $stale = Get-Number $rCounts 'StaleSource'
-    $unavailable = Get-Number $rCounts 'SourceUnavailable'; $unresolved = Get-Number $rCounts 'Unresolved'
+    $unavailable = Get-Number $rCounts 'SourceUnavailable'
+    $noGuideExpected = Get-Number $r 'NoGuideExpectedCount'
+    $unresolved = [math]::Max(0, (Get-Number $rCounts 'Unresolved') - $noGuideExpected)
     $missing = Get-Number $xCounts 'MissingChannel'
     $shared = Get-Number $x 'SharedChannelCount'
     $playlistMeasured = $null -ne $PlaylistGuideId -and $null -ne $Programme
@@ -76,7 +80,7 @@ function Get-ChannelForgeGuideQualityScorecard {
     if ($playlistMeasured) {
         $withProgrammes = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         foreach ($p in $Programme) { [void]$withProgrammes.Add($(if ([string]::IsNullOrEmpty($p.RawChannelId)) { [string]$p.ChannelId } else { [string]$p.RawChannelId })) }
-        $noProgramme = @($PlaylistGuideId | Where-Object { [string]::IsNullOrEmpty($_) -or -not $withProgrammes.Contains($_) }).Count
+        $noProgramme = [math]::Max(0, @($PlaylistGuideId | Where-Object { [string]::IsNullOrEmpty($_) -or -not $withProgrammes.Contains($_) }).Count - $noGuideExpected)
     }
     $hasIdentity = $null -ne $Programme -and @($Programme | Where-Object { $_.PSObject.Properties['CanonicalEventId'] -and -not [string]::IsNullOrWhiteSpace([string]$_.CanonicalEventId) }).Count -gt 0
 
@@ -90,9 +94,10 @@ function Get-ChannelForgeGuideQualityScorecard {
         New-Gate 'Accuracy' ($contradiction -gt 0 -or ($null -ne $x -and $shared -gt 0)) ([ordered]@{ TitleDiffers = $titleDiffers; StartShift = $startShift; Contradiction = $contradiction }) `
         @(if ($contradiction) { "$contradiction readiness contradictions" }) `
         @(if ($titleDiffers + $startShift) { "$titleDiffers title and $startShift start-time differences between guides" })
-        New-Gate 'Completeness' (($null -ne $x -and ($shared -gt 0 -or $empty -gt 0)) -or $playlistMeasured) ([ordered]@{ MissingChannel = $missing; EmptyGuides = $empty; PlaylistChannelsWithoutProgrammes = $noProgramme }) `
+        New-Gate 'Completeness' (($null -ne $x -and ($shared -gt 0 -or $empty -gt 0)) -or $playlistMeasured) ([ordered]@{ MissingChannel = $missing; EmptyGuides = $empty; PlaylistChannelsWithoutProgrammes = $noProgramme; NoGuideExpected = $noGuideExpected }) `
         @(if ($empty) { "$empty guides have no programmes" }) `
-        @($(if ($missing) { "$missing channels are missing from some guides" }), $(if ($noProgramme) { "$noProgramme playlist channels have no programmes in the guide" }))
+        @($(if ($missing) { "$missing channels are missing from some guides" }), $(if ($noProgramme) { "$noProgramme playlist channels have no programmes in the guide" })) `
+        -Note $(if ($noGuideExpected) { "$noGuideExpected adult or music channels are not expected to have a guide and are not counted as gaps" })
         New-Gate 'Freshness' ($null -ne $x -or $null -ne $r) ([ordered]@{ EndedGuides = $ended; BehindGuides = $behind; StaleSource = $stale }) `
         @(if ($ended) { "$ended guides ended before this build" }) `
         @(if ($behind + $stale) { "$behind guides behind and $stale stale sources" })
@@ -101,7 +106,7 @@ function Get-ChannelForgeGuideQualityScorecard {
         'No programme has a canonical event identity, so a repeat of the same title and start cannot be told from a normal syndicated show.'
         New-Gate 'Classification' ($null -ne $CategoryReport) ([ordered]@{ High = $high; Ambiguous = $ambiguous; Unknown = $unknown }) `
         @() @(if ($ambiguous + $unknown) { "$ambiguous ambiguous and $unknown unknown channels" })
-        New-Gate 'Availability' ($null -ne $r) ([ordered]@{ SourceUnavailable = $unavailable; Unresolved = $unresolved }) `
+        New-Gate 'Availability' ($null -ne $r) ([ordered]@{ SourceUnavailable = $unavailable; Unresolved = $unresolved; NoGuideExpected = $noGuideExpected }) `
         @(if ($unavailable) { "$unavailable guide records have an unavailable source" }) `
         @(if ($unresolved) { "$unresolved guide records are unresolved" })
     )

@@ -20,6 +20,7 @@ function Get-ChannelForgeGuideReadiness {
 
     $groups = [ordered]@{}
     $unresolvedOrdinal = 0
+    $noGuideExpected = 0
     foreach ($record in @($Evidence)) {
         if ($null -eq $record) { continue }
         $channel = [string]$record.ChannelReference
@@ -106,6 +107,10 @@ function Get-ChannelForgeGuideReadiness {
         $readiness.RequiresReview = $state -ne 'Confirmed'
         $readiness.AcceptedStatePreserved = $hasAcceptedKnowledge
         $readiness.Evidence = @($items)
+        if ($state -eq 'Unresolved' -and @($items | Where-Object { Test-ChannelForgeNoGuideExpectedGroup -Group ([string]$_.Group) }).Count -gt 0) {
+            [void]$reasons.Add('NoGuideExpected')
+            $noGuideExpected++
+        }
         $readiness.ReasonCodes = @($reasons | Sort-Object -Unique)
         [void]$readinessRecords.Add($readiness)
         $stateCounts[$state] = [int]$stateCounts[$state] + 1
@@ -126,6 +131,7 @@ function Get-ChannelForgeGuideReadiness {
         OverallState = $overallState
         Records = @($readinessRecords.ToArray())
         StateCounts = [pscustomobject]$stateCounts
+        NoGuideExpectedCount = $noGuideExpected
         ActionableCount = @($readinessRecords | Where-Object { $_.RequiresReview }).Count
         ReadOnly = $true
         PublicationState = 'CandidateOnly'

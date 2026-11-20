@@ -36,6 +36,18 @@ Describe 'Guide evidence from a playlist and one guide' {
         $r.Readiness.StateCounts.Unresolved | Should -Be 2
     }
 
+    It 'flags an adult or music channel with no programmes as no-guide-expected, not a pay-per-view one' {
+        $adult = New-Chan 'adult1' 'Example Adult'; $adult.Group = 'Adult Example'
+        $music = New-Chan 'music1' 'Example Tunes'; $music.Group = 'Example Music'
+        $ppv = New-Chan 'ppv1' 'Example Event'; $ppv.Group = 'PPV Events'
+        $r = Get-Ready @($adult, $music, $ppv) @()
+        (Get-Record $r 'adult1').ReasonCodes | Should -Contain 'NoGuideExpected'
+        (Get-Record $r 'music1').ReasonCodes | Should -Contain 'NoGuideExpected'
+        (Get-Record $r 'ppv1').ReasonCodes | Should -Not -Contain 'NoGuideExpected'
+        $r.Readiness.NoGuideExpectedCount | Should -Be 2
+        $r.Readiness.StateCounts.Unresolved | Should -Be 3
+    }
+
     It 'shows a guide that ended before the build as stale' {
         $r = Get-Ready @((New-Chan 'a' 'Alpha'), (New-Chan 'b' 'Beta')) @((New-Prog 'a' '2026-09-20T10:00:00Z'), (New-Prog 'b' '2026-10-01T11:00:00Z'))
         (Get-Record $r 'a').ReadinessState | Should -Be 'StaleSource'
