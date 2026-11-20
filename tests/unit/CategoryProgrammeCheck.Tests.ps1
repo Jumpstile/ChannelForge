@@ -95,7 +95,7 @@ Describe 'Category check: programme titles against the channel category' {
 
         $clone = Join-Path $TestDrive 'clone'
         New-Item -ItemType Directory -Force -Path $clone | Out-Null
-        foreach ($folder in 'scripts', 'src', 'schemas') { Copy-Item -LiteralPath (Join-Path $script:RepoRoot $folder) -Destination $clone -Recurse }
+        foreach ($folder in 'scripts', 'src', 'schemas', 'data') { Copy-Item -LiteralPath (Join-Path $script:RepoRoot $folder) -Destination $clone -Recurse }
         Set-Content -LiteralPath (Join-Path $clone 'src\ChannelForge\Private\Get-ChannelForgeCategoryProgrammeCheck.ps1') -Value 'function Get-ChannelForgeCategoryProgrammeCheck { param($CandidateDirectory, $Report) throw "broken" }'
         $broken = Invoke-CategoryBuild -Root (New-CategoryBuildRoot -Name 'hash-broken' -Guide $guide) -Script (Join-Path $clone 'scripts\Build-Lineup.ps1')
 
