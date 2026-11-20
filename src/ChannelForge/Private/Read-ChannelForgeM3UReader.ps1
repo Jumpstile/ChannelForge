@@ -8,7 +8,7 @@ function Read-ChannelForgeM3UReader {
 
         [string]$Playlist = '',
 
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 

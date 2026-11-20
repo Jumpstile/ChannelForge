@@ -32,7 +32,4 @@ Describe 'Publish group step, filling off' {
         @($r[0].ReviewCandidates).Count | Should -Be 0
         $a.Group | Should -BeExactly 'My Sports'
     }
-    It 'refuses -FillFromCategories in this slice' {
-        { & (Get-Module ChannelForge) { Get-ChannelForgePublishGroup -Channel @() -FillFromCategories } } | Should -Throw '*not implemented*'
-    }
 }

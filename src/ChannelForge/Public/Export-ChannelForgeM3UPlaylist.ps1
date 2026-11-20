@@ -13,6 +13,12 @@ function Export-ChannelForgeM3UPlaylist {
         # Optional TvgId -> pinned logo link (Get-ChannelForgeLogoPinMap).
         [hashtable]$LogoPin = @{},
 
+        # Optional TvgId -> pinned group (Get-ChannelForgePublishGroup).
+        [hashtable]$GroupPin = @{},
+
+        # Fill empty provider groups from the category list (candidate v10).
+        [switch]$FillEmptyGroups,
+
         # Optional approved folder; the file must resolve inside it.
         [string]$AllowedRoot
     )
@@ -44,7 +50,7 @@ function Export-ChannelForgeM3UPlaylist {
         # writing, never earlier, so the domain object always keeps the
         # original value.
         $published = @(Get-ChannelForgePublishLogo -Channel $allChannels.ToArray() -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
-        $publishedGroup = @(Get-ChannelForgePublishGroup -Channel $allChannels.ToArray())
+        $publishedGroup = @(Get-ChannelForgePublishGroup -Channel $allChannels.ToArray() -GroupPin $GroupPin -FillFromCategories:$FillEmptyGroups)
         for ($i = 0; $i -lt $allChannels.Count; $i++) {
             $ch = $allChannels[$i]
             $sourceLogo = $ch.Logo
