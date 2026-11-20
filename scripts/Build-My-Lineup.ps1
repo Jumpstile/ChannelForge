@@ -103,6 +103,7 @@ function Write-WorkflowReport {
         }
         if ($Report.NoGuideCount -gt 0) { "$($Report.NoGuideCount) channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide." }
         foreach ($eventRow in @($Report.EventGuide.Applied) + @($Report.EventGuide.Fallback)) { "Event channel '$($eventRow.Name)': $($eventRow.Reason)" }
+        foreach ($eventAsk in @($Report.EventGuide.Questions)) { $eventAsk }
         if ($Report.EventPatternPreview.Enabled) {
             "Event-pattern preview: $($Report.EventPatternPreview.Status)"
             "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
@@ -167,6 +168,20 @@ function Write-WorkflowConsumerOutputs {
     }
     finally {
         if (Test-Path -LiteralPath $stagingDirectory -PathType Container) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+function Get-EventScheduleQuestion {
+    # One plain question per event channel whose guide and saved schedule evidence disagree or cannot be compared.
+    param([Parameter(Mandatory)][object]$Plan, [Parameter(Mandatory)][byte[]]$XmltvBytes, [Parameter(Mandatory)][string]$EvidencePath)
+    $evidence = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeScheduleEvidence' -Arguments @{ Path = $EvidencePath })
+    if ($evidence.Count -eq 0) { return }
+    $window = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeGuideWindow' -Arguments @{ Text = [System.Text.Encoding]::UTF8.GetString($XmltvBytes) } | Select-Object -Last 1
+    $channels = @($Plan.Channel) + @($Plan.Fallback | Where-Object { $_.Reason -like '*no programs*' } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Blocks = @(); Day = $window.Start } })
+    foreach ($channel in $channels) {
+        $arguments = @{ Channel = $channel; Evidence = $evidence }
+        if ($channel.PSObject.Properties['Day']) { $arguments.Date = $channel.Day }
+        $result = Invoke-ChannelForgePrivate -Name 'Compare-ChannelForgeScheduleEvidence' -Arguments $arguments | Select-Object -Last 1
+        if ($null -ne $result -and $result.Question) { "Event channel '$($channel.Name)': $($result.Question)" }
     }
 }
 function New-WorkflowEventPatternPreviewReport {
@@ -799,7 +814,7 @@ try {
     $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name } })
     # Event channels (event-channel/v2, slice 3): channels rated high get an event guide from their own provider
     # guide. A saved user choice wins. Any problem leaves every channel on its normal guide.
-    $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @()
+    $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @(); $eventQuestion = @()
     if ($null -ne $candidateXMLTVBytes) {
         try {
             $guideIdByEntry = @{}
@@ -811,6 +826,8 @@ try {
             $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }); Override = $eventOverride } | Select-Object -Last 1
             $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback) + @($eventPlan.Review)
             $ownChannels = @($ownChannels) + @($eventPlan.Channel)
+            try { $eventQuestion = @(Get-EventScheduleQuestion -Plan $eventPlan -XmltvBytes $candidateXMLTVBytes -EvidencePath (Join-Path $rootFull 'state\schedule-evidence.json')) }
+            catch { Write-Warning 'The schedule evidence file is damaged, so it is ignored. Fix or delete state\schedule-evidence.json.' }
             foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
         }
         catch { Write-Warning 'The event channel guide could not be built, so every channel keeps its normal guide.' }
@@ -840,7 +857,8 @@ try {
             }
         })
     $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' -and -not $eventGuideByEntry.ContainsKey($_.EntryId) }).Count
-    $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback) }
+    $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback); Questions = @($eventQuestion) }
+    foreach ($eventAsk in $eventQuestion) { Write-Host $eventAsk -ForegroundColor Yellow }
     foreach ($eventRow in @($eventApplied) + @($eventFallback)) { Write-Host "Event channel '$($eventRow.Name)': $($eventRow.Reason)" -ForegroundColor Yellow }
     $report.DecisionsFile = 'state/channel-decisions.json'
     if ($report.CollisionGroups.Count -gt 0) {
