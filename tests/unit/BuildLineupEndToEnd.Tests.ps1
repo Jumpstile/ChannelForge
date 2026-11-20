@@ -89,6 +89,22 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         @($hashes | Select-Object -Unique).Count | Should -Be 1
     }
 
+    It 'writes the public https logo into the guide for the exact-bound channel and none for an http logo' -ForEach @(
+        @{ Logo = 'https://img.example.invalid/alpha.png'; Expected = $true }
+        @{ Logo = 'http://img.example.invalid/alpha.png'; Expected = $false }
+    ) {
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml
+        @('#EXTM3U', "#EXTINF:-1 tvg-id=`"alpha.us`" tvg-logo=`"$Logo`" group-title=`"News`",Alpha", 'https://example.invalid/live/alpha') -join "`n" |
+            Set-Content -LiteralPath (Join-Path $root 'data\playlists\playlist.m3u') -Encoding utf8NoBOM
+
+        & $script:BuildScriptPath -Root $root *> $null
+
+        $guide = Get-Content -LiteralPath (Get-E2EGuidePath -Root $root) -Raw
+        $guide | Should -Match 'Alpha Morning'
+        if ($Expected) { $guide | Should -Match '<icon src="https://img.example.invalid/alpha.png"' } else { $guide | Should -Not -Match '<icon' }
+    }
+
     It 'gives byte-identical guide output when the same build runs twice' {
         $root = New-E2EBuildRoot -GuideFile 'guide.xml'
         Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml

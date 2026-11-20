@@ -7,7 +7,9 @@ function Add-ChannelForgePlaceholderGuide {
     param(
         [Parameter(Mandatory)][byte[]]$XmltvBytes,
         [Parameter(Mandatory)][object[]]$Channel,
-        [Parameter(Mandatory)][System.TimeZoneInfo]$TimeZone
+        [Parameter(Mandatory)][System.TimeZoneInfo]$TimeZone,
+        # Optional channel Id -> public https logo link; written as <icon src="..."/> after display-name.
+        [hashtable]$IconByChannelRef = @{}
     )
 
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
@@ -41,7 +43,12 @@ function Add-ChannelForgePlaceholderGuide {
     foreach ($item in @($Channel | Sort-Object { [string]$_.Id } -Unique)) {
         $id = [System.Security.SecurityElement]::Escape([string]$item.Id)
         $name = [System.Security.SecurityElement]::Escape([string]$item.Name)
-        [void]$channelXml.Append("  <channel id=`"$id`"><display-name>$name</display-name></channel>`n")
+        $iconXml = ''
+        $icon = [string]$IconByChannelRef[[string]$item.Id]
+        if ($icon.Length -gt 0 -and (Get-ChannelForgeLogoStatus -Url $icon) -eq 'Public') {
+            $iconXml = "<icon src=`"$([System.Security.SecurityElement]::Escape($icon.Trim()))`"/>"
+        }
+        [void]$channelXml.Append("  <channel id=`"$id`"><display-name>$name</display-name>$iconXml</channel>`n")
         # A channel with its own Blocks (Start, Stop, Title as UTC datetime) gets those; the rest get the day blocks.
         $source = $blocks
         if ($item.PSObject.Properties['Blocks'] -and @($item.Blocks).Count -gt 0) {
