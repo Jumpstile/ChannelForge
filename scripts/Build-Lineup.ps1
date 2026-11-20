@@ -616,6 +616,7 @@ $m3uXmltvBindingStatus = 'NOT_EVALUATED'
 $m3uXmltvBindingReason = 'M3U/XMLTV identity binding was not evaluated.'
 $m3uXmltvExactBindings = @()
 $m3uXmltvUnboundChannels = @()
+$genreReviewLines = [System.Collections.Generic.List[string]]::new()
 $m3uXmltvReviewNeeded = @()
 $m3uXmltvOrphanedXmltvChannels = @()
 $m3uXmltvEpgCoverage = @()
@@ -793,7 +794,8 @@ else {
             -MergeResult $xmltvMergeResult `
             -Path $xmltvTempPath `
             -AllowedRoot $outDir `
-            -IconByChannelRef $iconByChannelRef
+            -IconByChannelRef $iconByChannelRef `
+            -GenreReviewLine $genreReviewLines
 
         if (-not (Test-Path -LiteralPath $xmltvTempPath -PathType Leaf)) {
             throw 'XMLTV exporter did not produce the staged output.'
@@ -1161,6 +1163,9 @@ if ($candidatePublished) {
         Write-Warning 'The event channel check could not run, so the event channel section is left out of the summary.'
     }
 }
+
+# Guide genres: programmes that fit two or more categories are left unset and listed here.
+foreach ($genreReviewLine in @($genreReviewLines)) { $md += (Get-SafeReportText $genreReviewLine) }
 
 # Guide comparison (xguide-compare/v1, v2 when the saved source set scopes it): report only. A failure is one warning line.
 if (@($allProgrammes).Count -gt 0) {
