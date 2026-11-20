@@ -6,7 +6,10 @@ function ConvertTo-ChannelForgeXmltvBytes {
 
         # Optional channel reference -> public https logo link. A channel with an entry gets one
         # <icon src="..."/> right after its <display-name>. No map or no entry: bytes are unchanged.
-        [hashtable]$IconByChannelRef = @{}
+        [hashtable]$IconByChannelRef = @{},
+
+        # Optional list that collects one plain review line for each programme title that fits two or more genres.
+        [System.Collections.Generic.List[string]]$GenreReviewLine
     )
 
     if ($null -eq $MergeResult) {
@@ -109,6 +112,7 @@ function ConvertTo-ChannelForgeXmltvBytes {
         throw 'Merged XMLTV result must contain at least one bound programme.'
     }
 
+    $genreByTitle = @{}
     $records = [System.Collections.Generic.List[object]]::new()
     $channels = [System.Collections.Generic.List[object]]::new()
     $seenChannelKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -184,6 +188,18 @@ function ConvertTo-ChannelForgeXmltvBytes {
             if (-not [string]::IsNullOrWhiteSpace($normalizedCategory)) {
                 $categories.Add($normalizedCategory)
             }
+        }
+        if ($categories.Count -eq 0) {
+            # No genre set: fill it only when exactly one category fits the title. Two or more: leave it and flag it once.
+            if (-not $genreByTitle.ContainsKey($title)) {
+                $genreByTitle[$title] = Get-ChannelForgeCategoryFromText -Text $title
+                $genre = $genreByTitle[$title]
+                if ($genre.Review -and $null -ne $GenreReviewLine) {
+                    $names = @($genre.Candidates)
+                    $GenreReviewLine.Add("Programme $title could match $($names[0..($names.Count - 2)] -join ', ') and $($names[-1]). Pick one genre for it.")
+                }
+            }
+            if ($null -ne $genreByTitle[$title].Category) { $categories.Add([string]$genreByTitle[$title].Category) }
         }
         $categories.Sort([System.StringComparer]::Ordinal)
         $categoryKey = [string]::Join([char]31, [string[]]$categories.ToArray())
