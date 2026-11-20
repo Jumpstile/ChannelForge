@@ -28,7 +28,7 @@ function Assert-ChannelForgeAcceptanceVersion {
 
 function Assert-ChannelForgeCandidateVersion {
     param([Parameter(Mandatory)][object]$Projection, [Parameter(Mandatory)][string]$Name)
-    $allowedVersions = @('blocker-2-contract/v7', 'blocker-2-contract/v8')
+    $allowedVersions = @('blocker-2-contract/v7', 'blocker-2-contract/v8', 'blocker-2-contract/v10')
     foreach ($propertyName in @('Version','ContractVersion')) {
         $property = $Projection.PSObject.Properties[$propertyName]
         if ($null -eq $property -or [string]$property.Value -notin $allowedVersions) {

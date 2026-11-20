@@ -9,7 +9,7 @@ function New-ChannelForgeCandidateProposal {
         [Parameter(Mandatory)][string]$OutputRoot,
         [string]$TransactionId = ([guid]::NewGuid().ToString('N').ToLowerInvariant()),
         [string]$FaultHook = '',
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7',
         [switch]$EmitEntrySlices
     )
@@ -113,7 +113,7 @@ function New-ChannelForgeCandidateProposal {
      $m3uTemp = Join-Path $txRoot 'merged.m3u'
      $groupDefaultLogo = Get-ChannelForgeGroupDefaultLogo -ProviderConfig $providerConfig
      $logoPin = Get-ChannelForgeLogoPinMap -RepositoryRoot $Root
-     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -AllowedRoot $txRoot
+     $merge.Channels | Export-ChannelForgeM3UPlaylist -Path $m3uTemp -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -FillEmptyGroups:($CandidateContractVersion -eq 'blocker-2-contract/v10') -AllowedRoot $txRoot
      $m3uBytes = [System.IO.File]::ReadAllBytes($m3uTemp)
      Remove-Item -LiteralPath $m3uTemp -Force
     $guideTrim = $null
@@ -195,6 +195,7 @@ function New-ChannelForgeCandidateProposal {
          "Unbound M3U channels: $($counts.UnboundCount)"
          "Review-needed identities: $($counts.ReviewNeededCount)"
          "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
+         @($manifestResult.GroupReviewLines)
         ''
         @(if ($numberReview.Applied.Count -gt 0 -or $numberReview.Collisions.Count -gt 0) {
                 'Your channel numbers'

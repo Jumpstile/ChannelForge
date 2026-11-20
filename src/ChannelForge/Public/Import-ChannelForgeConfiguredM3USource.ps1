@@ -16,7 +16,7 @@ function Import-ChannelForgeConfiguredM3USource {
         [datetimeoffset]$EvaluationTimeUtc = ([datetimeoffset]::UtcNow),
         [System.Collections.IDictionary]$AcquisitionStatus,
 
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
