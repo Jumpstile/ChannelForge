@@ -152,4 +152,29 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         Test-Path -LiteralPath (Join-Path $root 'data\evil.xml') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $root 'data\epg\evil.xml') | Should -BeFalse
     }
+
+    It 'finishes a build with a guide of several thousand programmes in a generous time (issue 191)' {
+        # Before the fix, serializing the evidence took minutes on a guide this size.
+        $guide = [System.Text.StringBuilder]::new()
+        [void]$guide.Append('<?xml version="1.0" encoding="UTF-8"?><tv>')
+        foreach ($channelId in 'alpha.us', 'beta.us', 'gamma.us') {
+            [void]$guide.Append("<channel id=`"$channelId`"><display-name>$channelId</display-name></channel>")
+            foreach ($slot in 0..1999) {
+                $start = [datetime]::new(2026, 8, 24, 0, 0, 0, [DateTimeKind]::Utc).AddMinutes(30 * $slot)
+                $stamp = '{0:yyyyMMddHHmmss} +0000' -f $start
+                $stop = '{0:yyyyMMddHHmmss} +0000' -f $start.AddMinutes(30)
+                [void]$guide.Append("<programme start=`"$stamp`" stop=`"$stop`" channel=`"$channelId`"><title>Fixture Show $slot</title><desc>Fixture description $slot</desc><category>News</category></programme>")
+            }
+        }
+        [void]$guide.Append('</tv>')
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text $guide.ToString()
+
+        $elapsed = Measure-Command { & $script:BuildScriptPath -Root $root *> $null }
+
+        $summary = Get-Content -LiteralPath (Join-Path $root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
+        $summary.XMLTVStatus | Should -Be 'GENERATED'
+        (Get-Content -LiteralPath (Get-E2EGuidePath -Root $root) -Raw) | Should -Match 'Fixture Show 1999'
+        $elapsed.TotalSeconds | Should -BeLessThan 120
+    }
 }
