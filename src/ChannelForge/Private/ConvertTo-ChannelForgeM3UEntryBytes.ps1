@@ -1,11 +1,12 @@
 function ConvertTo-ChannelForgeM3UEntryBytes {
-    param([Parameter(Mandatory)][Channel]$Channel)
+    # PublishGroup (Get-ChannelForgePublishGroup) overrides the channel's raw group when given.
+    param([Parameter(Mandatory)][Channel]$Channel, [AllowEmptyString()][string]$PublishGroup)
     $fields = @(
         @{ Name = 'tvg-id'; Value = $Channel.TvgId }
         @{ Name = 'tvg-name'; Value = $Channel.TvgName }
         @{ Name = 'tvg-logo'; Value = $Channel.Logo }
         @{ Name = 'tvg-chno'; Value = $Channel.AssignedNumber }
-        @{ Name = 'group-title'; Value = $Channel.Group }
+        @{ Name = 'group-title'; Value = if ($PSBoundParameters.ContainsKey('PublishGroup')) { $PublishGroup } else { $Channel.Group } }
     )
     $attributes = [System.Collections.Generic.List[string]]::new()
     foreach ($field in $fields) {
