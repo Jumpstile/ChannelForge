@@ -10,7 +10,7 @@ function Import-ChannelForgeXmltvSource {
 
         [System.Collections.IDictionary]$AcquisitionStatus,
 
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7',
 
         # Playlist tvg-ids. Only used when the guide is over the size limit (guide-trim/v2).

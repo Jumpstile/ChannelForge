@@ -37,7 +37,8 @@ function ConvertTo-ChannelForgeCandidateManifest {
         [string[]]$SerializedM3UEntryOrder = @(),
         [hashtable]$GroupDefaultLogo = @{},
         [hashtable]$LogoPin = @{},
-        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+        [hashtable]$GroupPin = @{},
+        [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
     function Assert-CandidateInputVersion {
@@ -51,7 +52,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
             if ($null -ne $property -and [string]$property.Value -cne $CandidateContractVersion) {
                 throw "FAIL_CLOSED: mixed candidate versions in $Name."
             }
-            if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -eq $property) {
+            if ($CandidateContractVersion -ne 'blocker-2-contract/v7' -and $null -eq $property) {
                 throw "FAIL_CLOSED: missing candidate version in $Name."
             }
         }
@@ -214,9 +215,21 @@ function ConvertTo-ChannelForgeCandidateManifest {
         $publishedLogoByEntry[[string]$fingerprintOccurrences[$p].EntryId] = $publishedLogos[$p].Logo
     }
 
+    # publish-group/v1: v10 bytes, GroupTitle and the presentation fingerprint use
+    # the published group (same step as the M3U export). v7 and v8 keep the raw group.
+    $isV10 = $CandidateContractVersion -eq 'blocker-2-contract/v10'
+    $groupOccurrences = @($RawM3UOccurrences | Where-Object { $null -ne $_.Channel })
+    $publishedGroups = @(Get-ChannelForgePublishGroup -Channel @($groupOccurrences | ForEach-Object { $_.Channel }) -GroupPin $GroupPin -FillFromCategories:$isV10)
+    $publishedGroupByEntry = @{}
+    for ($p = 0; $p -lt $groupOccurrences.Count; $p++) {
+        $publishedGroupByEntry[[string]$groupOccurrences[$p].EntryId] = $publishedGroups[$p]
+    }
+
     $orderedM3U = @($RawM3UOccurrences | Sort-Object @{ Expression = { [string]$_.EntryId } })
     $entries = @($orderedM3U | Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } | ForEach-Object {
-            [ordered]@{
+            $groupStep = $publishedGroupByEntry[[string]$_.EntryId]
+            $groupForEntry = if ($isV10) { [string]$groupStep.Group } else { [string]$_.GroupTitle }
+            $entry = [ordered]@{
                 EntryId             = [string]$_.EntryId
                 LogicalSourceId     = [string]$_.LogicalSourceId
                 SourceLocalOrdinal  = [int]$_.SourceLocalOrdinal
@@ -226,18 +239,18 @@ function ConvertTo-ChannelForgeCandidateManifest {
                 RawTvgId            = if ($_.RawTvgIdPresence -eq 'Present') { [string]$_.RawTvgId } else { $null }
                 TvgName             = Get-SafeCandidateText $_.TvgName
                 DisplayName         = Get-SafeCandidateText $_.DisplayName
-                GroupTitle          = Get-SafeCandidateText $_.GroupTitle
+                GroupTitle          = Get-SafeCandidateText $groupForEntry
                 Logo                = Get-SafeCandidateText $_.Logo
                 ChannelNumber       = $_.ChannelNumber
                 StreamFingerprint   = Get-ChannelForgeDomainHash -Domain 'stream-fingerprint/v2' -InputObject ([ordered]@{
-                    Version = if ($CandidateContractVersion -eq 'blocker-2-contract/v7') { 'stream-fingerprint-v2' } else { $CandidateContractVersion }
+                    Version = if ($CandidateContractVersion -in @('blocker-2-contract/v7', 'blocker-2-contract/v10')) { 'stream-fingerprint-v2' } else { $CandidateContractVersion }
                     StreamUrl = [string]$_.StreamUrl
                 })
                 PresentationFingerprint = Get-ChannelForgeDomainHash -Domain 'safe-tvg-name-fingerprint/v2' -InputObject ([ordered]@{
-                    Version = if ($CandidateContractVersion -eq 'blocker-2-contract/v7') { 'safe-tvg-name-fingerprint-v2' } else { $CandidateContractVersion }
+                    Version = if ($CandidateContractVersion -in @('blocker-2-contract/v7', 'blocker-2-contract/v10')) { 'safe-tvg-name-fingerprint-v2' } else { $CandidateContractVersion }
                     TvgName = [string]$_.TvgName
                     DisplayName = [string]$_.DisplayName
-                    GroupTitle = [string]$_.GroupTitle
+                    GroupTitle = $groupForEntry
                     Logo = [string]$publishedLogoByEntry[[string]$_.EntryId]
                     ChannelNumber = $_.ChannelNumber
                 })
@@ -248,11 +261,16 @@ function ConvertTo-ChannelForgeCandidateManifest {
                     EntryContentHash = $null
                 }
             }
+            if ($isV10) {
+                $entry.RawGroup = Get-SafeCandidateText $_.GroupTitle
+                $entry.GroupSource = [string]$groupStep.Source
+            }
+            $entry
         })
-    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -eq $M3UBytes) { throw 'FAIL_CLOSED: successor candidate requires M3UBytes.' }
-    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $SerializedM3UEntryOrder.Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is incomplete.' }
-    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and @($SerializedM3UEntryOrder | Sort-Object -Unique).Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is not one-to-one.' }
-    if ($CandidateContractVersion -eq 'blocker-2-contract/v8' -and $null -ne $M3UBytes) {
+    if ($CandidateContractVersion -ne 'blocker-2-contract/v7' -and $null -eq $M3UBytes) { throw 'FAIL_CLOSED: successor candidate requires M3UBytes.' }
+    if ($CandidateContractVersion -ne 'blocker-2-contract/v7' -and $SerializedM3UEntryOrder.Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is incomplete.' }
+    if ($CandidateContractVersion -ne 'blocker-2-contract/v7' -and @($SerializedM3UEntryOrder | Sort-Object -Unique).Count -ne $entries.Count) { throw 'FAIL_CLOSED: successor serialized EntryId order is not one-to-one.' }
+    if ($CandidateContractVersion -ne 'blocker-2-contract/v7' -and $null -ne $M3UBytes) {
         $headerBytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes("#EXTM3U`n")
         $headerValid = $M3UBytes.Length -ge $headerBytes.Length
         for ($h = 0; $headerValid -and $h -lt $headerBytes.Length; $h++) { if ($M3UBytes[$h] -ne $headerBytes[$h]) { $headerValid = $false } }
@@ -263,8 +281,7 @@ function ConvertTo-ChannelForgeCandidateManifest {
         foreach ($entryId in $artifactOrder) {
             $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entryId }) | Select-Object -First 1
             if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
-            $publishGroup = @(Get-ChannelForgePublishGroup -Channel @($source.Channel))[0].Group
-            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel -PublishGroup $publishGroup
+            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel -PublishGroup $publishedGroupByEntry[[string]$entryId].Group
             $offset = -1
             for ($i = $cursor; $i -le $M3UBytes.Length - $bytes.Length; $i++) {
                 $same = $true
@@ -568,11 +585,22 @@ function ConvertTo-ChannelForgeCandidateManifest {
         ArtifactRecords       = @($artifactRecords.ToArray())
     }
     $manifestHash = Get-ChannelForgeDomainHash -Domain 'candidate-manifest/v2' -InputObject $manifest
+    # Review lines for channels that match two or more categories (v10 only).
+    $groupReviewLines = @(if ($isV10) {
+            foreach ($occurrence in @($orderedM3U | Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate })) {
+                $names = @($publishedGroupByEntry[[string]$occurrence.EntryId].ReviewCandidates)
+                if ($names.Count -lt 2) { continue }
+                $list = ($names[0..($names.Count - 2)] -join ', ') + ' and ' + $names[-1]
+                "Channel $(Get-SafeCandidateText $occurrence.DisplayName) could match $list. Pick one group for it."
+            }
+        })
     return [pscustomobject][ordered]@{
         Manifest              = [pscustomobject]$manifest
         CandidateManifestHash = $manifestHash
         BuildIdentity         = $buildIdentity
         BindingProjection     = @($bindingProjection.ToArray())
         ReviewCounts          = $ReviewCounts
+        GroupFilledCount      = @($entries | Where-Object { $_.Contains('GroupSource') -and $_.GroupSource -in @('CategoryList', 'Pin') }).Count
+        GroupReviewLines      = $groupReviewLines
     }
 }

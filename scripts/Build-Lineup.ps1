@@ -9,13 +9,22 @@ param(
     [string]$FaultHook = '',
 
     # Candidate-owned registry version; independent subsystem versions remain explicit.
-    [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8')]
+    [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
     [string]$CandidateContractVersion = 'blocker-2-contract/v7',
 
     # Test-only clock for the guide age warning. Default is the real UTC time.
-    [datetime]$BuildTimeUtc = [datetime]::UtcNow
+    [datetime]$BuildTimeUtc = [datetime]::UtcNow,
+
+    # Opt-in: fill empty playlist groups from the category list. Selects candidate v10.
+    [switch]$FillEmptyGroups
 )
 $ErrorActionPreference = "Stop"
+if ($FillEmptyGroups) {
+    if ($PSBoundParameters.ContainsKey('CandidateContractVersion') -and $CandidateContractVersion -ne 'blocker-2-contract/v10') { throw 'FAIL_CLOSED: -FillEmptyGroups needs candidate version blocker-2-contract/v10.' }
+    $CandidateContractVersion = 'blocker-2-contract/v10'
+}
+$groupFilledCount = 0
+$groupReviewCount = 0
 
 # Always load the module from this script's own location, never from -Root.
 $ModuleRoot = Split-Path -Parent $PSScriptRoot
@@ -547,7 +556,7 @@ if ($m3uActiveSourceCount -gt 0) {
             Where-Object { $null -ne $_.Channel -and -not $_.Channel.IsDuplicate } |
             Sort-Object @{ Expression = { [string]$_.EntryId } }, @{ Expression = { [string]$_.RawM3UOccurrenceDigest } } |
             ForEach-Object { $_.Channel })
-        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -AllowedRoot $outDir
+        $candidateChannels | Export-ChannelForgeM3UPlaylist -Path $m3uTempPath -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -FillEmptyGroups:($CandidateContractVersion -eq 'blocker-2-contract/v10') -AllowedRoot $outDir
         if (-not (Test-Path -LiteralPath $m3uTempPath -PathType Leaf)) {
             throw 'M3U exporter did not produce the staged output.'
         }
@@ -950,6 +959,7 @@ if ($m3uGenerated -or $xmltvGenerated) {
             "Unbound M3U channels: $($counts.UnboundCount)"
             "Review-needed identities: $($counts.ReviewNeededCount)"
             "XMLTV-only channels: $($counts.XMLTVOnlyCount)"
+            @($manifestResult.GroupReviewLines)
             ''
             'This is a candidate-only report. Accepted state and public merged artifacts are unchanged.'
         ) -join "`n"
@@ -962,6 +972,8 @@ if ($m3uGenerated -or $xmltvGenerated) {
             -Name 'ConvertTo-ChannelForgeCandidateManifest' `
             -Arguments $manifestArguments
         $manifestResult = @($manifestResult)[-1]
+        $groupFilledCount = [int]$manifestResult.GroupFilledCount
+        $groupReviewCount = @($manifestResult.GroupReviewLines).Count
         $candidateManifestHash = [string]$manifestResult.CandidateManifestHash
         $manifestObject = [ordered]@{}
         foreach ($property in @($manifestResult.Manifest.PSObject.Properties)) {
@@ -1109,6 +1121,9 @@ elseif ($m3uStatus -eq 'FAILED') {
 }
 else {
     $md += 'Merged M3U: deferred. No enabled provider source is configured.'
+}
+if ($CandidateContractVersion -eq 'blocker-2-contract/v10' -and $m3uGenerated) {
+    $md += "Empty groups: $groupFilledCount filled, $groupReviewCount need a review."
 }
 
 $md += ""
