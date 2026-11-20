@@ -108,6 +108,31 @@ Describe 'Guide quality scorecard: what the owner sees' {
         $gate.Counts.PlaylistChannelsWithoutProgrammes | Should -Be 2
     }
 
+    It 'counts adult and music groups as no-guide-expected, not as gaps' {
+        $in = New-CleanInput; $in.PlaylistGuideId = @('one', 'two', 'adult1', 'music1', '')
+        $in.ReadinessResult | Add-Member NoGuideExpectedCount 3
+        $in.ReadinessResult.StateCounts.Unresolved = 3
+        $card = Get-Card $in
+        $gate = Get-Gate $card 'Completeness'
+        $gate.Counts.NoGuideExpected | Should -Be 3
+        $gate.Counts.PlaylistChannelsWithoutProgrammes | Should -Be 0
+        $gate.Verdict | Should -Be 'Pass'
+        $gate.Reason | Should -BeLike '*3 adult or music channels*'
+        $avail = Get-Gate $card 'Availability'
+        $avail.Verdict | Should -Be 'Pass'
+        $avail.Counts.NoGuideExpected | Should -Be 3
+    }
+
+    It 'keeps a pay-per-view placeholder with no programmes as a visible gap' {
+        $in = New-CleanInput; $in.PlaylistGuideId = @('one', 'ppv-empty', 'adult1')
+        $in.ReadinessResult | Add-Member NoGuideExpectedCount 1
+        $in.ReadinessResult.StateCounts.Unresolved = 2
+        $card = Get-Card $in
+        (Get-Gate $card 'Completeness').Counts.PlaylistChannelsWithoutProgrammes | Should -Be 1
+        (Get-Gate $card 'Completeness').Verdict | Should -Be 'Review'
+        (Get-Gate $card 'Availability').Verdict | Should -Be 'Review'
+    }
+
     It 'reports NotMeasured, never Pass, for a missing input report' {
         $card = Get-Card @{ CategoryReport = (New-Categories) }
         foreach ($name in 'Accuracy', 'Completeness', 'Freshness', 'Deduplication', 'Availability') {

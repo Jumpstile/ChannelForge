@@ -10,6 +10,12 @@ Describe 'Get-ChannelForgeCategoryFromText' {
         @{ Name = 'Basketball'; Text = 'Live NBA basketball' }
         @{ Name = 'Auto Racing'; Text = 'Formula 1 qualifying' }
         @{ Name = 'NASCAR'; Text = 'NASCAR Cup Series' }
+        @{ Name = 'Music'; Text = 'Example Music Hits' }
+        @{ Name = 'Music'; Text = 'Example Radio One' }
+        @{ Name = 'Pay-per-view'; Text = 'PPV Event 12' }
+        @{ Name = 'Pay-per-view'; Text = 'Example Pay Per View 3' }
+        @{ Name = 'Adult'; Text = 'Example Adult Channel' }
+        @{ Name = 'Adult'; Text = 'Example XXX 4' }
     ) {
         InModuleScope ChannelForge -Parameters @{ Name = $Name; Text = $Text } {
             (Get-ChannelForgeCategoryFromText -Text $Text).Category | Should -BeExactly $Name
@@ -31,6 +37,14 @@ Describe 'Get-ChannelForgeCategoryFromText' {
             $result.Category | Should -BeNullOrEmpty
             $result.Review | Should -BeTrue
             $result.Candidates | Should -Be @('Basketball', 'Hockey')
+        }
+    }
+
+    It 'does not pull an ordinary sports name into Music, Pay-per-view or Adult' {
+        InModuleScope ChannelForge {
+            foreach ($text in 'Example Sports Network', 'Pay Day Movie', 'Grown-up Soccer Night') {
+                (Get-ChannelForgeCategoryFromText -Text $text).Category | Should -Not -BeIn @('Music', 'Pay-per-view', 'Adult')
+            }
         }
     }
 
