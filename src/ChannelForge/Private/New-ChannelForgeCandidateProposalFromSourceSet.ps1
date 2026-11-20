@@ -239,7 +239,9 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
     if ($programmesForOutput.Count -gt 0) {
         $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme @($programmesForOutput.ToArray())
         $xmlTemp = Join-Path $txRoot 'merged.xml'
-        Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
+        # The guide file carries the same public https logos as the playlist, for exactly bound channels.
+        $iconByChannelRef = Get-ChannelForgeGuideIconMap -ExactBinding @($bindingResult.ExactBindings) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -WarningAction SilentlyContinue
+        Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot -IconByChannelRef $iconByChannelRef
         $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
         Remove-Item -LiteralPath $xmlTemp -Force
     }

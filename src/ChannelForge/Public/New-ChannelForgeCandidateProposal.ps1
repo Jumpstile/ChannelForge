@@ -118,6 +118,7 @@ function New-ChannelForgeCandidateProposal {
      Remove-Item -LiteralPath $m3uTemp -Force
     $guideTrim = $null
      $xmltvBytes = $null
+     $xmlMerge = $null
      $rawXmltv = @()
      $programmes = @()
      if (-not [string]::IsNullOrWhiteSpace($XMLTVPath)) {
@@ -129,10 +130,6 @@ function New-ChannelForgeCandidateProposal {
         $programmes = @(Import-ChannelForgeXmltvSource -Path $xmlPath -SourceId 'candidate-xmltv' -AcquisitionStatus $xmlStatus -CandidateContractVersion $CandidateContractVersion -TrimToChannelId @($merge.Channels | ForEach-Object { [string]$_.TvgId }) -TrimTempRoot $txRoot)
         if ($xmlStatus.Contains('GuideTrim')) { $guideTrim = $xmlStatus['GuideTrim'] }
         $xmlMerge = Merge-ChannelForgeXmltvProgrammes -Programme $programmes
-        $xmlTemp = Join-Path $txRoot 'merged.xml'
-        Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot
-        $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
-        Remove-Item -LiteralPath $xmlTemp -Force
         $rawXmltv = @(Get-ChannelForgeRawXmltvProjection -Programme $programmes -CandidateContractVersion $CandidateContractVersion)
          foreach ($logicalSourceId in @($rawXmltv | ForEach-Object { [string]$_.LogicalSourceId } | Sort-Object -Unique)) {
              [void]$inputArtifactHashes.Add([pscustomobject][ordered]@{
@@ -147,6 +144,14 @@ function New-ChannelForgeCandidateProposal {
      }
     else {
         [pscustomobject]@{ ExactBindings=@(); UnboundChannels=@(); ReviewNeeded=@(); OrphanedXmltvChannels=@() }
+    }
+    if ($null -ne $xmlMerge) {
+        # The guide file carries the same public https logos as the playlist, for exactly bound channels.
+        $iconByChannelRef = Get-ChannelForgeGuideIconMap -ExactBinding @($binding.ExactBindings) -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -WarningAction SilentlyContinue
+        $xmlTemp = Join-Path $txRoot 'merged.xml'
+        Export-ChannelForgeXmltv -MergeResult $xmlMerge -Path $xmlTemp -AllowedRoot $txRoot -IconByChannelRef $iconByChannelRef
+        $xmltvBytes = [System.IO.File]::ReadAllBytes($xmlTemp)
+        Remove-Item -LiteralPath $xmlTemp -Force
     }
     $serializedM3UEntryOrder = @($merge.Channels | ForEach-Object { $channel = $_; @($rawAll | Where-Object { $_.Channel -eq $channel } | Select-Object -First 1 | ForEach-Object EntryId) })
          $manifestArguments = @{

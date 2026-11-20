@@ -782,10 +782,18 @@ else {
         }
 
         $xmltvFailureStage = 'export'
+        # The guide file carries the same public https logos as the playlist, for exactly bound channels.
+        $iconByChannelRef = @{}
+        if ($m3uGenerated) {
+            $iconByChannelRef = @(Invoke-ChannelForgePrivateCandidateFunction `
+                -Name 'Get-ChannelForgeGuideIconMap' `
+                -Arguments @{ ExactBinding = @($identityBindingResult.ExactBindings); GroupDefaultLogo = $groupDefaultLogo; LogoPin = $logoPin; WarningAction = 'SilentlyContinue' })[0]
+        }
         Export-ChannelForgeXmltv `
             -MergeResult $xmltvMergeResult `
             -Path $xmltvTempPath `
-            -AllowedRoot $outDir
+            -AllowedRoot $outDir `
+            -IconByChannelRef $iconByChannelRef
 
         if (-not (Test-Path -LiteralPath $xmltvTempPath -PathType Leaf)) {
             throw 'XMLTV exporter did not produce the staged output.'
