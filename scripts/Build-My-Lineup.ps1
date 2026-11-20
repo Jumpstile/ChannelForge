@@ -104,6 +104,7 @@ function Write-WorkflowReport {
         if ($Report.NoGuideCount -gt 0) { "$($Report.NoGuideCount) channels have no guide. Run again and choose OwnPlaceholder to give them a name-only guide." }
         foreach ($eventRow in @($Report.EventGuide.Applied) + @($Report.EventGuide.Fallback)) { "Event channel '$($eventRow.Name)': $($eventRow.Reason)" }
         foreach ($eventAsk in @($Report.EventGuide.Questions)) { $eventAsk }
+        foreach ($eventDone in @($Report.EventGuide.Answered)) { $eventDone }
         if ($Report.EventPatternPreview.Enabled) {
             "Event-pattern preview: $($Report.EventPatternPreview.Status)"
             "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
@@ -172,16 +173,27 @@ function Write-WorkflowConsumerOutputs {
 }
 function Get-EventScheduleQuestion {
     # One plain question per event channel whose guide and saved schedule evidence disagree or cannot be compared.
-    param([Parameter(Mandatory)][object]$Plan, [Parameter(Mandatory)][byte[]]$XmltvBytes, [Parameter(Mandatory)][string]$EvidencePath)
+    # A matching saved answer (same channel, same evidence state) replaces the question with one "Answered earlier" line.
+    param([Parameter(Mandatory)][object]$Plan, [Parameter(Mandatory)][byte[]]$XmltvBytes, [Parameter(Mandatory)][string]$EvidencePath, [string]$AnswerPath = '')
     $evidence = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeScheduleEvidence' -Arguments @{ Path = $EvidencePath })
     if ($evidence.Count -eq 0) { return }
+    $answers = @()
+    if ($AnswerPath) {
+        try { $answers = @(Invoke-ChannelForgePrivate -Name 'Read-ChannelForgeScheduleAnswers' -Arguments @{ Path = $AnswerPath }) }
+        catch { Write-Warning 'The schedule answers file is damaged, so it is ignored. Fix or delete state\schedule-answers.json.' }
+    }
     $window = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeGuideWindow' -Arguments @{ Text = [System.Text.Encoding]::UTF8.GetString($XmltvBytes) } | Select-Object -Last 1
-    $channels = @($Plan.Channel) + @($Plan.Fallback | Where-Object { $_.Reason -like '*no programs*' } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Blocks = @(); Day = $window.Start } })
+    $channels = @($Plan.Channel) + @($Plan.Fallback | Where-Object { $_.Reason -like '*no programs*' } | ForEach-Object { [pscustomobject]@{ Key = $_.Key; Name = $_.Name; Blocks = @(); Day = $window.Start } })
+    $words = @{ StillOn = 'is still on'; Cancelled = 'is cancelled'; NotSure = 'is not sure yet' }
     foreach ($channel in $channels) {
         $arguments = @{ Channel = $channel; Evidence = $evidence }
         if ($channel.PSObject.Properties['Day']) { $arguments.Date = $channel.Day }
         $result = Invoke-ChannelForgePrivate -Name 'Compare-ChannelForgeScheduleEvidence' -Arguments $arguments | Select-Object -Last 1
-        if ($null -ne $result -and $result.Question) { "Event channel '$($channel.Name)': $($result.Question)" }
+        if ($null -eq $result -or -not $result.Question) { continue }
+        $channelId = [string]$channel.Key
+        $saved = @($answers | Where-Object { $_.key -ceq "$channelId|$($result.Status)" }) | Select-Object -First 1
+        if ($null -ne $saved) { "Answered earlier: $($channel.Name) $($words[$saved.answer])." }
+        else { "Event channel '$($channel.Name)': $($result.Question) To answer: Set-ChannelForgeScheduleAnswer -ChannelId '$channelId' -State $($result.Status) -Answer StillOn|Cancelled|NotSure" }
     }
 }
 function New-WorkflowEventPatternPreviewReport {
@@ -826,7 +838,7 @@ try {
             $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }); Override = $eventOverride } | Select-Object -Last 1
             $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback) + @($eventPlan.Review)
             $ownChannels = @($ownChannels) + @($eventPlan.Channel)
-            try { $eventQuestion = @(Get-EventScheduleQuestion -Plan $eventPlan -XmltvBytes $candidateXMLTVBytes -EvidencePath (Join-Path $rootFull 'state\schedule-evidence.json')) }
+            try { $eventQuestion = @(Get-EventScheduleQuestion -Plan $eventPlan -XmltvBytes $candidateXMLTVBytes -EvidencePath (Join-Path $rootFull 'state\schedule-evidence.json') -AnswerPath (Join-Path $rootFull 'state\schedule-answers.json')) }
             catch { Write-Warning 'The schedule evidence file is damaged, so it is ignored. Fix or delete state\schedule-evidence.json.' }
             foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
         }
@@ -861,7 +873,8 @@ try {
             }
         })
     $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' -and -not $eventGuideByEntry.ContainsKey($_.EntryId) }).Count
-    $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback); Questions = @($eventQuestion) }
+    $eventAnswered = @($eventQuestion | Where-Object { $_ -like 'Answered earlier:*' }); $eventQuestion = @($eventQuestion | Where-Object { $_ -notlike 'Answered earlier:*' })
+    $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback); Questions = @($eventQuestion); Answered = @($eventAnswered) }
     foreach ($eventAsk in $eventQuestion) { Write-Host $eventAsk -ForegroundColor Yellow }
     foreach ($eventRow in @($eventApplied) + @($eventFallback)) { Write-Host "Event channel '$($eventRow.Name)': $($eventRow.Reason)" -ForegroundColor Yellow }
     $report.DecisionsFile = 'state/channel-decisions.json'

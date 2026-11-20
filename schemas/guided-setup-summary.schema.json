@@ -101,7 +101,8 @@
       "properties": {
         "Applied": { "$ref": "#/$defs/eventGuideRows" },
         "Fallback": { "$ref": "#/$defs/eventGuideRows" },
-        "Questions": { "type": "array", "items": { "type": "string" } }
+        "Questions": { "type": "array", "items": { "type": "string" } },
+        "Answered": { "type": "array", "items": { "type": "string" } }
       }
     }
   },
