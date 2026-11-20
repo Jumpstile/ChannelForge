@@ -71,3 +71,57 @@ Describe 'Guide file logos' {
         ([regex]::Matches($text, '<channel id=')).Count | Should -Be 4
     }
 }
+
+Describe 'Placeholder guide logos' {
+    BeforeAll {
+        # Real chain: playlist export (decides the logo) -> entry slices -> placeholder icon map -> placeholder guide.
+        function Get-PlaceholderGuide {
+            param([hashtable]$Default = @{}, [hashtable]$Pin = @{})
+            $base = Export-GuideText
+            $logos = [ordered]@{ One = ''; Two = 'https://img.example.invalid/two.png'; Three = 'http://img.example.invalid/three.png' }
+            $channels = foreach ($n in $logos.Keys) {
+                New-ChannelForgeChannel -Provider 'p' -Playlist 'l' -OriginalName $n -DisplayName $n -TvgId "$($n.ToLower()).id" -Url "https://stream.example.invalid/$n" -Group 'Sports' -Logo $logos[$n]
+            }
+            $m3uPath = Join-Path $TestDrive ([guid]::NewGuid().ToString('N') + '.m3u')
+            $channels | Export-ChannelForgeM3UPlaylist -Path $m3uPath -GroupDefaultLogo $Default -LogoPin $Pin -AllowedRoot $TestDrive
+            $m3u = [IO.File]::ReadAllBytes($m3uPath)
+            $text = [Text.Encoding]::UTF8.GetString($m3u)
+            $starts = @([regex]::Matches($text, '#EXTINF') | ForEach-Object Index) + $text.Length
+            $entries = for ($i = 0; $i -lt $starts.Count - 1; $i++) {
+                $name = [regex]::Match($text.Substring($starts[$i], $starts[$i + 1] - $starts[$i]), ',([^\r\n]*)').Groups[1].Value
+                [pscustomobject]@{ EntryId = $name; EntryOutputSlice = [pscustomobject]@{ ByteOffset = $starts[$i]; ByteLength = $starts[$i + 1] - $starts[$i] } }
+            }
+            $placeholders = @(@('One', 'own.1'), @('Two', 'own.2'), @('Three', 'own.3') | ForEach-Object { [pscustomobject]@{ Id = $_[1]; Name = $_[0]; EntryId = $_[0] } })
+            $bytes = InModuleScope ChannelForge -Parameters @{ X = $base.Bytes; C = $placeholders; E = @($entries); M = $m3u } {
+                param($X, $C, $E, $M)
+                $icons = Get-ChannelForgePlaceholderIconMap -Channel $C -Entry $E -M3UBytes $M
+                [byte[]](Add-ChannelForgePlaceholderGuide -XmltvBytes $X -Channel $C -TimeZone ([TimeZoneInfo]::Utc) -IconByChannelRef $icons | Select-Object -Last 1)
+            }
+            [pscustomobject]@{ Bytes = $bytes; Text = [Text.Encoding]::UTF8.GetString($bytes); Base = $base }
+        }
+    }
+
+    It 'gives a missing or http logo the group default, keeps a public https logo, and drops no channel' {
+        $r = Get-PlaceholderGuide -Default @{ Sports = 'https://img.example.invalid/sports.png' }
+        $r.Text | Should -Match '<channel id="own.1"><display-name>One</display-name><icon src="https://img.example.invalid/sports.png"/>'
+        $r.Text | Should -Match '<channel id="own.2"><display-name>Two</display-name><icon src="https://img.example.invalid/two.png"/>'
+        $r.Text | Should -Match '<channel id="own.3"><display-name>Three</display-name><icon src="https://img.example.invalid/sports.png"/>'
+        ([regex]::Matches($r.Text, '<channel id=')).Count | Should -Be 5
+    }
+
+    It 'lets a pin win and never publishes an http logo' {
+        $r = Get-PlaceholderGuide -Pin @{ 'two.id' = 'https://img.example.invalid/pinned.png' }
+        $r.Text | Should -Match '<channel id="own.2"><display-name>Two</display-name><icon src="https://img.example.invalid/pinned.png"/>'
+        $r.Text | Should -Not -Match '<icon src="http://'
+    }
+
+    It 'adds only the public https icon when there are no group defaults, and is otherwise byte-identical to today' {
+        $r = Get-PlaceholderGuide
+        $today = InModuleScope ChannelForge -Parameters @{ X = $r.Base.Bytes } {
+            param($X)
+            $c = @([pscustomobject]@{ Id = 'own.1'; Name = 'One' }, [pscustomobject]@{ Id = 'own.2'; Name = 'Two' }, [pscustomobject]@{ Id = 'own.3'; Name = 'Three' })
+            [byte[]](Add-ChannelForgePlaceholderGuide -XmltvBytes $X -Channel $c -TimeZone ([TimeZoneInfo]::Utc) | Select-Object -Last 1)
+        }
+        $r.Text.Replace('<icon src="https://img.example.invalid/two.png"/>', '') | Should -Be ([Text.Encoding]::UTF8.GetString($today))
+    }
+}
