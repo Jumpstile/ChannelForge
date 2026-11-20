@@ -313,6 +313,7 @@ Three related ideas were considered and intentionally **not** implemented, to ke
 | `Get-ChannelForgeSourceEnrollment`             | Return redacted durable local source enrollment status                                                              |
 | `Get-ChannelForgeLogoPin`                      | List stored channel logo pins (state\logo-pins.json); pins are applied when a lineup is built                       |
 | `Set-ChannelForgeLogoPin`                      | Add, replace or -Remove one logo pin by exact TvgId; public https link only; applied when a lineup is built         |
+| `Update-ChannelForgeLogoLookup`                | Owner-run refresh of data\logo-lookup.json from the iptv-org list; allow-listed hosts only; -WhatIf is a dry run    |
 | `Get-ChannelForgeEnrolledSourceInput`          | Read validated managed source input for the refresh engine; not a browser response                                  |
 | `Set-ChannelForgeSourceEnrollmentRefreshState` | Persist non-authoritative up-to-date/changes-found refresh status marker                                            |
 | `Assert-ChannelForgeWritePath`                 | Throw unless a target path resolves under an explicitly approved root                                               |
