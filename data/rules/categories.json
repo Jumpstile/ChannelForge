@@ -1,0 +1,54 @@
+{
+  "version": "categories/v1",
+  "categories": [
+    {
+      "id": "auto-racing",
+      "name": "Auto Racing",
+      "match": ["auto racing", "formula 1", "indycar"]
+    },
+    { "id": "baseball", "name": "Baseball", "match": ["baseball", "mlb"] },
+    {
+      "id": "basketball",
+      "name": "Basketball",
+      "match": ["basketball", "nba", "wnba"]
+    },
+    { "id": "boxing", "name": "Boxing", "match": ["boxing"] },
+    {
+      "id": "college-football",
+      "name": "College Football",
+      "match": ["college football", "ncaa football"]
+    },
+    {
+      "id": "documentaries",
+      "name": "Documentaries",
+      "match": ["documentary", "documentaries"]
+    },
+    { "id": "football", "name": "Football", "match": ["nfl", "pro football"] },
+    { "id": "golf", "name": "Golf", "match": ["golf", "pga tour"] },
+    { "id": "hockey", "name": "Hockey", "match": ["hockey", "nhl"] },
+    { "id": "kids", "name": "Kids", "match": ["kids", "children"] },
+    {
+      "id": "mma",
+      "name": "MMA",
+      "match": ["mma", "mixed martial arts", "ufc"]
+    },
+    {
+      "id": "movies",
+      "name": "Movies",
+      "match": ["movie", "movies", "film", "films"]
+    },
+    { "id": "nascar", "name": "NASCAR", "match": ["nascar"] },
+    { "id": "news", "name": "News", "match": ["news"] },
+    {
+      "id": "soccer",
+      "name": "Soccer",
+      "match": ["soccer", "mls", "premier league"]
+    },
+    { "id": "tennis", "name": "Tennis", "match": ["tennis", "atp", "wta"] },
+    {
+      "id": "wrestling",
+      "name": "Wrestling",
+      "match": ["wrestling", "wwe", "aew"]
+    }
+  ]
+}

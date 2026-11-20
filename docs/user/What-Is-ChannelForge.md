@@ -25,13 +25,15 @@ ChannelForge is **Early Alpha**. The primary UI direction is a browser-based loc
 
 An **event guide** describes changing programming such as a UFC or other fight, PPV, temporary sports event, league schedule, single-team event, or a permitted ESPN+-style event group. It is more than a channel name: the guide must connect the event, time, timezone, status, and source evidence to a stable channel identity.
 
-ChannelForge builds an event guide for a pay-per-view style channel from the provider's own guide. If the provider guide shows an error instead of an event (for example "No data" or "Guide unavailable", listed in `data/rules/event-provider-errors.json`), the channel keeps its normal guide and the build report says why. If the same two teams, or the same event name, play twice on one channel on one day, the guide shows Game 1 and Game 2 (or Part 1 and Part 2) in time order. If the order or times are unclear, nothing new is made and the report asks one plain question. No channel is ever dropped.
-
 An **AED-derived** guide is XMLTV or M3U metadata exported by an external tool such as IPTVBoss. ChannelForge can consume a documented export as a migration or bootstrap input, but the export is evidence, not automatic truth. ChannelForge compares it with other permitted evidence, preserves freshness and provenance, and sends ambiguity to review.
 
 Normal users should not write regular expressions. The native Stage B preview and Stage C beginner review surface infer and explain bounded semantic fields from representative examples. Expert regex/date/time controls are not part of this slice; low-confidence or contradictory timing is never silently accepted.
 
 Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
+
+### Schedule check for event channels
+
+If you keep a file of saved game facts at `state\schedule-evidence.json` (sport, home team, away team, date, start time, source, and when it was seen), ChannelForge compares it with each event channel for that day. It never changes your guide or playlist. When the schedule has no game for the teams in the guide, or has a game the guide lacks, or a team name has no sport to go with it, the build report asks one plain question, such as "Keep the guide as is, or mark it cancelled?". When the guide and schedule agree, or there is no file, it says nothing. Saved facts stay in use after you remove their source.
 
 ### Native event-pattern preview
 
@@ -77,6 +79,10 @@ See [Current Limitations](CURRENT_LIMITATIONS.md) for the full, task-oriented br
 ## What remote acquisition does not do
 
 ChannelForge has a hard rule: it does not fabricate data it cannot verify (see [ADR 0005, evidence over assumptions](../adr/0005-evidence-over-assumptions.md)). Remote sources are published only after the v5 pinned HTTPS transport, bounds, content policy, parser, and deterministic merge/export checks succeed. A stale or corrupt disposable cache is repaired or reported as failure; it is never silently published as current data.
+
+## Categories
+
+ChannelForge sorts channels and programs into these categories, A to Z: Auto Racing, Baseball, Basketball, Boxing, College Football, Documentaries, Football, Golf, Hockey, Kids, MMA, Movies, NASCAR, News, Soccer, Tennis and Wrestling. They show up as playlist groups and as genres in the guide file. A group name you set yourself always wins. When two categories fit one title, ChannelForge leaves it unset and flags it for review.
 
 ## Where to go next
 

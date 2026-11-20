@@ -100,7 +100,8 @@
       "required": ["Applied", "Fallback"],
       "properties": {
         "Applied": { "$ref": "#/$defs/eventGuideRows" },
-        "Fallback": { "$ref": "#/$defs/eventGuideRows" }
+        "Fallback": { "$ref": "#/$defs/eventGuideRows" },
+        "Questions": { "type": "array", "items": { "type": "string" } }
       }
     }
   },
