@@ -7,7 +7,9 @@ function Get-ChannelForgeGuideIconMap {
 
         [hashtable]$GroupDefaultLogo = @{},
 
-        [hashtable]$LogoPin = @{}
+        [hashtable]$LogoPin = @{},
+
+        [hashtable]$LogoLookup = @{}
     )
 
     # Guide file logos (issue #191): XMLTV channel reference -> the same public https
@@ -17,7 +19,7 @@ function Get-ChannelForgeGuideIconMap {
     $bindings = @($ExactBinding | Where-Object { $null -ne $_ -and $null -ne $_.M3UChannel })
     if ($bindings.Count -eq 0) { return , $map }
 
-    $published = @(Get-ChannelForgePublishLogo -Channel @($bindings | ForEach-Object { $_.M3UChannel }) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin)
+    $published = @(Get-ChannelForgePublishLogo -Channel @($bindings | ForEach-Object { $_.M3UChannel }) -GroupDefaultLogo $GroupDefaultLogo -LogoPin $LogoPin -LogoLookup $LogoLookup)
     for ($i = 0; $i -lt $bindings.Count; $i++) {
         $ref = [string]$bindings[$i].XmltvChannelId
         $logo = [string]$published[$i].Logo
