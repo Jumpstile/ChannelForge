@@ -31,6 +31,10 @@ Normal users should not write regular expressions. The native Stage B preview an
 
 Guide evidence can be **confirmed**, a **safe candidate**, **needs review**, **unresolved**, **contradictory**, from a **stale source**, or from an **unavailable source**. These labels describe what ChannelForge knows; they do not publish or replace accepted state by themselves.
 
+### Schedule check for event channels
+
+If you keep a file of saved game facts at `state\schedule-evidence.json` (sport, home team, away team, date, start time, source, and when it was seen), ChannelForge compares it with each event channel for that day. It never changes your guide or playlist. When the schedule has no game for the teams in the guide, or has a game the guide lacks, or a team name has no sport to go with it, the build report asks one plain question, such as "Keep the guide as is, or mark it cancelled?". When the guide and schedule agree, or there is no file, it says nothing. Saved facts stay in use after you remove their source.
+
 ### Native event-pattern preview
 
 Give ChannelForge a few representative event-channel names. It returns a read-only candidate rule and an extraction preview; it does not publish a guide or change a lineup:
