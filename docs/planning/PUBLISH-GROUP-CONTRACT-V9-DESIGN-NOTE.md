@@ -139,13 +139,13 @@ Not verified (not run, not read):
 
 Size estimate for the code slice, code plus tests: about 220 to 280 changed lines.
 
-| Part                                         | Lines |
-| -------------------------------------------- | ----- |
-| Shared step `Get-ChannelForgePublishGroup`   | 50    |
-| Exporter and manifest builder wiring         | 50    |
-| Version allow lists and ValidateSet entries  | 25    |
-| Review line in candidate review output       | 25    |
-| Tests (8 cases above, shared fixtures)       | 100   |
+| Part                                        | Lines |
+| ------------------------------------------- | ----- |
+| Shared step `Get-ChannelForgePublishGroup`  | 50    |
+| Exporter and manifest builder wiring        | 50    |
+| Version allow lists and ValidateSet entries | 25    |
+| Review line in candidate review output      | 25    |
+| Tests (8 cases above, shared fixtures)      | 100   |
 
 Recommendation: split in two.
 
