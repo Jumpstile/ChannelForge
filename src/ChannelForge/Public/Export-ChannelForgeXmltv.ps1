@@ -8,7 +8,9 @@ function Export-ChannelForgeXmltv {
         [string]$Path,
 
         [Parameter(Mandatory)]
-        [string]$AllowedRoot
+        [string]$AllowedRoot,
+
+        [hashtable]$IconByChannelRef = @{}
     )
 
     try {
@@ -28,6 +30,6 @@ function Export-ChannelForgeXmltv {
     $parent = Split-Path -Parent $resolvedPath
     Assert-ChannelForgePathExists -Path $parent -PathType Container -Description 'XMLTV output parent directory'
 
-    $bytes = ConvertTo-ChannelForgeXmltvBytes -MergeResult $MergeResult
+    $bytes = ConvertTo-ChannelForgeXmltvBytes -MergeResult $MergeResult -IconByChannelRef $IconByChannelRef
     [System.IO.File]::WriteAllBytes($resolvedPath, [byte[]]$bytes)
 }

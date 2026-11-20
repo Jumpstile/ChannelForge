@@ -91,7 +91,7 @@ In Plex: **Settings → Live TV & DVR → Set Up Plex Tuner** (or add another tu
 - Channel list import from `merged.m3u`.
 - Playback of each channel's real stream URL.
 - Channel numbers, if `tvg-chno` was assigned (see step 4).
-- Channel logos, if the source M3U had `tvg-logo`.
+- Channel logos, if the source M3U had `tvg-logo`. Plex only accepts public https logo links, so ChannelForge publishes a public https logo (or your group default logo) and drops any other link. The guide file (`merged.xml`) now carries the same logo for each channel that is matched to the guide, as an `<icon>` element. ChannelForge only writes the link; it never downloads or copies an image.
 - Deterministic rebuilds: re-run step 5 and confirm `M3USha256` in the report doesn't change unless your input files did.
 
 ## What will not work yet
