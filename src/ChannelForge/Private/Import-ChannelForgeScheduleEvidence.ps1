@@ -25,9 +25,12 @@ function Import-ChannelForgeScheduleEvidence {
     $row = 1
     foreach ($line in @(Import-Csv -LiteralPath $SourcePath)) {
         $row++
-        $sport = ([string]$line.sport).Trim(); $homeTeam = ([string]$line.home).Trim(); $away = ([string]$line.away).Trim()
+        $kind = if (([string]$line.kind).Trim()) { ([string]$line.kind).Trim().ToLowerInvariant() } else { 'game' }
+        $sport = ([string]$line.sport).Trim(); $homeTeam = ([string]$line.home).Trim(); $away = ([string]$line.away).Trim(); $name = ([string]$line.name).Trim()
         $day = [datetime]::MinValue
-        if (-not ($sport -and $homeTeam -and $away)) { [void]$rejected.Add("Row ${row}: sport, home and away are all needed."); continue }
+        if ($kind -notin @('game', 'session', 'race', 'card', 'episode', 'special')) { [void]$rejected.Add("Row ${row}: the kind is not one this tool knows."); continue }
+        if ($kind -eq 'game' -and -not ($sport -and $homeTeam -and $away)) { [void]$rejected.Add("Row ${row}: sport, home and away are all needed."); continue }
+        if ($kind -ne 'game' -and -not $name) { [void]$rejected.Add("Row ${row}: a name is needed."); continue }
         if (-not [datetime]::TryParseExact(([string]$line.date).Trim(), 'yyyy-MM-dd', $invariant, [System.Globalization.DateTimeStyles]::None, [ref]$day)) { [void]$rejected.Add("Row ${row}: the date must look like 2026-11-15."); continue }
         $start = $null
         $startText = ([string]$line.startUtc).Trim()
@@ -37,9 +40,18 @@ function Import-ChannelForgeScheduleEvidence {
             $start = $parsed.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", $invariant)
         }
         $dayText = $day.ToString('yyyy-MM-dd', $invariant)
-        $idBytes = [System.Text.Encoding]::UTF8.GetBytes(("$sport|$homeTeam|$away|$dayText").ToLowerInvariant())
+        $key = if ($kind -eq 'game') { "$sport|$homeTeam|$away|$dayText" } else { "$kind|$name|$dayText" }
+        $idBytes = [System.Text.Encoding]::UTF8.GetBytes($key.ToLowerInvariant())
         $id = 'user-' + ([System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::HashData($idBytes)).Replace('-', '').ToLowerInvariant().Substring(0, 16))
-        $fresh[$id] = [ordered]@{ id = $id; sport = $sport; home = $homeTeam; away = $away; date = $dayText; startUtc = $start; source = 'user-file'; seen = $seen }
+        $text = { param($Field) $value = ([string]$line.$Field).Trim(); if ($value) { $value } else { $null } }
+        $fetched = & $text 'fetchedAt'
+        $source = & $text 'source'
+        $fresh[$id] = [ordered]@{
+            id = $id; kind = $kind; name = $(if ($name) { $name } else { $null }); sport = $sport; home = $homeTeam; away = $away; date = $dayText; startUtc = $start
+            time = (& $text 'time'); venue = (& $text 'venue'); city = (& $text 'city')
+            source = $(if ($source) { $source } else { 'user-file' }); license = (& $text 'license'); attribution = (& $text 'attribution')
+            fetchedAt = $(if ($fetched) { $fetched } else { $seen }); revision = (& $text 'revision'); seen = $seen
+        }
     }
     if ($fresh.Count -eq 0) { return [pscustomobject]@{ Added = 0; Updated = 0; Rejected = @($rejected.ToArray()) } }
 
