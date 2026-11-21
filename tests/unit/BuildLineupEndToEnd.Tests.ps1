@@ -141,7 +141,7 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         $message = $null
         try { & $script:BuildScriptPath -Root $root *> $null } catch { $message = $_.Exception.Message }
 
-        $message | Should -Match 'could not be imported'
+        $message | Should -Match 'could not be imported|contains no programs'
         $message | Should -Not -Match '[A-Za-z]:\\|https?://'
         $summary = Get-Content -LiteralPath (Join-Path $root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json
         $summary.Status | Should -Be 'FAILED'
@@ -151,6 +151,16 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         Test-Path -LiteralPath (Join-Path $root 'output\merged.xml') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $root 'data\evil.xml') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $root 'data\epg\evil.xml') | Should -BeFalse
+    }
+
+    It 'says an empty guide has no programs instead of saying it could not be imported (issue 191)' {
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text '<?xml version="1.0" encoding="UTF-8"?><tv/>'
+        $message = $null
+        try { & $script:BuildScriptPath -Root $root *> $null } catch { $message = $_.Exception.Message }
+
+        $message | Should -Match 'contains no programs'
+        $message | Should -Not -Match 'could not be imported'
     }
 
     It 'finishes a build with a guide of several thousand programmes in a generous time (issue 191)' {

@@ -41,6 +41,8 @@ A profile has one entry for each area:
 
 Each entry has a `value` (plain words) and an `evidence` object (`state` and `source`). If the state is `unknown`, the value must be exactly `unknown`.
 
+The generic target ignores catch-up. ChannelForge writes no catch-up or timeshift attributes, so a downstream app gets none from this output. If a source playlist declares catch-up, ChannelForge only reports it (shape and declared archive days) and never writes it. Fallback wording for users: "Catch-up is not provided by this output. Watch live, or use your provider's own app for past programmes."
+
 ## Not touched
 
 - Guide-id contract v1.0 is not touched.

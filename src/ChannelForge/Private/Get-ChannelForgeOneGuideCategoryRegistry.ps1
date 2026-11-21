@@ -26,5 +26,8 @@ function Get-ChannelForgeOneGuideCategoryRegistry {
         [pscustomobject][ordered]@{ Key = 'entertainment'; DisplayName = 'Entertainment'; Group = 'content'; Aliases = @('entertainment') }
         [pscustomobject][ordered]@{ Key = 'documentary'; DisplayName = 'Documentary'; Group = 'content'; Aliases = @('documentary', 'documentaries') }
         [pscustomobject][ordered]@{ Key = 'comedy'; DisplayName = 'Comedy'; Group = 'content'; Aliases = @('comedy') }
+        [pscustomobject][ordered]@{ Key = 'music'; DisplayName = 'Music'; Group = 'content'; Aliases = @('music', 'radio') }
+        [pscustomobject][ordered]@{ Key = 'pay-per-view'; DisplayName = 'Pay-per-view'; Group = 'content'; Aliases = @('ppv', 'pay per view', 'pay-per-view') }
+        [pscustomobject][ordered]@{ Key = 'adult'; DisplayName = 'Adult'; Group = 'content'; Aliases = @('adult', 'xxx') }
     )
 }

@@ -26,8 +26,11 @@ function Get-ChannelForgeLogoReport {
         Empty          = 0
         NotHttps       = 0
         PrivateAddress = 0
-        Names          = [ordered]@{ Empty = @(); NotHttps = @(); PrivateAddress = @() }
-        NamesNotShown  = [ordered]@{ Empty = 0; NotHttps = 0; PrivateAddress = 0 }
+        DataUri        = 0
+        TooLong        = 0
+        BadCharacters  = 0
+        Names          = [ordered]@{ Empty = @(); NotHttps = @(); PrivateAddress = @(); DataUri = @(); TooLong = @(); BadCharacters = @() }
+        NamesNotShown  = [ordered]@{ Empty = 0; NotHttps = 0; PrivateAddress = 0; DataUri = 0; TooLong = 0; BadCharacters = 0 }
         Pinned         = 0
         PinsStatus     = if ($PinRead) { [string]$PinRead.Status } elseif ($LogoPin.Count -gt 0) { 'Ok' } else { 'Missing' }
         PinsIgnored    = @(if ($PinRead -and $PinRead.Status -eq 'Corrupt') { $PinRead.Problems })
@@ -40,7 +43,7 @@ function Get-ChannelForgeLogoReport {
         LookupAmbiguousNotShown = 0
     }
     $ambiguousNames = [System.Collections.Generic.List[string]]::new()
-    $all = @{ Empty = @(); NotHttps = @(); PrivateAddress = @() }
+    $all = @{ Empty = @(); NotHttps = @(); PrivateAddress = @(); DataUri = @(); TooLong = @(); BadCharacters = @() }
     $seenIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($ch in @($Channel | Where-Object { $null -ne $_ })) {
         $status = Get-ChannelForgeLogoStatus -Url ([string]$ch.Logo)
@@ -57,9 +60,10 @@ function Get-ChannelForgeLogoReport {
         $report.NamesNotShown[$status] = [Math]::Max(0, $all[$status].Count - $MaxNames)
     }
     $report.PinsUnused = @($LogoPin.Keys | Where-Object { -not $seenIds.Contains([string]$_) } | Sort-Object { [string]$_ } -CaseSensitive)
-    $notPublic = $report.Empty + $report.NotHttps + $report.PrivateAddress
+    $notPublic = $report.Empty + $report.NotHttps + $report.PrivateAddress + $report.DataUri + $report.TooLong + $report.BadCharacters
     if ($notPublic -gt 0) {
-        $report.Warning = "Logo check: $notPublic of $($report.Public + $notPublic) channels have no public https logo (empty $($report.Empty), not https $($report.NotHttps), private address $($report.PrivateAddress))."
+        $unsafe = @(foreach ($pair in @(@('DataUri', 'data link'), @('TooLong', 'too long'), @('BadCharacters', 'bad characters'))) { if ($report[$pair[0]] -gt 0) { ", $($pair[1]) $($report[$pair[0]])" } }) -join ''
+        $report.Warning = "Logo check: $notPublic of $($report.Public + $notPublic) channels have no public https logo (empty $($report.Empty), not https $($report.NotHttps), private address $($report.PrivateAddress)$unsafe)."
         foreach ($status in $all.Keys | Sort-Object) {
             if ($all[$status].Count -eq 0) { continue }
             $more = if ($report.NamesNotShown[$status] -gt 0) { " +$($report.NamesNotShown[$status]) more" } else { '' }

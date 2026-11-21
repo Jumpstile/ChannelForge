@@ -61,7 +61,7 @@ Describe 'One Guide read projection' {
 
     It 'exposes the centralized category taxonomy and keeps wrestling promotion structured' {
         $fixtureProgrammes = Get-OneGuideFixtureProgrammes
-        $expectedTaxonomy = @('live-now', 'starting-soon', 'football', 'baseball', 'basketball', 'hockey', 'soccer', 'wrestling', 'motorsports', 'boxing', 'mma', 'tennis', 'golf', 'rugby', 'cricket', 'lacrosse', 'other-sports', 'movies', 'news', 'kids', 'entertainment', 'documentary', 'comedy')
+        $expectedTaxonomy = @('live-now', 'starting-soon', 'football', 'baseball', 'basketball', 'hockey', 'soccer', 'wrestling', 'motorsports', 'boxing', 'mma', 'tennis', 'golf', 'rugby', 'cricket', 'lacrosse', 'other-sports', 'movies', 'news', 'kids', 'entertainment', 'documentary', 'comedy', 'music', 'pay-per-view', 'adult')
         $registry = @(& (Get-Module ChannelForge) { Get-ChannelForgeOneGuideCategoryRegistry })
         $registryTaxonomy = @($registry | ForEach-Object { $_.Key })
         $registryTaxonomy | Should -Be $expectedTaxonomy

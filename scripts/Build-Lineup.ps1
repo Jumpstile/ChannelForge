@@ -747,6 +747,7 @@ else {
 
         $xmltvCurrentSourceName = $null
         if ($allProgrammes.Count -eq 0) {
+            $xmltvFailureStage = 'empty'
             throw 'No XMLTV programs were imported.'
         }
 
@@ -842,6 +843,9 @@ else {
                     CacheKey = ''
                 })
             }
+        }
+        elseif ($xmltvFailureStage -eq 'empty') {
+            $xmltvFailureReason = 'The XMLTV guide was read but contains no programs.'
         }
         elseif ($xmltvFailureStage -eq 'merge') {
             $xmltvFailureReason = 'Imported XMLTV programs could not be merged deterministically.'

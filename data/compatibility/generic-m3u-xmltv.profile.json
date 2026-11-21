@@ -109,10 +109,10 @@
       }
     },
     "catchup_timeshift": {
-      "value": "unknown",
+      "value": "Ignored. ChannelForge writes no catch-up or timeshift attributes, so this target offers no catch-up. Any catch-up in a source playlist is only reported, never written or promised.",
       "evidence": {
-        "state": "unknown",
-        "source": "No evidence collected yet."
+        "state": "documented",
+        "source": "src/ChannelForge/Private/ConvertTo-ChannelForgeM3UEntryBytes.ps1"
       }
     },
     "local_vs_remote_artifacts": {

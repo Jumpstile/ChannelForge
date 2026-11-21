@@ -536,7 +536,10 @@ function ConvertTo-ChannelForgeGuidePatternSample {
         [Nullable[datetimeoffset]]$ReferenceInstantUtc,
 
         [ValidateSet('MonthFirst', 'DayFirst')]
-        [string]$DateOrder = 'MonthFirst'
+        [string]$DateOrder = 'MonthFirst',
+
+        [AllowNull()]
+        [object]$ExpertPattern
     )
 
     $reasons = [System.Collections.Generic.List[string]]::new()
@@ -588,6 +591,38 @@ function ConvertTo-ChannelForgeGuidePatternSample {
         if ($colonIndex -gt 0 -and $colonIndex -lt ($head.Length - 1)) {
             $identifier = $head.Substring(0, $colonIndex).Trim()
             $title = $head.Substring($colonIndex + 1).Trim()
+        }
+    }
+
+    if ($null -ne $ExpertPattern) {
+        $identifier = ''
+        $ordinalText = ''
+        $ordinal = -1
+        $delimiter = ''
+        $title = ''
+        $segments = @($head)
+        $expertMatch = $null
+        if (-not $ExpertPattern.Valid) {
+            [void]$reasons.Add('ExpertPatternInvalid')
+        }
+        else {
+            try { $expertMatch = $ExpertPattern.Regex.Match($Example.SafeText) }
+            catch [System.Text.RegularExpressions.RegexMatchTimeoutException] { [void]$reasons.Add('ExpertPatternInvalid') }
+            if ($null -ne $expertMatch -and -not $expertMatch.Success) {
+                [void]$reasons.Add('ExpertPatternNoMatch')
+                $expertMatch = $null
+            }
+        }
+        if ($null -ne $expertMatch) {
+            $groups = $expertMatch.Groups
+            $identifier = $groups['identifier'].Value.Trim()
+            $title = $groups['title'].Value.Trim()
+            if ($groups['ordinal'].Success -and $groups['ordinal'].Value -match '^[0-9]{1,4}$') {
+                $ordinalText = $groups['ordinal'].Value
+                $ordinal = [int]$ordinalText
+            }
+            $clauseText = (@($groups['tz'].Value, $groups['date'].Value, $groups['time'].Value) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() }) -join ' '
+            if (-not [string]::IsNullOrEmpty($clauseText)) { $segments = @($head, $clauseText) }
         }
     }
 
@@ -919,6 +954,22 @@ function Get-ChannelForgeGuidePatternFieldCandidate {
     return $field
 }
 
+function Get-ChannelForgeGuidePatternInputDomain {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()]
+        [string]$InputField
+    )
+
+    # Channel names (display, tvg) and provider stream names are different text domains.
+    switch ($InputField) {
+        'DisplayName' { return 'ChannelName' }
+        'TvgName' { return 'ChannelName' }
+        'OriginalName' { return 'StreamName' }
+        default { return 'Unknown' }
+    }
+}
+
 function Invoke-ChannelForgeGuidePatternAnalysis {
     [CmdletBinding()]
     param(
@@ -953,9 +1004,13 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         [string]$ScopeGroup = '',
 
         [AllowNull()]
-        [object]$ExistingRule
+        [object]$ExistingRule,
+
+        [AllowEmptyString()]
+        [string]$ExpertPattern = ''
     )
 
+    $expert = if ([string]::IsNullOrWhiteSpace($ExpertPattern)) { $null } else { New-ChannelForgeGuideExpertPattern -Pattern $ExpertPattern }
     $orderedExamples = @($Examples | Sort-Object SafeFingerprint, SourceId, SourceFamily, EvidenceType, EvidenceReasonCodes, SourceRelationship, Group, ChannelReference, EventType, EventStatus, League, Sport, SourceTimezone, EvidenceStartUtc, EvidenceEndUtc, EvidenceTitle, EvidenceHomeParticipant, EvidenceAwayParticipant, InputField, Ordinal)
     for ($index = 0; $index -lt $orderedExamples.Count; $index++) {
         $orderedExamples[$index].Ordinal = $index + 1
@@ -967,7 +1022,8 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
                     -TimezoneMap $TimezoneMap `
                     -DefaultTimezone $DefaultTimezone `
                     -ReferenceInstantUtc $ReferenceInstantUtc `
-                    -DateOrder $DateOrder))
+                    -DateOrder $DateOrder `
+                    -ExpertPattern $expert))
     }
     $samples = @($sampleList.ToArray())
     $allReasons = [System.Collections.Generic.List[string]]::new()
@@ -1023,6 +1079,10 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         League = $family.League
         Sport = $family.Sport
     }
+    $inputDomains = @($samples | ForEach-Object { Get-ChannelForgeGuidePatternInputDomain -InputField $_.Example.InputField } | Sort-Object -Unique)
+    if ($inputDomains.Count -gt 1 -or $inputDomains -contains 'Unknown') {
+        if (-not $allReasons.Contains('InputDomainMixed')) { [void]$allReasons.Add('InputDomainMixed') }
+    }
 
     $grammarSegments = [System.Collections.Generic.List[object]]::new()
     if (-not [string]::IsNullOrEmpty($commonIdentifier)) {
@@ -1048,6 +1108,7 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         TimezoneLabels = @($timezoneLabels)
         Separator = if ($timezoneLabels.Count -gt 0) { '//' } else { '' }
     }
+    if ($null -ne $expert -and $expert.Valid) { $grammar['ExpertPatternHash'] = $expert.Hash }
 
     $fieldCandidates = [System.Collections.Generic.List[object]]::new()
     $identifierValues = @($samples | ForEach-Object { $_.ChannelIdentifier })
@@ -1135,6 +1196,9 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     elseif (@($samples | Where-Object { $_.Example.FreshnessState -eq 'Stale' -or $_.Example.ConfidenceState -eq 'StaleSource' }).Count -gt 0) {
         $state = 'StaleSource'
     }
+    elseif ($allReasons -contains 'ExpertPatternInvalid' -or $allReasons -contains 'ExpertPatternNoMatch' -or $allReasons -contains 'InputDomainMixed') {
+        $state = 'NeedsReview'
+    }
     elseif ($allReasons -contains 'EvidenceMissing' -or $allReasons -contains 'SourceNeedsReview' -or $allReasons -contains 'ConfidenceBelowThreshold' -or $allReasons -contains 'MirrorNotIndependent' -or $allReasons -contains 'MissingTime' -or $allReasons -contains 'MissingDate' -or $allReasons -contains 'InvalidDate' -or $allReasons -contains 'InvalidTime' -or $allReasons -contains 'TimezoneUnresolved' -or $allReasons -contains 'ReferenceInstantRequired' -or $allReasons -contains 'AmbiguousTime' -or $allReasons -contains 'AmbiguousTitle' -or $allReasons -contains 'NoEventData' -or $allReasons -contains 'ScheduleChanged' -or $allReasons -contains 'Postponed' -or $allReasons -contains 'Cancelled' -or $allReasons -contains 'Rescheduled' -or $allReasons -contains 'SourceStale' -or $allReasons -contains 'SourceUnavailable' -or $allReasons -contains 'StaleSource' -or $allReasons -contains 'TimezoneCrossCheckUnavailable' -or $allReasons -contains 'LeagueConflict' -or $allReasons -contains 'SportConflict' -or $outliers.Count -gt 0 -or $family.EventFamily -eq 'Unknown') {
         $state = 'NeedsReview'
     }
@@ -1192,6 +1256,12 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     if ($null -ne $ExistingRule -and -not [string]::IsNullOrEmpty($existingRuleId) -and $existingRuleId -ne $ruleId) {
         $driftStatus = 'Detected'
         if (-not $allReasons.Contains('PatternDrift')) { [void]$allReasons.Add('PatternDrift') }
+    }
+    $baselineScope = Get-ChannelForgeGuidePatternReviewProperty -InputObject $ExistingRule -Name 'Scope'
+    $baselineField = [string](Get-ChannelForgeGuidePatternReviewProperty -InputObject $baselineScope -Name 'InputField')
+    if (-not [string]::IsNullOrEmpty($baselineField) -and (Get-ChannelForgeGuidePatternInputDomain -InputField $baselineField) -ne (Get-ChannelForgeGuidePatternInputDomain -InputField ([string]$scope.InputField))) {
+        $driftStatus = 'Detected'
+        if (-not $allReasons.Contains('InputDomainMismatch')) { [void]$allReasons.Add('InputDomainMismatch') }
     }
     if ($invalidExistingRule) {
         $driftStatus = 'Detected'
@@ -1278,6 +1348,10 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
             'SourceUnavailable' { $message = 'The source is unavailable; no candidate can be trusted automatically.' }
             'SourceStale' { $message = 'The source reports stale evidence; review is required before use.' }
             'StaleSource' { $message = 'The source is stale; review is required before use.' }
+            'ExpertPatternInvalid' { $message = 'The expert pattern is not a valid, safe pattern; no candidate can be selected.' }
+            'ExpertPatternNoMatch' { $message = 'The expert pattern did not match one or more examples.' }
+            'InputDomainMixed' { $message = 'Examples mix channel names and stream names, or use an unknown input field.' }
+            'InputDomainMismatch' { $message = 'The supplied rule was learned from a different kind of name than these examples.' }
             default { $message = 'The supplied evidence needs review before this candidate can be used.' }
         }
         [void]$reviewItems.Add([ordered]@{ Code = $reason; Message = $message })
