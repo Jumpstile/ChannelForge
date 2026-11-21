@@ -1,0 +1,11 @@
+{
+  "pageTitle": "List of AEW Collision episodes",
+  "tableIndex": 0,
+  "kind": "episode",
+  "columns": {
+    "date": "Date",
+    "name": "Episode",
+    "venue": "Venue",
+    "city": "City"
+  }
+}

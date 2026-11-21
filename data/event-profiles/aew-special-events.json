@@ -1,0 +1,11 @@
+{
+  "pageTitle": "List of All Elite Wrestling special events",
+  "tableIndex": 0,
+  "kind": "special",
+  "columns": {
+    "date": "Date",
+    "name": "Event",
+    "venue": "Venue",
+    "city": "City"
+  }
+}

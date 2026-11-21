@@ -18,7 +18,7 @@ function Compare-ChannelForgeScheduleEvidence {
     $day = if ($null -ne $Date) { $Date } elseif ($eventBlocks.Count -gt 0) { & $localDay $eventBlocks[0].Start } else { return $null }
     $dayText = ([datetime]$day).ToString('yyyy-MM-dd')
     $eventBlocks = @($eventBlocks | Where-Object { (& $localDay $_.Start).ToString('yyyy-MM-dd') -ceq $dayText })
-    $dayRecord = @($Evidence | Where-Object { $_.Date -ceq $dayText })
+    $dayRecord = @($Evidence | Where-Object { $_.Date -ceq $dayText -and (-not $_.Kind -or $_.Kind -eq 'game') })
     if ($dayRecord.Count -eq 0) { return $null }
 
     $resolve = {

@@ -1,0 +1,8 @@
+[
+  { "id": 900001, "name": "Fixture Winter Night", "season": 1, "number": 1, "type": "regular", "airdate": "2026-01-14", "airtime": "20:00", "airstamp": "2026-01-15T01:00:00+00:00", "runtime": 60,
+    "show": { "id": 5001, "name": "Fixture Show", "network": { "country": { "timezone": "America/New_York" } } } },
+  { "id": 900002, "name": "Fixture Summer Night", "season": 1, "number": 2, "type": "regular", "airdate": "2026-07-15", "airtime": "20:00", "airstamp": "2026-07-16T00:00:00+00:00", "runtime": 60,
+    "show": { "id": 5001, "name": "Fixture Show", "network": { "country": { "timezone": "America/New_York" } } } },
+  { "id": 900003, "name": "Fixture Special", "season": 1, "number": 3, "type": "significant_special", "airdate": "2026-08-01", "airtime": "", "airstamp": "2026-08-01T12:00:00+00:00", "runtime": 120,
+    "show": { "id": 5001, "name": "Fixture Show", "network": { "country": { "timezone": "America/New_York" } } } }
+]
