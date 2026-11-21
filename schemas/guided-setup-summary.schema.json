@@ -102,7 +102,9 @@
         "Applied": { "$ref": "#/$defs/eventGuideRows" },
         "Fallback": { "$ref": "#/$defs/eventGuideRows" },
         "Questions": { "type": "array", "items": { "type": "string" } },
-        "Answered": { "type": "array", "items": { "type": "string" } }
+        "Answered": { "type": "array", "items": { "type": "string" } },
+        "Events": { "type": "integer", "minimum": 0 },
+        "File": { "type": ["string", "null"] }
       }
     }
   },
