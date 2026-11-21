@@ -43,7 +43,7 @@ function ConvertTo-ChannelForgeXmltvBytes {
 
         $normalized = if ($null -eq $Value) { '' } else { [string]$Value }
         $normalized = $normalized.Trim()
-        $normalized = [regex]::Replace($normalized, "\r\n?", [string][char]10)
+        $normalized = $normalized.Replace("`r`n", "`n").Replace("`r", "`n")
 
         if ($Required -and [string]::IsNullOrWhiteSpace($normalized)) {
             throw "XMLTV $FieldName cannot be empty."

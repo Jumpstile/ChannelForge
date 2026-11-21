@@ -9,8 +9,9 @@ function Get-ChannelForgeRawXmltvProjection {
 
     function Get-PropertyValue {
         param([AllowNull()][object]$Object, [Parameter(Mandatory)][string]$Name, [AllowNull()][object]$Default = $null)
-        if ($null -ne $Object -and $null -ne $Object.PSObject.Properties[$Name]) {
-            return $Object.PSObject.Properties[$Name].Value
+        $property = if ($null -ne $Object) { $Object.PSObject.Properties[$Name] }
+        if ($null -ne $property) {
+            return $property.Value
         }
         return $Default
     }

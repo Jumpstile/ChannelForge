@@ -13,25 +13,18 @@ function Get-ChannelForgeDomainHash {
         [byte[]]$Bytes
     )
 
-    [byte[]]$payload = if ($PSCmdlet.ParameterSetName -eq 'Object') {
+    $utf8 = [System.Text.UTF8Encoding]::new($false)
+    $domainLength = $utf8.GetByteCount($Domain)
+    if ($PSCmdlet.ParameterSetName -eq 'Object') {
         $json = ConvertTo-ChannelForgeCanonicalJson -InputObject $InputObject
-        [System.Text.UTF8Encoding]::new($false).GetBytes($json)
+        $buffer = [byte[]]::new($domainLength + 1 + $utf8.GetByteCount($json))
+        [void]$utf8.GetBytes($json, 0, $json.Length, $buffer, $domainLength + 1)
     }
     else {
-        [byte[]]$Bytes
+        $buffer = [byte[]]::new($domainLength + 1 + $Bytes.Length)
+        [System.Buffer]::BlockCopy($Bytes, 0, $buffer, $domainLength + 1, $Bytes.Length)
     }
+    [void]$utf8.GetBytes($Domain, 0, $Domain.Length, $buffer, 0)
 
-    [byte[]]$domainBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Domain)
-    $buffer = [byte[]]::new($domainBytes.Length + 1 + $payload.Length)
-    [System.Buffer]::BlockCopy($domainBytes, 0, $buffer, 0, $domainBytes.Length)
-    $buffer[$domainBytes.Length] = 0
-    [System.Buffer]::BlockCopy($payload, 0, $buffer, $domainBytes.Length + 1, $payload.Length)
-
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        return ([System.BitConverter]::ToString($sha.ComputeHash($buffer))).Replace('-', '').ToLowerInvariant()
-    }
-    finally {
-        $sha.Dispose()
-    }
+    return [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($buffer)).ToLowerInvariant()
 }
