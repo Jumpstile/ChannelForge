@@ -48,3 +48,20 @@ Describe 'Schedule evidence check' {
         Get-Answer -Title 'Giants vs Cowboys' -NoEvidence | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Schedule evidence kinds' {
+    It 'defaults old records to a game and reads non-game kinds by name' {
+        $path = Join-Path $script:Dir 'kinds.json'
+        @{ records = @(
+                @{ id = 'a'; sport = 'Football'; home = 'Dallas Cowboys'; away = 'New York Giants'; date = '2026-11-15' }
+                @{ id = 'b'; kind = 'special'; name = 'Fixture Showdown'; date = '2026-08-27' }
+                @{ id = 'c'; kind = 'special'; date = '2026-08-27' }
+            ) } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+        $rows = @(InModuleScope ChannelForge -Parameters @{ P = $path } { Read-ChannelForgeScheduleEvidence -Path $P })
+        $rows.Count | Should -Be 2
+        $rows[0].Kind | Should -Be 'game'
+        $rows[0].Name | Should -Be 'New York Giants at Dallas Cowboys'
+        $rows[1].Kind | Should -Be 'special'
+        $rows[1].Name | Should -Be 'Fixture Showdown'
+    }
+}

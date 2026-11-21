@@ -1,0 +1,9 @@
+<!-- fixture data: invented rows -->
+{| class="wikitable"
+|+ Fixture list
+! No. !! Date !! Event !! Venue !! City
+|-
+| 1 || August 27, 2026 || [[Fixture Showdown|Fixture Showdown]]<ref>x</ref> || Fixture Arena || Testville, ST
+|-
+| 2 || 3 October 2026 || '''Fixture Finale''' || Sample Center || Mockton, ST
+|}
