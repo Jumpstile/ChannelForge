@@ -7,7 +7,8 @@ function ConvertFrom-ChannelForgeTvmazeEvidence {
     param(
         [Parameter(Mandatory)][string]$Json,
         [Parameter(Mandatory)][string]$FetchedAt,
-        [string]$TimeZone
+        [string]$TimeZone,
+        [bool]$TrustTimes = $true
     )
 
     foreach ($episode in @($Json | ConvertFrom-Json)) {
@@ -22,6 +23,7 @@ function ConvertFrom-ChannelForgeTvmazeEvidence {
             $date = $local.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
             $time = $local.ToString('HH:mm', [Globalization.CultureInfo]::InvariantCulture)
         }
+        if (-not $TrustTimes) { $time = $null }
         if (-not $date -or -not $episode.name) { continue }
         $kind = if ([string]$episode.type -like '*special') { 'special' } else { 'episode' }
         $name = if ($show -and $show.name) { "$($show.name): $($episode.name)" } else { [string]$episode.name }
