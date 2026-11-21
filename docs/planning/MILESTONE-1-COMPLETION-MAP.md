@@ -254,58 +254,58 @@ Open issues: #28, #29, #30, #32, #38, #40, #41, #59, #121, #175, #191.
 
 ### Decisions and no-code steps (start now, in parallel)
 
-| Step | What | Who |
-| ---- | ---- | --- |
-| 32-A | Allow event-channel tvg-id to move to the separate file? | Owner |
-| D-191 | Choose the category key set (191-A) and check the #312 list | Owner |
-| 41-A | Review hosts and licences, run first lookup refresh | Owner |
-| 40-A | Real Build-Lineup run on trial files, record reports | Owner |
-| 191-B input | Provide the 16 MB guide for profiling | Owner |
+| Step        | What                                                        | Who   |
+| ----------- | ----------------------------------------------------------- | ----- |
+| 32-A        | Allow event-channel tvg-id to move to the separate file?    | Owner |
+| D-191       | Choose the category key set (191-A) and check the #312 list | Owner |
+| 41-A        | Review hosts and licences, run first lookup refresh         | Owner |
+| 40-A        | Real Build-Lineup run on trial files, record reports        | Owner |
+| 191-B input | Provide the 16 MB guide for profiling                       | Owner |
 
 ### Wave 1: all parallel (no shared files)
 
-| Lane | Slice | Size | Files |
-| ---- | ----- | ---- | ----- |
-| Events | 30-A Cross-channel pair-key grouping | ~80 | EventTimeAgreement, EventDoubleheader |
-| Evidence | 29-A User-supplied schedule importer | ~180 | new importer, evidence reader |
-| Logos | 41-B Bad-logo hardening | ~100 | LogoStatus, report |
-| Logos | 41-D Logo agreement report | ~150 | new function |
-| Catch-up | 59-A Shape classifier | ~120 | new function, fixtures |
-| Catch-up | 59-C Profile statement | ~60 | profile JSON, docs |
-| Categories | 191-A Unify category list (after owner choice) | ~120 | categories.json, registry |
-| Build script | 191-C Empty-guide message | <30 | Build-Lineup |
-| Patterns | 121-A Expert regex compile path | ~200 | PatternAnalysis |
-| Tests | 175-1 Enrollment test gaps | ~100 | SourceEnrollment tests |
-| Tests | 40-B Shared tvg-id and failed-refresh fixtures | ~120 | XmltvProgrammeMerge, BuildLineupFailedGuideSource tests |
+| Lane         | Slice                                          | Size | Files                                                   |
+| ------------ | ---------------------------------------------- | ---- | ------------------------------------------------------- |
+| Events       | 30-A Cross-channel pair-key grouping           | ~80  | EventTimeAgreement, EventDoubleheader                   |
+| Evidence     | 29-A User-supplied schedule importer           | ~180 | new importer, evidence reader                           |
+| Logos        | 41-B Bad-logo hardening                        | ~100 | LogoStatus, report                                      |
+| Logos        | 41-D Logo agreement report                     | ~150 | new function                                            |
+| Catch-up     | 59-A Shape classifier                          | ~120 | new function, fixtures                                  |
+| Catch-up     | 59-C Profile statement                         | ~60  | profile JSON, docs                                      |
+| Categories   | 191-A Unify category list (after owner choice) | ~120 | categories.json, registry                               |
+| Build script | 191-C Empty-guide message                      | <30  | Build-Lineup                                            |
+| Patterns     | 121-A Expert regex compile path                | ~200 | PatternAnalysis                                         |
+| Tests        | 175-1 Enrollment test gaps                     | ~100 | SourceEnrollment tests                                  |
+| Tests        | 40-B Shared tvg-id and failed-refresh fixtures | ~120 | XmltvProgrammeMerge, BuildLineupFailedGuideSource tests |
 
 41-B and 41-D can run in parallel because 41-D adds a new file. 59-A and 59-C touch different files.
 
 ### Wave 2: serial inside each lane, lanes parallel
 
-| Lane | Slice | Needs | Size |
-| ---- | ----- | ----- | ---- |
-| Events | 32-B Separate event-guide file | 32-A yes, and 30-A done (shares event files) | ~250 |
-| Evidence | 29-B Widen evidence record | 29-A | ~100 |
-| Catch-up | 59-B Catch-up report | 59-A | ~180 |
-| Build script | 191-B Fix 16 MB hang | 191-C, owner file | ~150 |
-| Patterns | 121-B Input-domain typing | 121-A | ~150 |
-| Guides | 175-3 User-supplied second guide as evidence | none, parallel | ~180 |
+| Lane         | Slice                                        | Needs                                        | Size |
+| ------------ | -------------------------------------------- | -------------------------------------------- | ---- |
+| Events       | 32-B Separate event-guide file               | 32-A yes, and 30-A done (shares event files) | ~250 |
+| Evidence     | 29-B Widen evidence record                   | 29-A                                         | ~100 |
+| Catch-up     | 59-B Catch-up report                         | 59-A                                         | ~180 |
+| Build script | 191-B Fix 16 MB hang                         | 191-C, owner file                            | ~150 |
+| Patterns     | 121-B Input-domain typing                    | 121-A                                        | ~150 |
+| Guides       | 175-3 User-supplied second guide as evidence | none, parallel                               | ~180 |
 
 ### Wave 3: serial inside each lane
 
-| Lane | Slice | Needs | Size |
-| ---- | ----- | ----- | ---- |
-| Events | 30-D Missing-means-unknown tests | 32-B | ~60 |
-| Events | 38-C Anti-mismerge fixtures | 29-B, 32-B | ~200 |
-| Evidence | 29-D Evidence cache | 29-B | ~150 |
-| Patterns | 121-C Weekday, tolerance, time provenance | 121-B | ~200 |
+| Lane     | Slice                                     | Needs      | Size |
+| -------- | ----------------------------------------- | ---------- | ---- |
+| Events   | 30-D Missing-means-unknown tests          | 32-B       | ~60  |
+| Events   | 38-C Anti-mismerge fixtures               | 29-B, 32-B | ~200 |
+| Evidence | 29-D Evidence cache                       | 29-B       | ~150 |
+| Patterns | 121-C Weekday, tolerance, time provenance | 121-B      | ~200 |
 
 ### Wave 4: serial
 
-| Slice | Needs | Size |
-| ----- | ----- | ---- |
-| 29-C Wikipedia/Wikidata adapter (also 175-2) | 29-D | ~280 |
-| 32-C Event logos by link | 32-B, 41-A | ~100 |
+| Slice                                                          | Needs          | Size    |
+| -------------------------------------------------------------- | -------------- | ------- |
+| 29-C Wikipedia/Wikidata adapter (also 175-2)                   | 29-D           | ~280    |
+| 32-C Event logos by link                                       | 32-B, 41-A     | ~100    |
 | 40-C Preserve XMLTV tags, only if the 10-line check shows loss | 40-A, owner OK | 200-300 |
 
 ### Not needed to close (move to a later milestone)
