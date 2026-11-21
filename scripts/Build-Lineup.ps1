@@ -430,6 +430,7 @@ $channelCount = 0
 $duplicateCount = 0
 $warningCount = 0
 $mergedM3UChannels = @()
+$catchupLocalPlaylistPaths = [System.Collections.Generic.List[string]]::new()
 
 if ($m3uActiveSourceCount -gt 0) {
     $m3uFailureStage = 'acquisition'
@@ -448,6 +449,7 @@ if ($m3uActiveSourceCount -gt 0) {
             if (-not [string]::IsNullOrWhiteSpace([string]$source.LocalPlaylist)) {
                 $resolvedPlaylistPath = Join-Path $Root $source.LocalPlaylist
                 Assert-ChannelForgeReadPath -Path $resolvedPlaylistPath -AllowedRoot $playlistDir
+                [void]$catchupLocalPlaylistPaths.Add($resolvedPlaylistPath)
                 $logicalIdValues = @(Invoke-ChannelForgePrivateCandidateFunction `
                     -Name 'Get-ChannelForgeLogicalSourceId' `
                     -Arguments @{
@@ -1164,6 +1166,22 @@ if ($candidatePublished) {
     }
     catch {
         Write-Warning 'The category check could not run, so the category section is left out of the summary.'
+    }
+}
+
+# Catch-up (slice 59 wiring): report only. Reads the local provider playlists. A failure is one warning line.
+if ($m3uGenerated) {
+    try {
+        $catchupRows = @(foreach ($catchupPath in $catchupLocalPlaylistPaths) {
+                $catchupReader = [System.IO.StreamReader]::new($catchupPath)
+                try { Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCatchupReport' -Arguments @{ Reader = $catchupReader } }
+                finally { $catchupReader.Dispose() }
+            })
+        $catchupLines = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeCatchupSummaryLines' -Arguments @{ Row = $catchupRows; RemoteSourceCount = $m3uRemoteSourceCount }
+        foreach ($catchupLine in $catchupLines) { $md += (Get-SafeReportText $catchupLine) }
+    }
+    catch {
+        Write-Warning 'The catch-up check could not run, so the catch-up section is left out of the summary.'
     }
 }
 

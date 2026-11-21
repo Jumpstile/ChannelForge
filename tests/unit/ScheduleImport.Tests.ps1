@@ -49,4 +49,24 @@ Describe 'Schedule importer' {
         { Invoke-Import -Evidence $path -Lines @('sport,home,away,date,startUtc', 'Football,Dallas Cowboys,New York Giants,2026-11-15,') } | Should -Throw '*damaged*'
         (Get-Content -LiteralPath $path -Raw).Trim() | Should -Be '{ not json'
     }
+    It 'keeps event details from the CSV in the saved file' {
+        $path = Join-Path $script:Dir 'details.json'
+        $r = Invoke-Import -Evidence $path -Lines @('kind,name,date,time,venue,city,source,license,attribution,revision', 'special,Fixture Showdown,2026-08-27,20:00,Fixture Arena,"Testville, ST",fixture,CC BY-SA 4.0,Fixture,99')
+        $r.Added | Should -Be 1
+        $rows = @(InModuleScope ChannelForge -Parameters @{ P = $path } { Read-ChannelForgeScheduleEvidence -Path $P })
+        $rows[0].Kind | Should -Be 'special'
+        $rows[0].Name | Should -Be 'Fixture Showdown'
+        $rows[0].Venue | Should -Be 'Fixture Arena'
+        $rows[0].City | Should -Be 'Testville, ST'
+        $rows[0].Time | Should -Be '20:00'
+        $rows[0].Source | Should -Be 'fixture'
+        $rows[0].Revision | Should -Be '99'
+        $rows[0].FetchedAt | Should -Not -BeNullOrEmpty
+    }
+
+    It 'rejects a non-game row with no name' {
+        $r = Invoke-Import -Evidence (Join-Path $script:Dir 'noname.json') -Lines @('kind,name,date', 'special,,2026-08-27')
+        $r.Added | Should -Be 0
+        $r.Rejected.Count | Should -Be 1
+    }
 }

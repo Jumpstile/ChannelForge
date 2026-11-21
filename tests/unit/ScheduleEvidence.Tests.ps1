@@ -64,4 +64,20 @@ Describe 'Schedule evidence kinds' {
         $rows[1].Kind | Should -Be 'special'
         $rows[1].Name | Should -Be 'Fixture Showdown'
     }
+    It 'keeps time, venue, city and source details, and leaves them empty on old records' {
+        $path = Join-Path $script:Dir 'details.json'
+        @{ records = @(
+                @{ id = 'd'; kind = 'special'; name = 'Fixture Showdown'; date = '2026-08-27'; time = '20:00'; venue = 'Fixture Arena'; city = 'Testville, ST'; source = 'fixture'; license = 'CC BY-SA 4.0'; attribution = 'Fixture'; fetchedAt = '2026-11-21T10:00:00Z'; revision = '99' }
+                @{ id = 'a'; sport = 'Football'; home = 'Dallas Cowboys'; away = 'New York Giants'; date = '2026-11-15' }
+            ) } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+        $rows = @(InModuleScope ChannelForge -Parameters @{ P = $path } { Read-ChannelForgeScheduleEvidence -Path $P })
+        $rows[0].Time | Should -Be '20:00'
+        $rows[0].Venue | Should -Be 'Fixture Arena'
+        $rows[0].City | Should -Be 'Testville, ST'
+        $rows[0].License | Should -Be 'CC BY-SA 4.0'
+        $rows[0].FetchedAt | Should -Be '2026-11-21T10:00:00Z'
+        $rows[0].Revision | Should -Be '99'
+        $rows[1].Venue | Should -BeNullOrEmpty
+        $rows[1].Revision | Should -BeNullOrEmpty
+    }
 }

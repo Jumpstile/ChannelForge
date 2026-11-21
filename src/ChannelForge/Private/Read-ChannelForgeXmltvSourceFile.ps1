@@ -13,7 +13,9 @@ function Read-ChannelForgeXmltvSourceFile {
         [long]$MaxDocumentBytes,
 
         [Parameter(Mandatory)]
-        [string]$CandidateContractVersion
+        [string]$CandidateContractVersion,
+
+        [switch]$SkipBadProgrammeTimes
     )
 
     $opened = $null
@@ -28,7 +30,8 @@ function Read-ChannelForgeXmltvSourceFile {
             -SourcePath $(if ([string]::IsNullOrEmpty($SourcePath)) { $opened.SourcePath } else { $SourcePath }) `
             -Compression $opened.Compression `
             -MaxDocumentBytes $MaxDocumentBytes `
-            -CandidateContractVersion $CandidateContractVersion)
+            -CandidateContractVersion $CandidateContractVersion `
+            -SkipBadProgrammeTimes:$SkipBadProgrammeTimes)
     }
     catch {
         # A compressed guide over the limit is cut short, so the parser fails on truncated XML before the size check runs.
