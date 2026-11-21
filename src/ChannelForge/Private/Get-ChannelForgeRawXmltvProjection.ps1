@@ -7,6 +7,102 @@ function Get-ChannelForgeRawXmltvProjection {
         [string]$CandidateContractVersion = 'blocker-2-contract/v7'
     )
 
+    # Each programme needs one digest and about twenty property reads; as function calls these cost seconds on a large
+    # guide, so they run in compiled code. Digest copies every projection property except the three ordinal/digest
+    # fields, writes them with the canonical JSON writer and hashes the domain, a zero byte and the UTF-8 JSON, exactly
+    # as Get-ChannelForgeDomainHash does. Property and ArrayValue return what Get-PropertyValue and Get-ArrayValue
+    # leave in a projection after PowerShell unrolls their output: nothing for empty, the item for one, an array for more.
+    $null = ConvertTo-ChannelForgeCanonicalJson -InputObject $null
+    if ($null -eq ('ChannelForge.RawXmltvHelper' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Management.Automation;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace ChannelForge
+{
+    public static class RawXmltvHelper
+    {
+        private static readonly Func<object, string> WriteJson = FindWriter();
+
+        private static Func<object, string> FindWriter()
+        {
+            foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type writer = assembly.GetType("ChannelForge.CanonicalJsonWriter", false);
+                if (writer != null) { return (Func<object, string>)Delegate.CreateDelegate(typeof(Func<object, string>), writer.GetMethod("Write")); }
+            }
+            throw new InvalidOperationException("The canonical JSON writer is not loaded.");
+        }
+
+        private static readonly object AutomationNullValue = typeof(PSObject).Assembly
+            .GetType("System.Management.Automation.Internal.AutomationNull")
+            .GetProperty("Value", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+            .GetValue(null);
+
+        private static List<object> Items(object value)
+        {
+            PSObject wrapper = value as PSObject;
+            if (wrapper != null && !(wrapper.BaseObject is PSCustomObject)) { value = wrapper.BaseObject; }
+            List<object> items = new List<object>();
+            IEnumerable sequence = value as IEnumerable;
+            if (value == null || value is string || value is IDictionary || sequence == null) { items.Add(value); return items; }
+            foreach (object item in sequence) { items.Add(item); }
+            return items;
+        }
+
+        private static object Unrolled(List<object> items)
+        {
+            if (items.Count == 0) { return AutomationNullValue; }
+            return items.Count == 1 ? items[0] : items.ToArray();
+        }
+
+        private static object Unroll(object value)
+        {
+            if (value == null || object.ReferenceEquals(value, AutomationNullValue)) { return value; }
+            return Unrolled(Items(value));
+        }
+
+        public static object Property(object source, string name, object fallback)
+        {
+            PSPropertyInfo property = (source == null || object.ReferenceEquals(source, AutomationNullValue)) ? null : PSObject.AsPSObject(source).Properties[name];
+            return Unroll(property != null ? property.Value : fallback);
+        }
+
+        public static object ArrayValue(object source, string name)
+        {
+            object value = Property(source, name, new object[0]);
+            if (value == null || object.ReferenceEquals(value, AutomationNullValue)) { return AutomationNullValue; }
+            return Unrolled(Items(value));
+        }
+
+        public static string Compute(PSObject projection, string domain)
+        {
+            OrderedDictionary values = new OrderedDictionary();
+            foreach (PSPropertyInfo property in projection.Properties)
+            {
+                if (property.Name.Equals("StructuralOccurrenceOrdinal", StringComparison.OrdinalIgnoreCase) ||
+                    property.Name.Equals("RawXMLTVOccurrenceDigest", StringComparison.OrdinalIgnoreCase) ||
+                    property.Name.Equals("RawProgrammeDigest", StringComparison.OrdinalIgnoreCase)) { continue; }
+                values[property.Name] = property.Value;
+            }
+            UTF8Encoding utf8 = new UTF8Encoding(false);
+            string json = WriteJson(values);
+            int domainLength = utf8.GetByteCount(domain);
+            byte[] buffer = new byte[domainLength + 1 + utf8.GetByteCount(json)];
+            utf8.GetBytes(domain, 0, domain.Length, buffer, 0);
+            utf8.GetBytes(json, 0, json.Length, buffer, domainLength + 1);
+            return Convert.ToHexString(SHA256.HashData(buffer)).ToLowerInvariant();
+        }
+    }
+}
+'@
+    }
+
     function Get-PropertyValue {
         param([AllowNull()][object]$Object, [Parameter(Mandatory)][string]$Name, [AllowNull()][object]$Default = $null)
         $property = if ($null -ne $Object) { $Object.PSObject.Properties[$Name] }
@@ -33,13 +129,8 @@ function Get-ChannelForgeRawXmltvProjection {
     }
     function Get-Digest {
         param([Parameter(Mandatory)][object]$Projection, [Parameter(Mandatory)][string]$Domain)
-        $input = [ordered]@{}
-        foreach ($property in @($Projection.PSObject.Properties)) {
-            if ($property.Name -notin @('StructuralOccurrenceOrdinal', 'RawXMLTVOccurrenceDigest', 'RawProgrammeDigest')) {
-                $input[$property.Name] = $property.Value
-            }
-        }
-        return Get-ChannelForgeDomainHash -Domain $Domain -InputObject $input
+        try { return [ChannelForge.RawXmltvHelper]::Compute([System.Management.Automation.PSObject]::AsPSObject($Projection), $Domain) }
+        catch [System.Management.Automation.MethodInvocationException] { throw $_.Exception.InnerException.Message }
     }
     function Get-ChannelSortKey {
         param([Parameter(Mandatory)][object]$Projection)
@@ -47,9 +138,9 @@ function Get-ChannelForgeRawXmltvProjection {
         return @(
             $presenceRank
             [string]$Projection.RawChannelId
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.DisplayNameNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.IconNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.RawChannelExtensions))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.DisplayNameNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.IconNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.RawChannelExtensions))
             [string]$Projection.RawXMLTVOccurrenceDigest
         ) -join [char]31
     }
@@ -61,12 +152,12 @@ function Get-ChannelForgeRawXmltvProjection {
             [string]$Projection.RawProgrammeChannelId
             [string]$Projection.StartRaw
             [string]$Projection.StopRaw
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.TitleNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.SubTitleNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.DescNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.CategoryNodes))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.EpisodeNumbers))
-            (ConvertTo-ChannelForgeCanonicalJson -InputObject @($Projection.RawProgrammeExtensions))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.TitleNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.SubTitleNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.DescNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.CategoryNodes))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.EpisodeNumbers))
+            [ChannelForge.CanonicalJsonWriter]::Write(@($Projection.RawProgrammeExtensions))
             [string]$Projection.RawProgrammeDigest
         ) -join [char]31
     }
@@ -121,22 +212,22 @@ function Get-ChannelForgeRawXmltvProjection {
                     StructuralOccurrenceOrdinal = 0
                     RawProgrammeChannelIdPresence = $presence
                     RawProgrammeChannelId = $rawId
-                    StartRaw = [string](Get-PropertyValue $occurrence 'StartRaw' '')
-                    StopRaw = [string](Get-PropertyValue $occurrence 'StopRaw' '')
-                    TitleNodes = Get-ArrayValue (Get-PropertyValue $occurrence 'TitleNodes' @())
-                    SubTitleNodes = Get-ArrayValue (Get-PropertyValue $occurrence 'SubTitleNodes' @())
-                    DescNodes = Get-ArrayValue (Get-PropertyValue $occurrence 'DescNodes' @())
-                    CategoryNodes = Get-ArrayValue (Get-PropertyValue $occurrence 'CategoryNodes' @())
-                    EpisodeNumbers = Get-ArrayValue (Get-PropertyValue $occurrence 'EpisodeNumbers' @())
-                    Rating = Get-PropertyValue $occurrence 'Rating' $null
-                    StarRating = Get-PropertyValue $occurrence 'StarRating' $null
-                    PreviouslyShown = Get-PropertyValue $occurrence 'PreviouslyShown' $false
-                    Premiere = Get-PropertyValue $occurrence 'Premiere' (Get-PropertyValue $occurrence 'IsPremiere' $false)
-                    LastChance = Get-PropertyValue $occurrence 'LastChance' $false
-                    Credits = Get-ArrayValue (Get-PropertyValue $occurrence 'Credits' @())
-                    Date = Get-PropertyValue $occurrence 'Date' $null
-                    IconNodes = Get-ArrayValue (Get-PropertyValue $occurrence 'IconNodes' @())
-                    RawProgrammeExtensions = Get-ArrayValue (Get-PropertyValue $occurrence 'RawProgrammeExtensions' @())
+                    StartRaw = [string][ChannelForge.RawXmltvHelper]::Property($occurrence, 'StartRaw', '')
+                    StopRaw = [string][ChannelForge.RawXmltvHelper]::Property($occurrence, 'StopRaw', '')
+                    TitleNodes = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'TitleNodes')
+                    SubTitleNodes = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'SubTitleNodes')
+                    DescNodes = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'DescNodes')
+                    CategoryNodes = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'CategoryNodes')
+                    EpisodeNumbers = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'EpisodeNumbers')
+                    Rating = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'Rating', $null)
+                    StarRating = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'StarRating', $null)
+                    PreviouslyShown = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'PreviouslyShown', $false)
+                    Premiere = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'Premiere', [ChannelForge.RawXmltvHelper]::Property($occurrence, 'IsPremiere', $false))
+                    LastChance = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'LastChance', $false)
+                    Credits = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'Credits')
+                    Date = [ChannelForge.RawXmltvHelper]::Property($occurrence, 'Date', $null)
+                    IconNodes = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'IconNodes')
+                    RawProgrammeExtensions = [ChannelForge.RawXmltvHelper]::ArrayValue($occurrence, 'RawProgrammeExtensions')
                 }
                 $record = [pscustomobject][ordered]@{
                     Projection = $projection

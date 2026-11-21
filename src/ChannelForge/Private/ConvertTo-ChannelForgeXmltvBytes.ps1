@@ -234,69 +234,8 @@ function ConvertTo-ChannelForgeXmltvBytes {
         }
     }
 
-    $recordComparison = [System.Comparison[object]]{
-        param($left, $right)
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.BindingKey, $right.BindingKey)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = if ($left.StartTicks -lt $right.StartTicks) { -1 } elseif ($left.StartTicks -gt $right.StartTicks) { 1 } else { 0 }
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = if ($left.EndTicks -lt $right.EndTicks) { -1 } elseif ($left.EndTicks -gt $right.EndTicks) { 1 } else { 0 }
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.Title, $right.Title)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.Subtitle, $right.Subtitle)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.Description, $right.Description)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.CategoryKey, $right.CategoryKey)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare($left.EpisodeNumber, $right.EpisodeNumber)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [int]$left.IsNew - [int]$right.IsNew
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [int]$left.IsLive - [int]$right.IsLive
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        return [int]$left.IsPremiere - [int]$right.IsPremiere
-    }
-    $records.Sort($recordComparison)
-
-    $channelComparison = [System.Comparison[object]]{
-        param($left, $right)
-
-        return [System.StringComparer]::Ordinal.Compare($left.BindingKey, $right.BindingKey)
-    }
-    $channels.Sort($channelComparison)
+    $records.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey', 'long:StartTicks', 'long:EndTicks', 'string:Title', 'string:Subtitle', 'string:Description', 'string:CategoryKey', 'string:EpisodeNumber', 'bool:IsNew', 'bool:IsLive', 'bool:IsPremiere'))
+    $channels.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey'))
 
     $namespace = 'urn:channelforge'
     $timestampFormat = "yyyyMMddHHmmss '+0000'"

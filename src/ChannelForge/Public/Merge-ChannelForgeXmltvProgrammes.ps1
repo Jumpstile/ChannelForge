@@ -77,6 +77,7 @@ function Merge-ChannelForgeXmltvProgrammes {
         $records.Add([pscustomobject]@{
             Programme   = $programmeValue
             Binding     = $binding
+            BindingKey  = [string]$binding.BindingKey
             ContentKey  = Get-ProgrammeContentKey -Value $programmeValue
             EvidenceKey = $evidenceKey
             StartTicks  = $programmeValue.Start.ToUniversalTime().Ticks
@@ -84,38 +85,7 @@ function Merge-ChannelForgeXmltvProgrammes {
         })
     }
 
-    $recordComparison = [System.Comparison[object]]{
-        param($left, $right)
-
-        $comparison = [System.StringComparer]::Ordinal.Compare(
-            [string]$left.Binding.BindingKey,
-            [string]$right.Binding.BindingKey)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = if ($left.StartTicks -lt $right.StartTicks) { -1 } elseif ($left.StartTicks -gt $right.StartTicks) { 1 } else { 0 }
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = if ($left.EndTicks -lt $right.EndTicks) { -1 } elseif ($left.EndTicks -gt $right.EndTicks) { 1 } else { 0 }
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        $comparison = [System.StringComparer]::Ordinal.Compare(
-            [string]$left.ContentKey,
-            [string]$right.ContentKey)
-        if ($comparison -ne 0) {
-            return $comparison
-        }
-
-        return [System.StringComparer]::Ordinal.Compare(
-            [string]$left.EvidenceKey,
-            [string]$right.EvidenceKey)
-    }
-    $records.Sort($recordComparison)
+    $records.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey', 'long:StartTicks', 'long:EndTicks', 'string:ContentKey', 'string:EvidenceKey'))
 
     $orderedBindings = [System.Collections.Generic.List[ProgrammeChannelBinding]]::new()
     $seenBindingKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
