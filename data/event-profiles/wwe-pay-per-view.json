@@ -1,0 +1,13 @@
+{
+  "pageTitle": "List of WWE pay-per-view and livestreaming supercards",
+  "yearFrom": "heading",
+  "yearRange": [2020, 2026],
+  "allowShortRows": true,
+  "kind": "special",
+  "columns": {
+    "date": "Date",
+    "name": "Event",
+    "venue": "Venue",
+    "city": "Location"
+  }
+}
