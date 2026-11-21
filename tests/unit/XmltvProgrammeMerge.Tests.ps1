@@ -56,6 +56,17 @@ Describe 'Merge-ChannelForgeXmltvProgrammes' {
         $result.HasConflicts | Should -BeFalse
     }
 
+    It 'does not merge two guides that share a channel id but disagree on the title' {
+        $original = $script:programmesB[0]
+        $other = New-ChannelForgeProgramme -ChannelId $original.ChannelId -Start $original.Start -End $original.End -Title 'Other guide title' -SourceId 'source-c'
+
+        $result = Merge-ChannelForgeXmltvProgrammes -Programme @($original, $other)
+
+        $result.HasConflicts | Should -BeFalse
+        $result.BoundProgrammes.Count | Should -Be 2
+        @($result.Bindings | Select-Object -ExpandProperty SourceId | Sort-Object -Unique).Count | Should -Be 2
+    }
+
     It 'collapses exact duplicates while preserving every contributor and evidence record' {
         $result = Merge-ChannelForgeXmltvProgrammes -Programme @($script:programmesA + $script:programmesA)
 

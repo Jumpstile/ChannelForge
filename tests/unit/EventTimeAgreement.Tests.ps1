@@ -52,4 +52,18 @@ Describe 'Event time agreement' {
         $out.Result.SkippedCount | Should -Be 2
         $out.Lines | Should -Contain '1 events: 0 agreed, 0 conflict, 1 single-source. 2 entries skipped (no usable start time or placeholder title). Nothing was changed.'
     }
+
+    It 'groups the same game across channels when the teams are written differently' {
+        $one = New-Carrier 'Baseball 1' @(New-Programme 'Dodgers vs Tigers' ([datetimeoffset]'2026-11-15T23:00:00Z'))
+        $two = New-Carrier 'Baseball 22' @(New-Programme 'Tigers @ Dodgers' ([datetimeoffset]'2026-11-15T23:00:00Z'))
+        $out = Get-Agreement -Channel @($one, $two)
+        $out.Result.Events.Count | Should -Be 1
+        $out.Result.Events[0].Status | Should -Be 'agreed'
+    }
+
+    It 'keeps different games with unknown teams apart' {
+        $one = New-Carrier 'Games 1' @(New-Programme 'Zebras vs Lions' ([datetimeoffset]'2026-11-15T23:00:00Z'))
+        $two = New-Carrier 'Games 22' @(New-Programme 'Zebras vs Tigers' ([datetimeoffset]'2026-11-15T23:00:00Z'))
+        (Get-Agreement -Channel @($one, $two)).Result.Events.Count | Should -Be 2
+    }
 }

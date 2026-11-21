@@ -81,6 +81,21 @@ Describe 'Build-Lineup.ps1 names the failing XMLTV guide source' {
         $run.Message | Should -Not -Match 'Clean Guide'
     }
 
+    It 'keeps the last good guide output when a later build has a failing guide' {
+        $root = New-FailedSourceBuildRoot -Guides @(@{ Name = 'Broken Guide'; File = 'broken.xml'; Content = '<tv><channel id="x">' })
+        $path = Join-Path $root 'output\merged.xml'
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+        $lastGood = $script:GoodGuide
+        [IO.File]::WriteAllText($path, $lastGood, [Text.UTF8Encoding]::new($false))
+        Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
+        $before = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+
+        $run = Invoke-FailedSourceBuild -Root $root
+
+        $run.Message | Should -Not -BeNullOrEmpty
+        (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash | Should -Be $before
+    }
+
     It 'builds normally and records no Failed source when every guide is good' {
         $root = New-FailedSourceBuildRoot -Guides @(@{ Name = 'Good Guide'; File = 'good.xml'; Content = $script:GoodGuide })
         $run = Invoke-FailedSourceBuild -Root $root

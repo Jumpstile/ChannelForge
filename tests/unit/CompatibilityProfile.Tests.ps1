@@ -32,11 +32,17 @@ Describe 'Get-ChannelForgeCompatibilityProfile' {
 
     It 'keeps unknown as unknown and refuses to turn it into a claim' {
         $result = Get-ChannelForgeCompatibilityProfile -Path $script:ProfilePath
-        $result.capabilities.catchup_timeshift.evidence.state | Should -Be 'unknown'
-        $result.capabilities.catchup_timeshift.value | Should -Be 'unknown'
+        $result.capabilities.line_endings.evidence.state | Should -Be 'unknown'
+        $result.capabilities.line_endings.value | Should -Be 'unknown'
 
-        $path = New-ProfileCopy { param($p) $p.capabilities.catchup_timeshift.value = 'supported' }
+        $path = New-ProfileCopy { param($p) $p.capabilities.line_endings.value = 'supported' }
         { Get-ChannelForgeCompatibilityProfile -Path $path } | Should -Throw '*not valid*'
+    }
+
+    It 'says the generic target ignores catch-up and makes no playback claim' {
+        $result = Get-ChannelForgeCompatibilityProfile -Path $script:ProfilePath
+        $result.capabilities.catchup_timeshift.value | Should -BeLike 'Ignored*'
+        $result.capabilities.catchup_timeshift.value | Should -Not -BeLike '*supported*'
     }
 
     It 'fails with a plain message when the file is missing' {

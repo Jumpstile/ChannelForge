@@ -18,7 +18,7 @@ function Get-ChannelForgeGuidedSetupChecks {
     $checks = [System.Collections.Generic.List[object]]::new()
 
     $logo = $Candidate.LogoReport
-    $missing = [int]$logo.Empty + [int]$logo.NotHttps + [int]$logo.PrivateAddress
+    $missing = [int]$logo.Empty + [int]$logo.NotHttps + [int]$logo.PrivateAddress + [int]$logo.DataUri + [int]$logo.TooLong + [int]$logo.BadCharacters
     $total = $missing + [int]$logo.Public
     $logoStatus = if ($missing -gt 0) { 'attention' } else { 'ok' }
     $logoHeadline = if ($missing -gt 0) { "$missing of $total channels have no public logo. $accept" } else { 'Every channel has a public logo. Looks fine.' }
