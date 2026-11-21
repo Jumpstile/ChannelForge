@@ -51,4 +51,25 @@ Describe 'Wikipedia evidence adapter' {
             $r.Records[0].Kind | Should -Be $p.kind
         }
     }
+    It 'reads merged cells: a spanned cell repeats in each row it covers (HTML)' {
+        $html = '<table class="wikitable"><tr><th>Date</th><th>Event</th><th>Venue</th><th>City</th></tr>' +
+        '<tr><td>May 1, 2026</td><td>Fixture One</td><td rowspan="2">Fixture Arena</td><td>Testville</td></tr>' +
+        '<tr><td>May 2, 2026</td><td>Fixture Two</td><td>Testburg</td></tr>' +
+        '<tr><td colspan="2">TBA</td><td>Fixture Hall</td><td>Testton</td></tr></table>'
+        $r = InModuleScope ChannelForge -Parameters @{ T = $html; P = $script:Profile } { ConvertFrom-ChannelForgeWikipediaEvidence -Text $T -ProfilePath $P -Revision '1' -FetchedAt 'x' }
+        $r.Status | Should -Be 'Ok'
+        @($r.Records).Count | Should -Be 2
+        $r.Records[0].Venue | Should -Be 'Fixture Arena'
+        $r.Records[1].Venue | Should -Be 'Fixture Arena'
+        $r.Records[1].City | Should -Be 'Testburg'
+        $r.Skipped | Should -Be 1
+    }
+
+    It 'reads merged cells from wikitext' {
+        $wiki = "{| class=`"wikitable`"`n! Date !! Event !! Venue !! City`n|-`n| May 1, 2026 || Fixture One || rowspan=`"2`" | Fixture Arena || Testville`n|-`n| May 2, 2026 || Fixture Two || Testburg`n|}"
+        $r = InModuleScope ChannelForge -Parameters @{ T = $wiki; P = $script:Profile } { ConvertFrom-ChannelForgeWikipediaEvidence -Text $T -ProfilePath $P -Revision '1' -FetchedAt 'x' }
+        $r.Status | Should -Be 'Ok'
+        $r.Records[1].Venue | Should -Be 'Fixture Arena'
+        $r.Records[1].City | Should -Be 'Testburg'
+    }
 }

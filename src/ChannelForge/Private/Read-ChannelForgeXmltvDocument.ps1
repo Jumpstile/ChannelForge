@@ -35,7 +35,10 @@ function Read-ChannelForgeXmltvDocument {
         [long]$MaxDocumentBytes = 268435456,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
-        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+
+        # Opt-in: a programme whose start or stop cannot be read is skipped instead of failing the file.
+        [switch]$SkipBadProgrammeTimes
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceId)) {
@@ -253,8 +256,14 @@ function Read-ChannelForgeXmltvDocument {
                         throw 'XMLTV programme element is incomplete.'
                     }
 
-                    $start = & $timestampParser $startValue 'start'
-                    $end = & $timestampParser $endValue 'stop'
+                    try {
+                        $start = & $timestampParser $startValue 'start'
+                        $end = & $timestampParser $endValue 'stop'
+                    }
+                    catch {
+                        if ($SkipBadProgrammeTimes) { continue }
+                        throw
+                    }
                     $programme = New-ChannelForgeProgramme `
                         -ChannelId $channelId `
                         -Start $start `

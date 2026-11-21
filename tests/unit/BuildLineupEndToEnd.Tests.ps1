@@ -187,4 +187,40 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         (Get-Content -LiteralPath (Get-E2EGuidePath -Root $root) -Raw) | Should -Match 'Fixture Show 1999'
         $elapsed.TotalSeconds | Should -BeLessThan 120
     }
+
+    It 'adds a Catch-up section to the plan and keeps catch-up attributes out of the playlist' {
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml
+        @('#EXTM3U', '#EXTINF:-1 tvg-id="alpha.us" group-title="News" catchup="default" catchup-source="https://example.invalid/a/{utc}" catchup-days="3",Alpha', 'https://example.invalid/live/alpha') -join "`n" |
+            Set-Content -LiteralPath (Join-Path $root 'data\playlists\playlist.m3u') -Encoding utf8NoBOM
+
+        & $script:BuildScriptPath -Root $root *> $null
+
+        $plan = Get-Content -LiteralPath (Join-Path $root 'output\reports\lineup-plan.md') -Raw
+        $plan | Should -Match '## Catch-up'
+        $plan | Should -Match '1 of 1 streams say they support it'
+        $plan | Should -Match 'Most archive days a stream declares: 3'
+        (Get-ChildItem -LiteralPath (Join-Path $root 'output') -Recurse -Filter 'merged.m3u' | Get-Content -Raw) | Should -Not -Match 'catchup'
+    }
+
+    It 'only warns and leaves the section out when the catch-up check fails' {
+        # Build-Lineup loads the module next to itself, so break the check in a private copy of the repo.
+        $copy = Join-Path $TestDrive ('copy-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path (Join-Path $copy 'scripts'), (Join-Path $copy 'src') | Out-Null
+        Copy-Item -LiteralPath $script:BuildScriptPath -Destination (Join-Path $copy 'scripts')
+        Copy-Item -LiteralPath (Join-Path $RepoRoot 'src\ChannelForge') -Destination (Join-Path $copy 'src') -Recurse
+        foreach ($dir in 'schemas', 'config', 'docs', 'tools', 'engineering', 'data') { Copy-Item -LiteralPath (Join-Path $RepoRoot $dir) -Destination $copy -Recurse }
+        Copy-Item -LiteralPath (Join-Path $RepoRoot 'VERSION') -Destination $copy
+        Set-Content -LiteralPath (Join-Path $copy 'src\ChannelForge\Private\Get-ChannelForgeCatchupReport.ps1') -Value "function Get-ChannelForgeCatchupReport { throw 'boom' }"
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml
+
+        # A child process keeps the private copy's classes apart from the ones this session already loaded.
+        $output = & (Get-Process -Id $PID).Path -NoProfile -File (Join-Path $copy 'scripts\Build-Lineup.ps1') -Root $root *>&1 | Out-String
+
+        $output | Should -Match 'catch-up check could not run'
+        Write-Host $output
+        (Get-Content -LiteralPath (Join-Path $root 'output\reports\lineup-plan.md') -Raw) | Should -Not -Match '## Catch-up'
+        (Get-Content -LiteralPath (Join-Path $root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json).XMLTVStatus | Should -Be 'GENERATED'
+    }
 }
