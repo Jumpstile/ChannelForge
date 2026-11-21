@@ -216,7 +216,7 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml
 
         # A child process keeps the private copy's classes apart from the ones this session already loaded.
-        $output = & (Get-Process -Id $PID).Path -NoProfile -File (Join-Path $copy 'scripts\Build-Lineup.ps1') -Root $root *>&1 | Out-String
+        $output = & (Get-Command pwsh -ErrorAction Stop).Source -NoProfile -File (Join-Path $copy 'scripts\Build-Lineup.ps1') -Root $root *>&1 | Out-String
 
         $output | Should -Match 'catch-up check could not run'
         Write-Host $output
