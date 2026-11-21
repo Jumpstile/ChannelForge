@@ -1,0 +1,38 @@
+[
+  {
+    "showId": 42189,
+    "name": "AEW Dynamite",
+    "kind": "episode",
+    "trustTimes": true
+  },
+  {
+    "showId": 68778,
+    "name": "AEW Collision",
+    "kind": "episode",
+    "trustTimes": true
+  },
+  {
+    "showId": 1349,
+    "name": "TNA iMPACT!",
+    "kind": "episode",
+    "trustTimes": true
+  },
+  {
+    "showId": 25153,
+    "name": "ROH Wrestling",
+    "kind": "episode",
+    "trustTimes": true
+  },
+  {
+    "showId": 802,
+    "name": "WWE Monday Night RAW",
+    "kind": "episode",
+    "trustTimes": false
+  },
+  {
+    "showId": 50263,
+    "name": "NJPW Strong",
+    "kind": "episode",
+    "trustTimes": false
+  }
+]
