@@ -668,6 +668,45 @@ Describe 'Event channel guide in the accepted lineup' {
         (Get-Content -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\accepted\lineup.m3u') -Raw) | Should -Match ([regex]::Escape("tvg-id=`"$ownId`""))
     }
 
+    It 'writes the event channels to a separate event-guide.xml outside accepted and reports it' {
+        $fixture = New-EventFixture -Name 'event-file' -BigFightStart '20261115180000 +0000'
+        (Invoke-NoKeyboardBuild -Fixture $fixture).ExitCode | Should -Be 0
+        $summary = Read-GuidedSetupSummary -Root $fixture.Root
+        $ownId = 'ChannelForge-' + (Get-TestChannelKey -Url 'https://example.invalid/live/ppv1').Substring(0, 32)
+        $summary.EventGuide.Events | Should -Be 1
+        $summary.EventGuide.File | Should -Be 'output/guided-setup/event-guide.xml'
+        $xml = [xml](Get-Content -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\event-guide.xml') -Raw)
+        @($xml.tv.channel).Count | Should -Be 1
+        @($xml.tv.channel)[0].id | Should -Be $ownId
+        @($xml.tv.programme | ForEach-Object { $_.title }) | Should -Contain 'Big Fight Night'
+        Test-Path -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\accepted\event-guide.xml') | Should -BeFalse
+        (Get-Content -LiteralPath (Join-Path $fixture.Root 'output\reports\guided-setup-plan.md') -Raw) | Should -Match 'Event guide: 1 event channel\(s\) have their own guide file: output/guided-setup/event-guide.xml'
+    }
+
+    It 'leaves the accepted lineup and guide bytes unchanged by the event guide file' {
+        # Same fixture, built by the real script and by a copy with only the event-file write removed.
+        $fixtureWith = New-EventFixture -Name 'event-bytes-with' -BigFightStart '20261115180000 +0000'
+        $fixtureWithout = New-EventFixture -Name 'event-bytes-without' -BigFightStart '20261115180000 +0000'
+        $copy = Join-Path $script:RepoRoot 'scripts\Build-My-Lineup.NoEventFile.tmp.ps1'
+        try {
+            $source = Get-Content -LiteralPath $script:WorkflowPath -Raw
+            $stripped = $source -replace '(?m)^\s*try \{ \$report\.EventGuide\.File = Write-WorkflowEventGuide .*\r?\n\s*catch \{ Write-Warning ''The separate event guide file.*\r?\n', ''
+            $stripped | Should -Not -Be $source
+            Set-Content -LiteralPath $copy -Value $stripped -Encoding utf8
+            (Invoke-NoKeyboardBuild -Fixture $fixtureWith).ExitCode | Should -Be 0
+            $saved = $script:WorkflowPath
+            $script:WorkflowPath = $copy
+            try { (Invoke-NoKeyboardBuild -Fixture $fixtureWithout).ExitCode | Should -Be 0 } finally { $script:WorkflowPath = $saved }
+        }
+        finally { Remove-Item -LiteralPath $copy -Force -ErrorAction SilentlyContinue }
+        Test-Path -LiteralPath (Join-Path $fixtureWithout.Root 'output\guided-setup\event-guide.xml') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $fixtureWith.Root 'output\guided-setup\event-guide.xml') | Should -BeTrue
+        foreach ($name in 'lineup.m3u', 'guide.xml') {
+            (Get-FileHash -LiteralPath (Join-Path $fixtureWith.Root "output\guided-setup\accepted\$name") -Algorithm SHA256).Hash |
+                Should -Be (Get-FileHash -LiteralPath (Join-Path $fixtureWithout.Root "output\guided-setup\accepted\$name") -Algorithm SHA256).Hash
+        }
+    }
+
     It 'keeps the normal guide and reports why when the provider guide has no programs for the channel' {
         # An unreadable time is already refused by the guide reader before this step, so the reachable fallback is a channel with no programs.
         $fixture = New-EventFixture -Name 'event-fallback' -BigFightStart '20261115180000 +0000'
@@ -680,6 +719,9 @@ Describe 'Event channel guide in the accepted lineup' {
         @($summary.EventGuide.Applied).Count | Should -Be 0
         $summary.EventGuide.Fallback[0].Reason | Should -BeLike '*no programs*'
         $run.Output | Should -Not -BeLike '*could not be built*'
+        Test-Path -LiteralPath (Join-Path $fixture.Root 'output\guided-setup\event-guide.xml') | Should -BeFalse
+        $summary.EventGuide.Events | Should -Be 0
+        $summary.EventGuide.File | Should -BeNullOrEmpty
     }
 }
 

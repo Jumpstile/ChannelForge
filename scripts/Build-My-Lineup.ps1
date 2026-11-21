@@ -105,6 +105,9 @@ function Write-WorkflowReport {
         foreach ($eventRow in @($Report.EventGuide.Applied) + @($Report.EventGuide.Fallback)) { "Event channel '$($eventRow.Name)': $($eventRow.Reason)" }
         foreach ($eventAsk in @($Report.EventGuide.Questions)) { $eventAsk }
         foreach ($eventDone in @($Report.EventGuide.Answered)) { $eventDone }
+        if ($null -ne $Report.EventGuide.File) { "Event guide: $($Report.EventGuide.Events) event channel(s) have their own guide file: $($Report.EventGuide.File)" }
+        elseif ($Report.EventGuide.Events -gt 0) { "Event guide: $($Report.EventGuide.Events) event channel(s) found, but the separate guide file could not be written." }
+        else { 'Event guide: no event channels, so no separate guide file was written.' }
         if ($Report.EventPatternPreview.Enabled) {
             "Event-pattern preview: $($Report.EventPatternPreview.Status)"
             "Event-pattern inference ran: $($Report.EventPatternPreview.InferenceRan.ToString().ToLowerInvariant())"
@@ -170,6 +173,30 @@ function Write-WorkflowConsumerOutputs {
     finally {
         if (Test-Path -LiteralPath $stagingDirectory -PathType Container) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
     }
+}
+function Write-WorkflowEventGuide {
+    # Writes output\guided-setup\event-guide.xml (outside accepted\) from the event plan channels, reusing the event
+    # guide writer. No event channel: no file, and a file from an earlier build is removed. Returns the relative path or $null.
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [AllowEmptyCollection()][object[]]$Channel = @()
+    )
+
+    $path = Join-Path $Root 'output\guided-setup\event-guide.xml'
+    Assert-ChannelForgeWritePath -Path $path -AllowedRoot (Join-Path $Root 'output')
+    if (@($Channel).Count -eq 0) {
+        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
+        return $null
+    }
+    $bytes = [byte[]](Invoke-ChannelForgePrivate -Name 'ConvertTo-ChannelForgeEventGuideXmltv' -Arguments @{ Channel = @($Channel) } | Select-Object -Last 1)
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+    $temporary = $path + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        [IO.File]::WriteAllBytes($temporary, $bytes)
+        Move-Item -LiteralPath $temporary -Destination $path -Force
+    }
+    finally { if (Test-Path -LiteralPath $temporary -PathType Leaf) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue } }
+    return [IO.Path]::GetRelativePath($Root, $path).Replace('\', '/')
 }
 function Get-EventScheduleQuestion {
     # One plain question per event channel whose guide and saved schedule evidence disagree or cannot be compared.
@@ -826,7 +853,7 @@ try {
     $ownChannels = @($choices.Outcomes | Where-Object { $_.Choice -eq 'OwnPlaceholder' } | ForEach-Object { [pscustomobject]@{ Id = $_.Guide; Name = $_.Name; EntryId = $_.EntryId } })
     # Event channels (event-channel/v2, slice 3): channels rated high get an event guide from their own provider
     # guide. A saved user choice wins. Any problem leaves every channel on its normal guide.
-    $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @(); $eventQuestion = @()
+    $eventGuideByEntry = @{}; $eventApplied = @(); $eventFallback = @(); $eventQuestion = @(); $eventGuideChannel = @()
     if ($null -ne $candidateXMLTVBytes) {
         try {
             $guideIdByEntry = @{}
@@ -837,7 +864,7 @@ try {
             catch { Write-Warning 'The event channel overrides file is damaged, so it is ignored. Fix or delete state\event-channels.json.' }
             $eventPlan = Invoke-ChannelForgePrivate -Name 'Get-ChannelForgeEventGuidePlan' -Arguments @{ XmltvBytes = $candidateXMLTVBytes; Entry = $eventEntries; ExcludedKey = [string[]]@($decisions | ForEach-Object { [string]$_.key }); Override = $eventOverride } | Select-Object -Last 1
             $eventApplied = @($eventPlan.Applied); $eventFallback = @($eventPlan.Fallback) + @($eventPlan.Review)
-            $ownChannels = @($ownChannels) + @($eventPlan.Channel)
+            $ownChannels = @($ownChannels) + @($eventPlan.Channel); $eventGuideChannel = @($eventPlan.Channel)
             try { $eventQuestion = @(Get-EventScheduleQuestion -Plan $eventPlan -XmltvBytes $candidateXMLTVBytes -EvidencePath (Join-Path $rootFull 'state\schedule-evidence.json') -AnswerPath (Join-Path $rootFull 'state\schedule-answers.json')) }
             catch { Write-Warning 'The schedule evidence file is damaged, so it is ignored. Fix or delete state\schedule-evidence.json.' }
             foreach ($eventChannel in @($eventPlan.Channel)) { foreach ($eventEntryId in @($eventChannel.EntryIds)) { $eventGuideByEntry[$eventEntryId] = $eventChannel.Id; $tvgIdByEntry[$eventEntryId] = $eventChannel.Id } }
@@ -875,6 +902,7 @@ try {
     $report.NoGuideCount = @($choices.Outcomes | Where-Object { $_.Choice -eq 'KeepWithoutGuide' -and -not $eventGuideByEntry.ContainsKey($_.EntryId) }).Count
     $eventAnswered = @($eventQuestion | Where-Object { $_ -like 'Answered earlier:*' }); $eventQuestion = @($eventQuestion | Where-Object { $_ -notlike 'Answered earlier:*' })
     $report.EventGuide = [ordered]@{ Applied = @($eventApplied); Fallback = @($eventFallback); Questions = @($eventQuestion); Answered = @($eventAnswered) }
+    $report.EventGuide.Events = @($eventGuideChannel).Count; $report.EventGuide.File = $null
     foreach ($eventAsk in $eventQuestion) { Write-Host $eventAsk -ForegroundColor Yellow }
     foreach ($eventRow in @($eventApplied) + @($eventFallback)) { Write-Host "Event channel '$($eventRow.Name)': $($eventRow.Reason)" -ForegroundColor Yellow }
     $report.DecisionsFile = 'state/channel-decisions.json'
@@ -934,6 +962,9 @@ try {
     $report.ConsumerM3UPath = $consumerOutputs.M3UPath
     $report.ConsumerXMLTVPath = $consumerOutputs.XMLTVPath
     $consumerViewRefreshCompleted = $true
+    # The event guide is a separate file beside accepted\. A problem here is one warning; the lineup is already published.
+    try { $report.EventGuide.File = Write-WorkflowEventGuide -Root $rootFull -Channel @($eventGuideChannel) }
+    catch { Write-Warning 'The separate event guide file could not be written, so it is left out. The lineup is not affected.' }
     if ($FaultHook -eq 'Report.BeforeWrite') { throw 'Guided Setup report write fault injected.' }
 
     $reportFiles = Write-WorkflowReport -Root $rootFull -Report ([pscustomobject]$report)
