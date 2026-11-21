@@ -228,6 +228,13 @@ Describe 'durable source enrollment' {
         { & (Get-Module ChannelForge) { param($root,$p,$g,$b) Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($p) -GuideSources @($g) -Bindings @($b,$b) } $script:Project $p $g $singleBinding } | Should -Throw '*duplicate*'
     }
 
+    It 'names the duplicate binding identity when a hand-edited record repeats a BindingId' {
+        Save-Enrollment -XMLTVBytes $script:XMLTV
+        $record = Get-Content -LiteralPath (Join-Path $script:Project 'state/source-enrollment.json') -Raw | ConvertFrom-Json -DateKind String
+        $record.Bindings = @($record.Bindings) + @($record.Bindings[0])
+        { & (Get-Module ChannelForge) { param($record) Assert-ChannelForgeSourceEnrollmentV2Integrity -Record $record } $record } | Should -Throw '*duplicate binding identity*'
+    }
+
     It 'fails closed when persisted v2 identity or binding references are tampered' {
         Save-Enrollment -XMLTVBytes $script:XMLTV
         $path = Join-Path $script:Project 'state/source-enrollment.json'

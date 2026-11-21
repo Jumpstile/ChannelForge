@@ -19,7 +19,14 @@ Describe 'Get-ChannelForgeLogoStatus' {
         @{ Url = 'https://[::1]/a.png'; Expected = 'PrivateAddress' }
         @{ Url = 'https://tv.lan/a.png'; Expected = 'PrivateAddress' }
         @{ Url = 'https://nas/a.png'; Expected = 'PrivateAddress' }
+        @{ Url = 'data:image/png;base64,AAAA'; Expected = 'DataUri' }
+        @{ Url = 'DATA:image/png;base64,AAAA'; Expected = 'DataUri' }
+        @{ Url = ('https://img.example.com/' + ('a' * 2100)); Expected = 'TooLong' }
+        @{ Url = 'https://img.example.com/a<LF>b.png'; Expected = 'BadCharacters' }
+        @{ Url = 'https://img.example.com/a<NUL>.png'; Expected = 'BadCharacters' }
     ) {
+        # The control characters are written as <LF> and <NUL> in the test title so the test report stays valid text; real characters are put back here.
+        $Url = $Url.Replace('<LF>', [string][char]0x0A).Replace('<NUL>', [string][char]0x00)
         InModuleScope ChannelForge -Parameters @{ Url = $Url; Expected = $Expected } {
             Get-ChannelForgeLogoStatus -Url $Url | Should -BeExactly $Expected
         }

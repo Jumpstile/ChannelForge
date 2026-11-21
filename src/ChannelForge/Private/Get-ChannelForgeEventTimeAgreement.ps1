@@ -1,7 +1,8 @@
 function Get-ChannelForgeEventTimeAgreement {
     # event-channel/v2, slice 2: report only. For channels the detector rated (any level), reads
     # each channel's own programmes and compares the same event across channels. Same normalized
-    # title with starts inside the window is one event. Starts are compared as instants. Each
+    # title, or for "A vs B" with both teams known the same two teams in any order or wording
+    # (Get-ChannelForgeEventPairKey), with starts inside the window is one event. Starts are compared as instants. Each
     # channel keeps its own start; a difference is flagged, never resolved. Pure: nothing is
     # stored or hashed. A programme with no parseable start, or a placeholder title, is skipped
     # and counted. Channel is the detector input (Key, DisplayName, Programmes with Title, Start).
@@ -26,13 +27,13 @@ function Get-ChannelForgeEventTimeAgreement {
             $hasStart = $programme.Start -is [datetimeoffset] -or [datetimeoffset]::TryParse([string]$programme.Start, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$start)
             if ($programme.Start -is [datetimeoffset]) { $start = $programme.Start }
             if (-not $hasStart -or $start -eq [datetimeoffset]::MinValue -or -not $titleKey -or (Test-ChannelForgeEventFillerKey -Key $titleKey) -or $titleKey -ceq $name) { $skipped++; continue }
-            $entries.Add([pscustomobject]@{ TitleKey = $titleKey; Title = ([string]$programme.Title).Trim(); ChannelKey = [string]$item.Key; DisplayName = [string]$item.DisplayName; Start = $start })
+            $entries.Add([pscustomobject]@{ PairKey = (Get-ChannelForgeEventPairKey -Title ([string]$programme.Title)).Key; TitleKey = $titleKey; Title = ([string]$programme.Title).Trim(); ChannelKey = [string]$item.Key; DisplayName = [string]$item.DisplayName; Start = $start })
         }
     }
 
     $events = [System.Collections.Generic.List[object]]::new()
     $window = [timespan]::FromMinutes($WindowMinutes)
-    foreach ($group in @($entries | Group-Object TitleKey | Sort-Object Name)) {
+    foreach ($group in @($entries | Group-Object PairKey | Sort-Object Name)) {
         $cluster = [System.Collections.Generic.List[object]]::new()
         $flush = {
             if ($cluster.Count -eq 0) { return }
