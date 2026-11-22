@@ -10,7 +10,7 @@ state, lineup output, caches, logs, or prior update backups.
 1. Stop active ChannelForge work and keep the current browser tab open.
 2. Extract the new approved ZIP.
 3. Double-click **Update ChannelForge.cmd** in the extracted bundle.
-4. The updater verifies `package-manifest.json`, creates an `UpdateBackups` backup, stops the local server, replaces the immutable application files, validates the installed files, and restarts the server.
+4. The updater checks `package-manifest.json`, stops the local server, creates a backup in `UpdateBackups`, replaces the application files, checks the installed files, and restarts the server. If the new bundle is not newer than the installed version, it stops and changes nothing.
 5. Confirm the browser still opens `http://127.0.0.1:8765/` and run a read-only status check before refreshing.
 
 If validation or startup fails, the updater restores the backup and attempts to start the previous application. Inspect `%LOCALAPPDATA%\ChannelForge\state\runtime\server.stderr.log` if the browser does not open.

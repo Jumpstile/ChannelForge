@@ -104,6 +104,12 @@ Describe 'Build-ChannelForgeWindowsPackage' {
         Write-Host ('ZIP bytes identical across builds: ' + ((Get-FileHash $script:BuildA.Zip).Hash -eq (Get-FileHash $script:BuildB.Zip).Hash))
     }
 
+    It 'produces byte-identical ZIP files in two builds from the same source' {
+        $script:BuildA.Zip | Should -Not -BeNullOrEmpty -Because $script:BuildA.Output
+        $script:BuildB.Zip | Should -Not -BeNullOrEmpty -Because $script:BuildB.Output
+        (Get-FileHash -LiteralPath $script:BuildB.Zip -Algorithm SHA256).Hash | Should -BeExactly (Get-FileHash -LiteralPath $script:BuildA.Zip -Algorithm SHA256).Hash
+    }
+
     It 'has no build-machine path in shipped text files or the manifest' {
         $roots = @($script:Source, $script:Work, $env:TEMP, $env:USERPROFILE, $script:RepoRoot) | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\', '/') }
         $needles = @($roots | ForEach-Object { $_; $_.Replace('\', '/') } | Sort-Object -Unique)
