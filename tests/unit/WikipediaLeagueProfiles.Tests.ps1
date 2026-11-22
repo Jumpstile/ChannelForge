@@ -33,6 +33,33 @@ Describe 'League profiles read year-less dates from their year heading' {
         $r.Records[0].City | Should -Be 'Testville, ST'
         $r.Skipped | Should -Be 1
     }
+    It 'AEW Dynamite special episodes and Collision: read dates and venues from the episode layout, leave a missing venue empty' {
+        foreach ($profile in 'aew-dynamite-special-episodes', 'aew-collision-episodes') {
+            $r = Read-Fixture 'aew-episodes-sample.html' $profile
+            $r.Status | Should -Be 'Ok' -Because $profile
+            ($r.Records.Date -join ',') | Should -Be '2024-06-17,2024-12-25,2025-01-08' -Because $profile
+            $r.Records[0].Name | Should -Be 'Fixture Debut'
+            $r.Records[0].Venue | Should -Be 'Fixture Arena'
+            $r.Records[0].City | Should -Be 'Testville, ST'
+            $r.Records[2].Name | Should -Be 'Fixture Later Show'
+            $r.Records[2].Venue | Should -BeNullOrEmpty
+        }
+    }
+    It 'AEW special events: reads the name after the color cell, adds the year from the heading, skips TBA and the key table' {
+        $r = Read-Fixture 'aew-special-events-sample.html' 'aew-special-events'
+        $r.Status | Should -Be 'Ok'
+        ($r.Records.Date -join ',') | Should -Be '2024-06-29,2024-07-13'
+        $r.Records[0].Name | Should -Be 'Fixture Fest'
+        $r.Records[0].Venue | Should -Be 'Fixture Arena'
+        $r.Records[0].City | Should -Be 'Testville, ST'
+        $r.Skipped | Should -Be 1
+    }
+    It 'AEW Dynamite episodes: the live page has no episode table, so it still says the page changed' {
+        $html = '<table class="wikitable"><tr><th>Song</th><th>Artist</th><th>Dates</th></tr><tr><td>X</td><td>Y</td><td>2019</td></tr></table><table class="wikitable"><tr><th>Channel</th><th>Timeslot</th><th>Years</th></tr><tr><td>Z</td><td>W</td><td>2019</td></tr></table>'
+        $r = Read-Page -Html $html -Profile 'aew-dynamite-episodes'
+        $r.Status | Should -Be 'PageChanged'
+        @($r.Records).Count | Should -Be 0
+    }
     It 'TNA: reads rows when a header cell carries leaked template text and rows lack their last cell' {
         $r = Read-Fixture 'tna-league-sample.html' 'tna-pay-per-view'
         $r.Status | Should -Be 'Ok'

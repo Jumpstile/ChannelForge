@@ -1,11 +1,15 @@
 {
   "pageTitle": "List of All Elite Wrestling special events",
-  "tableIndex": 0,
+  "yearFrom": "heading",
+  "yearRange": [2019, 2027],
+  "dateColumnAnywhere": true,
+  "allowShortRows": true,
+  "nameFromLastHeader": true,
   "kind": "special",
   "columns": {
     "date": "Date",
     "name": "Event",
     "venue": "Venue",
-    "city": "City"
+    "city": "Location"
   }
 }
