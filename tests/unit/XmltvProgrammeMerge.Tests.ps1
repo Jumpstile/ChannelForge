@@ -67,6 +67,21 @@ Describe 'Merge-ChannelForgeXmltvProgrammes' {
         @($result.Bindings | Select-Object -ExpandProperty SourceId | Sort-Object -Unique).Count | Should -Be 2
     }
 
+    It 'keeps two guides that share a tvg-id with different schedules, each under its own source' {
+        $start = [datetimeoffset]::Parse('2026-08-24T10:00:00+00:00')
+        $a = New-ChannelForgeProgramme -ChannelId 'shared.us' -Start $start -End $start.AddHours(1) -Title 'Morning Show' -SourceId 'source-a'
+        $b = New-ChannelForgeProgramme -ChannelId 'shared.us' -Start $start.AddHours(1) -End $start.AddHours(2) -Title 'Noon Show' -SourceId 'source-b'
+
+        $result = Merge-ChannelForgeXmltvProgrammes -Programme @($a, $b)
+
+        $result.HasConflicts | Should -BeFalse
+        $result.BoundProgrammes.Count | Should -Be 2
+        @($result.Bindings | Where-Object SourceId -eq 'source-a').Count | Should -Be 1
+        @($result.Bindings | Where-Object SourceId -eq 'source-b').Count | Should -Be 1
+        @($result.BoundProgrammes | Where-Object { $_.Programme.SourceId -eq 'source-a' }).Programme.Title | Should -Be 'Morning Show'
+        @($result.BoundProgrammes | Where-Object { $_.Programme.SourceId -eq 'source-b' }).Programme.Title | Should -Be 'Noon Show'
+    }
+
     It 'collapses exact duplicates while preserving every contributor and evidence record' {
         $result = Merge-ChannelForgeXmltvProgrammes -Programme @($script:programmesA + $script:programmesA)
 

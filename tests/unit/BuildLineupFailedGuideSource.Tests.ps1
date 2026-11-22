@@ -96,6 +96,25 @@ Describe 'Build-Lineup.ps1 names the failing XMLTV guide source' {
         (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash | Should -Be $before
     }
 
+    It 'keeps the last published guide when a refresh breaks one of two guides that share a channel id' {
+        $second = $script:GoodGuide.Replace('Alpha Morning', 'Alpha Noon').Replace('100000', '120000').Replace('110000', '130000')
+        $root = New-FailedSourceBuildRoot -Guides @(
+            @{ Name = 'Guide One'; File = 'one.xml'; Content = $script:GoodGuide },
+            @{ Name = 'Guide Two'; File = 'two.xml'; Content = $second })
+        $first = Invoke-FailedSourceBuild -Root $root
+        $first.Message | Should -BeNullOrEmpty
+        $first.Summary.XMLTVStatus | Should -Be 'GENERATED'
+        $published = Join-Path $root (($first.Summary.XMLTVPath) -replace '/', '\')
+        $before = (Get-FileHash -LiteralPath $published -Algorithm SHA256).Hash
+
+        '<tv><channel id="x">' | Set-Content -LiteralPath (Join-Path $root 'data\epg\two.xml') -Encoding utf8NoBOM
+        $run = Invoke-FailedSourceBuild -Root $root
+
+        $run.Message | Should -Match 'Guide Two'
+        $run.Summary.XMLTVStatus | Should -Be 'FAILED'
+        (Get-FileHash -LiteralPath $published -Algorithm SHA256).Hash | Should -Be $before
+    }
+
     It 'builds normally and records no Failed source when every guide is good' {
         $root = New-FailedSourceBuildRoot -Guides @(@{ Name = 'Good Guide'; File = 'good.xml'; Content = $script:GoodGuide })
         $run = Invoke-FailedSourceBuild -Root $root

@@ -33,7 +33,7 @@ Describe 'Guide pattern analysis: expert regex and input domain' {
     }
 
     It 'fails closed on an invalid or unsafe expert pattern and does not fall back' {
-        foreach ($bad in @('([unclosed', '^(?<title>.+)(?<bogus>x)?$', '^(?<date>.+)$')) {
+        foreach ($bad in @('([unclosed', '^(?<title>.+)(?<bogus>x)?$', '^(?<date>.+)$', '   ', ('^(?<title>' + ('a' * 600) + ')$'))) {
             $result = Invoke-Case -Expert $bad
             $result.ReasonCodes | Should -Contain 'ExpertPatternInvalid'
             $result.OverallState | Should -Be 'NeedsReview'

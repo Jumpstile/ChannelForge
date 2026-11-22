@@ -1059,7 +1059,7 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
         [string]$ExpertPattern = ''
     )
 
-    $expert = if ([string]::IsNullOrWhiteSpace($ExpertPattern)) { $null } else { New-ChannelForgeGuideExpertPattern -Pattern $ExpertPattern }
+    $expert = if ([string]::IsNullOrEmpty($ExpertPattern)) { $null } else { New-ChannelForgeGuideExpertPattern -Pattern $ExpertPattern }
     $orderedExamples = @($Examples | Sort-Object SafeFingerprint, SourceId, SourceFamily, EvidenceType, EvidenceReasonCodes, SourceRelationship, Group, ChannelReference, EventType, EventStatus, League, Sport, SourceTimezone, EvidenceStartUtc, EvidenceEndUtc, EvidenceTitle, EvidenceHomeParticipant, EvidenceAwayParticipant, InputField, Ordinal)
     for ($index = 0; $index -lt $orderedExamples.Count; $index++) {
         $orderedExamples[$index].Ordinal = $index + 1
