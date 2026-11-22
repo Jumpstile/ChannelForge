@@ -151,7 +151,7 @@ Each check shows **PASS**, **FAIL** or **UNKNOWN**, with a next step for anythin
 
 ## "Where are the logs?"
 
-There isn't a separate log file today. `output/reports/build-summary.json` (machine-readable) and `output/reports/lineup-plan.md` (human-readable) are the record of what a build did — check those first. Neither ever contains a provider URL, account ID, or token, so they're safe to share if you need help (see below).
+The installed Windows bundle writes server output to `%LOCALAPPDATA%\ChannelForge\state\runtime\server.stdout.log` and `server.stderr.log`. Check `server.stderr.log` first if the browser does not open. For builds, `output/reports/build-summary.json` (machine-readable) and `output/reports/lineup-plan.md` (human-readable) are the record of what a build did — check those first. Neither ever contains a provider URL, account ID, or token, so they're safe to share if you need help (see below).
 
 ## Validation failures
 
