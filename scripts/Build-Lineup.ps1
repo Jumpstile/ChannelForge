@@ -1185,6 +1185,19 @@ if ($m3uGenerated) {
     }
 }
 
+# Logo agreement (issue 41): report only, counts only, never a link. A failure prints nothing extra.
+if ($m3uGenerated -and $xmltvGenerated) {
+    try {
+        $logoAgreement = Invoke-ChannelForgePrivateCandidateFunction -Name 'Get-ChannelForgeLogoAgreementReport' -Arguments @{ Channel = @($mergedM3UChannels); IconByChannelId = $iconByChannelRef } | Select-Object -Last 1
+        if ($null -ne $logoAgreement) {
+            $md += ''
+            $md += '## Logo agreement'
+            $md += "Logos: $($logoAgreement.Agree) source logo agrees with the guide, $($logoAgreement.Differ) differs, $($logoAgreement.GuideOnly + $logoAgreement.Neither) no logo."
+        }
+    }
+    catch { }
+}
+
 # Event channels (event-channel/v2, slice 1): report only. A failure is one warning line.
 if ($candidatePublished) {
     try {
