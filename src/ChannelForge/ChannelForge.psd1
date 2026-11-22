@@ -120,6 +120,7 @@ FunctionsToExport = @(
     'Get-ChannelForgeLogoPin'
     'Set-ChannelForgeLogoPin'
     'Update-ChannelForgeLogoLookup'
+    'Update-ChannelForgeEventEvidence'
     'Get-ChannelForgeCategoryReport'
     'Set-ChannelForgeCategoryOverride'
     'Set-ChannelForgeScheduleAnswer'
