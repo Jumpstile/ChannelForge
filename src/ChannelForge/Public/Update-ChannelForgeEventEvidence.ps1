@@ -34,7 +34,7 @@ function Update-ChannelForgeEventEvidence {
     .PARAMETER Fetch
     For tests: a script block that takes a URL and returns the response text.
     .EXAMPLE
-    Update-ChannelForgeEventEvidence -CacheDirectory C:\ChannelForge\state\evidence -WhatIf
+    Update-ChannelForgeEventEvidence -CacheDirectory .\state\evidence -WhatIf
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
