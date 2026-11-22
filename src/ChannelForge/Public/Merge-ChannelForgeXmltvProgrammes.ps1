@@ -34,6 +34,9 @@ function Merge-ChannelForgeXmltvProgrammes {
             IsNew         = $Value.IsNew
             IsLive        = $Value.IsLive
             IsPremiere    = $Value.IsPremiere
+            PreviouslyShown      = $Value.PreviouslyShown
+            PreviouslyShownStart = $Value.PreviouslyShownStart
+            Date                 = $Value.Date
         }
 
         return (ConvertTo-Json -InputObject $content -Depth 5 -Compress)

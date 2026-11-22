@@ -129,6 +129,16 @@ If the loopback server is stopped, restart it from the repository root and
 reload the page. Do not paste playlist contents, stream URLs, credentials,
 opaque proposal IDs, or private paths into bug reports.
 
+## Doctor: one-page health check
+
+Run this from the repository root to see, in plain words, whether ChannelForge is ready to build:
+
+```powershell
+pwsh -File scripts/Invoke-ChannelForgeDoctor.ps1
+```
+
+Each check shows **PASS**, **FAIL** or **UNKNOWN**, with a next step for anything that is not a pass. UNKNOWN means the check could not run, so it is never counted as a pass. The exit code is 0 only when everything passes, otherwise 1. The Doctor only reads: it changes no settings and makes no network calls. Before your first accepted build, the published-file checks show UNKNOWN; that is expected.
+
 ## Build problems
 
 | Symptom                                                    | Likely cause                                                                                                         | What to do                                                                                                                                                       |
