@@ -92,3 +92,46 @@ Describe 'Get-ChannelForgeSourceReachabilityFinding' {
         }
     }
 }
+
+Describe 'Doctor result in the web status' {
+    It 'shows the saved Doctor result without addresses, and "not run yet" before Doctor runs' {
+        $p = New-Project; Publish-Fixture $p | Out-Null; Add-LocalSources $p
+        (Get-ChannelForgeWebStatus -RepositoryRoot $p).DoctorStatus.Overall | Should -Be 'NotRun'
+        (Invoke-Doctor $p).Code | Should -Be 0
+        $doctor = (Get-ChannelForgeWebStatus -RepositoryRoot $p).DoctorStatus
+        $doctor.Overall | Should -Be 'Pass'
+        $doctor.Fail | Should -Be 0
+        $doctor.Summary | Should -Match '^PASS: \d+ passed'
+        ($doctor | ConvertTo-Json -Compress) | Should -Not -Match '(?i)https?://|[A-Z]:[\\/]'
+    }
+
+    It 'reports a failed Doctor run and honors -OutputPath' {
+        $p = New-Project
+        $target = Join-Path $p 'elsewhere/result.json'
+        (Invoke-Doctor $p @('-OutputRoot', (Join-Path $p 'output/nope'), '-OutputPath', $target)).Code | Should -Be 1
+        (Get-Content -LiteralPath $target -Raw | ConvertFrom-Json).Overall | Should -Be 'Fail'
+        New-Item -ItemType Directory -Force -Path (Join-Path $p 'state') | Out-Null
+        Copy-Item -LiteralPath $target -Destination (Join-Path $p 'state/doctor-result.json')
+        $doctor = (Get-ChannelForgeWebStatus -RepositoryRoot $p).DoctorStatus
+        $doctor.Overall | Should -Be 'Fail'
+        $doctor.Fail | Should -BeGreaterThan 0
+    }
+
+    It 'never reports an unreadable saved result as Pass' {
+        $p = New-Project
+        New-Item -ItemType Directory -Force -Path (Join-Path $p 'state') | Out-Null
+        Set-Content -LiteralPath (Join-Path $p 'state/doctor-result.json') -Value '{not json'
+        (Get-ChannelForgeWebStatus -RepositoryRoot $p).DoctorStatus.Overall | Should -Be 'Unknown'
+    }
+}
+
+Describe 'Doctor result save failure' {
+    It 'says so and exits 1 when the result cannot be saved, even for a healthy project' {
+        $p = New-Project; Publish-Fixture $p | Out-Null; Add-LocalSources $p
+        $blocker = Join-Path $p 'blocker'
+        Set-Content -LiteralPath $blocker -Value 'x'
+        $r = Invoke-Doctor $p @('-OutputPath', (Join-Path $blocker 'result.json'))
+        $r.Code | Should -Be 1
+        $r.Text | Should -Match 'Could not save the Doctor result'
+    }
+}

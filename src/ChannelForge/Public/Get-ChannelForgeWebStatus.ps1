@@ -26,6 +26,7 @@ function Get-ChannelForgeWebStatus {
         DownstreamMutation     = 'none'
         GuidePublication       = 'none'
         AcceptedStateMutation = 'none'
+        DoctorStatus          = Get-ChannelForgeDoctorStatus -RepositoryRoot $RepositoryRoot
         SourcesStatus         = [string]$sourceStatus.EnrollmentStatus
         PlaylistStatus        = [string]$sourceStatus.M3UStatus
         GuideStatus           = [string]$sourceStatus.XMLTVStatus

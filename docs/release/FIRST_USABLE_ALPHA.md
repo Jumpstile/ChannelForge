@@ -43,8 +43,13 @@ true:
       repeating setup, and manual refresh reports unchanged/changed/unavailable
       saved bytes without mutating accepted lineup state; release evidence is
       still pending.
-- [ ] Remote credential enrollment and unattended remote source refresh work
-      without forcing the user to redo setup.
+- [ ] Remote credential enrollment is proposed out of alpha.1 (owner to
+      confirm). It is not built: source enrollment accepts only public HTTPS
+      links with no user info or query.
+- [ ] Unattended remote source refresh: an opt-in, Windows-only daily scheduled
+      refresh fetches enrolled public HTTPS sources for review and never
+      accepts changes. It has no release evidence yet, and the owner must
+      confirm whether Windows-only meets this item.
 - [x] The user can see what ChannelForge produced, whether it is accepted, and
       what needs attention through redacted review/status summaries.
 - [x] Update/upgrade behavior for the alpha is defined and beginner-readable.
@@ -68,12 +73,31 @@ close the release gate: exact-head commit, hosted CI, clean-machine smoke, and
 artifact publication evidence are still required before any release or tester
 build.
 
+A test checks that two package builds from the same source give the same
+manifest and byte-identical ZIP files
+(`tests/unit/ChannelForgeWindowsPackageBuild.Tests.ps1`). It is not
+clean-machine evidence.
+
+These read-only reports and checks exist in the repository. None of them closes
+a gate item:
+
+- `scripts/Invoke-ChannelForgeDoctor.ps1`: one-page health check, including
+  whether each enabled source can be reached.
+- `scripts/Show-ChannelForgeTargetPreview.ps1`: previews a lineup against a
+  Plex, IPTVBoss, Dispatcharr, or generic profile. IPTVBoss and Dispatcharr
+  capabilities are all unknown.
+- New and missing groups and channels on refresh (counts only, enrolled remote
+  M3U sources), and dropped duplicate channels as a review item.
+- A "where is this assigned?" report. It is internal only; no command or page
+  exposes it yet.
+
 ## Alpha.1 scope boundary
 
 The following are not required for `v0.1.0-alpha.1` unless implementation
 shows that they are prerequisites for the release gate above:
 
 - complete event-guide automation;
+- remote credential enrollment (proposed, owner to confirm);
 - automatic AED adoption or relearning;
 - full expert regex/date/time authoring;
 - every planned deployment target; and

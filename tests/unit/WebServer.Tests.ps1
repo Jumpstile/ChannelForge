@@ -790,6 +790,10 @@ Describe 'ChannelForge web server foundation' {
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
 
+    It 'reports the Doctor result as not run yet when none is saved' {
+        (Get-ChannelForgeWebStatus -RepositoryRoot (Join-Path $TestDrive 'no-doctor-yet')).DoctorStatus.Summary | Should -Be 'Doctor has not run yet'
+    }
+
     It 'does not expose secrets or private paths in status responses' {
         $statusJson = (Get-ChannelForgeWebStatus | ConvertTo-Json -Depth 5 -Compress)
         $responseJson = (Get-TestWebResponse -Method GET -Path '/api/status').Body
