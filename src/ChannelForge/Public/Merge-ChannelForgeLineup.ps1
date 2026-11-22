@@ -146,12 +146,22 @@ function Merge-ChannelForgeLineup {
         @{ Expression = { if ($null -ne $_.AssignedNumber) { $_.AssignedNumber } else { [int]::MaxValue } } }, `
         @{ Expression = { $_.DisplayName.ToLowerInvariant() } })
 
+    # Additive: one review item per dropped copy (first source wins, as above).
+    $duplicateReview = [System.Collections.Generic.List[object]]::new()
+    foreach ($collision in @($identityCollisions.ToArray())) {
+        $group = @($collision.Channels)
+        foreach ($dropped in @($group | Select-Object -Skip 1)) {
+            [void]$duplicateReview.Add((New-ChannelForgeDuplicateReviewItem -IdentityKey $collision.IdentityKey -Kept $group[0] -Dropped $dropped))
+        }
+    }
+
     return [pscustomobject]@{
         Channels       = $ordered
         AllChannels    = @($channels.ToArray())
         DuplicateCount = $duplicates.Count
         Duplicates     = @($duplicates)
         IdentityCollisions = @($identityCollisions.ToArray())
+        DuplicateReview = @($duplicateReview.ToArray())
         WarningCount   = @($channels | Where-Object { $_.Warnings.Count -gt 0 }).Count
         NumberReview   = $numberReview
     }
