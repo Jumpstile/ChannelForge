@@ -1,11 +1,14 @@
 {
   "pageTitle": "List of AEW Dynamite special episodes",
-  "tableIndex": 0,
+  "yearFrom": "heading",
+  "yearRange": [2019, 2027],
+  "dateColumnAnywhere": true,
+  "allowShortRows": true,
   "kind": "special",
   "columns": {
     "date": "Date",
-    "name": "Event",
+    "name": "Episode",
     "venue": "Venue",
-    "city": "City"
+    "city": "Location"
   }
 }
