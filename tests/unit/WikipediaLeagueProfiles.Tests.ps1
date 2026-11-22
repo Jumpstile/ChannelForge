@@ -24,6 +24,15 @@ Describe 'League profiles read year-less dates from their year heading' {
         $r.Records[1].City | Should -Be 'Testville, ST'
         $r.Records[2].Venue | Should -Be 'Sample Center'
     }
+    It 'AEW: reads the live layout (Event first, Location is the city), skips TBA and the Event/Feature table' {
+        $r = Read-Fixture 'aew-league-sample.html' 'aew-pay-per-view'
+        $r.Status | Should -Be 'Ok'
+        ($r.Records.Date -join ',') | Should -Be '2024-05-25,2024-08-31,2027-03-07'
+        $r.Records[0].Name | Should -Be 'Fixture Showdown'
+        $r.Records[0].Venue | Should -Be 'Fixture Arena'
+        $r.Records[0].City | Should -Be 'Testville, ST'
+        $r.Skipped | Should -Be 1
+    }
     It 'TNA: reads rows when a header cell carries leaked template text and rows lack their last cell' {
         $r = Read-Fixture 'tna-league-sample.html' 'tna-pay-per-view'
         $r.Status | Should -Be 'Ok'
@@ -65,7 +74,7 @@ Describe 'League profiles never guess' {
     }
     It 'an older profile without the new fields still skips year-less dates' {
         $html = '<h4>2024</h4><table class="wikitable"><tr><th>Date</th><th>Event</th><th>Venue</th><th>City</th></tr><tr><td>May 1</td><td>X</td><td>V</td><td>C</td></tr></table>'
-        $r = Read-Page -Html $html -Profile 'aew-pay-per-view'
+        $r = InModuleScope ChannelForge -Parameters @{ T = $html; P = (Join-Path $script:Fix 'legacy-layout-profile.json') } { ConvertFrom-ChannelForgeWikipediaEvidence -Text $T -ProfilePath $P -Revision '1' -FetchedAt 'x' }
         $r.Status | Should -Be 'PageChanged'
         $r.Reason | Should -BeLike '*no row had a readable date*'
     }

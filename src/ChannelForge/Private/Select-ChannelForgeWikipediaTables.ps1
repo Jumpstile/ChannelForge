@@ -18,8 +18,16 @@ function Select-ChannelForgeWikipediaTables {
     }
     $has = { param($Name) $null -ne $Profile.PSObject.Properties[$Name] }
     # A table that is not an event list (for example a one-row label) has no date column and is never part of a choice.
+    # Optional "dateColumnAnywhere": true accepts a table whose date header is not first (AEW lists Event first).
     $dateHeader = ([string]$Profile.columns.date).ToLowerInvariant()
-    $isEventTable = { param($Table) $null -eq $Table.Rows -or ($Table.Rows.Count -gt 0 -and $Table.Rows[0][0].ToLowerInvariant() -eq $dateHeader) }
+    $anywhere = $null -ne $Profile.PSObject.Properties['dateColumnAnywhere'] -and [bool]$Profile.dateColumnAnywhere
+    $isEventTable = {
+        param($Table)
+        if ($null -eq $Table.Rows) { return $true }
+        if ($Table.Rows.Count -eq 0) { return $false }
+        if ($anywhere) { return @($Table.Rows[0] | ForEach-Object { $_.ToLowerInvariant() }) -contains $dateHeader }
+        $Table.Rows[0][0].ToLowerInvariant() -eq $dateHeader
+    }
 
     if (& $has 'tableId') { $found = @($Tables | Where-Object { $_.Id -eq [string]$Profile.tableId }); $what = "table id '$($Profile.tableId)'" }
     elseif (& $has 'tableHeading') { $found = @($Tables | Where-Object { $_.Heading -eq [string]$Profile.tableHeading -and (& $isEventTable $_) }); $what = "table under heading '$($Profile.tableHeading)'" }
