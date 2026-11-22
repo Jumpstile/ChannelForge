@@ -107,6 +107,12 @@ if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
                      if ([string]$record.Kind -eq 'M3U') {
                          $channels = @(Import-ChannelForgeM3UPlaylist -Path $candidatePath -Provider 'candidate' -Playlist ([string]$record.Label))
                          if ($channels.Count -eq 0) { throw 'Remote M3U response contained no channels.' }
+                         $previousChannels = $null
+                         $savedPath = Join-Path $rootFull (([string]$record.ManagedPath) -replace '/', '\')
+                         if (([string]$record.ManagedPath) -cmatch '^state/managed-sources/[0-9a-f]{64}\.m3u$' -and (Test-Path -LiteralPath $savedPath -PathType Leaf)) {
+                             try { $previousChannels = @(Import-ChannelForgeM3UPlaylist -Path $savedPath -Provider 'previous' -Playlist ([string]$record.Label)) } catch { $previousChannels = $null }
+                         }
+                         $row.ChangeSummary = & (Get-Module ChannelForge) { param($p, $c) (Get-ChannelForgeSourceChangeReport -Previous $p -Current $c).Summary } $previousChannels $channels
                      }
                      else {
                          $xmlStatus = [ordered]@{}
