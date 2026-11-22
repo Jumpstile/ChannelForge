@@ -222,6 +222,9 @@ function ConvertTo-ChannelForgeXmltvBytes {
             IsNew            = [bool]$programme.IsNew
             IsLive           = [bool]$programme.IsLive
             IsPremiere       = [bool]$programme.IsPremiere
+            PreviouslyShown  = [bool]$programme.PreviouslyShown
+            PreviouslyShownStart = [string]$programme.PreviouslyShownStart
+            Date             = [string]$programme.Date
         }
         $records.Add($record)
 
@@ -234,7 +237,7 @@ function ConvertTo-ChannelForgeXmltvBytes {
         }
     }
 
-    $records.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey', 'long:StartTicks', 'long:EndTicks', 'string:Title', 'string:Subtitle', 'string:Description', 'string:CategoryKey', 'string:EpisodeNumber', 'bool:IsNew', 'bool:IsLive', 'bool:IsPremiere'))
+    $records.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey', 'long:StartTicks', 'long:EndTicks', 'string:Title', 'string:Subtitle', 'string:Description', 'string:CategoryKey', 'string:EpisodeNumber', 'bool:IsNew', 'bool:IsLive', 'bool:IsPremiere', 'bool:PreviouslyShown', 'string:PreviouslyShownStart', 'string:Date'))
     $channels.Sort((Get-ChannelForgeRecordComparer -Key 'string:BindingKey'))
 
     $namespace = 'urn:channelforge'
@@ -316,6 +319,9 @@ function ConvertTo-ChannelForgeXmltvBytes {
             if (-not [string]::IsNullOrEmpty($record.Description)) {
                 Write-XmltvTextElement -Writer $writer -Name 'desc' -Value $record.Description
             }
+            if (-not [string]::IsNullOrEmpty($record.Date)) {
+                Write-XmltvTextElement -Writer $writer -Name 'date' -Value $record.Date
+            }
 
             foreach ($category in $record.Categories) {
                 Write-XmltvTextElement -Writer $writer -Name 'category' -Value $category
@@ -325,6 +331,14 @@ function ConvertTo-ChannelForgeXmltvBytes {
                 $writer.WriteStartElement('episode-num')
                 $writer.WriteAttributeString('system', 'onscreen')
                 $writer.WriteString($record.EpisodeNumber)
+                $writer.WriteEndElement()
+            }
+
+            if ($record.PreviouslyShown) {
+                $writer.WriteStartElement('previously-shown')
+                if (-not [string]::IsNullOrEmpty($record.PreviouslyShownStart)) {
+                    $writer.WriteAttributeString('start', $record.PreviouslyShownStart)
+                }
                 $writer.WriteEndElement()
             }
 
