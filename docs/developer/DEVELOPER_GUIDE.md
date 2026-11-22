@@ -462,6 +462,7 @@ Display fields are not redacted, only URLs/tokens are: the top-level `provider` 
 
 ## Private helpers today
 
+- `Get-ChannelForgeSourceChangeReport` — compares a source's previous and new channel lists and reports new and missing groups and channels (names only), used by `scripts/Invoke-ChannelForgeSourceRefresh.ps1`.
 - `Normalize-ChannelForgeName` — strips quality tags (`HD`, `4K`, ...) and backup/alternate markers from playlist channel names.
 - `Test-ChannelForgeSourceUrl` — validates provider/EPG source URLs (scheme, host, no embedded credentials, no loopback/private/link-local targets).
 - `Test-ChannelForgeDisallowedIpAddress` — IP-range check used by `Test-ChannelForgeSourceUrl`.
