@@ -72,6 +72,7 @@ function Write-ChannelForgeTrimmedXmltvGuide {
     New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
     $tempPath = Join-Path $TempRoot ('trimmed-guide-' + [guid]::NewGuid().ToString('N') + '.xml')
     $originalBytes = 0L
+    $programmeCount = @{ Kept = 0; Dropped = 0 }
     try {
         $out = [System.IO.FileStream]::new($tempPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
         try {
@@ -84,7 +85,9 @@ function Write-ChannelForgeTrimmedXmltvGuide {
                         param($reader)
                         & $eachGuideElement $reader {
                             $id = switch ($reader.LocalName) { 'channel' { $reader.GetAttribute('id') } 'programme' { $reader.GetAttribute('channel') } }
-                            if ($null -ne $id -and $keep.Contains($id)) { $writer.WriteNode($reader, $true) } else { $reader.Skip() }
+                            $isKept = $null -ne $id -and $keep.Contains($id)
+                            if ($reader.LocalName -eq 'programme') { if ($isKept) { $programmeCount.Kept++ } else { $programmeCount.Dropped++ } }
+                            if ($isKept) { $writer.WriteNode($reader, $true) } else { $reader.Skip() }
                         } {
                             $writer.WriteStartElement('tv')
                             $writer.WriteAttributes($reader, $true)
@@ -108,6 +111,8 @@ function Write-ChannelForgeTrimmedXmltvGuide {
         Path              = $tempPath
         KeptChannelCount  = $keptChannels
         GuideChannelCount = $seen.Count
+        KeptProgrammeCount    = $programmeCount.Kept
+        DroppedProgrammeCount = $programmeCount.Dropped
         OriginalBytes     = $originalBytes
         KeptBytes         = (Get-Item -LiteralPath $tempPath).Length
     }

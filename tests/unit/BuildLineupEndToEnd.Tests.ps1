@@ -238,4 +238,39 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         (Get-Content -LiteralPath (Join-Path $root 'output\reports\lineup-plan.md') -Raw) | Should -Not -Match '## Catch-up'
         (Get-Content -LiteralPath (Join-Path $root 'output\reports\build-summary.json') -Raw | ConvertFrom-Json).XMLTVStatus | Should -Be 'GENERATED'
     }
+
+    It 'trims a guide over the size limit to the playlist channels and the guide output stays the same' {
+        # 300 unrelated channels with programmes make the guide several times bigger than the lowered limit.
+        $padding = (1..300 | ForEach-Object {
+                "<channel id=`"other$_.us`"><display-name>Other $_</display-name></channel>`n" +
+                "<programme start=`"20260824100000 +0000`" stop=`"20260824110000 +0000`" channel=`"other$_.us`"><title>Other Show $_</title></programme>"
+            }) -join "`n"
+        $big = $script:GuideXml.Replace('</tv>', "$padding`n</tv>")
+        $limit = 20000
+        $big.Length | Should -BeGreaterThan ($limit * 2)
+
+        $trimmedRoot = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $trimmedRoot -File 'guide.xml' -Text $big
+        & $script:BuildScriptPath -Root $trimmedRoot -XmltvMaxDocumentBytes $limit *> $null
+
+        $smallRoot = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $smallRoot -File 'guide.xml' -Text $script:GuideXml
+        & $script:BuildScriptPath -Root $smallRoot *> $null
+
+        (Get-Content -LiteralPath (Join-Path $trimmedRoot 'output\reports\build-summary.json') -Raw | ConvertFrom-Json).XMLTVStatus | Should -Be 'GENERATED'
+        $trimmedGuide = Get-Content -LiteralPath (Get-E2EGuidePath -Root $trimmedRoot) -Raw
+        $trimmedGuide | Should -Match 'Alpha Morning'
+        $trimmedGuide | Should -Not -Match 'Other Show'
+        $trimmedGuide | Should -Not -Match 'Gone Show'
+        $report = Get-Content -LiteralPath (Join-Path $trimmedRoot 'output\reports\lineup-plan.md') -Raw
+        $report | Should -Match 'Guide trimmed \(Guide\): kept 1 of 302 channels and 2 programs, dropped 301 programs\.'
+        $report | Should -Not -Match ([regex]::Escape($TestDrive))
+        (Get-Content -LiteralPath (Join-Path $smallRoot 'output\reports\lineup-plan.md') -Raw) | Should -Not -Match 'Guide trimmed'
+        # The unrelated gone.us channel is not in the playlist, so compare against a small guide without it.
+        $referenceRoot = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $referenceRoot -File 'guide.xml' -Text ($script:GuideXml -replace '(?s)<channel id="gone\.us">.*?</channel>\r?\n', '' -replace '(?m)^.*channel="gone\.us".*\r?\n', '')
+        & $script:BuildScriptPath -Root $referenceRoot *> $null
+        [Convert]::ToBase64String([IO.File]::ReadAllBytes((Get-E2EGuidePath -Root $trimmedRoot))) |
+            Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Get-E2EGuidePath -Root $referenceRoot))))
+    }
 }

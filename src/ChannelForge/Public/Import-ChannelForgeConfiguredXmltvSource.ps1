@@ -14,7 +14,11 @@ function Import-ChannelForgeConfiguredXmltvSource {
         [System.Collections.IDictionary]$AcquisitionStatus,
 
         [ValidateSet('blocker-2-contract/v7','blocker-2-contract/v8','blocker-2-contract/v10')]
-        [string]$CandidateContractVersion = 'blocker-2-contract/v7'
+        [string]$CandidateContractVersion = 'blocker-2-contract/v7',
+
+        # Playlist tvg-ids and staging folder for guide-trim/v2. Local guides only; remote guides keep the size limit.
+        [string[]]$TrimToChannelId,
+        [string]$TrimTempRoot
     )
 
     if ($null -eq $Source) {
@@ -222,5 +226,7 @@ function Import-ChannelForgeConfiguredXmltvSource {
         -SourceId $sourceId `
         -MaxDocumentBytes $MaxDocumentBytes `
         -AcquisitionStatus $AcquisitionStatus `
-        -CandidateContractVersion $CandidateContractVersion)
+        -CandidateContractVersion $CandidateContractVersion `
+        -TrimToChannelId $TrimToChannelId `
+        -TrimTempRoot $TrimTempRoot)
 }

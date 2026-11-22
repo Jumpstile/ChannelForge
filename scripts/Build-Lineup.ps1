@@ -16,7 +16,10 @@ param(
     [datetime]$BuildTimeUtc = [datetime]::UtcNow,
 
     # Opt-in: fill empty playlist groups from the category list. Selects candidate v10.
-    [switch]$FillEmptyGroups
+    [switch]$FillEmptyGroups,
+
+    # Size limit for one guide document. A local guide over it is trimmed to the playlist channels first.
+    [long]$XmltvMaxDocumentBytes = 268435456
 )
 $ErrorActionPreference = "Stop"
 if ($FillEmptyGroups) {
@@ -637,6 +640,7 @@ $m3uXmltvEpgCoverage = @()
 # paths may be used to open a file, but never influence artifacts, warnings,
 # identifiers, or decisions.
 $xmltvSourceRecords = [System.Collections.Generic.List[object]]::new()
+$guideTrimLines = [System.Collections.Generic.List[string]]::new()
 $xmltvAcquisitionStatuses = [System.Collections.Generic.List[object]]::new()
 $sourceEnumerationIndex = 0
 foreach ($source in $epgSources) {
@@ -717,8 +721,15 @@ else {
             $sourceProgrammes = @(Import-ChannelForgeConfiguredXmltvSource `
                 -Source $source `
                 -CacheRoot $cacheRoot `
+                -MaxDocumentBytes $XmltvMaxDocumentBytes `
                 -AcquisitionStatus $acquisitionStatus `
-                -CandidateContractVersion $CandidateContractVersion)
+                -CandidateContractVersion $CandidateContractVersion `
+                -TrimToChannelId $(if ($m3uGenerated) { [string[]]@($mergedM3UChannels | ForEach-Object { [string]$_.TvgId }) }) `
+                -TrimTempRoot $candidateStagingRoot)
+            if ($acquisitionStatus.Contains('GuideTrim')) {
+                $trimInfo = $acquisitionStatus['GuideTrim']
+                [void]$guideTrimLines.Add("Guide trimmed ($(Get-SafeReportText ([string]$source.Name))): kept $($trimInfo.KeptChannelCount) of $($trimInfo.GuideChannelCount) channels and $($trimInfo.KeptProgrammeCount) programs, dropped $($trimInfo.DroppedProgrammeCount) programs. Only channels the playlist uses were kept.")
+            }
             $xmlLogicalSourceId = [string]@(
                 Invoke-ChannelForgePrivateCandidateFunction `
                     -Name 'Get-ChannelForgeDomainHash' `
@@ -1149,6 +1160,8 @@ switch ($xmltvStatus) {
 if ($xmltvStatus -ne 'GENERATED') {
     $md += 'Current XMLTV publication: absent.'
 }
+
+foreach ($guideTrimLine in $guideTrimLines) { $md += $guideTrimLine }
 
 if ($xmltvPreviousOutputPreserved) {
     $md += 'Prior XMLTV artifact: preserved for rollback/inspection only.'

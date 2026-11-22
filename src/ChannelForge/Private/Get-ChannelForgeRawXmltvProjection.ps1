@@ -111,16 +111,21 @@ namespace ChannelForge
         }
         return $Default
     }
+    $logicalSourceIdBySource = @{}
     function Get-LogicalSourceId {
         param([AllowNull()][object]$Occurrence, [AllowNull()][object]$Evidence)
         $value = Get-PropertyValue $Occurrence 'LogicalSourceId'
         if ($null -ne $value -and -not [string]::IsNullOrEmpty([string]$value)) { return [string]$value }
         $sourceId = [string](Get-PropertyValue $Evidence 'SourceId' '')
         if ([string]::IsNullOrEmpty($sourceId)) { $sourceId = [string](Get-PropertyValue $Occurrence 'SourceId' '') }
-        return Get-ChannelForgeDomainHash -Domain 'logical-source-id/v2' -InputObject ([ordered]@{
-                Version = 'lineup-history-v1'
-                SourceId = $sourceId
-            })
+        # One guide repeats one source id for every channel and programme; hash it once.
+        if (-not $logicalSourceIdBySource.ContainsKey($sourceId)) {
+            $logicalSourceIdBySource[$sourceId] = Get-ChannelForgeDomainHash -Domain 'logical-source-id/v2' -InputObject ([ordered]@{
+                    Version = 'lineup-history-v1'
+                    SourceId = $sourceId
+                })
+        }
+        return $logicalSourceIdBySource[$sourceId]
     }
     function Get-ArrayValue {
         param([AllowNull()][object]$Value)

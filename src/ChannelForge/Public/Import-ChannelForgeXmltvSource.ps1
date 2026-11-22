@@ -38,16 +38,24 @@ function Import-ChannelForgeXmltvSource {
     $hashPath = $fullPath
     $trim = $null
     try {
-        try {
-            $programmes = @(Read-ChannelForgeXmltvSourceFile -Path $fullPath @readArguments)
-        }
-        catch {
-            $sizeExceeded = $false
-            for ($e = $_.Exception; $null -ne $e; $e = $e.InnerException) {
-                if ($e.Message -like 'XMLTV document exceeds the configured maximum*') { $sizeExceeded = $true }
+        # Trimming needs the playlist ids and a staging folder. A file already bigger than the limit
+        # (even compressed) is trimmed at once instead of reading up to the limit first.
+        $canTrim = $null -ne $TrimToChannelId -and -not [string]::IsNullOrWhiteSpace($TrimTempRoot)
+        $needTrim = $canTrim -and (Get-Item -LiteralPath $fullPath).Length -gt $MaxDocumentBytes
+        if (-not $needTrim) {
+            try {
+                $programmes = @(Read-ChannelForgeXmltvSourceFile -Path $fullPath @readArguments)
             }
-            if (-not $sizeExceeded -or $null -eq $TrimToChannelId -or [string]::IsNullOrWhiteSpace($TrimTempRoot)) { throw }
-
+            catch {
+                $sizeExceeded = $false
+                for ($e = $_.Exception; $null -ne $e; $e = $e.InnerException) {
+                    if ($e.Message -like 'XMLTV document exceeds the configured maximum*') { $sizeExceeded = $true }
+                }
+                if (-not $sizeExceeded -or -not $canTrim) { throw }
+                $needTrim = $true
+            }
+        }
+        if ($needTrim) {
             $trim = Write-ChannelForgeTrimmedXmltvGuide -Path $fullPath -ChannelId $TrimToChannelId -TempRoot $TrimTempRoot
             $hashPath = $trim.Path
             try {
@@ -71,6 +79,8 @@ function Import-ChannelForgeXmltvSource {
                 $AcquisitionStatus['GuideTrim'] = [pscustomobject][ordered]@{
                     KeptChannelCount  = $trim.KeptChannelCount
                     GuideChannelCount = $trim.GuideChannelCount
+                    KeptProgrammeCount    = $trim.KeptProgrammeCount
+                    DroppedProgrammeCount = $trim.DroppedProgrammeCount
                     OriginalBytes     = $trim.OriginalBytes
                     KeptBytes         = $trim.KeptBytes
                 }
