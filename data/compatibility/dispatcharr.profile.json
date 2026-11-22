@@ -1,0 +1,175 @@
+{
+  "id": "dispatcharr",
+  "version": "1.0.0",
+  "description": "Dispatcharr as a downstream target. No repo doc states what Dispatcharr accepts, so every capability is unknown.",
+  "capabilities": {
+    "m3u_header_and_extinf": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "tvg_id": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "tvg_name": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "tvg_logo": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "tvg_chno": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "group_title": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "extended_directives_and_headers": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "duplicate_ids_and_stream_variants": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "channel_number_format_and_limits": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "xmltv_id_binding": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "xmltv_display_names": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "programme_categories": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "programme_icons": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "episode_numbering": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "timezones": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "catchup_timeshift": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "local_vs_remote_artifacts": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "url_encoding": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "character_set": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "line_endings": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "size_and_channel_limits": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "refresh_poll_behavior": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "atomic_publication": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    },
+    "authentication_secret_handling": {
+      "value": "unknown",
+      "evidence": {
+        "state": "unknown",
+        "source": "No evidence collected yet."
+      }
+    }
+  }
+}
