@@ -274,3 +274,28 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
             Should -Be ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Get-E2EGuidePath -Root $referenceRoot))))
     }
 }
+
+Describe 'Build-Lineup.ps1 saved channel numbers' {
+    It 'changes only tvg-chno when a number is saved, and is byte identical to a build with no decisions file when none are saved' {
+        $plain = New-E2EBuildRoot -GuideFile 'guide.xml'
+        $emptyV2 = New-E2EBuildRoot -GuideFile 'guide.xml'
+        $saved = New-E2EBuildRoot -GuideFile 'guide.xml'
+        foreach ($root in $plain, $emptyV2, $saved) { Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml }
+        New-Item -ItemType Directory -Force -Path (Join-Path $emptyV2 'state'), (Join-Path $saved 'state') | Out-Null
+        $v2 = { param($numbers) [ordered]@{ schemaVersion = 'channel-decisions/v2'; guideChoices = @(); channelNumbers = @($numbers) } | ConvertTo-Json -Depth 5 }
+        & $v2 @() | Set-Content -LiteralPath (Join-Path $emptyV2 'state\channel-decisions.json') -Encoding utf8NoBOM
+        & $v2 @([ordered]@{ channelKey = 'id:alpha.us'; name = 'alpha.us'; number = 4242; decidedAt = '2026-01-01T00:00:00.0000000Z' }) |
+            Set-Content -LiteralPath (Join-Path $saved 'state\channel-decisions.json') -Encoding utf8NoBOM
+
+        $m3u = foreach ($root in $plain, $emptyV2, $saved) {
+            & $script:BuildScriptPath -Root $root *> $null
+            $guidePath = Get-E2EGuidePath -Root $root
+            , [IO.File]::ReadAllBytes((Join-Path (Split-Path -Parent $guidePath) 'merged.m3u'))
+        }
+        $text = @($m3u | ForEach-Object { [Text.Encoding]::UTF8.GetString($_) })
+        $text[1] | Should -BeExactly $text[0]
+        $text[2] | Should -Match 'tvg-chno="4242"'
+        $text[0] | Should -Not -Match 'tvg-chno="4242"'
+        ($text[2] -replace ' tvg-chno="\d+"', '') | Should -BeExactly ($text[0] -replace ' tvg-chno="\d+"', '')
+    }
+}
