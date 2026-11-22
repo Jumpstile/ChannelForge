@@ -1,7 +1,7 @@
 BeforeAll {
     $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $script:RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
-    $script:Profile = Join-Path $script:RepoRoot 'data\event-profiles\aew-pay-per-view.json'
+    $script:Profile = Join-Path $script:RepoRoot 'tests\fixtures\event-sources\legacy-layout-profile.json'
     function Convert-Text {
         param([string]$Text)
         InModuleScope ChannelForge -Parameters @{ T = $Text; P = $script:Profile } { ConvertFrom-ChannelForgeWikipediaEvidence -Text $T -ProfilePath $P -Revision '1' -FetchedAt 'x' }

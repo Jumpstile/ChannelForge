@@ -2,7 +2,7 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $script:RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
     $script:Fix = Join-Path $script:RepoRoot 'tests\fixtures\event-sources'
-    $script:Profile = Join-Path $script:RepoRoot 'data\event-profiles\aew-pay-per-view.json'
+    $script:Profile = Join-Path $script:RepoRoot 'tests\fixtures\event-sources\legacy-layout-profile.json'
     function Convert-Page {
         param([string]$File, [string]$Profile = $script:Profile)
         $text = Get-Content -LiteralPath (Join-Path $script:Fix $File) -Raw

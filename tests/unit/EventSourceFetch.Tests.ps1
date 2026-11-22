@@ -2,7 +2,7 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $script:RepoRoot 'src\ChannelForge\ChannelForge.psd1') -Global -Force
     $script:Fix = Join-Path $script:RepoRoot 'tests\fixtures\event-sources'
-    $script:Profile = Join-Path $script:RepoRoot 'data\event-profiles\aew-pay-per-view.json'
+    $script:Profile = Join-Path $script:RepoRoot 'tests\fixtures\event-sources\legacy-layout-profile.json'
     $script:Dir = Join-Path ([IO.Path]::GetTempPath()) ('cf-fetch-' + [guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $script:Dir)
     $html = Get-Content -LiteralPath (Join-Path $script:Fix 'wikipedia-sample.html') -Raw
