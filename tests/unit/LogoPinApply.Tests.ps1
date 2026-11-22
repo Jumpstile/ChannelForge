@@ -80,6 +80,19 @@ Describe 'Logo pins at the publish step' {
         $f1[0] | Should -Not -Be $f0[0]
         $f1[1] | Should -Be $f0[1]
     }
+
+    It 'a successor manifest tiles the exported M3U when logos are pinned' {
+        $channels = @(New-TestChannel 'A' $script:Pub; New-TestChannel 'B' ''; New-TestChannel 'C' $script:Pub)
+        $pin = @{ 'A.us' = $script:Pinned; 'B.us' = $script:Pinned }
+        $path = Join-Path $TestDrive 'pinned.m3u'
+        $result = & (Get-Module ChannelForge) {
+            param($ch, $pin, $path)
+            $raw = @(Get-ChannelForgeRawM3UProjection -Channel @($ch) -LogicalSourceId ('a' * 64) -CandidateContractVersion 'blocker-2-contract/v8')
+            @($raw.Channel) | Export-ChannelForgeM3UPlaylist -Path $path -LogoPin $pin -WarningAction SilentlyContinue
+            ConvertTo-ChannelForgeCandidateManifest -RawM3UOccurrences $raw -LogoPin $pin -M3UBytes ([IO.File]::ReadAllBytes($path)) -SerializedM3UEntryOrder @($raw.EntryId) -CandidateContractVersion 'blocker-2-contract/v8' -WarningAction SilentlyContinue
+        } $channels $pin $path
+        @($result.Manifest.Entries).Count | Should -Be 3
+    }
 }
 
 Describe 'Logo pin file at build time' {
