@@ -61,6 +61,15 @@ Describe 'Event time agreement' {
         $out.Result.Events[0].Status | Should -Be 'agreed'
     }
 
+    It 'groups "A vs B" and "A v B" on two channels as one event and keeps each start' {
+        $one = New-Carrier 'Baseball 1' @(New-Programme 'Dodgers vs Tigers' ([datetimeoffset]'2026-11-15T23:00:00Z'))
+        $two = New-Carrier 'Baseball 22' @(New-Programme 'Dodgers v. Tigers' ([datetimeoffset]'2026-11-15T23:10:00Z'))
+        $out = Get-Agreement -Channel @($one, $two)
+        $out.Result.Events.Count | Should -Be 1
+        $out.Result.Events[0].Status | Should -Be 'conflict'
+        $out.Result.Events[0].ChannelKeys.Count | Should -Be 2
+    }
+
     It 'keeps different games with unknown teams apart' {
         $one = New-Carrier 'Games 1' @(New-Programme 'Zebras vs Lions' ([datetimeoffset]'2026-11-15T23:00:00Z'))
         $two = New-Carrier 'Games 22' @(New-Programme 'Zebras vs Tigers' ([datetimeoffset]'2026-11-15T23:00:00Z'))
