@@ -14,6 +14,9 @@ class Programme {
     [bool]$IsNew
     [bool]$IsLive
     [bool]$IsPremiere
+    [bool]$PreviouslyShown
+    [string]$PreviouslyShownStart
+    [string]$Date
     [string]$SourceId
     [object]$Evidence
 
@@ -30,6 +33,9 @@ class Programme {
         $this.IsNew = $false
         $this.IsLive = $false
         $this.IsPremiere = $false
+        $this.PreviouslyShown = $false
+        $this.PreviouslyShownStart = ''
+        $this.Date = ''
         $this.SourceId = ''
         $this.Evidence = $null
     }
