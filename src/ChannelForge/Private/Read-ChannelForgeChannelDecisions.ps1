@@ -27,8 +27,8 @@ function Read-ChannelForgeChannelDecisions {
             throw "The channel decisions file has an unknown version '$([string]$document.schemaVersion)'. This build reads channel-decisions/v2 and the older plain list. $fix"
         }
         $names = @($document.PSObject.Properties.Name)
-        $items = if ($names -contains 'guideChoices') { @($document.guideChoices) } else { @() }
-        $numbers = if ($names -contains 'channelNumbers') { @($document.channelNumbers) } else { @() }
+        $items = @(if ($names -contains 'guideChoices') { @($document.guideChoices) })
+        $numbers = @(if ($names -contains 'channelNumbers') { @($document.channelNumbers) })
     }
     if ($Section -eq 'ChannelNumbers') { return @(ConvertTo-ChannelForgeChannelNumberRecord -Item $numbers) }
 

@@ -71,10 +71,12 @@ function New-ChannelForgeCandidateProposalFromSourceSet {
                 OrderKey = '{0:D10}' -f $_.SourceOrdinal
             }
         })
+    $userNumbers = @(Read-ChannelForgeChannelDecisions -Path (Join-Path $rootFull 'state\channel-decisions.json') -Section ChannelNumbers)
     $merge = Merge-ChannelForgeLineup `
         -Source $mergeSources `
         -AliasPath $aliasPath `
         -NumberingBlocksPath $blocksPath `
+        -UserNumber $userNumbers `
         -CandidateContractVersion $CandidateContractVersion
     foreach ($sourceRecord in @($sourceList)) {
         $sourceRecord.Raw = @($sourceRecord.Raw | Sort-Object EntryId)

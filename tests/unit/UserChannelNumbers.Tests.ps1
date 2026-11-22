@@ -134,3 +134,27 @@ Describe 'Set-ChannelForgeUserChannelNumber' {
         $again.channelNumbers[0].number | Should -Be 207
     }
 }
+
+Describe 'Saved channel numbers on the source-set candidate path' {
+    It 'writes the saved number to tvg-chno and, with none saved, builds the same playlist as with no decisions file' {
+        $root = Join-Path $TestDrive 'ss'
+        New-Item -ItemType Directory -Force "$root/data/rules", "$root/data/lineup", "$root/in", "$root/state" | Out-Null
+        $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        Copy-Item (Join-Path $repo 'data/rules/aliases.json') "$root/data/rules"
+        Copy-Item (Join-Path $repo 'data/lineup/numbering_blocks.json') "$root/data/lineup"
+        [IO.File]::WriteAllText("$root/in/alpha.m3u", "#EXTM3U`n#EXTINF:-1 tvg-id=`"alpha`",alpha`nhttps://example.invalid/alpha`n", [Text.UTF8Encoding]::new($false))
+        $playlist = [pscustomobject]@{ SourceId = 'p-alpha'; SourceKey = 'p-alpha'; Label = 'alpha'; Priority = 1; Path = "$root/in/alpha.m3u" }
+        $build = {
+            $c = New-ChannelForgeSourceSetCandidateProposal -Root $root -PlaylistSources @($playlist) -OutputRoot (Join-Path $root ('out-' + [guid]::NewGuid().ToString('N'))) -WarningAction SilentlyContinue 3>$null
+            [IO.File]::ReadAllText((Join-Path $c.CandidateDirectory 'merged.m3u'))
+        }
+        $plain = & $build
+        '{"schemaVersion":"channel-decisions/v2","guideChoices":[],"channelNumbers":[]}' | Set-Content -LiteralPath "$root/state/channel-decisions.json" -Encoding utf8NoBOM
+        (& $build) | Should -BeExactly $plain
+        Set-ChannelForgeUserChannelNumber -Root $root -TvgId 'alpha' -Number 4242
+        $withNumber = & $build
+        $withNumber | Should -Match 'tvg-chno="4242"'
+        $plain | Should -Not -Match 'tvg-chno="4242"'
+        ($withNumber -replace ' tvg-chno="\d+"', '') | Should -BeExactly ($plain -replace ' tvg-chno="\d+"', '')
+    }
+}
