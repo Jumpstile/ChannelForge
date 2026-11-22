@@ -334,6 +334,26 @@ function ConvertTo-ChannelForgeGuidePatternUtc {
     return [datetimeoffset]::new($unspecified, $Timezone.Offset).ToUniversalTime()
 }
 
+function Select-ChannelForgeGuidePatternWeekdayCandidate {
+    # Exact weekday match wins. A one-day mismatch (provider typo) is kept only when independent
+    # evidence (the Stage A evidence start time) equals the candidate. Anything else is a conflict.
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()]
+        [object[]]$Candidates,
+
+        [AllowEmptyString()]
+        [string]$EvidenceStartUtc = ''
+    )
+
+    $exact = @($Candidates | Where-Object { $_.WeekdayDelta -eq 0 })
+    if ($exact.Count -gt 0) { return [pscustomobject]@{ Candidates = $exact; ReasonCode = '' } }
+    if ($Candidates.Count -eq 0) { return [pscustomobject]@{ Candidates = @(); ReasonCode = '' } }
+    $near = if ($EvidenceStartUtc) { @($Candidates | Where-Object { $_.WeekdayDelta -eq 1 -and $_.Utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) -eq $EvidenceStartUtc }) } else { @() }
+    if ($near.Count -gt 0) { return [pscustomobject]@{ Candidates = $near; ReasonCode = 'WeekdayMismatchTolerated' } }
+    return [pscustomobject]@{ Candidates = @(); ReasonCode = 'WeekdayConflict' }
+}
+
 function Get-ChannelForgeGuidePatternTimeClause {
     [CmdletBinding()]
     param(
@@ -348,6 +368,9 @@ function Get-ChannelForgeGuidePatternTimeClause {
 
         [AllowNull()]
         [Nullable[datetimeoffset]]$ReferenceInstantUtc,
+
+        [AllowEmptyString()]
+        [string]$EvidenceStartUtc = '',
 
         [ValidateSet('MonthFirst', 'DayFirst')]
         [string]$DateOrder = 'MonthFirst'
@@ -383,6 +406,9 @@ function Get-ChannelForgeGuidePatternTimeClause {
             TimeFormat = ''
             DateFormat = ''
             WeekdayFormat = ''
+            WeekdaySource = 'Absent'
+            InferredWeekday = ''
+            TimePresence = 'Absent'
             ResolvedTimezone = Resolve-ChannelForgeGuidePatternTimezone -Label $label -TimezoneMap $TimezoneMap
             StartUtc = ''
             LocalDate = ''
@@ -443,9 +469,11 @@ function Get-ChannelForgeGuidePatternTimeClause {
             foreach ($candidateYear in $candidateYears) {
                 try {
                     $local = [datetime]::new($candidateYear, $dateParts.Month, $dateParts.Day, $hour, $minute, 0, [DateTimeKind]::Unspecified)
+                    $weekdayDelta = 0
                     if (-not [string]::IsNullOrEmpty($dateParts.Weekday)) {
-                        $weekdayMatches = $local.ToString('dddd', [Globalization.CultureInfo]::InvariantCulture) -like "$($dateParts.Weekday)*"
-                        if (-not $weekdayMatches) { continue }
+                        $expectedDay = [array]::IndexOf(@('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'), $dateParts.Weekday.Substring(0, 3).ToLowerInvariant())
+                        $weekdayDelta = [math]::Abs($expectedDay - [int]$local.DayOfWeek)
+                        $weekdayDelta = [math]::Min($weekdayDelta, 7 - $weekdayDelta)
                     }
                     if ($null -ne $timezone.TimeZone) {
                         if ($timezone.TimeZone.IsInvalidTime($local)) {
@@ -462,15 +490,24 @@ function Get-ChannelForgeGuidePatternTimeClause {
                         [math]::Abs(($utc - $ReferenceInstantUtc.ToUniversalTime()).TotalSeconds)
                     }
                     else { 0 }
-                    [void]$utcCandidates.Add([pscustomobject]@{ Utc = $utc; Local = $local; Distance = $distance })
+                    [void]$utcCandidates.Add([pscustomobject]@{ Utc = $utc; Local = $local; Distance = $distance; WeekdayDelta = $weekdayDelta })
                 }
                 catch {
                     continue
                 }
             }
 
+            if ($dateParts.Weekday) {
+                $evidenceUtc = ''
+                try { $evidenceUtc = ([datetimeoffset]::Parse($EvidenceStartUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal)).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture) } catch { $evidenceUtc = '' }
+                $pick = Select-ChannelForgeGuidePatternWeekdayCandidate -Candidates @($utcCandidates) -EvidenceStartUtc $evidenceUtc
+                $utcCandidates = [System.Collections.Generic.List[object]]::new()
+                foreach ($kept in @($pick.Candidates)) { [void]$utcCandidates.Add($kept) }
+                if ($pick.ReasonCode -and -not $reasons.Contains($pick.ReasonCode)) { [void]$reasons.Add($pick.ReasonCode) }
+            }
+
             if ($utcCandidates.Count -eq 0) {
-                if (-not $reasons.Contains('InvalidTime') -and -not $reasons.Contains('AmbiguousTime')) {
+                if (-not $reasons.Contains('InvalidTime') -and -not $reasons.Contains('AmbiguousTime') -and -not $reasons.Contains('WeekdayConflict')) {
                     [void]$reasons.Add('InvalidDate')
                 }
             }
@@ -502,6 +539,8 @@ function Get-ChannelForgeGuidePatternTimeClause {
     }
     $minuteFormat = if ($timeMatch.Groups['minute'].Success) { ':mm' } else { '' }
     $timeFormat = if ([string]::IsNullOrEmpty($meridiem)) { '{0}{1}' -f $hourFormat, $minuteFormat } elseif ($timeMatch.Value -match '\s+[aApP]') { '{0}{1} a' -f $hourFormat, $minuteFormat } else { '{0}{1}a' -f $hourFormat, $minuteFormat }
+    $weekdaySource = if (-not [string]::IsNullOrEmpty($dateParts.Weekday)) { 'Present' } elseif (-not [string]::IsNullOrEmpty($localDate)) { 'Inferred' } else { 'Absent' }
+    $inferredWeekday = if ($weekdaySource -eq 'Inferred') { ([datetime]::ParseExact($localDate, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)).ToString('ddd', [Globalization.CultureInfo]::InvariantCulture) } else { '' }
     return [pscustomobject][ordered]@{
         Label = $label
         DateText = $dateText
@@ -510,6 +549,9 @@ function Get-ChannelForgeGuidePatternTimeClause {
         TimeFormat = $timeFormat
         DateFormat = $dateParts.Format
         WeekdayFormat = $dateParts.WeekdayFormat
+        WeekdaySource = $weekdaySource
+        InferredWeekday = $inferredWeekday
+        TimePresence = 'Present'
         ResolvedTimezone = $timezone
         StartUtc = $startUtc
         LocalDate = $localDate
@@ -634,6 +676,7 @@ function ConvertTo-ChannelForgeGuidePatternSample {
                 -TimezoneMap $TimezoneMap `
                 -DefaultTimezone $DefaultTimezone `
                 -ReferenceInstantUtc $ReferenceInstantUtc `
+                -EvidenceStartUtc ([string]$Example.EvidenceStartUtc) `
                 -DateOrder $DateOrder
             [void]$clauses.Add($clause)
             foreach ($reason in @($clause.ReasonCodes)) {
@@ -702,6 +745,9 @@ function ConvertTo-ChannelForgeGuidePatternSample {
         try { $eventTimeText = ([datetimeoffset]::Parse($canonicalStart, [Globalization.CultureInfo]::InvariantCulture)).ToString('HH:mm', [Globalization.CultureInfo]::InvariantCulture) } catch { $eventTimeText = '' }
     }
     $eventDayOfWeek = if ($primaryClause.Count -gt 0 -and $null -ne $primaryClause[0].DateParts) { [string]$primaryClause[0].DateParts.Weekday } else { '' }
+    $eventDayOfWeekSource = if ($primaryClause.Count -gt 0) { [string]$primaryClause[0].WeekdaySource } else { 'Absent' }
+    $eventDayOfWeekInferred = if ($primaryClause.Count -gt 0) { [string]$primaryClause[0].InferredWeekday } else { '' }
+    $eventTimeSource = if ($primaryClause.Count -gt 0 -and $primaryClause[0].TimePresence -eq 'Present') { 'Present' } elseif (-not [string]::IsNullOrEmpty($eventTimeText)) { 'Derived' } else { 'Absent' }
 
     $homeParticipant = ''
     $awayParticipant = ''
@@ -746,6 +792,9 @@ function ConvertTo-ChannelForgeGuidePatternSample {
         EventDateText = $eventDateText
         EventTimeText = $eventTimeText
         EventDayOfWeek = $eventDayOfWeek
+        EventDayOfWeekSource = $eventDayOfWeekSource
+        EventDayOfWeekInferred = $eventDayOfWeekInferred
+        EventTimeSource = $eventTimeSource
         EventDayOfWeekFormat = if ($primaryClause.Count -gt 0 -and $null -ne $primaryClause[0].DateParts) { [string]$primaryClause[0].DateParts.WeekdayFormat } else { '' }
         HomeParticipant = $homeParticipant
         AwayParticipant = $awayParticipant
@@ -1199,7 +1248,7 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
     elseif ($allReasons -contains 'ExpertPatternInvalid' -or $allReasons -contains 'ExpertPatternNoMatch' -or $allReasons -contains 'InputDomainMixed') {
         $state = 'NeedsReview'
     }
-    elseif ($allReasons -contains 'EvidenceMissing' -or $allReasons -contains 'SourceNeedsReview' -or $allReasons -contains 'ConfidenceBelowThreshold' -or $allReasons -contains 'MirrorNotIndependent' -or $allReasons -contains 'MissingTime' -or $allReasons -contains 'MissingDate' -or $allReasons -contains 'InvalidDate' -or $allReasons -contains 'InvalidTime' -or $allReasons -contains 'TimezoneUnresolved' -or $allReasons -contains 'ReferenceInstantRequired' -or $allReasons -contains 'AmbiguousTime' -or $allReasons -contains 'AmbiguousTitle' -or $allReasons -contains 'NoEventData' -or $allReasons -contains 'ScheduleChanged' -or $allReasons -contains 'Postponed' -or $allReasons -contains 'Cancelled' -or $allReasons -contains 'Rescheduled' -or $allReasons -contains 'SourceStale' -or $allReasons -contains 'SourceUnavailable' -or $allReasons -contains 'StaleSource' -or $allReasons -contains 'TimezoneCrossCheckUnavailable' -or $allReasons -contains 'LeagueConflict' -or $allReasons -contains 'SportConflict' -or $outliers.Count -gt 0 -or $family.EventFamily -eq 'Unknown') {
+    elseif ($allReasons -contains 'EvidenceMissing' -or $allReasons -contains 'SourceNeedsReview' -or $allReasons -contains 'ConfidenceBelowThreshold' -or $allReasons -contains 'MirrorNotIndependent' -or $allReasons -contains 'MissingTime' -or $allReasons -contains 'MissingDate' -or $allReasons -contains 'InvalidDate' -or $allReasons -contains 'InvalidTime' -or $allReasons -contains 'TimezoneUnresolved' -or $allReasons -contains 'ReferenceInstantRequired' -or $allReasons -contains 'AmbiguousTime' -or $allReasons -contains 'AmbiguousTitle' -or $allReasons -contains 'NoEventData' -or $allReasons -contains 'ScheduleChanged' -or $allReasons -contains 'Postponed' -or $allReasons -contains 'Cancelled' -or $allReasons -contains 'Rescheduled' -or $allReasons -contains 'SourceStale' -or $allReasons -contains 'SourceUnavailable' -or $allReasons -contains 'StaleSource' -or $allReasons -contains 'TimezoneCrossCheckUnavailable' -or $allReasons -contains 'WeekdayConflict' -or $allReasons -contains 'WeekdayMismatchTolerated' -or $allReasons -contains 'LeagueConflict' -or $allReasons -contains 'SportConflict' -or $outliers.Count -gt 0 -or $family.EventFamily -eq 'Unknown') {
         $state = 'NeedsReview'
     }
     elseif ($confidenceScore -ge 90) {
@@ -1325,6 +1374,8 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
             'InconsistentExamples' { $message = 'Not every example fits one stable event-channel structure.' }
             'MissingTime' { $message = 'A critical event time is missing from one or more examples.' }
             'MissingDate' { $message = 'A critical event date is missing from one or more examples.' }
+            'WeekdayConflict' { $message = 'The weekday in the title disagrees with the date and no other evidence agrees.' }
+            'WeekdayMismatchTolerated' { $message = 'The weekday in the title is one day off; the date was kept because the reference time agrees.' }
             'TimezoneUnresolved' { $message = 'A timezone label has no explicit safe mapping.' }
             'ReferenceInstantRequired' { $message = 'A yearless date needs an injected reference instant.' }
             'InsufficientExamples' { $message = "At least $MinimumExamples representative examples are required." }
@@ -1372,6 +1423,9 @@ function Invoke-ChannelForgeGuidePatternAnalysis {
             EventDateText = $_.EventDateText
             EventTimeText = $_.EventTimeText
             EventDayOfWeek = $_.EventDayOfWeek
+            EventDayOfWeekSource = $_.EventDayOfWeekSource
+            EventDayOfWeekInferred = $_.EventDayOfWeekInferred
+            EventTimeSource = $_.EventTimeSource
             EventDayOfWeekFormat = $_.EventDayOfWeekFormat
             EventTime = $_.EventTimeText
             TimezoneLabels = @($_.TimezoneLabels)
