@@ -544,10 +544,12 @@ if ($m3uActiveSourceCount -gt 0) {
         }
 
         $m3uFailureStage = 'merge'
+        $userNumbers = @(Invoke-ChannelForgePrivateCandidateFunction -Name 'Read-ChannelForgeChannelDecisions' -Arguments @{ Path = (Join-Path $Root 'state\channel-decisions.json'); Section = 'ChannelNumbers' })
         $mergeResult = Merge-ChannelForgeLineup `
             -Source @($mergeSource.ToArray()) `
             -AliasPath $aliasPath `
             -NumberingBlocksPath $numberingBlocksPath `
+            -UserNumber $userNumbers `
             -CandidateContractVersion $CandidateContractVersion
 
         $m3uFailureStage = 'export'
