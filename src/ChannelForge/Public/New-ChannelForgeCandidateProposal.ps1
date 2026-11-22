@@ -44,6 +44,7 @@ function New-ChannelForgeCandidateProposal {
          $merge = [pscustomobject]@{
              Channels = @($channels)
              IdentityCollisions = @()
+             DuplicateReview = @()
          }
      }
      else {
@@ -226,7 +227,7 @@ function New-ChannelForgeCandidateProposal {
         Write-ChannelForgeCandidateArtifact -Path (Join-Path $txRoot 'manifest.json') -Bytes $manifestBytes -HookPrefix 'CandidateStageWrite.Manifest' -FaultHook $FaultHook | Out-Null
         $finalPath = Publish-ChannelForgeCandidateNamespace -OutputRoot $outputRoot -StagingPath $txRoot -CandidateManifestHash $manifestHash -FaultHook $FaultHook
         $logoReport = Get-ChannelForgeLogoReport -Channel @(Get-ChannelForgePublishLogo -Channel @($merge.Channels) -GroupDefaultLogo $groupDefaultLogo -LogoPin $logoPin -LogoLookup $logoLookup) -LogoPin $logoPin -PinRead (Read-ChannelForgeLogoPin -RepositoryRoot $Root) -LogoLookup $logoLookup
-        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport; GuideTrim = $guideTrim; NumberReview = $numberReview }
+        [pscustomobject][ordered]@{ CandidateManifestHash = $manifestHash; BuildIdentity = $manifestResult.BuildIdentity; CandidateDirectory = $finalPath; Manifest = [pscustomobject]$manifest; LogoReport = $logoReport; GuideTrim = $guideTrim; NumberReview = $numberReview; DuplicateReview = @($merge.DuplicateReview) }
     }
     catch {
         if (Test-Path -LiteralPath $txRoot) {

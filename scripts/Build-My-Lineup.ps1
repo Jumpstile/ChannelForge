@@ -97,6 +97,10 @@ function Write-WorkflowReport {
         "Exact guide matches: $($Report.ExactGuideMatchCount)"
         "Needs your choice: $($Report.AmbiguityCount)"
         "Guide-only records: $($Report.GuideOnlyCount)"
+        if (@($Report.DuplicateReview).Count -gt 0) {
+            "Duplicate channels: $(@($Report.DuplicateReview).Count) copies were left out (the first playlist wins). Which copy do you want?"
+            foreach ($dup in @($Report.DuplicateReview)) { "  $($dup.Name): kept $($dup.Kept.Playlist), left out $($dup.Dropped.Playlist)" }
+        }
         if (@($Report.CollisionGroups).Count -gt 0) {
             "Guide IDs shared by several channels: $(@($Report.CollisionGroups).Count)"
             "Decisions file: $($Report.DecisionsFile)"
@@ -579,6 +583,7 @@ $report = [ordered]@{
     ChannelCount = 0
     ExactGuideMatchCount = 0
     AmbiguityCount = 0
+    DuplicateReview = @()
     GuideOnlyCount = 0
     GuideStatus = 'NOT_SELECTED'
     CollisionGroups = @()
@@ -678,6 +683,7 @@ try {
     }
     $numberReview = $candidateResult[0].NumberReview
     foreach ($numberLine in @($numberReview.Applied) + @($numberReview.Collisions)) { Write-Host $numberLine -ForegroundColor Yellow }
+    $report.DuplicateReview = @($candidateResult[0].DuplicateReview)
     if ($Accept -and @($numberReview.Collisions).Count -gt 0) {
         throw 'Two channels have the same saved channel number, so nothing was published. Change one of them in state/channel-decisions.json, then run again.'
     }

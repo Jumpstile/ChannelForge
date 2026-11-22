@@ -50,6 +50,7 @@
     "Changed": { "type": "string" },
     "Next": { "type": "string" },
     "NoGuideCount": { "type": "integer", "minimum": 0 },
+    "DuplicateReview": { "type": "array", "items": { "type": "object" } },
     "DecisionsFile": { "type": ["string", "null"] },
     "CollisionGroups": {
       "type": "array",
