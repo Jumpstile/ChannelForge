@@ -19,16 +19,21 @@ ChannelForge is **Early Alpha**. It does not need IPTVBoss to run. It does not c
 
 ## Finding where a channel is assigned
 
-- **Not yet.** There is no lookup. Today you check the build reports.
+- **Today:** ChannelForge has an internal report that tells where a channel is assigned. It has no command yet, so you cannot run it from a prompt.
+- **Not yet:** a screen for it. There is no web page for this before Milestone 3.
+- **Next step:** until then, check the build reports.
 
 ## Layouts and output profiles
 
-- **Not yet.** You get one accepted lineup and one generic M3U and XMLTV output. See [Use ChannelForge with Plex](Use-With-Plex.md).
+- **Today:** ChannelForge ships compatibility profiles for Plex, IPTVBoss and Dispatcharr in `data/compatibility`. A profile lists what that program is known to accept. You still get one accepted lineup and one generic M3U and XMLTV output. See [Use ChannelForge with Plex](Use-With-Plex.md).
+- **Preview:** `scripts/Show-ChannelForgeTargetPreview.ps1` shows what a target might drop. It only reports. It changes nothing. Most rows say "unknown" today. Unknown means no proof yet. It is never treated as supported.
+- **Not yet:** a separate output file for each program.
+- **Next step:** run the preview with `-Profile` and `-PlaylistPath`.
 
 ## New groups and removed channels
 
-- **Not yet:** ChannelForge does not list new or renamed groups for you.
-- **Today:** if a refresh fails, ChannelForge keeps your last good copy and your accepted lineup. A changed source creates a review. Nothing is accepted for you.
+- **Today:** after a source refresh, ChannelForge reports which groups and channels are new and which are missing. It lists names only, never links. Run `scripts/Invoke-ChannelForgeSourceRefresh.ps1` to get it. The first refresh has nothing to compare with.
+- **Safe by default:** if a refresh fails, ChannelForge keeps your last good copy and your accepted lineup. A changed source creates a review. Nothing is accepted for you.
 
 ## Scheduled and unattended runs
 
@@ -40,7 +45,19 @@ ChannelForge is **Early Alpha**. It does not need IPTVBoss to run. It does not c
 ## Duplicates and several playlists
 
 - **Today:** several playlists can feed one lineup. See [Sources](Concepts/Sources.md) and [Channel IDs](Concepts/Channel-IDs.md).
-- **Not yet:** full duplicate policy and custom channel numbers are still being built.
+- **Today:** when two channels are the same, ChannelForge keeps one and lists each dropped copy as a review item. You decide what to do.
+- **Today:** you can save your own channel number for a channel with `Set-ChannelForgeUserChannelNumber`. Numbers are whole numbers from 1 to 9999. They are kept in `state/channel-decisions.json` and used on every build.
+- **Not yet:** a full duplicate policy, and a screen for channel numbers.
+
+## Checking your setup
+
+- **Today:** `scripts/Invoke-ChannelForgeDoctor.ps1` prints a health report. Each finding is Pass, Fail or Unknown, with a next step. Unknown is never shown as Pass.
+
+## Not in ChannelForge yet
+
+- A web screen to manage all this comes with Milestone 3.
+- ChannelForge does not play channels.
+- ChannelForge does not write catch-up (replay) settings.
 
 ## Stuck?
 
