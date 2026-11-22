@@ -27,6 +27,12 @@ function New-ChannelForgeProgramme {
 
         [bool]$IsPremiere = $false,
 
+        [bool]$PreviouslyShown = $false,
+
+        [string]$PreviouslyShownStart = '',
+
+        [string]$Date = '',
+
         [string]$SourceId = '',
 
         [object]$Evidence = $null
@@ -61,6 +67,9 @@ function New-ChannelForgeProgramme {
     $programme.IsNew = $IsNew
     $programme.IsLive = $IsLive
     $programme.IsPremiere = $IsPremiere
+    $programme.PreviouslyShown = $PreviouslyShown
+    $programme.PreviouslyShownStart = if ($null -eq $PreviouslyShownStart) { '' } else { $PreviouslyShownStart.Trim() }
+    $programme.Date = if ($null -eq $Date) { '' } else { $Date.Trim() }
     $programme.SourceId = if ($null -eq $SourceId) { '' } else { $SourceId.Trim() }
     $programme.Evidence = $Evidence
 
