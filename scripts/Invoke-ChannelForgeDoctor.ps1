@@ -4,15 +4,18 @@ Prints one plain-language health report for this ChannelForge folder.
 
 .DESCRIPTION
 Read-only. Uses Get-ChannelForgePreflightReport (preflight-report/v1) and shows each finding as Pass, Fail or
-Unknown with a next step. Unknown is never shown as Pass. Local checks only: no network, no Plex or Dispatcharr
-probes. Exit code 0 when every finding is Pass, 1 when any is Fail or Unknown.
+Unknown with a next step. Unknown is never shown as Pass. It also tests each enabled source: remote sources get one small bounded
+request through the pinned HTTPS transport (the only network use, and only when you run this script); local
+files are checked for existence and readability. No Plex or Dispatcharr probes. Exit code 0 when every finding is Pass, 1 when any is Fail or Unknown.
 #>
 [CmdletBinding()]
 param(
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
     [string]$OutputRoot,
     [string]$CacheRoot,
-    [string]$BackupRoot
+    [string]$BackupRoot,
+    [string]$ProviderConfigPath,
+    [string]$EpgConfigPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,8 +36,21 @@ foreach ($name in 'OutputRoot', 'CacheRoot', 'BackupRoot') {
 }
 $report = Get-ChannelForgePreflightReport @arguments
 
-'ChannelForge Doctor (read-only; nothing was changed)'
-foreach ($finding in $report.Findings) { Format-ChannelForgeDoctorFinding -Finding $finding }
-$s = $report.Summary
-'Result: {0} - {1} passed, {2} failed, {3} unknown. Unknown means the check could not run; it is not a pass.' -f $s.Overall.ToUpperInvariant(), $s.Pass, $s.Fail, $s.Unknown
-exit $(if ($s.Overall -eq 'Pass') { 0 } else { 1 })
+foreach ($pair in @(@('ProviderConfigPath', 'data/providers/provider'), @('EpgConfigPath', 'data/epg/epg_sources'))) {
+    if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $pair[0] -ValueOnly))) {
+        $path = Join-Path $Root ($pair[1] + '.local.json')
+        if (-not (Test-Path -LiteralPath $path)) { $path = Join-Path $Root ($pair[1] + '.example.json') }
+        Set-Variable -Name $pair[0] -Value $path
+    }
+}
+$sourceFindings = & (Get-Module ChannelForge) { param($r, $p, $e) Get-ChannelForgeSourceReachabilityFindings -RepositoryRoot $r -ProviderConfigPath $p -EpgConfigPath $e } ([IO.Path]::GetFullPath($Root)) $ProviderConfigPath $EpgConfigPath
+$findings = @($report.Findings) + @($sourceFindings)
+$pass = @($findings | Where-Object Status -eq 'Pass').Count
+$fail = @($findings | Where-Object Status -eq 'Fail').Count
+$unknown = @($findings | Where-Object Status -eq 'Unknown').Count
+$overall = if ($fail -gt 0) { 'Fail' } elseif ($unknown -gt 0) { 'Unknown' } else { 'Pass' }
+
+'ChannelForge Doctor (nothing was changed; enabled remote sources get one small request)'
+foreach ($finding in $findings) { Format-ChannelForgeDoctorFinding -Finding $finding }
+'Result: {0} - {1} passed, {2} failed, {3} unknown. Unknown means the check could not run; it is not a pass.' -f $overall.ToUpperInvariant(), $pass, $fail, $unknown
+exit $(if ($overall -eq 'Pass') { 0 } else { 1 })
