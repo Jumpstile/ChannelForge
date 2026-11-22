@@ -1903,6 +1903,19 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    fn next_fixture_id() -> u64 {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    fn remove_fixture(path: &std::path::Path) {
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => panic!("fixture should be removed: {error}"),
+        }
+    }
+
     struct FakePicker {
         result: Result<Option<PickerSelection>, PickerError>,
     }
@@ -1935,10 +1948,7 @@ mod tests {
         std::env::temp_dir().join(format!(
             "channelforge-guide-{}-{}.{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system clock should be after epoch")
-                .as_nanos(),
+            next_fixture_id(),
             extension
         ))
     }
@@ -2442,10 +2452,7 @@ mod tests {
         std::env::temp_dir().join(format!(
             "channelforge-playlist-{}-{}.m3u",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system clock should be after epoch")
-                .as_nanos(),
+            next_fixture_id(),
         ))
     }
 
@@ -2558,8 +2565,8 @@ mod tests {
         ] {
             assert!(!serialized.contains(forbidden));
         }
-        fs::remove_file(playlist).expect("playlist fixture should be removed");
-        fs::remove_file(guide).expect("guide fixture should be removed");
+        remove_fixture(&playlist);
+        remove_fixture(&guide);
     }
 
     #[test]
