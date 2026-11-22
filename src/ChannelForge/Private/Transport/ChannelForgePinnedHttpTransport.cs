@@ -922,6 +922,8 @@ namespace ChannelForge.Private.Transport
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, endpoint.RequestUri))
                 {
+                    // Wikimedia and similar hosts reject requests without a User-Agent.
+                    request.Headers.UserAgent.ParseAdd("ChannelForge/1.0 (+https://github.com/Jumpstile/ChannelForge)");
                     if (options.ConditionalRequest != null)
                     {
                         if (!string.IsNullOrWhiteSpace(options.ConditionalRequest.IfNoneMatch))
