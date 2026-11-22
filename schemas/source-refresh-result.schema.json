@@ -88,7 +88,8 @@
               "SOURCE_FINGERPRINT"
             ]
           },
-          "SafeReason": { "type": "string" }
+          "SafeReason": { "type": "string" },
+          "ChangeSummary": { "type": "string" }
         }
       }
     }
