@@ -1,59 +1,118 @@
 {
   "version": "categories/v1",
   "categories": [
-    { "id": "adult", "name": "Adult", "match": ["adult", "xxx"] },
+    {
+      "id": "adult",
+      "registryKey": "adult",
+      "name": "Adult",
+      "match": ["adult", "xxx"]
+    },
     {
       "id": "auto-racing",
+      "registryKey": "motorsports",
       "name": "Auto Racing",
       "match": ["auto racing", "formula 1", "indycar"]
     },
-    { "id": "baseball", "name": "Baseball", "match": ["baseball", "mlb"] },
+    {
+      "id": "baseball",
+      "registryKey": "baseball",
+      "name": "Baseball",
+      "match": ["baseball", "mlb"]
+    },
     {
       "id": "basketball",
+      "registryKey": "basketball",
       "name": "Basketball",
       "match": ["basketball", "nba", "wnba"]
     },
-    { "id": "boxing", "name": "Boxing", "match": ["boxing"] },
+    {
+      "id": "boxing",
+      "registryKey": "boxing",
+      "name": "Boxing",
+      "match": ["boxing"]
+    },
     {
       "id": "college-football",
+      "registryKey": "football",
       "name": "College Football",
       "match": ["college football", "ncaa football"]
     },
     {
       "id": "documentaries",
+      "registryKey": "documentary",
       "name": "Documentaries",
       "match": ["documentary", "documentaries"]
     },
-    { "id": "football", "name": "Football", "match": ["nfl", "pro football"] },
-    { "id": "golf", "name": "Golf", "match": ["golf", "pga tour"] },
-    { "id": "hockey", "name": "Hockey", "match": ["hockey", "nhl"] },
-    { "id": "kids", "name": "Kids", "match": ["kids", "children"] },
+    {
+      "id": "football",
+      "registryKey": "football",
+      "name": "Football",
+      "match": ["nfl", "pro football"]
+    },
+    {
+      "id": "golf",
+      "registryKey": "golf",
+      "name": "Golf",
+      "match": ["golf", "pga tour"]
+    },
+    {
+      "id": "hockey",
+      "registryKey": "hockey",
+      "name": "Hockey",
+      "match": ["hockey", "nhl"]
+    },
+    {
+      "id": "kids",
+      "registryKey": "kids",
+      "name": "Kids",
+      "match": ["kids", "children"]
+    },
     {
       "id": "mma",
+      "registryKey": "mma",
       "name": "MMA",
       "match": ["mma", "mixed martial arts", "ufc"]
     },
     {
       "id": "movies",
+      "registryKey": "movies",
       "name": "Movies",
       "match": ["movie", "movies", "film", "films"]
     },
-    { "id": "music", "name": "Music", "match": ["music", "radio"] },
-    { "id": "nascar", "name": "NASCAR", "match": ["nascar"] },
-    { "id": "news", "name": "News", "match": ["news"] },
+    {
+      "id": "music",
+      "registryKey": "music",
+      "name": "Music",
+      "match": ["music", "radio"]
+    },
+    {
+      "id": "nascar",
+      "registryKey": "motorsports",
+      "name": "NASCAR",
+      "match": ["nascar"]
+    },
+    { "id": "news", "registryKey": "news", "name": "News", "match": ["news"] },
     {
       "id": "pay-per-view",
+      "registryKey": "pay-per-view",
       "name": "Pay-per-view",
       "match": ["ppv", "pay per view", "pay-per-view"]
     },
     {
       "id": "soccer",
+      "registryKey": "soccer",
       "name": "Soccer",
       "match": ["soccer", "mls", "premier league"]
     },
-    { "id": "tennis", "name": "Tennis", "match": ["tennis", "atp", "wta"] },
+    {
+      "id": "tennis",
+      "registryKey": "tennis",
+      "name": "Tennis",
+      "match": ["tennis", "atp", "wta"]
+    },
     {
       "id": "wrestling",
+      "registryKey": "wrestling",
       "name": "Wrestling",
       "match": ["wrestling", "wwe", "aew"]
     }
