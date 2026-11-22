@@ -7,7 +7,9 @@ function ConvertFrom-ChannelForgeWikipediaEvidence {
     # column are skipped and counted). A new league or show is a new profile, not new code. If the page does not fit
     # the profile, Status is PageChanged with the reason and no records; nothing is guessed. Wikipedia has no start
     # times, so Time is $null. A row whose date is not a real date (TBA) is skipped and counted in Skipped. A trailing
-    # "(aired ...)" note on a date is dropped: the event date is the date before it.
+    # "(aired ...)" or "(airing ...)" note on a date is dropped: the event date is the date before it; so is a trailing "(2019-10-02)"
+    # (Wikipedia's hidden machine-readable date). Optional "nameFromLastHeader": true reads the name from the last
+    # header cell with that text (AEW special events: the Event header spans a color cell and the name cell).
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Text,
@@ -24,13 +26,16 @@ function ConvertFrom-ChannelForgeWikipediaEvidence {
     if ($selection.Reason) { return & $changed $selection.Reason }
     $yearFromHeading = $profile.PSObject.Properties['yearFrom'] -and [string]$profile.yearFrom -eq 'heading'
     $formats = [string[]]@('MMMM d, yyyy', 'MMM d, yyyy', 'd MMMM yyyy', 'yyyy-MM-dd')
+    $lastName = $null -ne $profile.PSObject.Properties['nameFromLastHeader'] -and [bool]$profile.nameFromLastHeader
 
     $records = @(); $skipped = 0
     foreach ($table in $selection.Tables) {
         $rows = $table.Rows
         $position = @{}
         foreach ($column in $profile.columns.PSObject.Properties) {
-            $at = [array]::IndexOf(@($rows[0] | ForEach-Object { $_.ToLowerInvariant() }), ([string]$column.Value).ToLowerInvariant())
+            $headers = @($rows[0] | ForEach-Object { $_.ToLowerInvariant() })
+            $want = ([string]$column.Value).ToLowerInvariant()
+            $at = if ($lastName -and $column.Name -eq 'name') { [array]::LastIndexOf($headers, $want) } else { [array]::IndexOf($headers, $want) }
             if ($at -lt 0) { return & $changed "'$title': column '$($column.Value)' ($($column.Name)) not found." }
             $position[$column.Name] = $at
         }
@@ -38,7 +43,7 @@ function ConvertFrom-ChannelForgeWikipediaEvidence {
         foreach ($row in @($rows | Select-Object -Skip 1)) {
             $parsed = [datetime]::MinValue
             $name = & $cell $row 'name'
-            $dateText = ([regex]::Replace([string](& $cell $row 'date'), '\s*\(aired\b[^)]*\)', '')).Trim()
+            $dateText = ([regex]::Replace([string](& $cell $row 'date'), '\s*\((?:air(?:ed|ing)\b[^)]*|\d{4}-\d{2}-\d{2})\)', '')).Trim()
             if ($yearFromHeading -and $table.Year -and $dateText -notmatch '\d{4}') { $dateText = "$dateText, $($table.Year)" }
             if (-not $name -or -not [datetime]::TryParseExact($dateText, $formats, [Globalization.CultureInfo]::InvariantCulture, 'None', [ref]$parsed)) { $skipped++; continue }
             $date = $parsed.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
