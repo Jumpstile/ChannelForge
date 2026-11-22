@@ -165,6 +165,9 @@ function Read-ChannelForgeXmltvDocument {
                     $isNew = $false
                     $isLive = $false
                     $isPremiere = $false
+                    $previouslyShown = $false
+                    $previouslyShownStart = ''
+                    $date = ''
 
                     if ([string]::IsNullOrWhiteSpace($channelId)) {
                         throw 'XMLTV programme elements require a non-empty channel attribute.'
@@ -238,6 +241,19 @@ function Read-ChannelForgeXmltvDocument {
                                 $reader.Skip()
                             }
 
+                            'previously-shown' {
+                                $previouslyShown = $true
+                                $previouslyShownStart = [string]$reader.GetAttribute('start')
+                                $reader.Skip()
+                            }
+
+                            'date' {
+                                $value = $reader.ReadElementContentAsString()
+                                if ([string]::IsNullOrWhiteSpace($date) -and -not [string]::IsNullOrWhiteSpace($value)) {
+                                    $date = $value.Trim()
+                                }
+                            }
+
                             default {
                                 $reader.Skip()
                             }
@@ -276,6 +292,9 @@ function Read-ChannelForgeXmltvDocument {
                         -IsNew $isNew `
                         -IsLive $isLive `
                         -IsPremiere $isPremiere `
+                        -PreviouslyShown $previouslyShown `
+                        -PreviouslyShownStart $previouslyShownStart `
+                        -Date $date `
                         -SourceId $SourceId
 
                     [void]$rawProgrammeOccurrences.Add([pscustomobject][ordered]@{
