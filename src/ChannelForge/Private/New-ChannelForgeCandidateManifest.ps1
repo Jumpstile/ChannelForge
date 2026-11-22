@@ -282,7 +282,11 @@ function ConvertTo-ChannelForgeCandidateManifest {
         foreach ($entryId in $artifactOrder) {
             $source = @($RawM3UOccurrences | Where-Object { [string]$_.EntryId -ceq [string]$entryId }) | Select-Object -First 1
             if ($null -eq $source -or $null -eq $source.Channel) { throw 'FAIL_CLOSED: successor slice source unavailable.' }
-            $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel -PublishGroup $publishedGroupByEntry[[string]$entryId].Group
+            # The M3U export writes the published logo (pins, defaults, lookup); the slice must match those bytes.
+            $sourceLogo = $source.Channel.Logo
+            $source.Channel.Logo = $publishedLogoByEntry[[string]$entryId]
+            try { $bytes = ConvertTo-ChannelForgeM3UEntryBytes -Channel $source.Channel -PublishGroup $publishedGroupByEntry[[string]$entryId].Group }
+            finally { $source.Channel.Logo = $sourceLogo }
             $offset = -1
             for ($i = $cursor; $i -le $M3UBytes.Length - $bytes.Length; $i++) {
                 $same = $true
