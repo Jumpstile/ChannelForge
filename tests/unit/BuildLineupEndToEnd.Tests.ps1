@@ -203,6 +203,21 @@ Describe 'Build-Lineup.ps1 end to end with a local guide' {
         (Get-ChildItem -LiteralPath (Join-Path $root 'output') -Recurse -Filter 'merged.m3u' | Get-Content -Raw) | Should -Not -Match 'catchup'
     }
 
+    It 'adds a Logo agreement line with counts and no link to the plan' {
+        $root = New-E2EBuildRoot -GuideFile 'guide.xml'
+        Write-E2EGuide -Root $root -File 'guide.xml' -Text $script:GuideXml
+        @('#EXTM3U', '#EXTINF:-1 tvg-id="alpha.us" tvg-logo="https://img.example.com/alpha.png" group-title="News",Alpha', 'https://example.invalid/live/alpha') -join "`n" |
+            Set-Content -LiteralPath (Join-Path $root 'data\playlists\playlist.m3u') -Encoding utf8NoBOM
+
+        & $script:BuildScriptPath -Root $root *> $null
+
+        $plan = Get-Content -LiteralPath (Join-Path $root 'output\reports\lineup-plan.md') -Raw
+        $line = @($plan -split "`r?`n" | Where-Object { $_ -like 'Logos:*' })
+        $line.Count | Should -Be 1
+        $line[0] | Should -Be 'Logos: 1 source logo agrees with the guide, 0 differs, 0 no logo.'
+        $line[0] | Should -Not -Match 'http'
+    }
+
     It 'only warns and leaves the section out when the catch-up check fails' {
         # Build-Lineup loads the module next to itself, so break the check in a private copy of the repo.
         $copy = Join-Path $TestDrive ('copy-' + [guid]::NewGuid().ToString('N'))
