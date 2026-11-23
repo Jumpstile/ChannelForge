@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
 import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
+// Browser time zone, labeled. An unreadable value is treated as not reported.
+function formatLocalTime(value: string | null | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'long' })
+}
+
 type DashboardState = 'loading' | 'ready' | 'unavailable'
 
 type StatusDashboardProps = {
@@ -140,7 +147,11 @@ export function StatusDashboard({
   const playlistStatus = snapshot.playlistStatus ?? 'not-enrolled'
   const guideStatus = snapshot.guideStatus ?? 'no-guide'
   const canRefresh = snapshot.canRefreshSources === true
-  const lastChecked = snapshot.lastCheckedUtc ? new Date(snapshot.lastCheckedUtc).toLocaleString() : 'Not checked yet'
+  const lastChecked = formatLocalTime(snapshot.lastCheckedUtc) ?? 'Not checked yet'
+  const snapshotTime = formatLocalTime(snapshot.snapshotUtc) ?? 'Not reported yet'
+  const coverageStart = formatLocalTime(snapshot.coverageStartUtc)
+  const coverageEnd = formatLocalTime(snapshot.coverageEndUtc)
+  const coverage = coverageStart && coverageEnd ? `${coverageStart} to ${coverageEnd}` : 'Not reported yet'
 
   return (
     <>
@@ -169,6 +180,18 @@ export function StatusDashboard({
           <span className="summary-card-label">Last checked</span>
           <strong>{lastChecked}</strong>
           <span className="summary-card-detail">{refreshMessage ?? 'Refresh checks for changed source bytes.'}</span>
+        </article>
+      </section>
+      <section className="workbench-grid" aria-label="Guide freshness">
+        <article className="summary-card">
+          <span className="summary-card-label">Snapshot time</span>
+          <strong>{snapshotTime}</strong>
+          <span className="summary-card-detail">When your accepted lineup was saved. Shown in your browser time zone.</span>
+        </article>
+        <article className="summary-card">
+          <span className="summary-card-label">Coverage window</span>
+          <strong>{coverage}</strong>
+          <span className="summary-card-detail">The period the guide data covers. Shown in your browser time zone.</span>
         </article>
       </section>
       {snapshot.sources && snapshot.sources.length > 0 ? (

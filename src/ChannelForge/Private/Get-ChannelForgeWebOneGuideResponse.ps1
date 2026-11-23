@@ -61,6 +61,11 @@ function Get-ChannelForgeWebOneGuideCatalogue {
             -CandidateContractVersion 'blocker-2-contract/v8')
     }
     finally { $stream.Dispose() }
+    $coverageStart = $null; $coverageEnd = $null
+    foreach ($programme in $programmes) {
+        if ($null -eq $coverageStart -or $programme.Start -lt $coverageStart) { $coverageStart = $programme.Start }
+        if ($null -eq $coverageEnd -or $programme.End -gt $coverageEnd) { $coverageEnd = $programme.End }
+    }
     $minimumEvaluationTimeUtc = [datetimeoffset]::MinValue
     $catalogue = @(Get-ChannelForgeOneGuide -Query LiveNow -Programmes $programmes -EvaluationTimeUtc $minimumEvaluationTimeUtc -ReturnCatalogue)
     $itemsById = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
@@ -69,6 +74,9 @@ function Get-ChannelForgeWebOneGuideCatalogue {
         Key = $cacheKey
         # Opaque snapshot token for paging pins; derived so the accepted pointer hash itself is never exposed.
         GenerationToken = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes("one-guide-page-snapshot/v1|$cacheKey"))).ToLowerInvariant()
+        SnapshotUtc = if ([string]::IsNullOrEmpty([string]$snapshot.State.Object.AcceptedAtUtc)) { $null } else { [string]$snapshot.State.Object.AcceptedAtUtc }
+        CoverageStartUtc = if ($null -eq $coverageStart) { $null } else { ([datetimeoffset]$coverageStart).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }
+        CoverageEndUtc = if ($null -eq $coverageEnd) { $null } else { ([datetimeoffset]$coverageEnd).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }
         Items = $catalogue
         ItemsById = $itemsById
     }
