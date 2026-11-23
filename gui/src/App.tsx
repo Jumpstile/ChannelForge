@@ -34,7 +34,8 @@ type AppProps = {
 }
 
 function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable }: AppProps = {}) {
-  const [activePage, setActivePage] = useState<NavigationId>('workbench')
+  const [activePage, setCurrentPage] = useState<NavigationId>('workbench')
+  const [history, setHistory] = useState<NavigationId[]>([])
   const [matchState, setMatchState] = useState<PlaylistGuideMatchState>(createInitialPlaylistGuideMatchState)
   const [savedPlan, setSavedPlan] = useState<SavedLineupPlan | null>(null)
   const [saveResult, setSaveResult] = useState<SavedLineupResult | null>(null)
@@ -42,9 +43,30 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   const reviewAvailable = isPlaylistGuideReviewAvailable(matchState)
   const savedLineupAvailable = acceptedLineupStatus === 'present'
 
+  const setActivePage = (page: NavigationId) => {
+    if (page === activePage) return
+    setHistory((earlier) => [...earlier, activePage])
+    setCurrentPage(page)
+  }
+
+  const handleHome = () => {
+    setHistory([])
+    setCurrentPage('workbench')
+  }
+
+  const isAvailable = (page: NavigationId) => !(page === 'build' && !reviewAvailable) && !(page === 'accepted' && !savedLineupAvailable)
+
+  const handleBack = () => {
+    const remaining = [...history]
+    while (remaining.length > 0 && !isAvailable(remaining[remaining.length - 1])) remaining.pop()
+    const previous = remaining.pop()
+    if (previous === undefined) return handleHome()
+    setHistory(remaining)
+    setCurrentPage(previous)
+  }
+
   const handleNavigate = (page: NavigationId) => {
-    if (page === 'build' && !reviewAvailable) return
-    if (page === 'accepted' && !savedLineupAvailable) return
+    if (!isAvailable(page)) return
     setActivePage(page)
   }
 
@@ -70,7 +92,7 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   }
 
   return (
-    <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate}>
+    <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate} onHome={handleHome} onBack={handleBack}>
       {activePage === 'gallery' ? (
         <StateGalleryPage onBack={() => setActivePage('workbench')} />
       ) : activePage === 'live-now' ? (
