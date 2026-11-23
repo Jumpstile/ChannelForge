@@ -8,6 +8,7 @@ ChannelForge is **Early Alpha**. It does not need IPTVBoss to run. It does not c
 
 - **Today:** you can add a local playlist file or a public HTTPS playlist. You can add more than one. See [Sources](Concepts/Sources.md) and [Build Your First Lineup](Build-Your-First-Lineup.md).
 - **Not yet:** Xtream Codes logins. This is planned for later, not alpha.1 (proposed, owner can change).
+- **Links with a login in them:** a command to save the login for a remote source is built and waiting for the owner's hand test. It is not in alpha.1 and is planned for the next release. See [Remote Credential Enrollment](Remote-Credential-Enrollment.md).
 - **Safe by default:** secrets stay out of reports and logs. See [Safe Local Configuration](SAFE_LOCAL_CONFIGURATION.md).
 - **Next step:** use a playlist URL or file.
 

@@ -2,6 +2,8 @@
 
 This is a design note. It adds no code, no tests and no schema change. It comes from reading this tree. Nothing was run. Anything not confirmed is marked `[INFERENCE]` or listed under "Not verified".
 
+Status: owner decision 1 (allow logins inside stream links) is implemented. Slices 1 to 6 are built. Slice 7 is this documentation. The sections below are the original design.
+
 Examples use `example.invalid` hosts and fake logins only (`user: demo`, `password: demo-not-real`).
 
 ## 1. The problem and who it protects
@@ -163,14 +165,14 @@ If decryption fails the source is skipped with the plain message from section 3.
 
 None are intended. Checked against the list:
 
-| Contract                                              | Touched? | Why                                                                                                                                                   |
-| ----------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Guide-id contract v1.0                                | No       | Guide ids come from guide content, not from where it was fetched. The `guide: null` marker stays. No channel is dropped.                              |
-| Raw digest projections                                | No       | No change to digest inputs.                                                                                                                           |
-| M3U entry byte format                                 | No       | Entries are copied as today. If a provider writes the login in stream links the source is refused (above), so the format is never altered to hide it. |
-| `BuildIdentityInput`                                  | No       | Credentials are not part of identity.                                                                                                                 |
-| blocker-2-contract v7, v8, v10                        | No       | No change to publish or candidate shapes.                                                                                                             |
-| accepted-state, candidate-manifest, decision-manifest | No       | Not edited. A credentialed source still produces the same candidate shapes after download.                                                            |
+| Contract                                              | Touched? | Why                                                                                                                                                                                                            |
+| ----------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guide-id contract v1.0                                | No       | Guide ids come from guide content, not from where it was fetched. The `guide: null` marker stays. No channel is dropped.                                                                                       |
+| Raw digest projections                                | No       | No change to digest inputs.                                                                                                                                                                                    |
+| M3U entry byte format                                 | No       | Entries are copied as today. If a provider writes the login in stream links, the entries are still copied unchanged (owner decision 1) and the private files carry it; the format is never altered to hide it. |
+| `BuildIdentityInput`                                  | No       | Credentials are not part of identity.                                                                                                                                                                          |
+| blocker-2-contract v7, v8, v10                        | No       | No change to publish or candidate shapes.                                                                                                                                                                      |
+| accepted-state, candidate-manifest, decision-manifest | No       | Not edited. A credentialed source still produces the same candidate shapes after download.                                                                                                                     |
 
 ### Source-set schema
 
@@ -222,7 +224,7 @@ Reuse (do not duplicate): `Get-ChannelForgeRedactedSourceHost`, `Test-ChannelFor
 5. Delete the credential file. Run refresh. Expect the plain "run enroll again" message and the last-known-good data kept.
 6. Change the password at the provider (or enroll a wrong one). Expect the "login rejected" message, no crash and no saved snapshot.
 7. Copy the state folder to a second PC. Expect refresh to fail closed there.
-8. Use a provider that writes the login into stream links. Expect refusal with a plain message.
+8. Use a provider that writes the login into stream links. Expect it to work. Treat the saved snapshot and the output playlist as private files, because they may carry the login in stream links. Reports, logs and Doctor output must still show the host only.
 
 ## 10. What stays out
 
