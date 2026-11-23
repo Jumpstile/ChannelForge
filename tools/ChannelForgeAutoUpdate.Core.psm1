@@ -467,7 +467,7 @@ function Test-ChannelForgeWindowsPackage {
     foreach ($relativePath in $requiredRuntimeDataFiles) {
         $requiredPath = Join-Path $root ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
         if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-            throw "Required package runtime data is missing: $relativePath"
+            throw "A required ChannelForge data file is missing, so the package or install is incomplete. Download the package again and unzip it fully, then run Install ChannelForge.cmd. Details: Required package runtime data is missing: $relativePath"
         }
     }
     $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -480,6 +480,10 @@ function Test-ChannelForgeWindowsPackage {
         $topLevel = ($relative -split '/')[0]
         $protected = @('data', 'state', 'config', 'output', 'cache', 'logs', 'UpdateBackups') -contains $topLevel
         if ($AllowProtectedState -and $protected) {
+            # Skip the hash (the user may have edited it) but never accept a missing shipped file.
+            if (-not (Test-Path -LiteralPath (Join-Path $root ($relative -replace '/', [IO.Path]::DirectorySeparatorChar)) -PathType Leaf)) {
+                throw "ChannelForge was installed but one of its required files is missing, so it may not work. Run Install ChannelForge.cmd again from the original package. Details: installed file is missing: $relative"
+            }
             continue
         }
         $path = Join-Path $root ($relative -replace '/', [IO.Path]::DirectorySeparatorChar)

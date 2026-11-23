@@ -66,17 +66,6 @@ foreach ($name in $applicationNames) {
     }
 }
 
-# Shipped data files are package-owned; the rest of data\ may hold user edits, so only prune empty folders.
-foreach ($relative in @('data\rules\aliases.json', 'data\lineup\numbering_blocks.json', 'data\rules', 'data\lineup', 'data')) {
-    $path = Join-Path $actualRoot $relative
-    $isShippedFile = $relative -like '*.json'
-    if (-not (Test-Path -LiteralPath $path)) { continue }
-    if (-not $isShippedFile -and @(Get-ChildItem -LiteralPath $path -Force).Count -gt 0) { continue }
-    if ($PSCmdlet.ShouldProcess($path, 'remove ChannelForge application files')) {
-        Remove-Item -LiteralPath $path -Force
-    }
-}
-
 if ($PurgeData) {
     $dataNames = @('state', 'config', 'data', 'output', 'cache', 'logs', 'UpdateBackups')
     foreach ($name in $dataNames) {

@@ -19,13 +19,14 @@ if ($destination -cne [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Chann
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $existingManifest = Join-Path $destination 'package-manifest.json'
 if (Test-Path -LiteralPath $existingManifest -PathType Leaf) {
-    $updater = Join-Path $destination 'tools/Invoke-ChannelForgeAutoUpdate.ps1'
+    # Use the NEW updater from the source bundle, not the installed (older) one: the old
+    # one may not know about newer files such as data\. Running from the bundle also lets
+    # it replace the installed runtime without locking its own DLLs.
+    $updater = Join-Path $package 'tools/Invoke-ChannelForgeAutoUpdate.ps1'
     $packageRuntime = Join-Path $package 'runtime/pwsh/pwsh.exe'
-    if (-not [IO.File]::Exists($updater) -or -not [IO.File]::Exists($packageRuntime)) { throw 'Existing ChannelForge installation is incomplete or the source bundle runtime is missing; refusing to overwrite it.' }
-    # Run from the extracted source bundle so the updater can replace the
-    # installed runtime without locking its own DLLs.
+    if (-not [IO.File]::Exists($updater) -or -not [IO.File]::Exists($packageRuntime)) { throw 'The install package is incomplete (its updater or runtime is missing), so nothing was changed. Download the package again and unzip it fully. Details: missing tools/Invoke-ChannelForgeAutoUpdate.ps1 or runtime/pwsh/pwsh.exe in the package.' }
     & $packageRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $updater -Apply -PackageRoot $package -InstallRoot $destination -SkipRestart:$SkipStart
-    if ($LASTEXITCODE -ne 0) { throw 'ChannelForge upgrade failed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'The upgrade did not finish, so your previous ChannelForge was put back. See the lines above for the reason, fix it, then run Install ChannelForge.cmd again. Details: the updater exited with a non-zero code.' }
 } else {
     Copy-ChannelForgeUpdatePackageContent -SourcePath $package -DestinationRoot $destination | Out-Null
     Test-ChannelForgeWindowsPackage -PackageRoot $destination -AllowProtectedState -AllowUnmanifestedFiles | Out-Null
