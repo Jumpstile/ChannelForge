@@ -86,9 +86,15 @@ if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
          if ($isRemote) {
              $row.Attempted = $true
              try {
-                 if ($null -eq $record -or [string]::IsNullOrWhiteSpace([string]$record.Url)) { throw 'Enrolled public source URL is unavailable.' }
+                 $credentialed = $null -ne $record -and $null -ne $record.PSObject.Properties['CredentialRef']
+                 if ($null -eq $record -or (-not $credentialed -and [string]::IsNullOrWhiteSpace([string]$record.Url))) { throw 'Enrolled public source URL is unavailable.' }
                  $maxBytes = if ([string]$record.Kind -eq 'M3U') { 4MB } else { 12MB }
-                 $bytes = Get-ChannelForgeRemoteSourceBytes -Kind ([string]$record.Kind) -Url ([string]$record.Url) -MaxBytes $maxBytes
+                 $bytes = if ($credentialed) {
+                     Get-ChannelForgeRemoteSourceBytes -Kind ([string]$record.Kind) -CredentialRef ([string]$record.CredentialRef) -DisplayHost ([string]$record.DisplayHost) -MaxBytes $maxBytes
+                 }
+                 else {
+                     Get-ChannelForgeRemoteSourceBytes -Kind ([string]$record.Kind) -Url ([string]$record.Url) -MaxBytes $maxBytes
+                 }
                  $hash = Get-ChannelForgeRefreshManagedSourceHash -Bytes $bytes
                  $same = -not [string]::IsNullOrWhiteSpace([string]$record.ContentHash) -and [string]$record.ContentHash -ceq $hash
                  if ($same) {
@@ -133,7 +139,7 @@ if (-not [string]::IsNullOrWhiteSpace($EnrollmentPath)) {
                  $row.Classification = if (-not [string]::IsNullOrWhiteSpace([string]$record.ContentHash)) { 'Degraded' } else { 'ReviewNeeded' }
                  $row.ReasonCode = if ($row.Classification -eq 'Degraded') { 'RefreshFailedLkgPreserved' } else { 'RefreshFailedNoLkg' }
                  $row.LastKnownGoodPreserved = -not [string]::IsNullOrWhiteSpace([string]$record.ContentHash)
-                 $row.SafeReason = if ($row.LastKnownGoodPreserved) { 'Public HTTPS refresh failed; the saved last-known-good snapshot and accepted state were preserved.' } else { 'Public HTTPS refresh failed and no saved snapshot was available.' }
+                 $row.SafeReason = if ($_.Exception.Data['ChannelForgeLoginFailure']) { [string]$_.Exception.Message } elseif ($row.LastKnownGoodPreserved) { 'Public HTTPS refresh failed; the saved last-known-good snapshot and accepted state were preserved.' } else { 'Public HTTPS refresh failed and no saved snapshot was available.' }
                 if (-not $row.LastKnownGoodPreserved) { $setBlocked = $true }
                  $sourceUpdates.Add([pscustomobject]@{ SourceId = [string]$record.SourceId; State = 'source-unavailable' }) | Out-Null
              }
