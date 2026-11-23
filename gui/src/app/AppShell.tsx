@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { CircleHelp, ShieldCheck } from 'lucide-react'
+import { HomeBackBar } from '../components/HomeBackBar'
 import { demoWorkspaceIdentity } from './workspaceIdentity'
 import type { NavigationId } from './navigation'
 import { SideNav } from '../components/SideNav'
@@ -9,11 +10,13 @@ import { TopBar } from '../components/TopBar'
 type AppShellProps = {
   activePage: NavigationId
   onNavigate: (page: NavigationId) => void
+  onHome: () => void
+  onBack: () => void
   navigationAvailability?: Partial<Record<NavigationId, boolean>>
   children: ReactNode
 }
 
-export function AppShell({ activePage, onNavigate, navigationAvailability, children }: AppShellProps) {
+export function AppShell({ activePage, onNavigate, onHome, onBack, navigationAvailability, children }: AppShellProps) {
   return (
     <div className="app-frame">
       <SideNav activePage={activePage} navigationAvailability={navigationAvailability} onNavigate={onNavigate} />
@@ -26,6 +29,7 @@ export function AppShell({ activePage, onNavigate, navigationAvailability, child
             </button>
           </div>
         </TopBar>
+        <HomeBackBar onHome={onHome} onBack={onBack} />
         <main className="main-content">{children}</main>
         <footer className="app-footer">
           <span className="privacy-note">

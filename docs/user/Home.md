@@ -14,6 +14,7 @@ ChannelForge turns provider playlists, guide data, and local rules into a determ
 - **I want to use ChannelForge with Plex.** → [Use ChannelForge with Plex](Use-With-Plex.md)
 - **I want to troubleshoot a problem.** → [Troubleshooting](TROUBLESHOOTING.md)
 - **I want to understand current limitations.** → [Current Limitations](CURRENT_LIMITATIONS.md)
+- **I want bigger text or a dark look.** -> [Appearance and Text Size](Appearance-And-Text-Size.md)
 
 ## More
 

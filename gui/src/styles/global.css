@@ -15,6 +15,8 @@ a { color: var(--cf-color-brand); }
 .app-content { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .main-content { width: min(100%, var(--cf-content-max-width)); flex: 1; margin: 0 auto; padding: var(--cf-space-10) var(--cf-space-12) var(--cf-space-8); }
 .app-footer { display: flex; justify-content: space-between; gap: var(--cf-space-4); padding: var(--cf-space-4) var(--cf-space-12); color: var(--cf-color-ink-subtle); font-size: var(--cf-font-size-small); }
+.home-back-bar { display: flex; gap: var(--cf-space-4); padding: var(--cf-space-4) var(--cf-space-12) 0; }
+.home-back-button { min-width: 8rem; min-height: calc(var(--cf-control-height) * 1.25); font-size: var(--cf-font-size-body); }
 .privacy-note { display: inline-flex; align-items: center; gap: var(--cf-space-2); }
 
 .top-bar { display: flex; align-items: center; justify-content: space-between; min-height: 4.5rem; padding: 0 var(--cf-space-8); border-bottom: 1px solid var(--cf-color-border); background: var(--cf-color-surface); }
