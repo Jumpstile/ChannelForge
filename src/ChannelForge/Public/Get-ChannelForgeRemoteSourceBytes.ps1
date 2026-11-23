@@ -5,6 +5,7 @@ function Get-ChannelForgeRemoteSourceBytes {
         [Parameter(Mandatory, ParameterSetName = 'Public')][string]$Url,
         [Parameter(Mandatory, ParameterSetName = 'Credentialed')][ValidatePattern('^[0-9a-f]{32}$')][string]$CredentialRef,
         [Parameter(Mandatory, ParameterSetName = 'Credentialed')][string]$DisplayHost,
+        [Parameter(ParameterSetName = 'Credentialed')][string]$CredentialRoot,
         [Parameter(Mandatory)][int]$MaxBytes
     )
 
@@ -21,7 +22,8 @@ function Get-ChannelForgeRemoteSourceBytes {
     }
     $link = $null
     try {
-        $secret = Read-ChannelForgeSourceSecret -RefId $CredentialRef
+        $rootArgs = if ($PSBoundParameters.ContainsKey('CredentialRoot')) { @{ CredentialRoot = $CredentialRoot } } else { @{} }
+        $secret = Read-ChannelForgeSourceSecret -RefId $CredentialRef @rootArgs
         if (-not $secret.Success) { & $fail }
         $link = [System.Net.NetworkCredential]::new('', $secret.Secret).Password
         return Read-ChannelForgeGuidedSetupRemoteBytes -Kind $Kind -Url $link -MaxBytes $MaxBytes

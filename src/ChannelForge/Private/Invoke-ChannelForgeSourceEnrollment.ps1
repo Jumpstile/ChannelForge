@@ -490,10 +490,12 @@ function Write-ChannelForgeSourceSet {
             $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
             $byteLength = $bytes.Length
             $refreshState = 'up-to-date'
-        } elseif (-not $credentialed) {
-            $url = [string]$descriptor.Url
-            $parsed = $null
-            if (-not (Test-ChannelForgeSourceUrl -Url $url) -or -not [Uri]::TryCreate($url,[UriKind]::Absolute,[ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.UserInfo) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source must be a non-tokenized URL.' }
+        } else {
+            if (-not $credentialed) {
+                $url = [string]$descriptor.Url
+                $parsed = $null
+                if (-not (Test-ChannelForgeSourceUrl -Url $url) -or -not [Uri]::TryCreate($url,[UriKind]::Absolute,[ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.UserInfo) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source must be a non-tokenized URL.' }
+            }
             $descriptorProperties = @($descriptor.PSObject.Properties.Name)
             $bytes = if ($descriptorProperties -contains 'Bytes') { [byte[]]$descriptor.Bytes } else { $null }
             if ($null -ne $bytes) {
