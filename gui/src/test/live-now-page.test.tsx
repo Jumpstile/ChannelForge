@@ -112,7 +112,7 @@ describe('Live Now page', () => {
     const fetchItems = vi.fn<OneGuideFetcher>().mockResolvedValueOnce(null).mockResolvedValueOnce([first])
     render(<LiveNowPage fetchItems={fetchItems} />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Live Now is unavailable')
+    expect(await screen.findByRole('alert')).toHaveTextContent('ChannelForge could not load Live Now')
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('button', { name: /Evening News/ })).toBeVisible()
     expect(fetchItems).toHaveBeenCalledTimes(2)

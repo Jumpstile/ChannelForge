@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
 import { fetchLineupPage } from '../app/lineup'
 import type { LineupChannel, LineupFetcher, LineupProgramme } from '../app/lineup'
+import { loadFailedMessage } from '../app/friendlyError'
+import { ErrorNotice } from '../components/ErrorNotice'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 
@@ -101,13 +103,12 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
     <div className="page-stack lineup-screen">
       <PageHeader eyebrow="Decide" title="Your channel lineup" description="The channels you saved, in the order they were saved. This page only shows them." />
       {view === undefined ? <p role="status">Loading your channels…</p> :
-        view === null ? <section className="empty-state" role="alert">
-          <h2>Your channels could not be loaded</h2>
-          <p>Make sure ChannelForge is running and that you have saved a lineup. Then try again.</p>
+        view === null ? <section className="empty-state">
           <div className="empty-state-action">
             <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Try again</button>
             {setupButton}
           </div>
+          <ErrorNotice message={loadFailedMessage('your channels', 'lineup-load-failed', 'Make sure ChannelForge is running and that you have saved a lineup. Then try again.')} />
         </section> : view.total === 0 ? <EmptyState title="No channels saved yet" action={setupButton}>Set up a playlist and save your lineup. Your channels will show up here.</EmptyState> : <>
           <p role="status" aria-live="polite">Showing {view.channels.length} of {view.total} channels</p>
           <ul className="lineup-channel-list" aria-label="Channels in your lineup">
@@ -121,7 +122,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
               </li>
             })}
           </ul>
-          {moreFailed && <p role="alert">More channels could not be loaded. Try again.</p>}
+          {moreFailed && <ErrorNotice message={loadFailedMessage('more channels', 'lineup-more-failed', 'Press Show more channels to try again.')} />}
           {view.channels.length < view.total && <button className="button button-secondary" type="button" disabled={loadingMore} onClick={() => { void showMore() }}>{loadingMore ? 'Loading…' : 'Show more channels'}</button>}
           <button className="button button-secondary" type="button" disabled={loadingMore} onClick={() => { void printSummary() }}><Printer size={18} aria-hidden="true" /> Print summary</button>
         </>}
