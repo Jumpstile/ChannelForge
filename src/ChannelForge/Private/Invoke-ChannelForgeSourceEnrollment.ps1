@@ -120,6 +120,18 @@ function Assert-ChannelForgeSourceSetHygiene {
     if ($bytes -gt $limits.MaxAggregateSourceBytes) { throw 'FAIL_CLOSED: source enrollment exceeds the total size limit.' }
 }
 
+function Assert-ChannelForgeSourceCredentialFields {
+    # A credentialed source keeps a random ref and scheme+host only. Never the link. Url must be null.
+    param([Parameter(Mandatory)]$Source)
+    $names = if ($Source -is [System.Collections.IDictionary]) { @($Source.Keys) } else { @($Source.PSObject.Properties.Name) }
+    if ($names -notcontains 'CredentialRef' -and $names -notcontains 'DisplayHost') { return }
+    $hasUrl = $names -contains 'Url' -and -not [string]::IsNullOrEmpty([string]$Source.Url)
+    if ($names -notcontains 'CredentialRef' -or $names -notcontains 'DisplayHost' -or [string]$Source.SourceKind -cne 'public-https' -or $hasUrl `
+        -or [string]$Source.CredentialRef -cnotmatch '^[0-9a-f]{32}$' -or [string]$Source.DisplayHost -cnotmatch '^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$') {
+        throw 'FAIL_CLOSED: source enrollment credential fields are invalid.'
+    }
+}
+
 function Assert-ChannelForgeSourceEnrollmentV2Integrity {
     param([Parameter(Mandatory)]$Record)
     $playlists = @($Record.Playlists)
@@ -128,6 +140,7 @@ function Assert-ChannelForgeSourceEnrollmentV2Integrity {
     $sourceIds = @($allSources | ForEach-Object { [string]$_.SourceId })
     if ($sourceIds.Count -ne @($sourceIds | Sort-Object -Unique).Count) { throw 'FAIL_CLOSED: source enrollment contains duplicate source identity.' }
     if (@($playlists | Where-Object { [string]$_.Kind -cne 'M3U' }).Count -gt 0 -or @($guides | Where-Object { [string]$_.Kind -cne 'XMLTV' }).Count -gt 0) { throw 'FAIL_CLOSED: source enrollment collection kind is invalid.' }
+    foreach ($source in $allSources) { Assert-ChannelForgeSourceCredentialFields -Source $source }
     $playlistIds = @($playlists | ForEach-Object SourceId)
     $guideIds = @($guides | ForEach-Object SourceId)
     $bindingIds = @($Record.Bindings | ForEach-Object { [string]$_.BindingId })
@@ -220,7 +233,7 @@ function Read-ChannelForgeSourceEnrollmentRecord {
     if (@($record.Playlists).Count -eq 0 -or @($record.Playlists | Where-Object { [string]$_.Kind -ne 'M3U' })) { throw 'FAIL_CLOSED: source enrollment playlist records are invalid.' }
     foreach ($source in @($record.Playlists) + @($record.Guides)) {
         if ([string]$source.SourceId -notmatch '^[0-9a-f]{64}$' -or [string]$source.SourceKind -notin @('managed-file','public-https')) { throw 'FAIL_CLOSED: source enrollment source record is invalid.' }
-        if ([string]$source.SourceKind -eq 'public-https') {
+        if ([string]$source.SourceKind -eq 'public-https' -and $null -eq $source.PSObject.Properties['CredentialRef']) {
             $parsed = $null
             if (-not (Test-ChannelForgeSourceUrl -Url ([string]$source.Url)) -or -not [Uri]::TryCreate([string]$source.Url,[UriKind]::Absolute,[ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.UserInfo) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) { throw 'FAIL_CLOSED: source enrollment public URL is not trusted.' }
         }
@@ -456,7 +469,11 @@ function Write-ChannelForgeSourceSet {
         if ($kind -notin @('M3U','XMLTV')) { throw 'SOURCE_ENROLLMENT_INVALID: source kind is unsupported.' }
         $sourceKind = [string]$descriptor.SourceKind
         if ($sourceKind -notin @('managed-file','public-https')) { throw 'SOURCE_ENROLLMENT_INVALID: source storage kind is unsupported.' }
-        $key = [string]$descriptor.SourceKey
+        $credentialed = $null -ne $descriptor.PSObject.Properties['CredentialRef'] -or $null -ne $descriptor.PSObject.Properties['DisplayHost']
+        if ($credentialed) {
+            Assert-ChannelForgeSourceCredentialFields -Source $descriptor
+            $key = "$([string]$descriptor.DisplayHost)|$([string]$descriptor.CredentialRef)"
+        } else { $key = [string]$descriptor.SourceKey }
         if ([string]::IsNullOrWhiteSpace($key)) { $key = "$kind|$([string]$descriptor.Label)|$sourceKind" }
         $storedId = if ($null -ne $descriptor.PSObject.Properties['SourceId']) { [string]$descriptor.SourceId } else { '' }
         $id = if ([string]::IsNullOrWhiteSpace($storedId)) { Get-ChannelForgeSourceSetSourceId -Kind $kind -SourceKind $sourceKind -SourceKey $key } else { $storedId }
@@ -473,7 +490,7 @@ function Write-ChannelForgeSourceSet {
             $contentHash = Get-ChannelForgeSourceEnrollmentSourceHash -Bytes $bytes
             $byteLength = $bytes.Length
             $refreshState = 'up-to-date'
-        } else {
+        } elseif (-not $credentialed) {
             $url = [string]$descriptor.Url
             $parsed = $null
             if (-not (Test-ChannelForgeSourceUrl -Url $url) -or -not [Uri]::TryCreate($url,[UriKind]::Absolute,[ref]$parsed) -or -not [string]::IsNullOrEmpty($parsed.UserInfo) -or -not [string]::IsNullOrEmpty($parsed.Query) -or -not [string]::IsNullOrEmpty($parsed.Fragment)) { throw 'SOURCE_ENROLLMENT_INVALID: public HTTPS source must be a non-tokenized URL.' }
@@ -488,13 +505,15 @@ function Write-ChannelForgeSourceSet {
                 $refreshState = 'up-to-date'
             }
         }
-        return [ordered]@{
+        $out = [ordered]@{
             SourceId = $id; Kind = $kind; Format = if ($kind -eq 'M3U') { 'm3u' } else { 'xmltv' }; Label = if ([string]::IsNullOrWhiteSpace([string]$descriptor.Label)) { "$kind source" } else { [string]$descriptor.Label }
             SourceKind = $sourceKind; Enabled = if ($null -eq $descriptor.Enabled) { $true } else { [bool]$descriptor.Enabled }; Present = ($null -ne $contentHash); Priority = if ($null -eq $descriptor.Priority) { 100 } else { [int]$descriptor.Priority }; OrderKey = $id
             ManagedPath = $managedPath; Url = $url; ContentHash = $contentHash; ByteLength = $byteLength
             Provenance = if ($null -eq $descriptor.Provenance) { [ordered]@{ Origin = 'source-set-v2' } } else { $descriptor.Provenance }
             Refresh = [ordered]@{ State = $refreshState; LastValidatedAtUtc = $now; CacheKey = $null; ETag = $null; LastModified = $null }
         }
+        if ($credentialed) { $out.CredentialRef = [string]$descriptor.CredentialRef; $out.DisplayHost = [string]$descriptor.DisplayHost }
+        return $out
     }
     $playlists = @(); $i = 0; foreach ($source in $PlaylistSources) { $playlists += & $makeSource $source $i; $i++ }
     if (@($playlists).Count -eq 0) { throw 'SOURCE_ENROLLMENT_INVALID: at least one playlist is required.' }
