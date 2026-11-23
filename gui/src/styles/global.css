@@ -230,3 +230,8 @@ a { color: var(--cf-color-brand); }
 .live-now-back { display: inline-flex; width: fit-content; min-height: 3rem; align-items: center; gap: var(--cf-space-2); padding: 0 var(--cf-space-3); border: 1px solid var(--cf-color-border-strong); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); color: var(--cf-color-brand); font-size: 1.15rem; font-weight: var(--cf-font-weight-semibold); }
 .live-now-detail-note { padding-top: var(--cf-space-3); border-top: 1px solid var(--cf-color-border); }
 @media (max-width: 840px) { .live-now-list { grid-template-columns: 1fr; } }
+.glossary-search { display: grid; gap: var(--cf-space-2); max-width: 28rem; }
+.glossary-search input { padding: var(--cf-space-2) var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-sm); background: var(--cf-color-surface); color: var(--cf-color-ink); }
+.glossary-list { display: grid; gap: var(--cf-space-4); margin: 0; }
+.glossary-list dt { font-weight: var(--cf-font-weight-semibold); }
+.glossary-list dd { margin: 0; }
