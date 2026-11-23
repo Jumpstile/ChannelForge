@@ -141,13 +141,13 @@ describe('remove one saved source', () => {
   })
 
   it('shows a plain message and keeps the source when the remove fails', async () => {
-    const removeSource = vi.fn().mockResolvedValue({ ok: false, message: 'The source could not be removed. Your saved sources were not changed.' })
+    const removeSource = vi.fn().mockResolvedValue({ ok: false, message: 'ChannelForge could not confirm that the source was removed. Refresh the status to see what is saved before trying again.' })
     render(<StatusDashboard fetchStatus={vi.fn().mockResolvedValue(twoSources)} removeSource={removeSource} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Remove Backup playlist' }))
     await userEvent.click(screen.getByRole('button', { name: 'Yes, remove this source' }))
 
-    expect(await screen.findByText(/could not be removed/)).toBeInTheDocument()
+    expect(await screen.findByText(/could not confirm/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Backup playlist' })).toBeInTheDocument()
   })
 

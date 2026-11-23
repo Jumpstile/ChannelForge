@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNowItem, fetchOneGuideCategory } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
+import { loadFailedMessage } from '../app/friendlyError'
+import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 import { focusActiveNavItem } from '../components/SideNav'
 
@@ -106,14 +108,14 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
     <div className="page-stack live-now-page category-page">
       <PageHeader eyebrow="One Guide" title="Wrestling" description="Browse wrestling from your accepted guide by when it airs." />
       {items === undefined ? <p className="live-now-message" role="status">Loading Wrestling…</p> :
-        items === null ? <section className="live-now-message live-now-error" role="alert">
-          <h2>Wrestling is unavailable</h2><p>The guide could not be loaded. Check that ChannelForge is running, then try again.</p>
+        items === null ? <section className="live-now-message live-now-error">
           <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)} onKeyDown={(event) => {
             if (event.key === 'ArrowLeft') {
               event.preventDefault()
               focusActiveNavItem()
             }
           }}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
+          <ErrorNotice message={loadFailedMessage('Wrestling', 'wrestling-load-failed')} />
         </section> : visibleItems.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>No wrestling programmes are coming up</h2><p>Your accepted guide has no current or future Wrestling programmes.</p>
         </section> : <>
@@ -141,7 +143,7 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
             </section>
           })}
         </>}
-      {detailError && <p className="live-now-inline-error" role="alert">Details are unavailable right now. Choose the programme again to retry.</p>}
+      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'wrestling-detail-failed', 'Choose the program again to retry.')} />}
       {selected && <div className="live-now-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetails() }}>
         <section className="live-now-dialog" role="dialog" aria-modal="true" aria-labelledby="wrestling-detail-title">
           <button ref={detailBackRef} className="live-now-back" type="button" onClick={closeDetails}><ArrowLeft size={20} aria-hidden="true" /> Back</button>

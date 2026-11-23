@@ -117,7 +117,7 @@ test('shows a focused safe error and retains loaded playlists after Analyze fail
   await page.getByRole('button', { name: 'Analyze source set' }).click()
 
   const error = page.getByRole('alert')
-  await expect(error).toContainText('ChannelForge is missing required analysis data.')
+  await expect(error).toContainText('ChannelForge is missing some of its own files')
   await expect(error).toBeVisible()
   await expect(error).toBeInViewport()
   await expect(error).toBeFocused()

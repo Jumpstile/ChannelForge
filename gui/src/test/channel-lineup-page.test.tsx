@@ -41,7 +41,7 @@ describe('Channel lineup page', () => {
     const user = userEvent.setup()
     const fetchPage = vi.fn<LineupFetcher>().mockResolvedValueOnce(null).mockResolvedValueOnce({ generation: 'g', total: 1, items: [channel(1)] })
     render(<ChannelLineupPage fetchPage={fetchPage} onOpenSetup={() => {}} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Your channels could not be loaded')
+    expect(await screen.findByRole('alert')).toHaveTextContent('ChannelForge could not load your channels')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Test Channel 1')).toBeVisible()
   })
