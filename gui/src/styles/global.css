@@ -235,3 +235,6 @@ a { color: var(--cf-color-brand); }
 .glossary-list { display: grid; gap: var(--cf-space-4); margin: 0; }
 .glossary-list dt { font-weight: var(--cf-font-weight-semibold); }
 .glossary-list dd { margin: 0; }
+.appearance-control { display: flex; gap: var(--cf-space-3); margin: 0; padding: 0; border: 0; color: var(--cf-color-ink); }
+.appearance-control legend { float: left; margin-right: var(--cf-space-3); color: var(--cf-color-ink-muted); }
+.appearance-control label { display: inline-flex; align-items: center; gap: var(--cf-space-2); min-height: var(--cf-touch-target-min); }

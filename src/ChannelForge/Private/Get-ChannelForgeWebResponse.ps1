@@ -308,6 +308,10 @@ function Get-ChannelForgeWebResponse {
         return Get-ChannelForgeWebOneGuideResponse @oneGuideArguments -Query Details -ItemId $itemId.ToLowerInvariant()
     }
 
+    if ($requestPath -ieq '/api/lineup/channels') {
+        return Get-ChannelForgeWebLineupResponse -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $contentType -QueryString $requestQuery
+    }
+
     switch ($requestPath.ToLowerInvariant()) {
         '/' {
             $staticResponse = Get-ChannelForgeWebStaticFileResponse -Path '/index.html' -StaticRoot $staticRoot -RepositoryRoot $RepositoryRoot -Headers $staticHeaders
