@@ -17,6 +17,7 @@ import {
   type SetupMatcher,
   type SetupPicker,
 } from './app/setupSelection'
+import { ChannelLineupPage } from './pages/ChannelLineupPage'
 import { GlossaryPage } from './pages/GlossaryPage'
 import { GuidedSetupPage } from './pages/GuidedSetupPage'
 import { LineupReviewPage } from './pages/LineupReviewPage'
@@ -76,6 +77,8 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
         <LiveNowPage />
       ) : activePage === 'wrestling' ? (
         <OneGuideCategoryPage />
+      ) : activePage === 'channels' ? (
+        <ChannelLineupPage onOpenSetup={() => setActivePage('setup')} />
       ) : activePage === 'learn' ? (
         <GlossaryPage />
       ) : activePage === 'setup' ? (
