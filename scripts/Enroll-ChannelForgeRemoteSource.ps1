@@ -77,15 +77,34 @@ if (-not $check.Success) {
     throw "The saved login for $displayHost could not be read back ($($check.Category)). $(if ($cleaned) { 'The new login file was removed.' } else { 'The new login file could not be removed.' }) Nothing was enrolled."
 }
 
+# First snapshot: one full download through the saved login (same limits and transport as the refresh). Skipped with -SkipProbe.
+$snapshotBytes = $null
+if (-not $SkipProbe) {
+    try {
+        $snapshotBytes = [byte[]](& $module {
+            param($Kind, $Ref, $DisplayHost, $Args2)
+            $limits = Get-ChannelForgeWebProposalLimits
+            $max = if ($Kind -eq 'M3U') { $limits.MaxM3UBytes } else { $limits.MaxXMLTVBytes }
+            Get-ChannelForgeRemoteSourceBytes -Kind $Kind -CredentialRef $Ref -DisplayHost $DisplayHost -MaxBytes $max @Args2
+        } $Kind $refId $displayHost $rootArgs)
+    }
+    catch {
+        $cleaned = Remove-NewSecret -RefId $refId
+        throw "The full download for $displayHost failed. $(if ($cleaned) { 'The new login file was removed.' } else { 'The new login file could not be removed.' }) Nothing was enrolled."
+    }
+}
+
 try {
     & $module {
-        param($Kind, $Ref, $DisplayHost, $Label, $Root)
-        Add-ChannelForgeCredentialedSourceSetSource -Kind $Kind -CredentialRef $Ref -DisplayHost $DisplayHost -Label $Label -RepositoryRoot $Root
-    } $Kind $refId $displayHost $Label $RepositoryRoot
+        param($Kind, $Ref, $DisplayHost, $Label, $Bytes, $Root)
+        Add-ChannelForgeCredentialedSourceSetSource -Kind $Kind -CredentialRef $Ref -DisplayHost $DisplayHost -Label $Label -Bytes $Bytes -RepositoryRoot $Root
+    } $Kind $refId $displayHost $Label $snapshotBytes $RepositoryRoot
 }
 catch {
     $cleaned = Remove-NewSecret -RefId $refId
-    throw "The source record for $displayHost could not be written. $(if ($cleaned) { 'The new login file was removed.' } else { 'The new login file could not be removed.' }) Nothing was enrolled."
+    throw "The source record for $displayHost could not be written. $(if ($cleaned) { 'The new login file and any new snapshot were removed.' } else { 'The new login file could not be removed.' }) Nothing was enrolled."
 }
 
 Write-Host "Enrolled $Kind source at $displayHost. The login is saved encrypted for this Windows user only."
+if ($SkipProbe) { Write-Host 'No snapshot was saved. The first refresh will create it.' }
+else { Write-Host 'The first snapshot was saved.' }
