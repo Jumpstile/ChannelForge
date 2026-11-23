@@ -54,6 +54,7 @@ function Get-ChannelForgeSourceSetEditBase {
             Label = [string]$record.Label; Priority = [int]$record.Priority; Enabled = [bool]$record.Enabled
             Provenance = $record.Provenance; Url = $record.Url; ManagedPath = [string]$record.ManagedPath; ContentHash = [string]$record.ContentHash
         }
+        if ($null -ne $record.PSObject.Properties['CredentialRef']) { $source.CredentialRef = [string]$record.CredentialRef; $source.DisplayHost = [string]$record.DisplayHost }
         if (-not [string]::IsNullOrWhiteSpace($source.ManagedPath)) {
             $path = Assert-ChannelForgeSourceEnrollmentPath -Path (Join-Path $paths.RepositoryRoot ($source.ManagedPath -replace '/', '\')) -AllowedRoot $paths.ManagedSourceRoot
             $source.Bytes = [System.IO.File]::ReadAllBytes($path)

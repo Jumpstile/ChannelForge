@@ -103,7 +103,12 @@
         },
         "ByteLength": { "type": ["integer", "null"], "minimum": 0 },
         "Provenance": { "type": "object" },
-        "Refresh": { "type": "object", "additionalProperties": true }
+        "Refresh": { "type": "object", "additionalProperties": true },
+        "CredentialRef": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "DisplayHost": {
+          "type": "string",
+          "pattern": "^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$"
+        }
       }
     },
     "binding": {

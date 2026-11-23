@@ -389,4 +389,53 @@ Describe 'durable source enrollment' {
         Test-Path -LiteralPath $input.M3UPath -PathType Leaf | Should -BeTrue
         $saved.Playlists[0].Url | Should -Be 'https://example.invalid/playlist.m3u'
     }
+
+    Context 'credentialed source record fields' {
+        BeforeEach {
+            $script:Ref = '0123456789abcdef0123456789abcdef'
+            function Save-Credentialed {
+                param([string]$Ref = $script:Ref, [string]$DisplayHost = 'https://tv.example.invalid', [string]$Url = $null, [string]$Secret = 'demo-not-real-1')
+                $descriptor = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; Label = 'Credentialed'; Url = $Url; CredentialRef = $Ref; DisplayHost = $DisplayHost; Secret = $Secret }
+                & (Get-Module ChannelForge) { param($Root, $D) Write-ChannelForgeSourceSet -RepositoryRoot $Root -PlaylistSources @($D) } $script:Project $descriptor
+            }
+        }
+        It 'keeps an old record without the fields valid and unchanged' {
+            $local = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'managed-file'; SourceKey = 'local'; Label = 'Local'; Bytes = $script:M3U }
+            $saved = & (Get-Module ChannelForge) { param($Root, $P) Write-ChannelForgeSourceSet -RepositoryRoot $Root -PlaylistSources @($P) } $script:Project $local
+            $loaded = & (Get-Module ChannelForge) { param($Root) Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $Root } $script:Project
+            $loaded.EnrollmentHash | Should -Be $saved.EnrollmentHash
+            $loaded.Playlists[0].PSObject.Properties.Name | Should -Not -Contain 'CredentialRef'
+            $loaded.Playlists[0].PSObject.Properties.Name | Should -Not -Contain 'DisplayHost'
+        }
+        It 'saves a credentialed source with no link and no secret in the state file' {
+            Save-Credentialed | Out-Null
+            $path = Join-Path $script:Project 'state/source-enrollment.json'
+            $loaded = & (Get-Module ChannelForge) { param($Root) Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $Root } $script:Project
+            Test-Json -Path $path -SchemaFile (Join-Path $script:Root 'schemas/source-enrollment.schema.json') | Should -BeTrue
+            $loaded.Playlists[0].CredentialRef | Should -Be $script:Ref
+            $loaded.Playlists[0].DisplayHost | Should -Be 'https://tv.example.invalid'
+            $loaded.Playlists[0].Url | Should -BeNullOrEmpty
+            (Get-Content -LiteralPath $path -Raw) | Should -Not -Match 'demo-not-real'
+        }
+        It 'keeps the source id when only the secret changes' {
+            $a = Save-Credentialed -Secret 'demo-not-real-1'
+            $b = Save-Credentialed -Secret 'demo-not-real-2'
+            $b.Playlists[0].SourceId | Should -Be $a.Playlists[0].SourceId
+        }
+        It 'rejects a bad ref' {
+            { Save-Credentialed -Ref 'ABCDEF0123456789abcdef0123456789' } | Should -Throw '*credential fields*'
+            { Save-Credentialed -Ref 'abc' } | Should -Throw '*credential fields*'
+        }
+        It 'rejects a display host with a path, query, user info or fragment' {
+            foreach ($bad in @('https://tv.example.invalid/live', 'https://tv.example.invalid?x=demo', 'https://demo@tv.example.invalid', 'https://tv.example.invalid#f')) {
+                { Save-Credentialed -DisplayHost $bad } | Should -Throw '*credential fields*'
+            }
+        }
+        It 'still rejects a plain link with a query or user info' {
+            foreach ($bad in @('https://example.invalid/a.m3u?token=demo-not-real', 'https://demo:pw@example.invalid/a.m3u')) {
+                $descriptor = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'public-https'; SourceKey = 'plain'; Label = 'Plain'; Url = $bad }
+                { & (Get-Module ChannelForge) { param($Root, $D) Write-ChannelForgeSourceSet -RepositoryRoot $Root -PlaylistSources @($D) } $script:Project $descriptor } | Should -Throw '*non-tokenized*'
+            }
+        }
+    }
 }
