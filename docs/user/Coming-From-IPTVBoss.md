@@ -57,7 +57,7 @@ ChannelForge is **Early Alpha**. It does not need IPTVBoss to run. It does not c
 ## Not in ChannelForge yet
 
 - A web screen to manage all this comes with Milestone 3.
-- ChannelForge does not play channels.
+- ChannelForge does not play channels yet. Playback is planned.
 - ChannelForge does not write catch-up (replay) settings.
 
 ## Stuck?
