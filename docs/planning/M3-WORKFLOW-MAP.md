@@ -6,8 +6,8 @@ ADR-0006 asks for personas, journeys, task flows, a safety model, a feedback mod
 
 ## Ground rules (owner decisions in force)
 
-- ChannelForge makes guides and playlists. It is not an on-screen guide for end viewers. The UI is a local review UI for the person who builds the lineup.
-- The UI runs on this computer only (loopback, ADR-0016). It serves files from `gui\dist` only.
+- ChannelForge is a client/server system. It builds guides and playlists for Plex and other IPTV viewers, and that must keep working on its own. The set-top-box part (browse and start playback) is optional and builds on top. Today only the review UI for the person who builds the lineup exists.
+- Today the UI runs on this computer only (loopback, ADR-0016). Server mode needs a login design and an ADR amendment first. It serves files from `gui\dist` only.
 - Secrets and logins never appear in the UI. A credentialed source shows its host only.
 - Frozen contracts do not change (guide-id contract v1.0, the `guide: null` marker, no dropped channels). The UI never changes M3U, XMLTV or accepted-state bytes.
 - Nothing is accepted automatically. Only the user's explicit Save changes accepted state.

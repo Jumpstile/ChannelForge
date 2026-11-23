@@ -10,7 +10,7 @@ A beginner who has accepted a lineup cannot see it in the browser. No route list
 
 ## Scope decision
 
-Owner decision in force for Milestone 3: view and explain only. ChannelForge makes guides and playlists. It is not an on-screen guide for end viewers. The workspace is a local review page for the person who builds the lineup. A view-only page passes the issue's guardrail ("does it reduce effort, without a second system of record"). An editor needs a written yes from the owner.
+Owner decision (Nov 23): ChannelForge is a complete set-top-box type system (guide, browse, start playback) on a client/server design, and editing is planned as well as viewing. The set-top-box part is optional: ChannelForge must also work on its own as a builder of guides and playlists for Plex and other IPTV viewers. The first slices are view and explain only. The workspace is a review page for the person who builds the lineup. A view-only page passes the issue's guardrail ("does it reduce effort, without a second system of record"). An editor needs a design note and an ADR for pending changes and rollback before any code.
 
 ## What the browser may ask for
 
