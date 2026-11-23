@@ -72,6 +72,7 @@
   --cf-content-max-width: 75rem;
   --cf-control-height: 2.75rem;
   --cf-touch-target-min: 2.75rem;
+  --cf-root-font-size: 100%;
 }
 
 [data-theme="dark"] {
@@ -110,4 +111,14 @@
   --cf-color-brand-wash-strong: #26305a;
   --cf-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4);
   --cf-shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.6);
+}
+
+:root[data-text-size="large"] {
+  --cf-root-font-size: 125%;
+  --cf-focus-width: 4px;
+}
+
+:root[data-text-size="extra-large"] {
+  --cf-root-font-size: 150%;
+  --cf-focus-width: 5px;
 }

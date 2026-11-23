@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { AppearanceControl } from './AppearanceControl'
+import { TextSizeControl } from './TextSizeControl'
 
 export function TopBar({ children }: { children: ReactNode }) {
   return (
@@ -11,6 +12,7 @@ export function TopBar({ children }: { children: ReactNode }) {
       <div className="top-bar-content">
         {children}
         <AppearanceControl />
+        <TextSizeControl />
       </div>
     </header>
   )
