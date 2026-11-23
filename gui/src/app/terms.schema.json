@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChannelForge terms registry",
+  "type": "object",
+  "required": ["terms"],
+  "additionalProperties": false,
+  "properties": {
+    "terms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "short", "longer", "confusedWith"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "short": {
+            "type": "string",
+            "minLength": 1
+          },
+          "longer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "confusedWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

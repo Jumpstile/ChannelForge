@@ -1,0 +1,193 @@
+{
+  "terms": [
+    {
+      "id": "iptv",
+      "label": "IPTV",
+      "short": "TV delivered over the internet instead of an antenna or cable box.",
+      "longer": "ChannelForge does not supply TV. It organizes playlists and guides you already have.",
+      "confusedWith": []
+    },
+    {
+      "id": "provider",
+      "label": "Provider",
+      "short": "The company or service that gives you channels.",
+      "longer": "One provider can give you several sources, such as a playlist and a guide.",
+      "confusedWith": ["source"]
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "short": "One playlist or guide input, from a provider or a local file.",
+      "longer": "A source is a single file or address. A provider is who it came from.",
+      "confusedWith": ["provider"]
+    },
+    {
+      "id": "m3u-playlist",
+      "label": "M3U playlist",
+      "short": "A file or address listing channel names and where to stream each one.",
+      "longer": "It has no schedule. The schedule comes from the guide.",
+      "confusedWith": ["xmltv-guide"]
+    },
+    {
+      "id": "stream-url",
+      "label": "Stream URL",
+      "short": "The web address a player opens to play one channel.",
+      "longer": "Treat it as private. It may carry your login, so ChannelForge never shows it.",
+      "confusedWith": ["channel"]
+    },
+    {
+      "id": "channel",
+      "label": "Channel",
+      "short": "A named TV channel, such as a news or sports channel.",
+      "longer": "A channel is what you pick. A stream is the video that plays when you pick it.",
+      "confusedWith": ["stream-url"]
+    },
+    {
+      "id": "channel-id",
+      "label": "Channel ID",
+      "short": "A short name that marks one channel so a guide can match it.",
+      "longer": "The playlist and the guide must use the same ID for the match to work.",
+      "confusedWith": ["tvg-id"]
+    },
+    {
+      "id": "tvg-id",
+      "label": "tvg-id",
+      "short": "The channel ID field inside an M3U playlist line.",
+      "longer": "It is the playlist side of the match. The guide side is the channel ID in the XMLTV file.",
+      "confusedWith": ["channel-id"]
+    },
+    {
+      "id": "group",
+      "label": "Group",
+      "short": "A label that sorts channels into sets, such as News or Sports.",
+      "longer": "Groups only organize the list. They do not change what plays.",
+      "confusedWith": []
+    },
+    {
+      "id": "xmltv-guide",
+      "label": "XMLTV guide",
+      "short": "Schedule data that says what is playing on each channel and when.",
+      "longer": "It is a file in the XMLTV format. It has schedules, not video.",
+      "confusedWith": ["m3u-playlist", "epg"]
+    },
+    {
+      "id": "epg",
+      "label": "EPG",
+      "short": "Electronic program guide: the on-screen schedule in a player.",
+      "longer": "The EPG is what you see. XMLTV is a common file that feeds it.",
+      "confusedWith": ["xmltv-guide"]
+    },
+    {
+      "id": "programme",
+      "label": "Programme",
+      "short": "One show or event in the guide, with a start and an end time.",
+      "longer": "The guide spells it programme, so ChannelForge uses that word for guide entries.",
+      "confusedWith": []
+    },
+    {
+      "id": "timeshift",
+      "label": "Timeshift",
+      "short": "Pausing or rewinding live TV.",
+      "longer": "It needs support from the provider or player. It is not the same as buffering.",
+      "confusedWith": ["buffering"]
+    },
+    {
+      "id": "catch-up",
+      "label": "Catch-up",
+      "short": "Watching a show that already aired.",
+      "longer": "Only some providers offer it, and only for a limited time.",
+      "confusedWith": ["timeshift"]
+    },
+    {
+      "id": "proxy",
+      "label": "Proxy",
+      "short": "A middle step that passes streams along instead of sending you straight to the provider.",
+      "longer": "It can hide the provider address, but it adds a step that can fail.",
+      "confusedWith": []
+    },
+    {
+      "id": "buffering",
+      "label": "Buffering",
+      "short": "Video that stops while the player loads more data.",
+      "longer": "It is a short wait for data. It is not rewind or pause.",
+      "confusedWith": ["timeshift"]
+    },
+    {
+      "id": "bitrate",
+      "label": "Bitrate",
+      "short": "How much data per second a video uses.",
+      "longer": "A higher bitrate can look better but needs a faster connection.",
+      "confusedWith": []
+    },
+    {
+      "id": "codec",
+      "label": "Codec",
+      "short": "The method used to shrink video or audio so it can be sent.",
+      "longer": "Common ones are H.264 and AAC. A player must understand the codec to play it.",
+      "confusedWith": ["container"]
+    },
+    {
+      "id": "container",
+      "label": "Container",
+      "short": "The file or stream wrapper that holds video and audio together.",
+      "longer": "Examples are MP4 and MPEG-TS. The container is not the codec.",
+      "confusedWith": ["codec"]
+    },
+    {
+      "id": "transcoding",
+      "label": "Transcoding",
+      "short": "Converting video to a new format so a device can play it.",
+      "longer": "It uses a lot of computer power and can lower quality.",
+      "confusedWith": ["remuxing", "direct-play"]
+    },
+    {
+      "id": "remuxing",
+      "label": "Remuxing",
+      "short": "Moving video into a new container without changing the video itself.",
+      "longer": "It is fast and keeps quality, unlike transcoding.",
+      "confusedWith": ["transcoding"]
+    },
+    {
+      "id": "direct-play",
+      "label": "Direct play",
+      "short": "Playing a stream as it is, with no conversion.",
+      "longer": "It is the lightest option, but the device must support the format.",
+      "confusedWith": ["transcoding"]
+    },
+    {
+      "id": "resolution",
+      "label": "Resolution",
+      "short": "The picture size, such as 1920 by 1080.",
+      "longer": "More pixels give a sharper picture and use more data.",
+      "confusedWith": ["bitrate"]
+    },
+    {
+      "id": "refresh-interval",
+      "label": "Refresh interval",
+      "short": "How often ChannelForge fetches a source again.",
+      "longer": "Shorter intervals stay current but ask the provider more often.",
+      "confusedWith": []
+    },
+    {
+      "id": "fallback-guide-data",
+      "label": "Fallback guide data",
+      "short": "Basic schedule entries used when a channel has no real guide data.",
+      "longer": "They keep the channel in the list. They are placeholders, not real schedules.",
+      "confusedWith": ["xmltv-guide"]
+    },
+    {
+      "id": "candidate-lineup",
+      "label": "Candidate lineup",
+      "short": "A proposed lineup that you have not accepted yet.",
+      "longer": "It cannot replace your current lineup by itself.",
+      "confusedWith": ["last-known-good"]
+    },
+    {
+      "id": "last-known-good",
+      "label": "Last-known-good",
+      "short": "The newest result that passed checks, kept when a later refresh fails.",
+      "longer": "It lets you keep a working lineup while you fix the problem.",
+      "confusedWith": ["candidate-lineup"]
+    }
+  ]
+}

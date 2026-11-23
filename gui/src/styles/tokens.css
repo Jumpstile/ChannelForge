@@ -22,6 +22,15 @@
   --cf-color-error-surface: #fee4e2;
   --cf-color-disabled: #667085;
   --cf-color-disabled-surface: #f2f4f7;
+  --cf-color-on-brand: #ffffff;
+  --cf-color-ink-inverse: #ffffff;
+  --cf-color-nav: #f1f3f7;
+  --cf-color-nav-hover: rgb(255 255 255 / 0.7);
+  --cf-color-nav-disabled: #8993a2;
+  --cf-color-border-brand: #c9d0e7;
+  --cf-color-brand-wash: #fafaff;
+  --cf-color-brand-wash-hover: #f7f8ff;
+  --cf-color-brand-wash-strong: #e8eafd;
 
   --cf-font-family: "Segoe UI", system-ui, sans-serif;
   --cf-font-family-mono: "Cascadia Mono", ui-monospace, monospace;
@@ -63,4 +72,42 @@
   --cf-content-max-width: 75rem;
   --cf-control-height: 2.75rem;
   --cf-touch-target-min: 2.75rem;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --cf-color-canvas: #0f141b;
+  --cf-color-surface: #171e28;
+  --cf-color-surface-subtle: #1f2733;
+  --cf-color-ink: #e6ebf2;
+  --cf-color-ink-muted: #aab5c4;
+  --cf-color-ink-subtle: #b4bfce;
+  --cf-color-border: #334052;
+  --cf-color-border-strong: #4d5c72;
+  --cf-color-brand: #a5b4ff;
+  --cf-color-brand-hover: #c3ceff;
+  --cf-color-focus: #8ab4ff;
+  --cf-color-ready: #6ee7a0;
+  --cf-color-ready-surface: #0f2e1c;
+  --cf-color-info: #8ab4ff;
+  --cf-color-info-surface: #14233f;
+  --cf-color-warning: #fbbf24;
+  --cf-color-warning-surface: #3a2a07;
+  --cf-color-review: #d2b4ff;
+  --cf-color-review-surface: #2a1a4a;
+  --cf-color-error: #ff9a90;
+  --cf-color-error-surface: #3d1613;
+  --cf-color-disabled: #9aa5b5;
+  --cf-color-disabled-surface: #232b36;
+  --cf-color-on-brand: #0f1530;
+  --cf-color-ink-inverse: #0f141b;
+  --cf-color-nav: #121922;
+  --cf-color-nav-hover: rgb(255 255 255 / 0.08);
+  --cf-color-nav-disabled: #8793a3;
+  --cf-color-border-brand: #3b4670;
+  --cf-color-brand-wash: #1a2036;
+  --cf-color-brand-wash-hover: #1d2440;
+  --cf-color-brand-wash-strong: #26305a;
+  --cf-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4);
+  --cf-shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.6);
 }
