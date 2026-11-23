@@ -17,6 +17,7 @@ import {
   type SetupMatcher,
   type SetupPicker,
 } from './app/setupSelection'
+import { GlossaryPage } from './pages/GlossaryPage'
 import { GuidedSetupPage } from './pages/GuidedSetupPage'
 import { LineupReviewPage } from './pages/LineupReviewPage'
 import { SavedLineupPage } from './pages/SavedLineupPage'
@@ -75,6 +76,8 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
         <LiveNowPage />
       ) : activePage === 'wrestling' ? (
         <OneGuideCategoryPage />
+      ) : activePage === 'learn' ? (
+        <GlossaryPage />
       ) : activePage === 'setup' ? (
         <GuidedSetupPage picker={picker} matcher={matcher} pickerAvailable={pickerAvailable} matchState={matchState} onMatchStateChange={handleMatchStateChange} onOpenReview={() => setActivePage('build')} />
       ) : activePage === 'build' && reviewAvailable ? (

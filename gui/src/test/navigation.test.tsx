@@ -70,9 +70,20 @@ describe('navigation shell', () => {
   it('does not expose future workflow pages as active controls', () => {
     render(<App />)
 
-    for (const label of ['Playlist', 'Guide', 'Lineup', 'Saved lineup', 'Automatic updates', 'Learn']) {
+    for (const label of ['Playlist', 'Guide', 'Lineup', 'Saved lineup', 'Automatic updates']) {
       expect(screen.getByRole('button', { name: new RegExp(`${label} Next`) })).toBeDisabled()
     }
+  })
+
+  it('opens the Learn glossary and filters terms by search', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Learn/ }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Learn the terms' })).toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: 'Search terms' }), 'remuxing')
+    expect(screen.getByText('Remuxing')).toBeInTheDocument()
+    expect(screen.queryByText('Provider')).not.toBeInTheDocument()
   })
   it('enables read-only lineup review only after a safe aggregate result', async () => {
     const user = userEvent.setup()
