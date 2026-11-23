@@ -49,8 +49,9 @@ true:
       [user guide](../user/Remote-Credential-Enrollment.md).
 - [ ] Unattended remote source refresh: an opt-in, Windows-only daily scheduled
       refresh fetches enrolled public HTTPS sources for review and never
-      accepts changes. It has no release evidence yet, and the owner must
-      confirm whether Windows-only meets this item.
+      accepts changes. The owner decided (Nov 22) that Windows-only meets this
+      item. It still has no release evidence: it needs the clean-machine smoke
+      test before the release.
 - [x] The user can see what ChannelForge produced, whether it is accepted, and
       what needs attention through redacted review/status summaries.
 - [x] Update/upgrade behavior for the alpha is defined and beginner-readable.
