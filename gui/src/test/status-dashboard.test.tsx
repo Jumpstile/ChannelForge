@@ -150,4 +150,23 @@ describe('remove one saved source', () => {
     expect(await screen.findByText(/could not be removed/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Backup playlist' })).toBeInTheDocument()
   })
+
+  it('shows snapshot time and coverage window, or says they are not reported', async () => {
+    const full = vi.fn().mockResolvedValue({
+      lineupAccepted: true,
+      snapshotUtc: '2026-01-01T12:00:00Z',
+      coverageStartUtc: '2026-01-01T12:00:00Z',
+      coverageEndUtc: '2026-01-03T12:00:00Z',
+    })
+    const { unmount } = render(<StatusDashboard fetchStatus={full} />)
+    const bar = await screen.findByRole('region', { name: 'Guide freshness' })
+    expect(bar).toHaveTextContent(/Snapshot time/)
+    expect(bar).toHaveTextContent(/Coverage window.* to /)
+    expect(bar).not.toHaveTextContent('Not reported yet')
+    unmount()
+
+    render(<StatusDashboard fetchStatus={vi.fn().mockResolvedValue({ lineupAccepted: true, snapshotUtc: 'garbage' })} />)
+    const empty = await screen.findByRole('region', { name: 'Guide freshness' })
+    expect(empty.textContent?.match(/Not reported yet/g)).toHaveLength(2)
+  })
 })

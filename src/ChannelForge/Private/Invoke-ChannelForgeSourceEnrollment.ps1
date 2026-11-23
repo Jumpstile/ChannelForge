@@ -365,7 +365,10 @@ function Get-ChannelForgeSourceEnrollmentStatus {
         }
         HasSavedSources = $integrity.State -ne 'Missing'
         CanRefresh = $canRefresh
-        LastCheckedUtc = if ($null -eq $integrity.Enrollment) { $null } else { [string]$integrity.Enrollment.UpdatedAtUtc }
+        LastCheckedUtc = if ($null -eq $integrity.Enrollment) { $null } else {
+            $checked = @(@($integrity.Enrollment.Playlists) + @($integrity.Enrollment.Guides) | Where-Object { $null -ne $_ -and $null -ne $_.Refresh -and -not [string]::IsNullOrWhiteSpace([string]$_.Refresh.LastValidatedAtUtc) } | ForEach-Object { [datetimeoffset]::Parse([string]$_.Refresh.LastValidatedAtUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal) } | Sort-Object -Descending | Select-Object -First 1)
+            if ($checked.Count -eq 0) { $null } else { $checked[0].ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }
+        }
         Guidance = $integrity.Reason
         Sources = @($integrity.SourceStates | ForEach-Object {
             [ordered]@{

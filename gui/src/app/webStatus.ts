@@ -10,6 +10,9 @@ export type WebStatusSnapshot = {
   playlistStatus?: PlaylistStatus
   guideStatus?: GuideStatus
   lastCheckedUtc?: string | null
+  snapshotUtc?: string | null
+  coverageStartUtc?: string | null
+  coverageEndUtc?: string | null
   canRefreshSources?: boolean
   sourcesGuidance?: string
   sources?: SourceRow[]
@@ -62,12 +65,18 @@ function normalizeStatus(payload: JsonRecord): WebStatusSnapshot | null {
   const playlistStatus = isOneOf(payload.PlaylistStatus, playlistStatuses) ? payload.PlaylistStatus : 'not-enrolled'
   const guideStatus = isOneOf(payload.GuideStatus, guideStatuses) ? payload.GuideStatus : 'no-guide'
   const lastCheckedUtc = payload.LastCheckedUtc === null || typeof payload.LastCheckedUtc === 'string' ? (payload.LastCheckedUtc as string | null) : null
+  const snapshotUtc = typeof payload.SnapshotUtc === 'string' ? payload.SnapshotUtc : null
+  const coverageStartUtc = typeof payload.CoverageStartUtc === 'string' ? payload.CoverageStartUtc : null
+  const coverageEndUtc = typeof payload.CoverageEndUtc === 'string' ? payload.CoverageEndUtc : null
   return {
     lineupAccepted,
     sourcesStatus,
     playlistStatus,
     guideStatus,
     lastCheckedUtc,
+    snapshotUtc,
+    coverageStartUtc,
+    coverageEndUtc,
     canRefreshSources: payload.CanRefreshSources === true,
     sourcesGuidance: typeof payload.SourcesGuidance === 'string' ? payload.SourcesGuidance : undefined,
     sources: normalizeSourceRows(payload.Sources),
