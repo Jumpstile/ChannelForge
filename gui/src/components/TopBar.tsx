@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { AppearanceControl } from './AppearanceControl'
 
 export function TopBar({ children }: { children: ReactNode }) {
   return (
@@ -7,7 +8,10 @@ export function TopBar({ children }: { children: ReactNode }) {
         <span className="brand-mark" aria-hidden="true">CF</span>
         <span className="brand-name">ChannelForge</span>
       </div>
-      <div className="top-bar-content">{children}</div>
+      <div className="top-bar-content">
+        {children}
+        <AppearanceControl />
+      </div>
     </header>
   )
 }
