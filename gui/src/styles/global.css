@@ -242,3 +242,16 @@ a { color: var(--cf-color-brand); }
 .lineup-channel-row { display: grid; grid-template-columns: 4rem 1fr; gap: var(--cf-space-1) var(--cf-space-3); padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
 .lineup-channel-number { font-weight: var(--cf-font-weight-semibold); }
 .lineup-channel-group, .lineup-channel-airing { grid-column: 2; color: var(--cf-color-ink-muted); }
+.lineup-print { display: none; }
+@media print {
+  body { min-width: 0; background: #ffffff; }
+  .side-nav, .top-bar, .app-footer, .lineup-screen { display: none !important; }
+  .app-frame { display: block; }
+  .main-content { width: 100%; padding: 0; }
+  .lineup-print { display: block; color: #000000; font-size: 11pt; }
+  .lineup-print h1 { margin: 0 0 4pt; font-size: 18pt; }
+  .lineup-print h2 { margin: 12pt 0 4pt; font-size: 13pt; break-after: avoid; }
+  .lineup-print p { margin: 0 0 4pt; }
+  .lineup-print ul { margin: 0; padding: 0; list-style: none; }
+  .lineup-print li { padding: 2pt 0; border-bottom: 1px solid #cccccc; break-inside: avoid; }
+}
