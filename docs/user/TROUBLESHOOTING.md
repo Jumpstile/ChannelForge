@@ -123,7 +123,9 @@ Guided Setup and explicitly review a new upload.
 | Refresh reports an unavailable result | Refresh could not safely read or analyze the saved bytes  | Preserve the report, confirm the server owns its state directory, and use Replace sources; do not delete accepted state |
 
 Remote credential enrollment is not part of this slice. The browser flow
-supports local uploaded M3U and optional XMLTV bytes only.
+supports local uploaded M3U and optional XMLTV bytes only. A separate command
+for links that carry a login is built but not in alpha.1; see
+[Remote Credential Enrollment](Remote-Credential-Enrollment.md).
 
 If the loopback server is stopped, restart it from the repository root and
 reload the page. Do not paste playlist contents, stream URLs, credentials,
