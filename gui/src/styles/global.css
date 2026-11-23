@@ -107,6 +107,7 @@ a { color: var(--cf-color-brand); }
 .safety-card p { margin: var(--cf-space-4) 0; }
 .safety-card a { display: inline-flex; align-items: center; gap: var(--cf-space-2); margin-top: var(--cf-space-4); font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-semibold); }
 .term-coach { position: relative; display: inline-flex; border-bottom: 1px dashed var(--cf-color-brand); color: var(--cf-color-brand); font-weight: var(--cf-font-weight-semibold); cursor: help; }
+.term-coach-trigger { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: inherit; }
 .term-coach-help { position: absolute; z-index: 1; bottom: calc(100% + var(--cf-space-2)); left: 0; display: none; width: 16rem; padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-ink); color: #fff; font-size: var(--cf-font-size-small); font-weight: var(--cf-font-weight-regular); box-shadow: var(--cf-shadow-dialog); }
 .term-coach:hover .term-coach-help, .term-coach:focus-within .term-coach-help { display: block; }
 .gallery-notice { display: flex; gap: var(--cf-space-3); padding: var(--cf-space-4) var(--cf-space-5); border-left: 4px solid var(--cf-color-brand); background: var(--cf-color-info-surface); color: var(--cf-color-ink-muted); }

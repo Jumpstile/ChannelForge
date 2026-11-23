@@ -1,14 +1,20 @@
-const termHelp: Record<string, string> = {
-  'Candidate lineup': 'A proposed lineup. It is not accepted and cannot replace your current lineup by itself.',
-  Source: 'One playlist or guide input from a provider or local file.',
-  'Last-known-good': 'The most recent validated result preserved when a later refresh fails.',
+import { useId } from 'react'
+import terms from '../app/terms.json'
+
+export type Term = (typeof terms.terms)[number]
+
+export function findTerm(id: string): Term | undefined {
+  return terms.terms.find((term) => term.id === id)
 }
 
-export function TermCoach({ term }: { term: keyof typeof termHelp }) {
+export function TermCoach({ term }: { term: string }) {
+  const helpId = useId()
+  const entry = findTerm(term)
+  if (!entry) return <span>{term}</span>
   return (
     <span className="term-coach">
-      <span>{term}</span>
-      <span className="term-coach-help">{termHelp[term]}</span>
+      <button type="button" className="term-coach-trigger" aria-describedby={helpId}>{entry.label}</button>
+      <span id={helpId} role="tooltip" className="term-coach-help">{entry.short}</span>
     </span>
   )
 }
