@@ -14,11 +14,13 @@ function Get-ChannelForgeSourceReachabilityFinding {
         [string]$Url,
         [string]$LocalPath,
         [Parameter(Mandatory)][string]$RepositoryRoot,
-        [int]$ProbeBytes = 4096
+        [int]$ProbeBytes = 4096,
+        [ValidatePattern('^[0-9a-f]{32}$')][string]$CredentialRef,
+        [string]$DisplayHost
     )
     $check = "$Kind source '$Name' reachable"
     $expected = 'The source answers with a usable response.'
-    if ([string]::IsNullOrWhiteSpace($Url)) {
+    if (-not $CredentialRef -and [string]::IsNullOrWhiteSpace($Url)) {
         $shown = Get-ChannelForgePreflightDisplayRoot -Path $LocalPath -RepositoryRoot $RepositoryRoot
         $notTested = 'Whether the file content is valid.'
         $problem = $null
@@ -34,7 +36,17 @@ function Get-ChannelForgeSourceReachabilityFinding {
         return New-ChannelForgePreflightFinding -Check $check -Root $shown -Status Pass -Observed 'The local file exists and can be read.' -Expected 'The local file exists and can be read.' -NotTested $notTested
     }
 
-    $shown = Get-ChannelForgeRedactedSourceHost -Url $Url
+    $secretLink = $null
+    if ($CredentialRef) {
+        $shown = "$DisplayHost/..."
+        $saved = Read-ChannelForgeSourceSecret -RefId $CredentialRef
+        if (-not $saved.Success) {
+            return New-ChannelForgePreflightFinding -Check $check -Root $shown -Status Fail -Observed "The saved login for $DisplayHost is missing, unreadable or was rejected ($($saved.Category))." -Expected $expected -NotTested 'Whether the provider is reachable.' -NextStep 'Run the enroll command again for this source.'
+        }
+        $secretLink = [System.Net.NetworkCredential]::new('', $saved.Secret).Password
+        $Url = $secretLink
+    }
+    else { $shown = Get-ChannelForgeRedactedSourceHost -Url $Url }
     $notTested = 'Full download, content validity and login rights beyond the first response.'
     $payload = $null
     try {
@@ -57,9 +69,13 @@ function Get-ChannelForgeSourceReachabilityFinding {
             return New-ChannelForgePreflightFinding -Check $check -Root $shown -Status Unknown -Observed 'The secure download helper could not start, so the source was not tested.' -Expected $expected -NotTested $notTested -NextStep 'Run the Doctor again. If it repeats, see the troubleshooting guide.'
         }
         if ([string]::IsNullOrWhiteSpace($category)) { $category = 'Unreadable' }
-        return New-ChannelForgePreflightFinding -Check $check -Root $shown -Status Fail -Observed "The source could not be reached ($category)." -Expected $expected -NotTested $notTested -NextStep 'Check the source address, your internet connection and your provider account, then run the Doctor again.'
+        $observed = Remove-ChannelForgeSecretFromText -Text "The source could not be reached ($category)." -Secret $secretLink
+        return New-ChannelForgePreflightFinding -Check $check -Root $shown -Status Fail -Observed $observed -Expected $expected -NotTested $notTested -NextStep 'Check the source address, your internet connection and your provider account, then run the Doctor again.'
     }
-    finally { if ($null -ne $payload) { try { $payload.Dispose() } catch { $null = $_ } } }
+    finally {
+        $secretLink = $null
+        if ($null -ne $payload) { try { $payload.Dispose() } catch { $null = $_ } }
+    }
 }
 
 function Get-ChannelForgeSourceReachabilityFindings {
@@ -82,8 +98,23 @@ function Get-ChannelForgeSourceReachabilityFindings {
     catch {
         return @(New-ChannelForgePreflightFinding -Check 'source settings readable' -Root '[source settings]' -Status Unknown -Observed 'The source settings could not be read, so no source was tested.' -Expected 'The provider and guide settings load.' -NextStep 'Fix the provider and guide settings files, then run the Doctor again.')
     }
-    if ($items.Count -eq 0) {
+    $recordFinding = $null
+    try {
+        $record = Read-ChannelForgeSourceEnrollmentRecord -RepositoryRoot $RepositoryRoot
+        foreach ($s in @($record.Playlists) + @($record.Guides)) {
+            if ($s.Enabled -and $null -ne $s.PSObject.Properties['CredentialRef']) {
+                $items.Add(@{ Name = [string]$s.Label; Kind = [string]$s.Kind; CredentialRef = [string]$s.CredentialRef; DisplayHost = [string]$s.DisplayHost })
+            }
+        }
+    }
+    catch {
+        if ("$($_.Exception.Message)" -notlike 'SOURCE_ENROLLMENT_UNAVAILABLE*') {
+            $recordFinding = New-ChannelForgePreflightFinding -Check 'saved login sources readable' -Root '[source settings]' -Status Unknown -Observed 'The saved source list could not be read, so saved-login sources were not tested.' -Expected 'The saved source list loads.' -NextStep 'Run the source enrollment status check, then run the Doctor again.'
+        }
+    }
+    if ($items.Count -eq 0 -and -not $recordFinding) {
         return @(New-ChannelForgePreflightFinding -Check 'sources configured' -Root '[source settings]' -Status Unknown -Observed 'No enabled source was found, so nothing was tested.' -Expected 'At least one enabled source.' -NextStep 'Add or enable a source, then run the Doctor again.')
     }
+    if ($recordFinding) { $recordFinding }
     foreach ($i in $items) { Get-ChannelForgeSourceReachabilityFinding @i -RepositoryRoot $RepositoryRoot }
 }
