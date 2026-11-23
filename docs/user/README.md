@@ -19,3 +19,4 @@ This directory is the task-oriented, user-facing documentation for ChannelForge 
 - [The ChannelForge Way](THE_CHANNELFORGE_WAY.md) — project mindset and philosophy
 - [First Plex Smoke Test](PLEX_SMOKE_TEST.md) — detailed, hands-on walkthrough of testing a real lineup in Plex
 - [Coming From IPTVBoss](Coming-From-IPTVBoss.md) - what ChannelForge does today for IPTVBoss users, with honest "not yet" lines
+- [Appearance and Text Size](Appearance-And-Text-Size.md) - bigger text, dark or light look, and where your choice is saved
