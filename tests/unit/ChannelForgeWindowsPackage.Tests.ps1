@@ -1,11 +1,17 @@
 BeforeAll {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $repoRoot 'tools\ChannelForgeAutoUpdate.Core.psm1') -Force
+    $script:RepoRoot = $repoRoot
+    $script:InstallPath = Join-Path $repoRoot 'scripts\Install-ChannelForgeWindowsBundle.ps1'
     $script:UninstallPath = Join-Path $repoRoot 'scripts\Uninstall-ChannelForgeWindowsBundle.ps1'
     $script:StartPath = Join-Path $repoRoot 'scripts\Start-ChannelForge.ps1'
 
-    function New-TestWindowsPackage {
+    function New-TestWindowsPackage([switch]$WithUpdater) {
         $root = Join-Path $TestDrive ('package-' + [guid]::NewGuid().ToString('N'))
+        if ($WithUpdater) {
+            New-Item -ItemType Directory -Force -Path $root | Out-Null
+            Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'tools') -Destination (Join-Path $root 'tools') -Recurse
+        }
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'src') | Out-Null
         Set-Content -LiteralPath (Join-Path $root 'src\app.ps1') -Value 'Write-Output app' -NoNewline
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'data\rules'), (Join-Path $root 'data\lineup') | Out-Null
@@ -71,6 +77,69 @@ Describe 'Test-ChannelForgeWindowsPackage' {
     }
 }
 
+Describe 'Install-ChannelForgeWindowsBundle over an older install' -Skip:(-not $IsWindows) {
+    It 'puts the two Guided Setup data files in place even when the installed updater is an old one' {
+        $oldLocalAppData = $env:LOCALAPPDATA
+        $env:LOCALAPPDATA = Join-Path $TestDrive 'upgrade-local'
+        try {
+            $package = New-TestWindowsPackage -WithUpdater
+            New-Item -ItemType Directory -Force -Path (Join-Path $package 'runtime') | Out-Null
+            New-Item -ItemType Junction -Path (Join-Path $package 'runtime\pwsh') -Target $PSHOME | Out-Null
+            # An older install: has a manifest and an old updater that knows nothing about data\.
+            $root = Join-Path $env:LOCALAPPDATA 'ChannelForge'
+            New-Item -ItemType Directory -Force -Path (Join-Path $root 'tools') | Out-Null
+            Set-Content -LiteralPath (Join-Path $root 'package-manifest.json') -Value '{}' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'VERSION') -Value '0.0.1' -NoNewline
+            Set-Content -LiteralPath (Join-Path $root 'tools\Invoke-ChannelForgeAutoUpdate.ps1') -Value 'exit 0' -NoNewline
+
+            & $script:InstallPath -PackageRoot $package -InstallRoot $root -SkipStart | Out-Null
+
+            # The same precondition Get-ChannelForgeGuidedSetupProposal checks before it analyzes.
+            Test-Path -LiteralPath (Join-Path $root 'data\rules\aliases.json') -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $root 'data\lineup\numbering_blocks.json') -PathType Leaf | Should -BeTrue
+        } finally {
+            $env:LOCALAPPDATA = $oldLocalAppData
+            # The installer imported the package copy of the module; put the repo copy back.
+            Remove-Module ChannelForgeAutoUpdate.Core -Force -ErrorAction SilentlyContinue
+            Import-Module (Join-Path $script:RepoRoot 'tools\ChannelForgeAutoUpdate.Core.psm1') -Force
+        }
+    }
+}
+
+Describe 'Installed-root check for required files' {
+    It 'stops with plain words when a required data file is missing from the installed tree' {
+        $root = New-TestWindowsPackage
+        Remove-Item -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Force
+        { Test-ChannelForgeWindowsPackage -PackageRoot $root -AllowProtectedState -AllowUnmanifestedFiles } |
+            Should -Throw '*required ChannelForge data file is missing*data/rules/aliases.json*'
+    }
+
+    It 'stops with plain words when any other manifest file under a protected folder is missing' {
+        $root = New-TestWindowsPackage
+        $manifestPath = Join-Path $root 'package-manifest.json'
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        $manifest.Files = @($manifest.Files) + [pscustomobject]@{ Path = 'data/extra.json'; ByteLength = 2; Sha256 = ('c' * 64) }
+        Set-Content -LiteralPath $manifestPath -Value ($manifest | ConvertTo-Json -Depth 10 -Compress) -NoNewline
+        { Test-ChannelForgeWindowsPackage -PackageRoot $root -AllowProtectedState -AllowUnmanifestedFiles } |
+            Should -Throw '*required files is missing*data/extra.json*'
+    }
+
+    It 'does not stop when a manifest-listed config file is not in the installed tree yet' {
+        $root = New-TestWindowsPackage
+        $manifestPath = Join-Path $root 'package-manifest.json'
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        $manifest.Files = @($manifest.Files) + [pscustomobject]@{ Path = 'config/settings.json'; ByteLength = 2; Sha256 = ('c' * 64) }
+        Set-Content -LiteralPath $manifestPath -Value ($manifest | ConvertTo-Json -Depth 10 -Compress) -NoNewline
+        { Test-ChannelForgeWindowsPackage -PackageRoot $root -AllowProtectedState -AllowUnmanifestedFiles } | Should -Not -Throw
+    }
+
+    It 'keeps a user-edited data file without comparing its hash' {
+        $root = New-TestWindowsPackage
+        Set-Content -LiteralPath (Join-Path $root 'data\rules\aliases.json') -Value '{"aliases":["mine"]}' -NoNewline
+        { Test-ChannelForgeWindowsPackage -PackageRoot $root -AllowProtectedState -AllowUnmanifestedFiles } | Should -Not -Throw
+    }
+}
+
 Describe 'Uninstall-ChannelForgeWindowsBundle' {
     It 'removes application files, retains state, then purges explicitly' {
         $oldLocalAppData = $env:LOCALAPPDATA
@@ -130,7 +199,7 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
         }
     }
 
-    It 'removes the shipped data folder on keep, and purge fails honestly when an unexpected file is left' {
+    It 'keeps all of data\ on keep, and purge fails honestly when an unexpected file is left' {
         $oldLocalAppData = $env:LOCALAPPDATA
         $local = Join-Path $TestDrive 'local-app-data-shipped-data'
         $env:LOCALAPPDATA = $local
@@ -146,7 +215,7 @@ Describe 'Uninstall-ChannelForgeWindowsBundle' {
 
             & $script:UninstallPath -InstallRoot $root
             @(Get-ChildItem -LiteralPath $root -Force | ForEach-Object Name | Sort-Object) | Should -Be @('data', 'my-notes.txt', 'state')
-            @(Get-ChildItem -LiteralPath (Join-Path $root 'data') -Recurse -File | ForEach-Object Name) | Should -Be @('providers.local.json')
+            @(Get-ChildItem -LiteralPath (Join-Path $root 'data') -Recurse -File | ForEach-Object Name | Sort-Object) | Should -Be @('aliases.json', 'numbering_blocks.json', 'providers.local.json')
 
             { & $script:UninstallPath -InstallRoot $root -PurgeData -ConfirmPurge } | Should -Throw '*my-notes.txt*'
             Test-Path -LiteralPath (Join-Path $root 'my-notes.txt') | Should -BeTrue
