@@ -238,3 +238,7 @@ a { color: var(--cf-color-brand); }
 .appearance-control { display: flex; gap: var(--cf-space-3); margin: 0; padding: 0; border: 0; color: var(--cf-color-ink); }
 .appearance-control legend { float: left; margin-right: var(--cf-space-3); color: var(--cf-color-ink-muted); }
 .appearance-control label { display: inline-flex; align-items: center; gap: var(--cf-space-2); min-height: var(--cf-touch-target-min); }
+.lineup-channel-list { display: grid; gap: var(--cf-space-2); margin: 0; padding: 0; list-style: none; }
+.lineup-channel-row { display: grid; grid-template-columns: 4rem 1fr; gap: var(--cf-space-1) var(--cf-space-3); padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
+.lineup-channel-number { font-weight: var(--cf-font-weight-semibold); }
+.lineup-channel-group, .lineup-channel-airing { grid-column: 2; color: var(--cf-color-ink-muted); }
