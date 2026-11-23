@@ -2,12 +2,13 @@ BeforeAll {
     $script:Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:Script = Join-Path $script:Root 'scripts\Enroll-ChannelForgeRemoteSource.ps1'
     Import-Module (Join-Path $script:Root 'src\ChannelForge\ChannelForge.psd1') -Force
+    $global:CfRealBytes = Get-Command Get-ChannelForgeRemoteSourceBytes
     $script:Login = 'demo-not-real'
     $script:Link = 'https://tv.example.invalid/get.php?username=demo&password=demo-not-real&type=m3u_plus'
 }
 
 AfterAll {
-    Remove-Variable -Name CfTestLink, CfTestProbePasses -Scope Global -ErrorAction SilentlyContinue
+    Remove-Variable -Name CfTestLink, CfTestProbePasses, CfTestDownloads, CfTestDownloadFails, CfRealBytes, CfSeenUrl -Scope Global -ErrorAction SilentlyContinue
 }
 
 Describe 'Enroll-ChannelForgeRemoteSource' {
@@ -18,6 +19,13 @@ Describe 'Enroll-ChannelForgeRemoteSource' {
         $global:CfTestLink = $script:Link
         Mock Read-Host { ConvertTo-SecureString -String $global:CfTestLink -AsPlainText -Force }
         $global:CfTestProbePasses = $true
+        $global:CfTestDownloads = 0
+        $global:CfTestDownloadFails = $false
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes {
+            $global:CfTestDownloads++
+            if ($global:CfTestDownloadFails) { throw 'Remote source request failed [HttpStatusRejected] demo-not-real' }
+            [System.Text.Encoding]::ASCII.GetBytes("#EXTM3U`n#EXTINF:-1,Demo One`nhttps://tv.example.invalid/live/demo/demo-not-real/1.ts`n")
+        }
         Mock -ModuleName ChannelForge Get-ChannelForgeSourceReachabilityFinding {
             $status = if ($global:CfTestProbePasses) { 'Pass' } else { 'Fail' }
             $seen = if ($global:CfTestProbePasses) { 'The source answered and the first 10 bytes were readable.' } else { 'The source could not be reached (HttpStatusRejected).' }
@@ -36,7 +44,8 @@ Describe 'Enroll-ChannelForgeRemoteSource' {
         function Get-AllWrittenText {
             $text = ''
             foreach ($dir in $script:Project, $script:Creds) {
-                foreach ($f in Get-ChildItem -LiteralPath $dir -File -Recurse -ErrorAction SilentlyContinue) { $text += [IO.File]::ReadAllText($f.FullName) }
+                # The snapshot is a private file that may carry the login in stream links (owner decision), so it is not scanned.
+                foreach ($f in Get-ChildItem -LiteralPath $dir -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -notlike '*managed-sources' }) { $text += [IO.File]::ReadAllText($f.FullName) }
             }
             $text
         }
@@ -86,10 +95,78 @@ Describe 'Enroll-ChannelForgeRemoteSource' {
     It 'removes the new secret file and says so when the record write fails' {
         Mock -ModuleName ChannelForge Add-ChannelForgeCredentialedSourceSetSource { throw 'SOURCE_ENROLLMENT_INVALID: demo-not-real forced failure' }
         $r = Invoke-Enroll
-        $r.Error | Should -BeLike '*could not be written*The new login file was removed*'
+        $r.Error | Should -BeLike '*could not be written*The new login file and any new snapshot were removed*'
         $r.Error | Should -Not -BeLike "*$script:Login*"
         $r.Output | Should -Not -BeLike '*Enrolled*'
         Get-CredFiles | Should -BeNullOrEmpty
+    }
+
+    It 'saves the first snapshot with the record and keeps the login out of output and reports' {
+        $r = Invoke-Enroll
+        $r.Error | Should -BeNullOrEmpty
+        $global:CfTestDownloads | Should -Be 1
+        $r.Output | Should -BeLike '*The first snapshot was saved*'
+        $record = (Get-Content -LiteralPath (Join-Path $script:Project 'state\source-enrollment.json') -Raw | ConvertFrom-Json).Playlists[0]
+        $record.Present | Should -BeTrue
+        $record.ContentHash | Should -Match '^[0-9a-f]{64}$'
+        Test-Path (Join-Path $script:Project $record.ManagedPath) | Should -BeTrue
+        $record.Url | Should -BeNullOrEmpty
+        $r.Output | Should -Not -BeLike "*$script:Login*"
+        $json = Get-Content -LiteralPath (Join-Path $script:Project 'state\source-enrollment.json') -Raw
+        $json | Should -Not -BeLike "*$script:Login*"
+    }
+
+    It 'removes the new secret and saves nothing when the download fails' {
+        $global:CfTestDownloadFails = $true
+        $r = Invoke-Enroll
+        $r.Error | Should -BeLike '*The full download for https://tv.example.invalid failed*The new login file was removed*'
+        $r.Error | Should -Not -BeLike "*$script:Login*"
+        Get-CredFiles | Should -BeNullOrEmpty
+        Test-Path (Join-Path $script:Project 'state\source-enrollment.json') | Should -BeFalse
+        @(Get-ChildItem -LiteralPath $script:Project -File -Recurse -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+
+    It 'removes the secret and the new snapshot when the record save fails after the snapshot is written' {
+        Mock -ModuleName ChannelForge Save-ChannelForgeSourceSetEdit {
+            $dir = Join-Path $RepositoryRoot 'state\managed-sources'
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            [IO.File]::WriteAllBytes((Join-Path $dir ($PlaylistSources[-1].SourceId + '.m3u')), $PlaylistSources[-1].Bytes)
+            throw 'SOURCE_ENROLLMENT_INVALID: forced failure demo-not-real'
+        }
+        $r = Invoke-Enroll
+        $r.Error | Should -BeLike '*could not be written*'
+        $r.Error | Should -Not -BeLike "*$script:Login*"
+        Get-CredFiles | Should -BeNullOrEmpty
+        @(Get-ChildItem -LiteralPath $script:Project -File -Recurse -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+
+    It 'with -SkipProbe makes no download and says the first refresh will create the snapshot' {
+        $r = Invoke-Enroll -Switches SkipProbe
+        $r.Error | Should -BeNullOrEmpty
+        $global:CfTestDownloads | Should -Be 0
+        $r.Output | Should -BeLike '*first refresh will create it*'
+        $record = (Get-Content -LiteralPath (Join-Path $script:Project 'state\source-enrollment.json') -Raw | ConvertFrom-Json).Playlists[0]
+        $record.Present | Should -BeFalse
+        $record.ContentHash | Should -BeNullOrEmpty
+    }
+
+    It 'downloads through the real credentialed path using the custom credential root' {
+        Mock -ModuleName ChannelForge Get-ChannelForgeRemoteSourceBytes { & $global:CfRealBytes @PesterBoundParameters }
+        Mock -ModuleName ChannelForge Read-ChannelForgeGuidedSetupRemoteBytes {
+            $global:CfSeenUrl = $Url
+            , [System.Text.Encoding]::ASCII.GetBytes("#EXTM3U`n#EXTINF:-1,Demo One`nhttps://tv.example.invalid/live/1.ts`n")
+        }
+        $r = Invoke-Enroll
+        $r.Error | Should -BeNullOrEmpty
+        $global:CfSeenUrl | Should -Be $script:Link
+        $r.Output | Should -BeLike '*The first snapshot was saved*'
+        $r.Output | Should -Not -BeLike "*$script:Login*"
+        (Get-CredFiles).Count | Should -Be 1
+    }
+
+    It 'a dry run makes no download' {
+        $null = Invoke-Enroll -Switches DryRun
+        $global:CfTestDownloads | Should -Be 0
     }
 
     It 'refuses a user-info link and saves nothing' {
