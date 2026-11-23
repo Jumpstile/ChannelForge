@@ -43,9 +43,10 @@ true:
       repeating setup, and manual refresh reports unchanged/changed/unavailable
       saved bytes without mutating accepted lineup state; release evidence is
       still pending.
-- [ ] Remote credential enrollment is proposed out of alpha.1 (owner to
-      confirm). It is not built: source enrollment accepts only public HTTPS
-      links with no user info or query.
+- [ ] Remote credential enrollment is out of alpha.1. It is built and waiting
+      for the owner's hand test, and it is planned for the next release. Do not
+      count it as shipping in alpha.1. See the
+      [user guide](../user/Remote-Credential-Enrollment.md).
 - [ ] Unattended remote source refresh: an opt-in, Windows-only daily scheduled
       refresh fetches enrolled public HTTPS sources for review and never
       accepts changes. It has no release evidence yet, and the owner must
@@ -97,7 +98,8 @@ The following are not required for `v0.1.0-alpha.1` unless implementation
 shows that they are prerequisites for the release gate above:
 
 - complete event-guide automation;
-- remote credential enrollment (proposed, owner to confirm);
+- remote credential enrollment (out of alpha.1; built, waiting for the owner's
+  hand test, planned for the next release);
 - automatic AED adoption or relearning;
 - full expert regex/date/time authoring;
 - every planned deployment target; and
