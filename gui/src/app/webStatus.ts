@@ -142,7 +142,7 @@ export async function refreshSavedSources(request: typeof fetch = fetch): Promis
 export type SourceRemoveResult = { ok: true } | { ok: false; message: string }
 export type SourceRemoveAction = (source: Pick<SourceRow, 'kind' | 'label'>) => Promise<SourceRemoveResult>
 
-const removeFailureMessage = 'The source could not be removed. Your saved sources were not changed.'
+const removeFailureMessage = 'ChannelForge could not confirm that the source was removed. Refresh the status to see what is saved before trying again.'
 
 export async function removeSavedSource(source: Pick<SourceRow, 'kind' | 'label'>, request: typeof fetch = fetch): Promise<SourceRemoveResult> {
   try {

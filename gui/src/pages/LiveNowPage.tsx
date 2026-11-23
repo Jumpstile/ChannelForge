@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNow, fetchLiveNowItem } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
+import { loadFailedMessage } from '../app/friendlyError'
+import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 import { focusActiveNavItem } from '../components/SideNav'
 
@@ -102,9 +104,9 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
     <div className="page-stack live-now-page">
       <PageHeader eyebrow="One Guide" title="Live Now" description="See what is on now from your accepted guide." />
       {items === undefined ? <p className="live-now-message" role="status">Loading Live Now…</p> :
-        items === null ? <section className="live-now-message live-now-error" role="alert">
-          <h2>Live Now is unavailable</h2><p>The guide could not be loaded. Check that ChannelForge is running, then try again.</p>
+        items === null ? <section className="live-now-message live-now-error">
           <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
+          <ErrorNotice message={loadFailedMessage('Live Now', 'live-now-load-failed')} />
         </section> : items.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>Nothing is on right now</h2><p>Your accepted guide has no programmes airing at this time.</p>
         </section> : <>
@@ -122,7 +124,7 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
             </div>)}
           </div>
         </>}
-      {detailError && <p className="live-now-inline-error" role="alert">Details are unavailable right now. Choose the programme again to retry.</p>}
+      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'live-now-detail-failed', 'Choose the program again to retry.')} />}
       {selected && <div className="live-now-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetails() }}>
         <section className="live-now-dialog" role="dialog" aria-modal="true" aria-labelledby="live-now-detail-title">
           <button ref={detailBackRef} className="live-now-back" type="button" onClick={closeDetails}><ArrowLeft size={20} aria-hidden="true" /> Back</button>

@@ -1,26 +1,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FriendlyError } from '../app/friendlyError'
 import { submitGuidedSetupSourceSetProposal } from '../app/guidedSetupProposal'
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const sources = [{ sourceKey: 'playlist-1', label: 'Playlist 1', url: 'https://example.invalid/channels.m3u' }]
+
 describe('browser Guided Setup proposal errors', () => {
   it.each([
-    ['package-data-unavailable', 'ChannelForge is missing required analysis data. Repair or reinstall the application, then analyze again.'],
-    ['invalid-playlist', 'A selected playlist is not valid M3U. Choose a valid M3U or M3U8 file, then analyze again.'],
-    ['invalid-guide', 'A selected guide is not valid XMLTV. Choose a valid XMLTV file, then analyze again.'],
-    ['unsupported-source', 'Use a local source file or a public HTTPS URL without credentials, query parameters, or fragments.'],
-    ['source-unavailable', 'A public HTTPS source could not be retrieved. Check its URL and connection, then try again.'],
-  ])('maps %s to bounded actionable copy', async (code, message) => {
+    ['package-data-unavailable', 'The installed program is missing files it needs to read your playlist. Your playlist and guide files were not changed.', 'Update ChannelForge.cmd'],
+    ['invalid-playlist', 'One of your playlists is not a valid M3U list.', '.m3u'],
+    ['invalid-guide', 'One of your guides is not a valid XMLTV guide.', 'XMLTV'],
+    ['unsupported-source', 'ChannelForge only accepts a file on this computer', 'https://'],
+    ['source-unavailable', 'A playlist or guide web address did not answer.', 'online'],
+  ])('shows plain words first and keeps the code in Details for %s', async (code, whatHappened, whatToDo) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       Error: code,
       Message: 'C:\\private\\provider.local.json?token=secret',
     }), { status: 422, headers: { 'Content-Type': 'application/json' } })))
 
-    await expect(submitGuidedSetupSourceSetProposal([
-      { sourceKey: 'playlist-1', label: 'Playlist 1', url: 'https://example.invalid/channels.m3u' },
-    ])).rejects.toThrow(message)
+    const error = await submitGuidedSetupSourceSetProposal(sources).catch((caught: unknown) => caught)
+    if (!(error instanceof FriendlyError)) throw error
+    const { friendly } = error
+    expect(friendly.whatHappened).toContain(whatHappened)
+    expect(friendly.whatToDo).toContain(whatToDo)
+    expect(friendly.details.code).toBe(code)
+    expect(JSON.stringify(friendly)).not.toContain('C:\\private')
   })
 
   it('hides an unknown server error message instead of rendering raw details', async () => {
@@ -29,8 +36,9 @@ describe('browser Guided Setup proposal errors', () => {
       Message: 'C:\\private\\provider.local.json?token=secret',
     }), { status: 500, headers: { 'Content-Type': 'application/json' } })))
 
-    const sources = [{ sourceKey: 'playlist-1', label: 'Playlist 1', url: 'https://example.invalid/channels.m3u' }]
-    await expect(submitGuidedSetupSourceSetProposal(sources)).rejects.toThrow('ChannelForge could not safely analyze these sources. Check the selected files or retry later.')
-    await expect(submitGuidedSetupSourceSetProposal(sources)).rejects.not.toThrow('C:\\private')
+    const error = await submitGuidedSetupSourceSetProposal(sources).catch((caught: unknown) => caught)
+    if (!(error instanceof FriendlyError)) throw error
+    expect(error.friendly).toMatchObject({ headline: 'ChannelForge could not check these files', details: { code: 'unexpected-internal-error' } })
+    expect(JSON.stringify(error.friendly)).not.toContain('C:\\private')
   })
 })

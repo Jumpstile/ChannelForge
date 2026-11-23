@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { FriendlyError } from '../app/friendlyError'
 import { GuidedSetupPage } from '../pages/GuidedSetupPage'
 import type { GuidedSetupSourceSetAcceptance, GuidedSetupSourceSetProposal, GuidedSetupSourceSetSubmitter } from '../app/guidedSetupProposal'
 
@@ -161,12 +162,12 @@ describe('browser Guided Setup proposal and acceptance', () => {
     const submitter = vi.fn<GuidedSetupSourceSetSubmitter>()
     render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Complete every playlist with a local file or public HTTPS URL.')
+    expect(screen.getByRole('alert')).toHaveTextContent('A playlist is still empty')
     expect(submitter).not.toHaveBeenCalled()
   })
   it('shows the configured playlist count and focuses an actionable analysis failure', async () => {
     const user = userEvent.setup()
-    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockRejectedValue(new Error('A selected playlist is not valid M3U. Choose a valid M3U or M3U8 file, then analyze again.'))
+    const submitter = vi.fn<GuidedSetupSourceSetSubmitter>().mockRejectedValue(new FriendlyError({ headline: 'A playlist is not in a format ChannelForge can read', whatHappened: 'One of your playlists is not a valid M3U list.', whatToDo: 'Choose a .m3u file.', details: { code: 'invalid-playlist', cause: 'A selected playlist failed M3U validation.' } }))
     render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
 
     expect(screen.getByRole('heading', { name: 'Workspace ready' })).toBeInTheDocument()
@@ -181,8 +182,19 @@ describe('browser Guided Setup proposal and acceptance', () => {
     await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('A selected playlist is not valid M3U.')
+    expect(alert).toHaveTextContent('One of your playlists is not a valid M3U list.')
     expect(alert).toHaveFocus()
+    expect(alert).toHaveTextContent('Choose a .m3u file.')
+    expect(screen.queryByText('A selected playlist failed M3U validation.')).not.toBeInTheDocument()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByText('A selected playlist failed M3U validation.')).toBeVisible()
+    expect(screen.getByText('invalid-playlist')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Hide details' }))
+    expect(screen.queryByText('invalid-playlist')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('A selected playlist failed M3U validation.')).toBeVisible()
     expect(screen.getByText('Analysis stopped; 2 playlists remain selected.')).toBeInTheDocument()
     expect(screen.getByText('one.m3u')).toBeInTheDocument()
     expect(screen.getByText('two.m3u')).toBeInTheDocument()

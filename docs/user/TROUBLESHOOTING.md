@@ -180,6 +180,20 @@ If the native plan or acceptance is unavailable, confirm that the selected works
 
 After a successful native acceptance, **Your saved lineup** is available as a redacted, read-only view. It is not an export, scheduler, target-publishing, release, or tester-distribution feature.
 
+## Error messages and the Details button
+
+When something goes wrong, ChannelForge shows a short message first. It says what happened, whether your files were changed, and what to do next. Read that part first. It is written so you can act on it without technical knowledge.
+
+Press **Details** under the message when you want more. Press **Hide details** to close it again. Details shows:
+
+- **Error code**: a short name for the problem, such as `package-data-unavailable`.
+- **What this means**: a plain description of the cause.
+- **Full message**: the original technical text, when ChannelForge has one that is safe to show.
+
+If you ask for help, open Details and share what it shows. Do not share your playlist address or any password with it.
+
+Example: if Guided Setup says ChannelForge is missing some of its own files, run `Update ChannelForge.cmd`, or reinstall from the same package, and then analyze again. Your playlist and guide files were not changed.
+
 ## FAQ
 
 **Is there a web UI yet?**
