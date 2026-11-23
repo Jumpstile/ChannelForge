@@ -2,6 +2,13 @@
 
 ChannelForge alpha 1 is a portable Windows x64 bundle. It does not install a Windows service and does not require administrator rights.
 
+## What this is not
+
+- **Not a Windows service.** ChannelForge runs while you run **Start ChannelForge.cmd**. It does not start at boot. To refresh sources on a schedule, use the opt-in daily scheduled refresh (see [Current Limitations](CURRENT_LIMITATIONS.md)).
+- **Not reachable from other devices.** The server listens on `127.0.0.1` only, and there is no sign-in. Open it from the same computer.
+- **Not Docker.** There is no Docker image yet.
+- **Not the old desktop app.** The screens are in your browser. See [Where the Tauri work went](WHERE-THE-TAURI-WORK-WENT.md).
+
 ## Install
 
 1. Download `ChannelForge-v0.1.0-alpha.1-windows-x64.zip` from the approved project artifact location.

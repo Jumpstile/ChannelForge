@@ -126,15 +126,7 @@ details. The UI reads only derived status facts; it does not display provider
 data, credentials, private paths, hashes, generation IDs, accepted-generation
 contents, or parser details.
 
-Docker container and Windows server/service installation remain future
-deployment modes. The alpha Windows x64 portable bundle is implemented without
-administrator rights or a Windows service: it uses a pinned runtime, a
-loopback-only listener, manifest-verified application files, backup-first
-updates, rollback, and explicit uninstall. Browser Guided Setup acceptance does
-not publish downstream consumer files, configure a scheduler, or mutate provider
-accounts; those are separate future operations. The engine HTTP/API boundary,
-not React or a browser-local file path, remains the only authority for
-state-changing behavior.
+**Docker and a Windows service are not available.** Today ChannelForge runs only as a local server on your own computer: the alpha Windows x64 portable bundle. It needs no administrator rights and is not a Windows service. It uses a pinned runtime, listens on this computer only (`127.0.0.1`), checks its application files against a manifest, backs up before updates, can roll back, and has an explicit uninstall. Nothing else on your network can reach it, and there is no sign-in, so there is no LAN or Docker mode yet. A Docker image would need a way to listen beyond this computer plus a sign-in design, and neither exists. To keep it running, use the opt-in scheduled refresh described below. Browser Guided Setup acceptance does not publish downstream consumer files, configure a scheduler, or mutate provider accounts; those are separate future operations. The engine HTTP/API boundary, not React or a browser-local file path, remains the only authority for state-changing behavior. For where the old desktop-app work went, see [Where the Tauri work went](WHERE-THE-TAURI-WORK-WENT.md).
 
 ### GUI status
 
@@ -143,8 +135,8 @@ The following describes preserved prototype/reference work, not a primary deploy
 | Area                                      | Status                                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Browser web UI served by engine           | Status dashboard and read-only Live Now view; Guided Setup acceptance remains explicit     |
-| Docker deployment                         | Architecture recorded; implementation pending                                              |
-| Windows server/service install            | Future deployment mode; not implemented                                                    |
+| Docker deployment                         | Not available; design only, and it needs a sign-in design first                            |
+| Windows server/service install            | Not available; the portable bundle is the supported Windows install                        |
 | Optional Tauri Workbench shell/navigation | Works now (prototype)                                                                      |
 | Guided Setup layout                       | Browser review and acceptance works; native picker/review remains prototype/reference work |
 | Native file-picker bridge                 | Works now (prototype)                                                                      |
