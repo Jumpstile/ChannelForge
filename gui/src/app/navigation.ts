@@ -45,7 +45,7 @@ export const navigationGroups: NavigationGroup[] = [
   {
     label: 'Help',
     items: [
-      { id: 'learn', label: 'Learn', description: 'Understand ChannelForge terms', available: false },
+      { id: 'learn', label: 'Learn', description: 'Understand ChannelForge terms', available: true },
     ],
   },
 ]

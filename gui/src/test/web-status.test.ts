@@ -98,4 +98,20 @@ describe('web status client', () => {
     ])
     expect((await fetchWebStatus(withoutSources as unknown as typeof fetch))?.sources).toBeUndefined()
   })
+
+  it('reads snapshot time and coverage window when sent and leaves them empty when not', async () => {
+    const sent = vi.fn().mockResolvedValue(response(200, {
+      ...acceptedPayload,
+      SourcesStatus: 'saved',
+      SnapshotUtc: '2026-01-01T00:00:00Z',
+      CoverageStartUtc: '2026-01-01T00:00:00Z',
+      CoverageEndUtc: '2026-01-03T00:00:00Z',
+    }))
+    const absent = vi.fn().mockResolvedValue(response(200, { ...acceptedPayload, SourcesStatus: 'saved' }))
+
+    const a = await fetchWebStatus(sent as unknown as typeof fetch)
+    expect([a?.snapshotUtc, a?.coverageStartUtc, a?.coverageEndUtc]).toEqual(['2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-03T00:00:00Z'])
+    const b = await fetchWebStatus(absent as unknown as typeof fetch)
+    expect([b?.snapshotUtc, b?.coverageStartUtc, b?.coverageEndUtc]).toEqual([null, null, null])
+  })
 })

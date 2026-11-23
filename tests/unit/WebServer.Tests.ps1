@@ -633,6 +633,48 @@ Describe 'ChannelForge web server foundation' {
         $invalidQuery.StatusCode | Should -Be 400
         $after | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
     }
+    It 'reports snapshot time and guide coverage in status, and null when nothing is accepted' {
+        $empty = Get-ChannelForgeWebStatus -RepositoryRoot $script:StatusRoot
+        $empty.SnapshotUtc | Should -BeNullOrEmpty
+        $empty.CoverageStartUtc | Should -BeNullOrEmpty
+        $empty.CoverageEndUtc | Should -BeNullOrEmpty
+
+        $root = Join-Path $TestDrive 'status-coverage'
+        $start = [datetimeoffset]::Parse('2026-10-01T12:00:00Z')
+        $fmt = { param($t) $t.ToString('yyyyMMddHHmmss', [Globalization.CultureInfo]::InvariantCulture) + ' +0000' }
+        $guide = "<tv><channel id=`"one`"><display-name>One</display-name></channel><programme start=`"$(& $fmt $start)`" stop=`"$(& $fmt $start.AddHours(1))`" channel=`"one`"><title>First</title></programme><programme start=`"$(& $fmt $start.AddHours(1))`" stop=`"$(& $fmt $start.AddHours(2))`" channel=`"one`"><title>Second</title></programme></tv>"
+        $proposalBody = New-TestProposalBody -GuideText $guide -WithGuide
+        $proposal = Get-TestWebResponse -Method POST -Path '/api/guided-setup/proposal' -RepositoryRoot $root -BodyBytes $proposalBody -ContentType 'application/json' -ContentLength $proposalBody.Length
+        $proposalPayload = $proposal.Body | ConvertFrom-Json
+        $acceptBody = [Text.Encoding]::UTF8.GetBytes((@{ schemaVersion = 1; proposalId = $proposalPayload.Proposal.ProposalId; acknowledged = $true } | ConvertTo-Json -Compress))
+        (Get-TestWebResponse -Method POST -Path '/api/guided-setup/accept' -RepositoryRoot $root -BodyBytes $acceptBody -ContentType 'application/json' -ContentLength $acceptBody.Length).StatusCode | Should -Be 200
+        $before = Get-TestTreeSnapshot -Root $root
+
+        $body = (Get-TestWebResponse -Method GET -Path '/api/status' -RepositoryRoot $root).Body
+
+        $body | Should -Match '"CoverageStartUtc":"2026-10-01T12:00:00Z"'
+        $body | Should -Match '"CoverageEndUtc":"2026-10-01T14:00:00Z"'
+        $body | Should -Match '"SnapshotUtc":"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?Z"'
+        (Get-TestTreeSnapshot -Root $root) | ConvertTo-Json -Depth 5 | Should -Be ($before | ConvertTo-Json -Depth 5)
+    }
+
+    It 'sources LastCheckedUtc from the last source check, not the save time' {
+        $root = Join-Path $TestDrive 'status-last-checked'
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 'state\managed-sources') | Out-Null
+        (Get-ChannelForgeWebStatus -RepositoryRoot $root).LastCheckedUtc | Should -BeNullOrEmpty
+        $playlist = [pscustomobject]@{ Kind = 'M3U'; SourceKind = 'managed-file'; SourceKey = 'Home playlist'; SourceId = ('1' * 64); Label = 'Home playlist'; Priority = 1; Url = $null
+            Bytes = [Text.Encoding]::UTF8.GetBytes("#EXTM3U`n#EXTINF:-1 tvg-id=`"a`",a`nhttps://example.invalid/a`n") }
+        & (Get-Module ChannelForge) {
+            param($root, $p)
+            Write-ChannelForgeSourceSet -RepositoryRoot $root -PlaylistSources @($p) -GuideSources @() -Bindings @() `
+                -AcceptedGenerationManifestHash ('a' * 64) -AcceptedStateHash ('b' * 64) -AcceptedOutputManifestHash ('c' * 64) | Out-Null
+            Update-ChannelForgeSourceEnrollmentRefreshState -RepositoryRoot $root -RefreshStatus 'up-to-date' -SourceUpdates @([pscustomobject]@{ SourceId = ('1' * 64); State = 'up-to-date'; LastValidatedAtUtc = '2026-01-02T03:04:05Z' }) | Out-Null
+        } $root $playlist
+
+        $body = (Get-TestWebResponse -Method GET -Path '/api/status' -RepositoryRoot $root).Body
+        $body | Should -Match '"LastCheckedUtc":"2026-01-02T03:04:05Z"'
+    }
+
     It 'filters past category items before pagination in one pinned active window' {
         $root = Join-Path $TestDrive 'one-guide-category-active-window'
         $evaluation = [datetimeoffset]::Parse('2026-10-01T12:00:00Z')
