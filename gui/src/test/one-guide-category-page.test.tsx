@@ -56,7 +56,7 @@ describe('Wrestling category page', () => {
 
     const fetchItems = vi.fn<OneGuideFetcher>().mockResolvedValueOnce(null).mockResolvedValueOnce([now])
     render(<OneGuideCategoryPage fetchItems={fetchItems} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrestling is unavailable')
+    expect(await screen.findByRole('alert')).toHaveTextContent('ChannelForge could not load Wrestling')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('button', { name: /Wrestling Now/ })).toBeVisible()
     expect(fetchItems).toHaveBeenCalledTimes(2)

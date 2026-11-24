@@ -13,6 +13,8 @@ import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
 import { nativePickerAvailable, chooseSetupItem, checkPlaylistGuideMatch } from '../app/setupPicker'
+import { toFriendlyMessage, type FriendlyMessage } from '../app/friendlyError'
+import { ErrorNotice } from '../components/ErrorNotice'
 import {
   applySetupSelectionResult,
   createInitialGuideContentState,
@@ -107,6 +109,27 @@ type GuideBindingSelection = {
   explicitlyUnbound: boolean
 }
 
+const missingSourceMessage = (kind: 'playlist' | 'guide'): FriendlyMessage => ({
+  headline: `A ${kind} is still empty`,
+  whatHappened: `At least one ${kind} has no file or web address yet. Nothing was sent and your files were not changed.`,
+  whatToDo: `Choose a file, or paste a public https:// address, for every ${kind} (or remove the ones you do not need). Then press Analyze.`,
+  details: { code: `${kind}-source-missing`, cause: `A ${kind} row has neither a selected file nor a URL.` },
+})
+
+const analysisFailedMessage: FriendlyMessage = {
+  headline: 'ChannelForge could not check these files',
+  whatHappened: 'Something went wrong and ChannelForge could not finish checking. Your playlist and guide files were not changed.',
+  whatToDo: 'Press Analyze again. If it keeps happening, open Details and share it when you ask for help.',
+  details: { cause: 'An unexpected error stopped the analysis before the server gave a result.' },
+}
+
+const acceptanceFailedMessage: FriendlyMessage = {
+  headline: 'ChannelForge could not accept this lineup',
+  whatHappened: 'Something went wrong and ChannelForge could not finish. It cannot tell whether your lineup was saved.',
+  whatToDo: 'Refresh this page and look at your lineup before trying again. If it keeps happening, open Details and share it when you ask for help.',
+  details: { cause: 'An unexpected error stopped the accept step before the server gave a result.' },
+}
+
 function ProposalCheckRow({ check }: { check: GuidedSetupCheck }) {
   const [open, setOpen] = useState(false)
   const name = check.Kind === 'logos' ? 'Logos' : check.Kind === 'guides' ? 'Guides' : 'Categories'
@@ -136,8 +159,8 @@ function BrowserGuidedSetupPage({
   const [accepted, setAccepted] = useState<GuidedSetupSourceSetAcceptance | null>(null)
   const shownWarnings = (proposal?.Warnings ?? []).filter((warning) => !(warning.Code === 'logo-check' && proposal?.Checks?.some((check) => check.Kind === 'logos')))
   const [acknowledged, setAcknowledged] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const proposalErrorRef = useRef<HTMLParagraphElement>(null)
+  const [error, setError] = useState<FriendlyMessage | null>(null)
+  const proposalErrorRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const message = proposalErrorRef.current
     if (!error || !message) return
@@ -224,11 +247,11 @@ function BrowserGuidedSetupPage({
 
   const submit = async () => {
     if (playlists.some((source) => (source.mode === 'file' ? !source.file : !source.url.trim()))) {
-      setError('Complete every playlist with a local file or public HTTPS URL.')
+      setError(missingSourceMessage('playlist'))
       return
     }
     if (guides.some((source) => (source.mode === 'file' ? !source.file : !source.url.trim()))) {
-      setError('Complete every guide with a local file or public HTTPS URL.')
+      setError(missingSourceMessage('guide'))
       return
     }
     const playlistDrafts: GuidedSetupSourceDraft[] = playlists.map((source, index) => ({
@@ -261,7 +284,7 @@ function BrowserGuidedSetupPage({
     try {
       setProposal(await sourceSetProposalSubmitter(playlistDrafts, guideDrafts, bindingDrafts))
     } catch (submissionError) {
-      setError(submissionError instanceof Error ? submissionError.message : 'The proposal could not be analyzed.')
+      setError(toFriendlyMessage(submissionError, analysisFailedMessage))
     } finally {
       setSubmitting(false)
     }
@@ -274,7 +297,7 @@ function BrowserGuidedSetupPage({
     try {
       setAccepted(await sourceSetAcceptanceSubmitter(proposal.Proposal.ProposalId))
     } catch (acceptanceError) {
-      setError(acceptanceError instanceof Error ? acceptanceError.message : 'The reviewed proposal could not be accepted safely.')
+      setError(toFriendlyMessage(acceptanceError, acceptanceFailedMessage))
     } finally {
       setAccepting(false)
     }
@@ -290,7 +313,7 @@ function BrowserGuidedSetupPage({
       <StatusBanner status={accepted ? 'Success' : 'Ready'} title={accepted ? 'Accepted lineup' : 'Browser review'}>
         <p>{accepted ? 'The reviewed source set is now the accepted local state.' : 'Files are read in this browser only to create a server-owned candidate. Nothing is accepted until you acknowledge the review.'}</p>
       </StatusBanner>
-      {error ? <p className="setup-picker-error" ref={proposalErrorRef} role="alert" tabIndex={-1}>{error}</p> : null}
+      {error ? <ErrorNotice message={error} ref={proposalErrorRef} /> : null}
       <section className="setup-step-grid" aria-label="Guided setup steps">
         <article className="setup-step-card">
           <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FolderOpen size={22} /></div><div><p className="eyebrow">Workspace</p><h2>Workspace ready</h2></div></div>
@@ -440,7 +463,7 @@ export function GuidedSetupPage({
       } else if (kind === 'guide') {
         setGuideContent(previousGuideContent)
       }
-      setPickerError('Could not complete this selection.')
+      setPickerError('ChannelForge could not finish that selection. Your previous selection was kept.')
     } finally {
       if (operationVersion === selectionVersion.current) {
         setPendingKind(null)
