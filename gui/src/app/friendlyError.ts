@@ -23,7 +23,7 @@ export function toFriendlyMessage(error: unknown, fallback: FriendlyMessage): Fr
 }
 
 // What the code can tell apart when a read fails. 'unknown' means the caller could not tell why.
-// raw is the real technical text (HTTP status, thrown error message); it only ever appears under Details.
+// raw is the real technical text (HTTP status, thrown error message); the full text is always under Details, and a short plain one-sentence version may also be quoted up front (see plainMessage.ts).
 export type LoadFailureKind = 'unreachable' | 'refused' | 'server-error' | 'not-understood' | 'changed' | 'unknown'
 export type LoadFailure = { loadFailure: LoadFailureKind; raw?: string }
 

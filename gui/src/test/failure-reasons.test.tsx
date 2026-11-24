@@ -25,7 +25,7 @@ const server503 = loadFailure('server-error', 'HTTP status 503')
 async function expectReasonAndRaw(why: RegExp, raw: string) {
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent(why)
-  expect(alert).not.toHaveTextContent(raw)
+  expect(alert).toHaveTextContent(`The message says: "${raw}"`)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Details' }))
   expect(screen.getByText(raw)).toBeVisible()
 }
@@ -36,7 +36,7 @@ describe.each([
   ['Live Now', (fetchItems: OneGuideFetcher) => <LiveNowPage fetchItems={fetchItems} />],
   ['Wrestling', (fetchItems: OneGuideFetcher) => <OneGuideCategoryPage fetchItems={fetchItems} />],
 ])('%s failure reasons', (_name, renderPage) => {
-  it('shows the plain reason up front and the raw error under Details', async () => {
+  it('shows the plain reason and the raw error up front, and again under Details', async () => {
     render(renderPage(async () => server503))
     await expectReasonAndRaw(/server reported an error/, 'HTTP status 503')
   })
