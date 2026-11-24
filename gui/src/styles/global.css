@@ -252,6 +252,8 @@ a { color: var(--cf-color-brand); }
 .lineup-channel-row { display: grid; grid-template-columns: 4rem 1fr; gap: var(--cf-space-1) var(--cf-space-3); padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
 .lineup-channel-number { font-weight: var(--cf-font-weight-semibold); }
 .lineup-channel-group, .lineup-channel-airing { grid-column: 2; color: var(--cf-color-ink-muted); }
+.lineup-channel-problems { grid-column: 2; display: grid; gap: var(--cf-space-2); justify-items: start; }
+.lineup-channel-problems p { margin: 0; }
 .timeline-modes { display: flex; flex-wrap: wrap; gap: var(--cf-space-2); }
 .timeline-modes [aria-pressed="true"] { border-color: var(--cf-color-brand); box-shadow: inset 0 0 0 1px var(--cf-color-brand); font-weight: var(--cf-font-weight-semibold); }
 .timeline-scroll { overflow-x: auto; border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }

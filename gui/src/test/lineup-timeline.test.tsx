@@ -8,7 +8,7 @@ import type { LineupChannel, LineupWindowFetcher } from '../app/lineup'
 const now = () => new Date('2026-06-01T10:00:30Z')
 
 const channel = (n: number, over: Partial<LineupChannel> = {}): LineupChannel =>
-  ({ id: `id-${n}`, number: n, name: `Test Channel ${n}`, group: '', current: null, next: null, programmes: [], ...over })
+  ({ id: `id-${n}`, number: n, name: `Test Channel ${n}`, group: '', logoStatus: 'present', guideState: 'bound', attention: [], current: null, next: null, programmes: [], ...over })
 
 const early = { title: 'Early Show', startUtc: '2026-06-01T09:30:00Z', stopUtc: '2026-06-01T10:30:00Z' }
 const late = { title: 'Late Show', startUtc: '2026-06-01T12:00:00Z', stopUtc: '2026-06-01T14:00:00Z' }
@@ -79,7 +79,7 @@ describe('fetchLineupPage with a window', () => {
   const body = (items: unknown[]) => new Response(JSON.stringify({ generation: 'g', total: items.length, items }))
 
   it('sends the window and reads programs; the default request has no window', async () => {
-    const request = vi.fn(async () => body([{ id: 'a', name: 'A', number: 1, programmes: [early] }]))
+    const request = vi.fn(async () => body([{ id: 'a', name: 'A', number: 1, logoStatus: 'present', guideState: 'bound', attention: [], programmes: [early] }]))
     const page = await fetchLineupPage(0, null, request as unknown as typeof fetch, window)
     expect(request).toHaveBeenCalledWith('/api/lineup/channels?limit=100&from=2026-06-01T10%3A00%3A00Z&to=2026-06-01T13%3A00%3A00Z', expect.anything())
     expect(page).toMatchObject({ items: [{ programmes: [early] }] })

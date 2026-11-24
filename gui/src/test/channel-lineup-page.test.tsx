@@ -7,9 +7,29 @@ import type { LineupChannel, LineupFetcher } from '../app/lineup'
 import css from '../styles/global.css?raw'
 
 const channel = (n: number, over: Partial<LineupChannel> = {}): LineupChannel =>
-  ({ id: `id-${n}`, number: n, name: `Test Channel ${n}`, group: 'Test Group', current: null, next: null, ...over })
+  ({ id: `id-${n}`, number: n, name: `Test Channel ${n}`, group: 'Test Group', logoStatus: 'present', guideState: 'bound', attention: [], current: null, next: null, ...over })
 
 describe('Channel lineup page', () => {
+  it('explains a missing logo and missing guide and points to Guided Setup', async () => {
+    const user = userEvent.setup()
+    const onOpenSetup = vi.fn()
+    const bad = channel(3, { logoStatus: 'missing', guideState: 'none', attention: ['no-guide', 'no-logo'] })
+    render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: 1, items: [bad] })} onOpenSetup={onOpenSetup} />)
+    const row = await screen.findByRole('listitem')
+    expect(row).toHaveTextContent('Logo missing')
+    expect(row).toHaveTextContent('No program guide linked')
+    await user.click(screen.getByRole('button', { name: 'Fix in Guided Setup' }))
+    expect(onOpenSetup).toHaveBeenCalledOnce()
+  })
+
+  it('shows no warnings for a healthy channel', async () => {
+    render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: 1, items: [channel(1)] })} onOpenSetup={() => {}} />)
+    const row = await screen.findByRole('listitem')
+    expect(row).not.toHaveTextContent('Logo missing')
+    expect(row).not.toHaveTextContent('No program guide linked')
+    expect(screen.queryByRole('button', { name: 'Fix in Guided Setup' })).not.toBeInTheDocument()
+  })
+
   it('lists channels with number, name, group, and now/next', async () => {
     const fetchPage: LineupFetcher = async () => ({
       generation: 'g', total: 1,
