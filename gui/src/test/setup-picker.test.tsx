@@ -58,7 +58,7 @@ describe('native picker bridge flow', () => {
       screen.getByText(/Playlist and guide matching runs only after both structural checks pass/),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.'),
+      screen.getByText(/The playlist is checked for safe/),
     ).toBeInTheDocument()
     expect(screen.getAllByText('Selection enabled')).toHaveLength(3)
 
@@ -79,7 +79,7 @@ describe('native picker bridge flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add guide' }))
     expect(screen.getByText('Guide is ready to inspect.')).toBeInTheDocument()
-    expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument()
+    expect(screen.getByText('Guide content checked. 2 channels and 4 programs found.')).toBeInTheDocument()
     expect(
       within(screen.getByRole('region', { name: 'Guided setup steps' })).getAllByText('Ready to inspect'),
     ).toHaveLength(3)
@@ -113,11 +113,7 @@ describe('native picker bridge flow', () => {
     expect(screen.getByText('Match checked. 2 playlist channel entries have no guide match.')).toBeInTheDocument()
     expect(screen.getByText('Matched')).toBeInTheDocument()
     expect(screen.getByText('Guide-only')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'This is a comparison only. Nothing changes automatically. Channel IDs, programme titles, and stream URLs stay hidden.',
-      ),
-    ).toBeInTheDocument()
+    expect(document.querySelector('.setup-match-note')?.textContent).toContain('program titles')
     expect(screen.getByRole('button', { name: 'Check playlist and guide' })).toBeEnabled()
   })
 
@@ -306,7 +302,7 @@ describe('native picker bridge flow', () => {
 
     resolvePicker(selectedResult('guide'))
     await waitFor(() =>
-      expect(screen.getByText('Guide content checked. 2 channels and 4 programmes found.')).toBeInTheDocument(),
+      expect(screen.getByText('Guide content checked. 2 channels and 4 programs found.')).toBeInTheDocument(),
     )
   })
 

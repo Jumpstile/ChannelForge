@@ -364,13 +364,13 @@ function guideContentReasonMessage(reasonCode: GuideContentReasonCode | null): s
     return 'Guide content needs attention. The file must contain a <tv> root.'
   }
   if (reasonCode === 'empty-guide') {
-    return 'Guide content needs attention. No channel or programme entries were found.'
+    return 'Guide content needs attention. No channel or program entries were found.'
   }
   if (reasonCode === 'incomplete-channel') {
     return 'Guide content needs attention. A channel entry is missing its required ID.'
   }
   if (reasonCode === 'incomplete-programme') {
-    return 'Guide content needs attention. A programme entry is missing required fields.'
+    return 'Guide content needs attention. A program entry is missing required fields.'
   }
   if (reasonCode === 'invalid-encoding') {
     return 'Guide content needs attention. The file is not valid UTF-8 XMLTV.'
@@ -409,7 +409,7 @@ export function guideContentStateFromResult(result: SetupSelectionResult): Guide
     return {
       status: 'checked',
       label: guideContentLabels.checked,
-      detail: `Guide content checked. ${content.channelCount} channels and ${content.programmeCount} programmes found.`,
+      detail: `Guide content checked. ${content.channelCount} channels and ${content.programmeCount} programs found.`,
       channelCount: content.channelCount,
       programmeCount: content.programmeCount,
     }

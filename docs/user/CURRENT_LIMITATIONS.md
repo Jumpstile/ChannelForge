@@ -23,7 +23,7 @@ ChannelForge is **Early Alpha**. Treat everything below as the honest, current s
 - A one-page health check, `scripts/Invoke-ChannelForgeDoctor.ps1` (see [Troubleshooting](TROUBLESHOOTING.md)). It also tests that each enabled source can be reached, which uses the network only when you run it.
 - A report-only target preview, `scripts/Show-ChannelForgeTargetPreview.ps1`, that checks a published M3U against the Plex, IPTVBoss, Dispatcharr, or generic profile in `data/compatibility`. IPTVBoss and Dispatcharr capabilities are all unknown, and Plex entries are reported, not checked. It changes nothing.
 - A Stage A/B/C/D read-only guide-intelligence contract for provider display text, M3U metadata, XMLTV, documented AED-derived evidence, schedule evidence, accepted knowledge, native event-pattern candidates, and beginner review reports. Stage D wires the report-only event-pattern preview into `scripts/Build-My-Lineup.ps1`; it writes deterministic redacted JSON/Markdown/text reports and never publishes a guide or mutates provider, downstream, or accepted state.
-- A browser-based, read-only Live Now view and Wrestling category view that consume the versioned One Guide API, paginate one accepted-generation snapshot, and show bounded programme details without playback or state changes.
+- A browser-based, read-only Live Now view and Wrestling category view that consume the versioned One Guide API, paginate one accepted-generation snapshot, and show bounded program details without playback or state changes.
 - Existing GUI work is preserved as a reusable React/TypeScript layout, design-token, Guided Setup, validation/review, and saved-lineup reference. Its Tauri wrapper is optional packaging work, not the primary product UI.
 - The optional Tauri saved-lineup flow prepares a read-only candidate plan, permits saving only for a native **Checked** match, requires accessible explicit acknowledgement, and navigates to a redacted accepted-state view after native success.
 
@@ -43,10 +43,10 @@ The engine also offers read-only `GET`/`HEAD` routes:
 Responses follow the versioned
 [`one-guide-projection.schema.json`](../../schemas/one-guide-projection.schema.json)
 contract. The browser includes Live Now and Wrestling views with bounded
-programme details; it does not display raw API identifiers, paths, hashes, or
+program details; it does not display raw API identifiers, paths, hashes, or
 provenance. With a TV remote or arrow keys, press any arrow to start on the
 menu, move Up/Down to **Live Now** or **Wrestling**, press OK, then press Right
-to reach page content. Wrestling groups current/future programme entries into
+to reach page content. Wrestling groups current/future program entries into
 On Now, Starting Soon, and Coming Up using status values from the API; its
 vertical list uses Up/Down to move between cards. Left returns to navigation,
 and Back closes details.
@@ -55,9 +55,9 @@ One Guide reads only the verified accepted XMLTV artifact. It does not fetch
 providers, enumerate current source configuration, or repair accepted state.
 If accepted state is missing or its XMLTV guide was not generated, a One Guide
 request reports HTTP 503 `one-guide-unavailable`. This is different from a
-valid accepted guide with no programmes matching the requested query, which
+valid accepted guide with no programs matching the requested query, which
 returns HTTP 200 with an empty result.
-Starting Soon means a programme starts after now and within two hours; Live Now
+Starting Soon means a program starts after now and within two hours; Live Now
 includes its start but excludes its stop. Built-in category keys are `live-now`,
 `starting-soon`, `football`, `baseball`, `basketball`, `hockey`, `soccer`,
 `wrestling`, `motorsports`, `boxing`, `mma`, `tennis`, `golf`, `rugby`,
@@ -85,7 +85,7 @@ filled in. Evidence-backed external schedule sourcing remains a separate
 dependency; no source endpoint is selected by this view.
 
 The accepted XMLTV path does not preserve a cross-channel `CanonicalEventId` or
-provider attribution for each programme. Separate source/channel occurrences
+provider attribution for each program. Separate source/channel occurrences
 are not grouped by matching title and time alone. Conflicting descriptions,
 categories (including categories the API omits), XMLTV new/live/premiere flags,
 or other sanitized source-row evidence on the same source/channel remain

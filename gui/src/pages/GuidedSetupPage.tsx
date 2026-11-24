@@ -9,6 +9,7 @@ import {
   type GuidedSetupSourceSetProposal,
   type GuidedSetupSourceSetSubmitter,
 } from '../app/guidedSetupProposal'
+import { TermCoach } from '../components/TermCoach'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import { StepRail } from '../components/StepRail'
@@ -332,7 +333,7 @@ function BrowserGuidedSetupPage({
         </article>
         <article className="setup-step-card">
           <div className="setup-step-heading"><div className="setup-step-icon" aria-hidden="true"><FileText size={22} /></div><div><p className="setup-step-number">Step 2</p><h2>Guides</h2></div></div>
-          <p className="setup-step-description">Guides are optional. Continue with no guide, or add each XMLTV file or public HTTPS URL explicitly.</p>
+          <p className="setup-step-description">Guides are optional. Continue with no guide, or add each <TermCoach term="xmltv-guide" /> file or public HTTPS URL explicitly.</p>
           {guides.length === 0 ? <div className="setup-step-selection" role="status"><strong>No guide selected</strong><span>ChannelForge will keep the source set in playlist-only mode.</span></div> : guides.map((source, index) => renderSourceRow(source, 'guide', index))}
           <button className="button button-secondary" type="button" onClick={addGuide}>Add guide</button>
         </article>
@@ -513,10 +514,10 @@ export function GuidedSetupPage({
     ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist and guide matching runs only after both structural checks pass and reports aggregate counts without changing files.'
     : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
   const playlistContentMessage = pickerAvailable
-    ? 'The playlist is checked for safe M3U structure only. Stream URLs are not opened or displayed.'
+    ? <>The playlist is checked for safe <TermCoach term="m3u-playlist" /> structure only. <TermCoach term="stream-url" />s are not opened or displayed.</>
     : 'Preview only. Playlist content is not checked here.'
   const guideContentMessage = pickerAvailable
-    ? 'The guide is checked for safe XMLTV structure only. Plain XML/XMLTV, gzip, and single-guide ZIP content are supported; programme titles and channel IDs are not displayed.'
+    ? <>The guide is checked for safe XMLTV structure only. Plain XML/XMLTV, gzip, and single-guide ZIP content are supported; program titles and <TermCoach term="channel-id" label="channel ID" />s are not displayed.</>
     : 'Preview only. Guide content is not checked here.'
   const progressNote = pickerAvailable
     ? 'This screen opens a native picker, performs bounded structure checks, and compares one playlist with one guide using exact identity matching only. It does not open stream URLs, import, mutate, or store selected files.'
@@ -637,7 +638,7 @@ export function GuidedSetupPage({
             <strong>{matchState.guideOnlyCount ?? '—'}</strong>
           </div>
         </div>
-        <p className="setup-match-note">This is a comparison only. Nothing changes automatically. Channel IDs, programme titles, and stream URLs stay hidden.</p>
+        <p className="setup-match-note">This is a comparison only. Nothing changes automatically. <TermCoach term="channel-id" />s, program titles, and <TermCoach term="stream-url" label="stream URL" />s stay hidden.</p>
         <div className="setup-step-footer">
           <span className="setup-step-status">{canMatch ? 'Ready to check' : 'Check both files first'}</span>
           {onOpenReview && isPlaylistGuideReviewAvailable(matchState) ? (

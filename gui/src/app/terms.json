@@ -79,9 +79,9 @@
     },
     {
       "id": "programme",
-      "label": "Programme",
+      "label": "Program",
       "short": "One show or event in the guide, with a start and an end time.",
-      "longer": "The guide spells it programme, so ChannelForge uses that word for guide entries.",
+      "longer": "ChannelForge says program. The XMLTV file itself spells it programme, and that stays the technical spelling.",
       "confusedWith": []
     },
     {

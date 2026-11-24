@@ -6,7 +6,7 @@
 - One IPTV playlist file in M3U format.
 - An XMLTV guide file if you want guide data. Press Enter at the guide prompt to continue without one.
 - Git and Pester 5.7.1 only if you are validating the checkout.
-  M3U is the channel playlist; XMLTV is optional programme and guide data.
+  M3U is the channel playlist; XMLTV is optional program and guide data.
 
 Your playlist and guide are private input. Keep them local; never commit or paste their contents into an issue.
 
@@ -18,7 +18,7 @@ For sports and event channels, an XMLTV file alone is not enough. A reliable eve
 
 ChannelForge may read an AED-derived XMLTV or M3U export as a migration/bootstrap input. AED means external event-derived guide metadata; it is not a second accepted lineup authority. The export remains source evidence and is compared with permitted guide or schedule evidence.
 
-You do not need to write regular expressions in the beginner workflow. When event text is ambiguous, the safe result is **Needs review**, not a guessed programme. A **confirmed** result has coherent evidence; a **safe candidate** is useful but still provisional; **unresolved**, **contradictory**, **stale source**, and **source unavailable** results remain visible and cannot silently replace accepted output.
+You do not need to write regular expressions in the beginner workflow. When event text is ambiguous, the safe result is **Needs review**, not a guessed program. A **confirmed** result has coherent evidence; a **safe candidate** is useful but still provisional; **unresolved**, **contradictory**, **stale source**, and **source unavailable** results remain visible and cannot silently replace accepted output.
 
 For a read-only native pattern preview, use `Invoke-ChannelForgeGuidePatternInference` with several representative names. Supply explicit mappings for ambiguous abbreviations such as `ET`, and supply `-ReferenceInstantUtc` when examples omit a year:
 
@@ -367,7 +367,7 @@ The GUI's Lineup Review page shows aggregate coverage first. Select **Prepare sa
 
 **Save lineup** opens an accessible confirmation dialog. The save button remains disabled until you acknowledge that the aggregate review is correct. Cancel, Escape, closing the dialog, or leaving the acknowledgement unchecked performs no native acceptance call and does not mutate accepted state. On confirmation, the native bridge revalidates and owns staging, the journal, accepted pointer, recovery, and accepted-state authority.
 
-After native success, the GUI exposes **Your saved lineup** as a read-only accepted-state view. It does not export, schedule, release, publish to a target, or distribute tester artifacts. The GUI never displays channel identities, programme titles, stream URLs, paths, hashes, generation IDs, provider credentials, or raw native output.
+After native success, the GUI exposes **Your saved lineup** as a read-only accepted-state view. It does not export, schedule, release, publish to a target, or distribute tester artifacts. The GUI never displays channel identities, program titles, stream URLs, paths, hashes, generation IDs, provider credentials, or raw native output.
 
 ## Preview source refresh readiness
 

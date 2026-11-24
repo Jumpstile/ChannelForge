@@ -41,7 +41,8 @@ describe('navigation shell', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Open Guided Setup' })).toBeInTheDocument()
-    expect(screen.getByText("Add, review, or replace one or more playlists and optional XMLTV guides. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.")).toBeInTheDocument()
+    expect(screen.getByText(/Add, review, or replace one or more playlists and optional/)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'XMLTV guide' }).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Choose a workspace/)).not.toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: /view state gallery/i }).at(-1)!)
     expect(screen.getByRole('heading', { name: 'State gallery' })).toBeInTheDocument()
@@ -58,7 +59,7 @@ describe('navigation shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Set up your workspace' })).toBeInTheDocument()
     expect(screen.getByText(/Files are read in this browser only to create a server-owned candidate/)).toBeInTheDocument()
     expect(screen.getByText('Add every playlist that belongs in the source set. Each item can be a local file or a public HTTPS URL.')).toBeInTheDocument()
-    expect(screen.getByText('Guides are optional. Continue with no guide, or add each XMLTV file or public HTTPS URL explicitly.')).toBeInTheDocument()
+    expect(screen.getByText(/Guides are optional\. Continue with no guide, or add each/)).toBeInTheDocument()
     expect(screen.getByText('No guide selected')).toBeInTheDocument()
     expect(screen.getByText('Server-owned')).toBeInTheDocument()
     expect(screen.getByLabelText('Choose playlist')).toBeInTheDocument()

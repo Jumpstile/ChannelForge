@@ -108,10 +108,10 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
           <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
           <ErrorNotice message={loadFailedMessage('Live Now', 'live-now-load-failed')} />
         </section> : items.length === 0 ? <section className="live-now-message" aria-live="polite">
-          <h2>Nothing is on right now</h2><p>Your accepted guide has no programmes airing at this time.</p>
+          <h2>Nothing is on right now</h2><p>Your accepted guide has no programs airing at this time.</p>
         </section> : <>
-          <p className="live-now-count" aria-live="polite">{items.length} {items.length === 1 ? 'programme' : 'programmes'} on now</p>
-          <div className="live-now-list" role="list" aria-label="Programmes on now">
+          <p className="live-now-count" aria-live="polite">{items.length} {items.length === 1 ? 'program' : 'programs'} on now</p>
+          <div className="live-now-list" role="list" aria-label="Programs on now">
             {items.map((item, index) => <div className="live-now-card-wrap" role="listitem" key={item.ItemId}>
               <button className="live-now-card" type="button" ref={(node) => { cardRefs.current[index] = node }} onKeyDown={(event) => handleCardKeyDown(event, index)} onClick={(event) => { void openDetails(item, event.currentTarget) }}>
                 <span className="live-now-card-status"><span aria-hidden="true" className="live-now-indicator" /> LIVE</span>
