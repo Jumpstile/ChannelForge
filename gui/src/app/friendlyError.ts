@@ -79,7 +79,7 @@ export function loadFailedMessage(what: string, code: string, whatToDo = 'Make s
   const known = kind === 'unknown' ? null : loadFailureText[kind]
   return {
     headline: `ChannelForge could not load ${what}`,
-    whatHappened: `${known ? known.why : 'ChannelForge could not tell why. Open Details for the technical information.'} This page only reads information, so nothing was changed.`,
+    whatHappened: `${known ? known.why : failure.raw ? 'The request failed before ChannelForge got a usable answer. Open Details for the technical information.' : 'ChannelForge could not tell why. Open Details for the technical information.'} This page only reads information, so nothing was changed.`,
     whatToDo: known && kind !== 'unreachable' ? known.next : whatToDo,
     details: { code, message: failure.raw, cause: known ? known.cause : 'The request to the local ChannelForge server failed or the answer could not be read, and ChannelForge could not tell which. The server may be stopped, or may be a different version from this page.' },
   }

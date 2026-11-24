@@ -117,26 +117,28 @@ const missingSourceMessage = (kind: 'playlist' | 'guide'): FriendlyMessage => ({
   details: { code: `${kind}-source-missing`, cause: `A ${kind} row has neither a selected file nor a URL.` },
 })
 
-const analysisFailedMessage: FriendlyMessage = {
+const analysisFailedMessage = (thrown?: string): FriendlyMessage => ({
   headline: 'ChannelForge could not check these files',
-  whatHappened: 'The check stopped before it finished, and ChannelForge could not tell why. Your playlist and guide files were not changed.',
+  whatHappened: `The check stopped before it finished${thrown ? '' : ', and ChannelForge could not tell why'}. Your playlist and guide files were not changed.`,
   whatToDo: 'Start ChannelForge if it is closed, then press Analyze again. If it keeps happening, open Details and share it when you ask for help.',
-  details: { cause: 'An unexpected error stopped the analysis before the server gave a result.' },
-}
+  details: { message: thrown, cause: 'An unexpected error stopped the analysis before the server gave a result.' },
+})
 
-const acceptanceFailedMessage: FriendlyMessage = {
+const acceptanceFailedMessage = (thrown?: string): FriendlyMessage => ({
   headline: 'ChannelForge could not accept this lineup',
-  whatHappened: 'The accept step stopped before it finished, and ChannelForge could not tell why. It cannot tell whether your lineup was saved.',
+  whatHappened: `The accept step stopped before it finished${thrown ? '' : ', and ChannelForge could not tell why'}. It cannot tell whether your lineup was saved.`,
   whatToDo: 'Refresh this page and look at your lineup before trying again. If it keeps happening, open Details and share it when you ask for help.',
-  details: { cause: 'An unexpected error stopped the accept step before the server gave a result.' },
-}
+  details: { message: thrown, cause: 'An unexpected error stopped the accept step before the server gave a result.' },
+})
 
-const selectionFailedMessage: FriendlyMessage = {
+const selectionFailedMessage = (thrown?: string): FriendlyMessage => ({
   headline: 'ChannelForge could not finish that choice',
-  whatHappened: 'The file chooser stopped before it gave an answer, and ChannelForge could not tell why. Your earlier choice was kept.',
+  whatHappened: `The file chooser stopped before it gave an answer${thrown ? '' : ', and ChannelForge could not tell why'}. Your earlier choice was kept.`,
   whatToDo: 'Pick the item again. If it keeps happening, open Details and share it when you ask for help.',
-  details: { cause: 'An unexpected error stopped the file chooser before it gave an answer.' },
-}
+  details: { message: thrown, cause: 'An unexpected error stopped the file chooser before it gave an answer.' },
+})
+
+const thrownText = (error: unknown): string | undefined => (error instanceof Error && error.message ? error.message : undefined)
 
 function ProposalCheckRow({ check }: { check: GuidedSetupCheck }) {
   const [open, setOpen] = useState(false)
@@ -292,7 +294,7 @@ function BrowserGuidedSetupPage({
     try {
       setProposal(await sourceSetProposalSubmitter(playlistDrafts, guideDrafts, bindingDrafts))
     } catch (submissionError) {
-      setError(toFriendlyMessage(submissionError, analysisFailedMessage))
+      setError(toFriendlyMessage(submissionError, analysisFailedMessage(thrownText(submissionError))))
     } finally {
       setSubmitting(false)
     }
@@ -305,7 +307,7 @@ function BrowserGuidedSetupPage({
     try {
       setAccepted(await sourceSetAcceptanceSubmitter(proposal.Proposal.ProposalId))
     } catch (acceptanceError) {
-      setError(toFriendlyMessage(acceptanceError, acceptanceFailedMessage))
+      setError(toFriendlyMessage(acceptanceError, acceptanceFailedMessage(thrownText(acceptanceError))))
     } finally {
       setAccepting(false)
     }
@@ -463,7 +465,7 @@ export function GuidedSetupPage({
         }
       }
       setPickerError(safePickerMessage(result))
-    } catch {
+    } catch (selectionError) {
       if (operationVersion !== selectionVersion.current) return
       setSelectionStates(previousStates)
       if (kind === 'playlist') {
@@ -471,7 +473,7 @@ export function GuidedSetupPage({
       } else if (kind === 'guide') {
         setGuideContent(previousGuideContent)
       }
-      setPickerError(selectionFailedMessage)
+      setPickerError(selectionFailedMessage(thrownText(selectionError)))
     } finally {
       if (operationVersion === selectionVersion.current) {
         setPendingKind(null)

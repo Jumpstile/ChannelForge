@@ -280,3 +280,49 @@ describe('browser Guided Setup proposal and acceptance', () => {
     expect(screen.queryByText('Choose a playlist for this guide')).not.toBeInTheDocument()
   })
 })
+
+describe('browser Guided Setup unexpected failures', () => {
+  async function analyzeWith(submitter: GuidedSetupSourceSetSubmitter) {
+    const user = userEvent.setup()
+    render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={submitter} />)
+    await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+    await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+    return { user, alert: await screen.findByRole('alert') }
+  }
+
+  it('drops "could not tell why" when a thrown message exists and keeps it under Details', async () => {
+    const { user, alert } = await analyzeWith(vi.fn<GuidedSetupSourceSetSubmitter>().mockRejectedValue(new Error('socket closed')))
+    expect(alert).toHaveTextContent('The check stopped before it finished.')
+    expect(alert).not.toHaveTextContent('could not tell why')
+    expect(screen.queryByText('socket closed')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('socket closed')).toBeVisible()
+  })
+
+  it('keeps the generic text when nothing is known', async () => {
+    const { alert } = await analyzeWith(vi.fn<GuidedSetupSourceSetSubmitter>().mockRejectedValue('no message'))
+    expect(alert).toHaveTextContent('could not tell why')
+  })
+
+  it('drops "could not tell why" for a thrown accept error and keeps it for none', async () => {
+    for (const [thrown, hasMessage] of [[new Error('disk full'), true], ['no message', false]] as const) {
+      const user = userEvent.setup()
+      const accept = vi.fn<(proposalId: string) => Promise<GuidedSetupSourceSetAcceptance>>().mockRejectedValue(thrown)
+      const view = render(<GuidedSetupPage pickerAvailable={false} sourceSetProposalSubmitter={vi.fn<GuidedSetupSourceSetSubmitter>().mockResolvedValue(readyProposal)} sourceSetAcceptanceSubmitter={accept} />)
+      await user.upload(screen.getByLabelText('Choose playlist'), new File(['#EXTM3U\n'], 'one.m3u'))
+      await user.click(screen.getByRole('button', { name: 'Analyze source set' }))
+      await user.click(await screen.findByLabelText(/I reviewed these results/))
+      await user.click(screen.getByRole('button', { name: 'Accept reviewed proposal' }))
+      const alert = await screen.findByRole('alert')
+      if (hasMessage) {
+        expect(alert).toHaveTextContent('The accept step stopped before it finished.')
+        expect(alert).not.toHaveTextContent('could not tell why')
+        await user.click(screen.getByRole('button', { name: 'Details' }))
+        expect(screen.getByText('disk full')).toBeVisible()
+      } else {
+        expect(alert).toHaveTextContent('could not tell why')
+      }
+      view.unmount()
+    }
+  })
+})

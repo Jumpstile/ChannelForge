@@ -405,4 +405,22 @@ describe('native picker bridge flow', () => {
     expect(screen.getByRole('button', { name: 'Add playlist' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Add guide' })).toBeDisabled()
   })
+
+  it('drops "could not tell why" for a thrown chooser error and keeps it for none', async () => {
+    for (const [thrown, hasMessage] of [[new Error('chooser crashed'), true], ['no message', false]] as const) {
+      const user = userEvent.setup()
+      const view = render(<GuidedSetupPage picker={vi.fn<SetupPicker>().mockRejectedValue(thrown)} pickerAvailable />)
+      await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+      const alert = await screen.findByRole('alert')
+      if (hasMessage) {
+        expect(alert).toHaveTextContent('The file chooser stopped before it gave an answer.')
+        expect(alert).not.toHaveTextContent('could not tell why')
+        await user.click(screen.getByRole('button', { name: 'Details' }))
+        expect(screen.getByText('chooser crashed')).toBeVisible()
+      } else {
+        expect(alert).toHaveTextContent('could not tell why')
+      }
+      view.unmount()
+    }
+  })
 })

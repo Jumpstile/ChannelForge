@@ -8,7 +8,7 @@ import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefr
 function refreshFailedMessage(failure: LoadFailure): FriendlyMessage {
   return {
     headline: 'ChannelForge could not check your sources',
-    whatHappened: `${failureWhy(failure) ?? 'ChannelForge could not check your saved sources, and could not tell why.'} Your accepted lineup was not changed.`,
+    whatHappened: `${failureWhy(failure) ?? (failure.raw ? 'The refresh request failed before ChannelForge got a usable answer.' : 'ChannelForge could not check your saved sources, and could not tell why.')} Your accepted lineup was not changed.`,
     whatToDo: 'Press Refresh now to try again. If it keeps happening, make sure ChannelForge is still running or open Details.',
     details: { code: 'source-refresh-failed', message: failure.raw, cause: 'The request to refresh the saved sources failed or the answer could not be read.' },
   }

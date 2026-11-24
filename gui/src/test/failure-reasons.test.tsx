@@ -71,7 +71,9 @@ describe('Status failure reasons', () => {
     await expectReasonAndRaw(/server reported an error/, 'HTTP status 503')
     first.unmount()
     render(<StatusDashboard fetchStatus={() => Promise.reject(new Error('socket closed'))} />)
-    await expectReasonAndRaw(/could not tell why/, 'socket closed')
+    const alertText = await screen.findByRole('alert')
+    expect(alertText).not.toHaveTextContent('could not tell why')
+    await expectReasonAndRaw(/request failed before ChannelForge got a usable answer/, 'socket closed')
   })
 
   it('shows the reason when Refresh fails and falls back when there is none', async () => {
@@ -83,5 +85,14 @@ describe('Status failure reasons', () => {
     await expectReasonAndRaw(/server reported an error/, 'HTTP status 503')
     await user.click(screen.getByRole('button', { name: /Refresh now/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('could not tell why')
+  })
+
+  it('drops "could not tell why" when Refresh failed with raw text only', async () => {
+    const status: WebStatusSnapshot = { lineupAccepted: true, sourcesStatus: 'saved', playlistStatus: 'ready', guideStatus: 'no-guide', canRefreshSources: true }
+    render(<StatusDashboard fetchStatus={async () => status} refreshSources={vi.fn().mockResolvedValue(loadFailure('unknown', 'boom'))} />)
+    await userEvent.setup().click(await screen.findByRole('button', { name: /Refresh now/ }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).not.toHaveTextContent('could not tell why')
+    await expectReasonAndRaw(/refresh request failed before ChannelForge got a usable answer/, 'boom')
   })
 })
