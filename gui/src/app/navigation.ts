@@ -1,4 +1,4 @@
-export type NavigationId = 'workbench' | 'live-now' | 'wrestling' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'channels' | 'schedule' | 'learn' | 'gallery'
+export type NavigationId = 'workbench' | 'live-now' | 'wrestling' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'channels' | 'timeline' | 'schedule' | 'learn' | 'gallery'
 
 export type NavigationItem = {
   id: NavigationId
@@ -34,6 +34,7 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { id: 'build', label: 'Lineup', description: 'Review your lineup', available: false },
       { id: 'channels', label: 'Channel lineup', description: 'Browse your saved channels', available: true },
+      { id: 'timeline', label: 'Timeline', description: 'See what airs over the next three hours', available: true },
       { id: 'accepted', label: 'Saved lineup', description: 'See what you saved', available: false },
     ],
   },
