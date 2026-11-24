@@ -101,7 +101,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
           {statusPending
             ? 'Waiting for ChannelForge to report the current workspace state.'
             : statusUnavailable
-              ? 'ChannelForge could not report where things stand. Make sure ChannelForge is still running, then reload this page.'
+              ? 'ChannelForge could not load the workspace status. Open Details on the status notice above for the reason, then reload this page.'
               : lineupAccepted
                 ? 'Your accepted lineup is available. Open Guided Setup to review or replace sources.'
                 : 'There is nothing to review yet because no playlist or guide has been added.'}

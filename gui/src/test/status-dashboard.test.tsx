@@ -86,6 +86,14 @@ describe('read-only status dashboard', () => {
     expect(screen.getByText('status-unavailable')).toBeInTheDocument()
   })
 
+  it('says why the status could not load when the server answered something it does not understand', async () => {
+    render(<StatusDashboard fetchStatus={async () => ({ loadFailure: 'not-understood' as const })} />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('does not understand')
+    expect(alert).toHaveTextContent('update ChannelForge')
+  })
+
   it('renders a safe unavailable state when fetching fails', async () => {
     const fetchStatus = vi.fn().mockRejectedValue(new Error('not shown'))
 

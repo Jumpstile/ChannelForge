@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import App from '../App'
+import { loadFailure } from '../app/friendlyError'
 import { ChannelLineupPage } from '../pages/ChannelLineupPage'
 import type { LineupChannel, LineupFetcher } from '../app/lineup'
 import css from '../styles/global.css?raw'
@@ -61,9 +62,20 @@ describe('Channel lineup page', () => {
     const user = userEvent.setup()
     const fetchPage = vi.fn<LineupFetcher>().mockResolvedValueOnce(null).mockResolvedValueOnce({ generation: 'g', total: 1, items: [channel(1)] })
     render(<ChannelLineupPage fetchPage={fetchPage} onOpenSetup={() => {}} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('ChannelForge could not load your channels')
+    expect(await screen.findByRole('alert')).toHaveTextContent('ChannelForge could not load your saved lineup')
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Test Channel 1')).toBeVisible()
+  })
+
+  it.each([
+    [loadFailure('not-understood'), 'does not understand', 'update ChannelForge'],
+    [loadFailure('unreachable'), 'most likely not running', 'Start ChannelForge'],
+    ['changed' as const, 'saved lineup changed while ChannelForge was loading it', 'Try again'],
+  ])('says why the saved lineup could not load (%j)', async (result, why, next) => {
+    render(<ChannelLineupPage fetchPage={async () => result} onOpenSetup={() => {}} />)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(why)
+    expect(alert).toHaveTextContent(next)
   })
 
   it('shows more channels with a keyboard-reachable button', async () => {

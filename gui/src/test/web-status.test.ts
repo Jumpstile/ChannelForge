@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fetchWebStatus, refreshSavedSources } from '../app/webStatus'
+import { fetchWebStatus, refreshSavedSources, type WebStatusSnapshot } from '../app/webStatus'
 
 function response(status: number, payload: unknown) {
   return {
@@ -47,9 +47,9 @@ describe('web status client', () => {
     const failedRequest = vi.fn().mockRejectedValue(new Error('network failure'))
     const invalidRequest = vi.fn().mockResolvedValue(response(200, { Status: 'ok', LineupStatus: 'unknown' }))
 
-    await expect(fetchWebStatus(unavailableRequest as unknown as typeof fetch)).resolves.toBeNull()
-    await expect(fetchWebStatus(failedRequest as unknown as typeof fetch)).resolves.toBeNull()
-    await expect(fetchWebStatus(invalidRequest as unknown as typeof fetch)).resolves.toBeNull()
+    await expect(fetchWebStatus(unavailableRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'server-error' })
+    await expect(fetchWebStatus(failedRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'unreachable' })
+    await expect(fetchWebStatus(invalidRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'not-understood' })
   })
 
   it('never makes a state-changing request', async () => {
@@ -91,12 +91,12 @@ describe('web status client', () => {
     }))
     const withoutSources = vi.fn().mockResolvedValue(response(200, { ...acceptedPayload, SourcesStatus: 'saved' }))
 
-    const a = await fetchWebStatus(withSources as unknown as typeof fetch)
-    expect(a?.sources).toEqual([
+    const a = await fetchWebStatus(withSources as unknown as typeof fetch) as WebStatusSnapshot
+    expect(a.sources).toEqual([
       { kind: 'playlist', label: 'Home', state: 'ready' },
       { kind: 'guide', label: 'Guide', state: 'source-unavailable' },
     ])
-    expect((await fetchWebStatus(withoutSources as unknown as typeof fetch))?.sources).toBeUndefined()
+    expect(((await fetchWebStatus(withoutSources as unknown as typeof fetch)) as WebStatusSnapshot).sources).toBeUndefined()
   })
 
   it('reads snapshot time and coverage window when sent and leaves them empty when not', async () => {
@@ -109,9 +109,9 @@ describe('web status client', () => {
     }))
     const absent = vi.fn().mockResolvedValue(response(200, { ...acceptedPayload, SourcesStatus: 'saved' }))
 
-    const a = await fetchWebStatus(sent as unknown as typeof fetch)
-    expect([a?.snapshotUtc, a?.coverageStartUtc, a?.coverageEndUtc]).toEqual(['2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-03T00:00:00Z'])
-    const b = await fetchWebStatus(absent as unknown as typeof fetch)
-    expect([b?.snapshotUtc, b?.coverageStartUtc, b?.coverageEndUtc]).toEqual([null, null, null])
+    const a = await fetchWebStatus(sent as unknown as typeof fetch) as WebStatusSnapshot
+    expect([a.snapshotUtc, a.coverageStartUtc, a.coverageEndUtc]).toEqual(['2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-03T00:00:00Z'])
+    const b = await fetchWebStatus(absent as unknown as typeof fetch) as WebStatusSnapshot
+    expect([b.snapshotUtc, b.coverageStartUtc, b.coverageEndUtc]).toEqual([null, null, null])
   })
 })

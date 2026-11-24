@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { fetchLineupWindowPage, formatUtcTime } from '../app/lineup'
 import type { LineupChannel, LineupProgramme, LineupWindow, LineupWindowFetcher } from '../app/lineup'
-import { loadFailedMessage } from '../app/friendlyError'
+import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 
@@ -87,7 +87,8 @@ export function TimelineGridPage({ fetchPage = fetchLineupWindowPage, now = curr
   const [view, setView] = useState<TimelineView | null | undefined>(undefined)
   const [mode, setMode] = useState<'grid' | 'list'>('grid')
   const [loadingMore, setLoadingMore] = useState(false)
-  const [moreFailed, setMoreFailed] = useState(false)
+  const [moreFailed, setMoreFailed] = useState<LoadFailureKind | null>(null)
+  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
   const [retry, setRetry] = useState(0)
 
   useEffect(() => {
@@ -96,7 +97,10 @@ export function TimelineGridPage({ fetchPage = fetchLineupWindowPage, now = curr
     setView(undefined)
     void fetchPage(0, null, window).then((page) => {
       if (!active) return
-      setView(page === null || page === 'changed' ? null : { channels: page.items, total: page.total, generation: page.generation, window })
+      if (page === null || page === 'changed' || isLoadFailure(page)) {
+        setFailure(page === 'changed' ? 'changed' : failureKindOf(page))
+        setView(null)
+      } else setView({ channels: page.items, total: page.total, generation: page.generation, window })
     })
     return () => { active = false }
   }, [fetchPage, now, retry])
@@ -105,11 +109,11 @@ export function TimelineGridPage({ fetchPage = fetchLineupWindowPage, now = curr
   const showMore = async () => {
     if (!view) return
     setLoadingMore(true)
-    setMoreFailed(false)
+    setMoreFailed(null)
     const page = await fetchPage(view.channels.length, view.generation, view.window)
     setLoadingMore(false)
     if (page === 'changed') setRetry((value) => value + 1)
-    else if (page === null) setMoreFailed(true)
+    else if (page === null || isLoadFailure(page)) setMoreFailed(failureKindOf(page))
     else setView({ ...view, channels: [...view.channels, ...page.items], total: page.total, generation: page.generation })
   }
 
@@ -121,7 +125,7 @@ export function TimelineGridPage({ fetchPage = fetchLineupWindowPage, now = curr
           <div className="empty-state-action">
             <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Try again</button>
           </div>
-          <ErrorNotice message={loadFailedMessage('the timeline', 'timeline-load-failed', 'Make sure ChannelForge is running and that you have saved a lineup. Then try again.')} />
+          <ErrorNotice message={loadFailedMessage('the timeline', 'timeline-load-failed', 'Start ChannelForge if it is closed, and make sure you have saved a lineup. Then try again.', failure)} />
         </section> : view.total === 0 ? <section className="empty-state" aria-live="polite">
           <h2>No channels saved yet</h2><p>Set up a playlist and save your lineup. Your channels will show up here.</p>
         </section> : <>
