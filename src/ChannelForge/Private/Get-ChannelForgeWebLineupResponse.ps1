@@ -156,19 +156,19 @@ function Get-ChannelForgeWebLineupProgramme {
 
 # programmeState: current, gap (next exists, nothing airing), stale (guide ended), no-programme (guide id has none), no-guide.
 function Get-ChannelForgeWebLineupItem {
-    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now)
+    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now, [AllowNull()]$Window = $null)
 
     $current = $null
     $next = $null
     $state = 'no-guide'
+    $list = @()
     if ($Row.GuideState -ceq 'bound') {
-        $list = @()
         if ($ProgrammeIndex.ContainsKey($Row.GuideKey)) { $list = @($ProgrammeIndex[$Row.GuideKey]) }
         $current = $list | Where-Object { $_.Start -le $Now -and $_.End -gt $Now } | Select-Object -First 1
         $next = $list | Where-Object { $_.Start -gt $Now } | Select-Object -First 1
         $state = if ($list.Count -eq 0) { 'no-programme' } elseif ($null -ne $current) { 'current' } elseif ($null -ne $next) { 'gap' } else { 'stale' }
     }
-    return [ordered]@{
+    $item = [ordered]@{
         id = $Row.Id
         number = $Row.Number
         name = $Row.Name
@@ -180,13 +180,37 @@ function Get-ChannelForgeWebLineupItem {
         current = Get-ChannelForgeWebLineupProgramme $current
         next = Get-ChannelForgeWebLineupProgramme $next
     }
+    # Only a from/to request adds programmes (every accepted programme that overlaps the window); the default response is unchanged.
+    if ($null -ne $Window) {
+        $item.programmes = @($list | Where-Object { $_.Start -lt $Window.To -and $_.End -gt $Window.From } | ForEach-Object { Get-ChannelForgeWebLineupProgramme $_ })
+    }
+    return $item
+}
+
+# Optional UTC schedule window: from and to together, to after from, at most 3 hours. Returns $null when neither is given.
+function Get-ChannelForgeWebLineupWindow {
+    # Untyped on purpose: a [string] parameter would turn a missing (null) bound into an empty string.
+    param([AllowNull()]$From, [AllowNull()]$To)
+
+    if ($null -eq $From -and $null -eq $To) { return $null }
+    if ($null -eq $From -or $null -eq $To) { throw 'Lineup window needs both from and to.' }
+    $bounds = foreach ($text in $From, $To) {
+        $parsed = [datetimeoffset]::MinValue
+        if ($text -cnotmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$' -or -not [datetimeoffset]::TryParseExact($text, "yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal, [ref]$parsed)) { throw 'Lineup window times must be UTC like 2026-01-01T00:00:00Z.' }
+        $parsed
+    }
+    $span = $bounds[1] - $bounds[0]
+    if ($span -le [timespan]::Zero -or $span -gt [timespan]::FromHours(3)) { throw 'Lineup window must be longer than zero and at most 3 hours.' }
+    return [pscustomobject]@{ From = $bounds[0]; To = $bounds[1] }
 }
 
 function Get-ChannelForgeWebLineupQuery {
     param([AllowEmptyString()][string]$QueryString = '')
 
     if ($QueryString.Length -gt 300) { throw 'Lineup query is too long.' }
-    $query = [ordered]@{ Limit = 100; Offset = 0; Generation = $null; Group = $null; NeedsReview = $false; Search = $null }
+    $query = [ordered]@{ Limit = 100; Offset = 0; Generation = $null; Group = $null; NeedsReview = $false; Search = $null; Window = $null }
+    $windowFrom = $null
+    $windowTo = $null
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     if (-not [string]::IsNullOrEmpty($QueryString)) {
         foreach ($part in $QueryString.Split('&')) {
@@ -211,6 +235,9 @@ function Get-ChannelForgeWebLineupQuery {
                     if ($text -cnotin @('all', 'needs-review')) { throw 'Lineup attention filter is unsupported.' }
                     $query.NeedsReview = ($text -ceq 'needs-review')
                 }
+                { $_ -in @('from', 'to') } {
+                    if ($_ -eq 'from') { $windowFrom = $text } else { $windowTo = $text }
+                }
                 { $_ -in @('limit', 'offset') } {
                     if (-not [long]::TryParse($pair[1], [Globalization.NumberStyles]::None, [Globalization.CultureInfo]::InvariantCulture, [ref]$value)) { throw 'Lineup query values must be decimal integers.' }
                     if ($_ -eq 'limit') {
@@ -226,6 +253,7 @@ function Get-ChannelForgeWebLineupQuery {
             }
         }
     }
+    $query.Window = Get-ChannelForgeWebLineupWindow -From $windowFrom -To $windowTo
     if ($query.Offset -gt 0 -and $null -eq $query.Generation) { throw 'Lineup pages after the first require the generation cursor.' }
     return [pscustomobject]$query
 }
@@ -253,7 +281,7 @@ function Get-ChannelForgeWebLineupResponse {
         if ($query.NeedsReview) { $rows = @($rows | Where-Object { $_.Attention.Count -gt 0 }) }
         if ($null -ne $query.Search) { $rows = @($rows | Where-Object { $_.Name.IndexOf($query.Search, [StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
         $now = [datetimeoffset]::FromUnixTimeMilliseconds([datetimeoffset]::UtcNow.ToUnixTimeMilliseconds())
-        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now })
+        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now -Window $query.Window })
         $body = ConvertTo-Json -InputObject ([ordered]@{
                 version = 'lineup-workspace/channel/v1'
                 generation = $projection.GenerationToken
