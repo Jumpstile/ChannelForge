@@ -60,12 +60,12 @@ function renderReview(state: PlaylistGuideMatchState = matchState('checked')) {
 
 describe('read-only lineup review', () => {
   it.each([
-    ['not-checked', 'Review is not ready'],
-    ['checking', 'Checking coverage'],
-    ['checked', 'Exact coverage found'],
-    ['needs-attention', 'Coverage needs attention'],
-    ['review-needed', 'Review is needed'],
-    ['blocked', 'Review is blocked'],
+    ['not-checked', 'Not ready yet'],
+    ['checking', 'Checking your files'],
+    ['checked', 'Every channel has a guide match'],
+    ['needs-attention', 'Some channels need attention'],
+    ['review-needed', 'Some channels need your review'],
+    ['blocked', 'The check could not finish'],
   ] as const)('presents the %s aggregate status', (status, title) => {
     renderReview(matchState(status))
 
@@ -89,7 +89,7 @@ describe('read-only lineup review', () => {
     expect(screen.getByText('No guide match')).toBeInTheDocument()
     expect(screen.getByText('Needs review')).toBeInTheDocument()
     expect(screen.getByText('Guide-only')).toBeInTheDocument()
-    expect(screen.getByText('No relationship was selected automatically, and saving is blocked.')).toBeInTheDocument()
+    expect(screen.getByText('ChannelForge did not pick one for you. Saving is turned off until this is sorted out.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /accept|apply|resolve|save|export|publish/i })).not.toBeInTheDocument()
     expect(document.body.textContent).not.toContain('https://secret.invalid')
     expect(document.body.textContent).not.toContain('playlist-id-secret')
@@ -99,8 +99,8 @@ describe('read-only lineup review', () => {
   it('keeps guide-only coverage informational and non-destructive', () => {
     renderReview(matchState('needs-attention', { unmatchedPlaylistCount: 0, guideOnlyCount: 2 }))
 
-    expect(screen.getByText(/2 guide channels have no playlist counterpart/)).toBeInTheDocument()
-    expect(screen.getByText('Guide-only coverage is informational, but this state cannot be saved.')).toBeInTheDocument()
+    expect(screen.getByText(/2 guide channels not in your playlist/)).toBeInTheDocument()
+    expect(screen.getByText('Saving is turned off until these counts are sorted out.')).toBeInTheDocument()
   })
 
   it('returns to Guided Setup through the only available action', async () => {
@@ -130,7 +130,7 @@ describe('read-only lineup review', () => {
     render(<LineupReviewPage matchState={matchState('checked')} onBack={vi.fn()} planner={planner} />)
 
     await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
-    await waitFor(() => expect(screen.getByText('This is still a candidate preview. Nothing has changed, and the current saved lineup remains unchanged.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('This is only a preview. Nothing has changed, and your current saved lineup stays as it is.')).toBeInTheDocument())
     expect(planner).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Save lineup' })).toBeInTheDocument()
   })
@@ -166,7 +166,7 @@ describe('read-only lineup review', () => {
     await user.click(confirm)
     await waitFor(() => expect(acceptor).toHaveBeenCalledOnce())
     expect(onSavedLineupChange).toHaveBeenCalledWith(savedResult())
-    expect(screen.getByText('Saved lineup is available from the Saved lineup navigation item.')).toBeInTheDocument()
+    expect(screen.getByText('Your lineup is saved. Open Saved lineup in the menu to see it.')).toBeInTheDocument()
   })
 
   it('cancels and closes with Escape without calling native acceptance', async () => {
@@ -216,8 +216,10 @@ describe('read-only lineup review', () => {
     await user.click(within(dialog).getByRole('checkbox', { name: /understand/i }))
     await user.click(within(dialog).getByRole('button', { name: 'Save lineup' }))
     await waitFor(() => expect(acceptor).toHaveBeenCalledOnce())
-    expect(screen.getByText('The candidate or accepted parent changed. Nothing was saved. Run the check and prepare a new preview.')).toBeInTheDocument()
-    expect(screen.queryByText('Saved lineup is available from the Saved lineup navigation item.')).not.toBeInTheDocument()
+    expect(screen.getByText('Your files changed while you were working, so ChannelForge stopped. Nothing was saved.')).toBeInTheDocument()
+    expect(screen.queryByText('Your lineup is saved. Open Saved lineup in the menu to see it.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('stale-candidate')).toBeInTheDocument()
   })
   it('maps native aggregate results to fixed review-safe state', () => {
     const result: PlaylistGuideMatchResult = {

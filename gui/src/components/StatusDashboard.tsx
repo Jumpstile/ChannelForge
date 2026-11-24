@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
+import { ErrorNotice } from './ErrorNotice'
+import { loadFailedMessage, type FriendlyMessage } from '../app/friendlyError'
 import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
+
+const refreshFailedMessage: FriendlyMessage = {
+  headline: 'ChannelForge could not check your sources',
+  whatHappened: 'The check did not finish. Your accepted lineup was not changed.',
+  whatToDo: 'Press Refresh now to try again. Make sure ChannelForge is still running.',
+  details: { code: 'source-refresh-failed', cause: 'The request to refresh the saved sources failed or the answer could not be read.' },
+}
 
 // Browser time zone, labeled. An unreadable value is treated as not reported.
 function formatLocalTime(value: string | null | undefined): string | null {
@@ -64,6 +73,7 @@ export function StatusDashboard({
   const [confirming, setConfirming] = useState<number | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeMessage, setRemoveMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<FriendlyMessage | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -93,9 +103,10 @@ export function StatusDashboard({
   async function handleRefresh() {
     setRefreshing(true)
     setRefreshMessage(null)
+    setActionError(null)
     const result = await refreshSources()
     if (result === null) {
-      setRefreshMessage('Refresh could not complete safely. Your accepted lineup was not changed.')
+      setActionError(refreshFailedMessage)
       setRefreshing(false)
       return
     }
@@ -110,11 +121,13 @@ export function StatusDashboard({
 
   async function handleRemove(source: SourceRow) {
     setRemoving(true)
+    setActionError(null)
+    setRemoveMessage(null)
     const result = await removeSource(source)
     setRemoving(false)
     setConfirming(null)
     if ('message' in result) {
-      setRemoveMessage(result.message)
+      setActionError(result.message)
       return
     }
     setRemoveMessage(`Removed "${source.label}". Your other sources were not changed.`)
@@ -128,8 +141,8 @@ export function StatusDashboard({
   if (state === 'loading') {
     return (
       <StatusBanner status="Not checked" title="Checking ChannelForge status">
-        <p>Checking whether your local ChannelForge server is ready.</p>
-        <p><strong>Read-only status.</strong> This page can show status, but it cannot change your lineup yet.</p>
+        <p>Checking whether ChannelForge is ready.</p>
+        <p><strong>This page only shows information.</strong> It cannot change your lineup yet.</p>
       </StatusBanner>
     )
   }
@@ -137,8 +150,8 @@ export function StatusDashboard({
   if (state === 'unavailable' || snapshot === null) {
     return (
       <StatusBanner status="Warning" title="ChannelForge status is unavailable">
-        <p>We could not read the local server status. Check that ChannelForge is running, then refresh this page.</p>
-        <p><strong>Read-only status.</strong> This page can show status, but it cannot change your lineup yet.</p>
+        <ErrorNotice message={loadFailedMessage('the status', 'status-unavailable', 'Make sure ChannelForge is still running, then reload this page.')} />
+        <p><strong>This page only shows information.</strong> It cannot change your lineup yet.</p>
       </StatusBanner>
     )
   }
@@ -169,17 +182,17 @@ export function StatusDashboard({
         <article className="summary-card">
           <span className="summary-card-label">Playlist</span>
           <strong>{detailLabel(playlistStatus)}</strong>
-          <span className="summary-card-detail">Server-owned saved source</span>
+          <span className="summary-card-detail">Saved on this computer</span>
         </article>
         <article className="summary-card">
           <span className="summary-card-label">Guide</span>
           <strong>{detailLabel(guideStatus)}</strong>
-          <span className="summary-card-detail">Optional XMLTV guide</span>
+          <span className="summary-card-detail">Optional guide</span>
         </article>
         <article className="summary-card">
           <span className="summary-card-label">Last checked</span>
           <strong>{lastChecked}</strong>
-          <span className="summary-card-detail">{refreshMessage ?? 'Refresh checks for changed source bytes.'}</span>
+          <span className="summary-card-detail">{refreshMessage ?? 'Refresh checks whether your saved files have changed.'}</span>
         </article>
       </section>
       <section className="workbench-grid" aria-label="Guide freshness">
@@ -210,7 +223,7 @@ export function StatusDashboard({
                   <button className="button button-secondary" type="button" onClick={() => setConfirming(null)} disabled={removing}>Keep this source</button>
                 </div>
               ) : (
-                <button className="button button-secondary" type="button" onClick={() => { setRemoveMessage(null); setConfirming(index) }} disabled={removing}>
+                <button className="button button-secondary" type="button" onClick={() => { setRemoveMessage(null); setActionError(null); setConfirming(index) }} disabled={removing}>
                   {`Remove ${source.label}`}
                 </button>
               )}
@@ -224,6 +237,7 @@ export function StatusDashboard({
           <h2>{refreshMessage ?? sourceStatusLabel(sourcesStatus)}</h2>
           <p>Refreshing never replaces your accepted lineup automatically.</p>
           {removeMessage ? <p role="status">{removeMessage}</p> : null}
+          {actionError ? <ErrorNotice message={actionError} /> : null}
         </div>
         <div className="next-action-buttons">
           <button className="button button-primary" type="button" onClick={() => void handleRefresh()} disabled={!canRefresh || refreshing}>

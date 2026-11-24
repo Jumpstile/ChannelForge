@@ -1,3 +1,5 @@
+import type { FriendlyMessage } from './friendlyError'
+
 export type SourcesStatus = 'not-enrolled' | 'saved' | 'up-to-date' | 'changes-found' | 'needs-attention' | 'source-unavailable'
 export type PlaylistStatus = 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable'
 export type GuideStatus = 'no-guide' | 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable' | 'needs-attention'
@@ -139,10 +141,21 @@ export async function refreshSavedSources(request: typeof fetch = fetch): Promis
   }
 }
 
-export type SourceRemoveResult = { ok: true } | { ok: false; message: string }
+export type SourceRemoveResult = { ok: true } | { ok: false; message: FriendlyMessage }
 export type SourceRemoveAction = (source: Pick<SourceRow, 'kind' | 'label'>) => Promise<SourceRemoveResult>
 
-const removeFailureMessage = 'ChannelForge could not confirm that the source was removed. Refresh the status to see what is saved before trying again.'
+// The server's own plain-words text (when it sends one) goes in the Details "Full message".
+function removeFailure(serverMessage?: string): SourceRemoveResult {
+  return {
+    ok: false,
+    message: {
+      headline: 'ChannelForge could not remove this source',
+      whatHappened: serverMessage ?? 'ChannelForge could not tell whether the source was removed.',
+      whatToDo: 'Press Refresh now to see what is saved, then try again if the source is still there.',
+      details: { code: 'source-remove-failed', message: serverMessage, cause: 'The request to remove the source failed or the answer could not be read.' },
+    },
+  }
+}
 
 export async function removeSavedSource(source: Pick<SourceRow, 'kind' | 'label'>, request: typeof fetch = fetch): Promise<SourceRemoveResult> {
   try {
@@ -153,10 +166,9 @@ export async function removeSavedSource(source: Pick<SourceRow, 'kind' | 'label'
     })
     const payload: unknown = await response.json()
     if (response.status === 200 && isJsonRecord(payload) && payload.Version === 'source-remove/v1' && payload.Status === 'REMOVED') return { ok: true }
-    // Only the server's plain-words message is shown; anything else gets the fixed text.
-    if (isJsonRecord(payload) && typeof payload.Message === 'string' && response.status >= 400 && response.status < 500) return { ok: false, message: payload.Message }
-    return { ok: false, message: removeFailureMessage }
+    if (isJsonRecord(payload) && typeof payload.Message === 'string' && response.status >= 400 && response.status < 500) return removeFailure(payload.Message)
+    return removeFailure()
   } catch {
-    return { ok: false, message: removeFailureMessage }
+    return removeFailure()
   }
 }

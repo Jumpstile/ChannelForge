@@ -55,7 +55,7 @@ describe('native picker bridge flow', () => {
     render(<GuidedSetupPage picker={picker} pickerAvailable />)
     expect(screen.getByRole('heading', { name: 'Selection available' })).toBeInTheDocument()
     expect(
-      screen.getByText(/Playlist and guide matching runs only after both structural checks pass/),
+      screen.getByText(/When your playlist and guide both pass, you can check how well they match/),
     ).toBeInTheDocument()
     expect(
       screen.getByText(/The playlist is checked for safe/),
@@ -324,11 +324,11 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     expect(screen.getByText('Workspace is ready to inspect.')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('Selection cancelled. Try again.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Nothing was chosen')
 
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     expect(screen.getByText('Workspace needs attention.')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('Workspace cannot be opened. Try again.')
+    expect(screen.getByRole('alert')).toHaveTextContent('ChannelForge cannot open your workspace.')
     expect(screen.getByRole('button', { name: 'Add playlist' })).toBeDisabled()
   })
 
@@ -344,7 +344,9 @@ describe('native picker bridge flow', () => {
     render(<GuidedSetupPage picker={picker} pickerAvailable />)
 
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Choose a folder for the workspace. Try again.')
+    expect(screen.getByRole('alert')).toHaveTextContent('That is not a folder. Pick a folder for the workspace.')
+    await user.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('wrong-kind')).toBeInTheDocument()
     expect(screen.getByRole('alert')).not.toHaveTextContent(
       /(?:[A-Za-z]:[\\/]|https?:\/\/|token|password|secret|credential)/i,
     )

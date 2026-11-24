@@ -17,14 +17,14 @@ export function SavedLineupPage({ acceptedEntryCount, onBack }: SavedLineupPageP
             Return to lineup review
           </button>
         }
-        description="View the current accepted lineup state without editing it in place."
+        description="Look at your saved lineup. You cannot change it on this page."
         eyebrow="Saved lineup"
         title="Your saved lineup"
       />
 
       <StatusBanner status="Success" title="Saved lineup is current">
-        <p>The native acceptance boundary confirmed accepted local state.</p>
-        <p>This view does not export, schedule, publish, or edit the accepted lineup.</p>
+        <p>ChannelForge checked and saved your lineup on this computer.</p>
+        <p>This page only shows it. It does not export, schedule, publish, or change your lineup.</p>
       </StatusBanner>
 
       <section className="lineup-review-card saved-lineup-card" aria-labelledby="saved-lineup-summary-title">
@@ -48,7 +48,7 @@ export function SavedLineupPage({ acceptedEntryCount, onBack }: SavedLineupPageP
           </div>
         </div>
         <p className="lineup-review-note" role="status" aria-live="polite">
-          The accepted lineup is authoritative local state. Source identities, stream URLs, generation IDs, and file paths stay hidden.
+          This is the lineup ChannelForge saved on this computer. Stream URLs and file locations are not shown here.
         </p>
       </section>
     </div>
