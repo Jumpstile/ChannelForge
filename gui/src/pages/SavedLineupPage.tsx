@@ -1,22 +1,15 @@
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 
 type SavedLineupPageProps = {
   acceptedEntryCount: number | null
-  onBack: () => void
 }
 
-export function SavedLineupPage({ acceptedEntryCount, onBack }: SavedLineupPageProps) {
+export function SavedLineupPage({ acceptedEntryCount }: SavedLineupPageProps) {
   return (
     <div className="page-stack">
       <PageHeader
-        action={
-          <button className="button button-secondary" type="button" onClick={onBack}>
-            <ArrowLeft size={17} aria-hidden="true" />
-            Return to lineup review
-          </button>
-        }
         description="Look at your saved lineup. You cannot change it on this page."
         eyebrow="Saved lineup"
         title="Your saved lineup"

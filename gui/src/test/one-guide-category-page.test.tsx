@@ -62,7 +62,7 @@ describe('Wrestling category page', () => {
     expect(fetchItems).toHaveBeenCalledTimes(2)
   })
 
-  it('returns D-pad focus from Retry to the active navigation item', async () => {
+  it('returns D-pad focus from the failure notice to the active navigation item', async () => {
     const user = userEvent.setup()
     const fetchItems = vi.fn<OneGuideFetcher>().mockResolvedValue(null)
     render(
@@ -75,8 +75,7 @@ describe('Wrestling category page', () => {
     const navButton = screen.getByRole('button', { name: 'Wrestling' })
     navButton.focus()
     await user.keyboard('{ArrowRight}')
-    const retry = await screen.findByRole('button', { name: 'Retry' })
-    expect(retry).toHaveFocus()
+    await screen.findByRole('button', { name: 'Retry' })
     await user.keyboard('{ArrowLeft}')
     expect(navButton).toHaveFocus()
   })
@@ -100,5 +99,14 @@ describe('Wrestling category page', () => {
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await waitFor(() => expect(secondCard).toHaveFocus())
+  })
+})
+
+describe('Wrestling load failure order', () => {
+  it('shows the notice before the Retry button', async () => {
+    render(<OneGuideCategoryPage fetchItems={async () => null} />)
+    const notice = await screen.findByRole('alert')
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    expect(notice.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

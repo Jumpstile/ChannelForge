@@ -95,7 +95,7 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   return (
     <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate} onHome={handleHome} onBack={handleBack}>
       {activePage === 'gallery' ? (
-        <StateGalleryPage onBack={() => setActivePage('workbench')} />
+        <StateGalleryPage />
       ) : activePage === 'live-now' ? (
         <LiveNowPage />
       ) : activePage === 'wrestling' ? (
@@ -112,7 +112,6 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
         <LineupReviewPage
           acceptor={acceptor}
           matchState={matchState}
-          onBack={() => setActivePage('setup')}
           onPlanChange={handlePlanChange}
           onSavedLineupChange={handleSavedLineupChange}
           planner={planner}
@@ -120,7 +119,7 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
           saveResult={saveResult}
         />
       ) : activePage === 'accepted' && savedLineupAvailable ? (
-        <SavedLineupPage acceptedEntryCount={saveResult?.acceptedEntryCount ?? savedPlan?.acceptedEntryCount ?? null} onBack={() => setActivePage('build')} />
+        <SavedLineupPage acceptedEntryCount={saveResult?.acceptedEntryCount ?? savedPlan?.acceptedEntryCount ?? null} />
       ) : (
         <WorkbenchPage
           onOpenGallery={() => setActivePage('gallery')}

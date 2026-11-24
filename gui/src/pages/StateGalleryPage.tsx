@@ -1,13 +1,9 @@
-import { ArrowLeft, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { StateCard } from '../components/StateCard'
 import { stateGalleryFixtures } from '../fixtures/state-gallery'
 
-type StateGalleryPageProps = {
-  onBack: () => void
-}
-
-export function StateGalleryPage({ onBack }: StateGalleryPageProps) {
+export function StateGalleryPage() {
   return (
     <div className="page-stack">
       <PageHeader
@@ -23,7 +19,6 @@ export function StateGalleryPage({ onBack }: StateGalleryPageProps) {
       <section className="state-gallery-grid" aria-label="ChannelForge status states">
         {stateGalleryFixtures.map((state) => <StateCard key={state.id} state={state} />)}
       </section>
-      <button className="back-link" type="button" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Return to Workbench</button>
     </div>
   )
 }

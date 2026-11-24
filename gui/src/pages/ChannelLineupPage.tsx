@@ -112,7 +112,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
   return (
     <>
     <div className="page-stack lineup-screen">
-      <PageHeader eyebrow="Decide" title="Your channel lineup" description="The channels you saved, in the order they were saved. This page only shows them." />
+      <PageHeader eyebrow="Decide" title="Your channel lineup" description="The channels you saved, in the order they were saved. A channel's Group is the heading it is filed under in the playlist, such as a category like Movies or Sports. This page only shows them." />
       {view === undefined ? <p role="status">Loading your channels…</p> :
         view === null ? <section className="empty-state">
           <div className="empty-state-action">

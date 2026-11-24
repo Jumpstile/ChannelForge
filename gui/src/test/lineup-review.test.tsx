@@ -53,9 +53,7 @@ function savedResult(): SavedLineupResult {
 }
 
 function renderReview(state: PlaylistGuideMatchState = matchState('checked')) {
-  const onBack = vi.fn()
-  render(<LineupReviewPage matchState={state} onBack={onBack} />)
-  return onBack
+  render(<LineupReviewPage matchState={state} />)
 }
 
 describe('read-only lineup review', () => {
@@ -103,31 +101,23 @@ describe('read-only lineup review', () => {
     expect(screen.getByText('Saving is turned off until these counts are sorted out.')).toBeInTheDocument()
   })
 
-  it('returns to Guided Setup through the only available action', async () => {
-    const user = userEvent.setup()
-    const onBack = renderReview()
+  it('has no extra Return button because the Home/Back bar is the way back', () => {
+    renderReview()
 
-    await user.click(screen.getByRole('button', { name: 'Return to Guided Setup' }))
-    expect(onBack).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: /^Return to/ })).not.toBeInTheDocument()
   })
 
-  it('keeps the aggregate announcement live and keyboard navigable', async () => {
-    const user = userEvent.setup()
-    const onBack = renderReview(matchState('needs-attention', { unmatchedPlaylistCount: 1 }))
-    const status = screen.getByRole('status')
+  it('keeps the aggregate announcement live', () => {
+    renderReview(matchState('needs-attention', { unmatchedPlaylistCount: 1 }))
 
-    expect(status).toHaveAttribute('aria-live', 'polite')
-    await user.tab()
-    expect(screen.getByRole('button', { name: 'Return to Guided Setup' })).toHaveFocus()
-    await user.keyboard('{Enter}')
-    expect(onBack).toHaveBeenCalledOnce()
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
   })
 
 
   it('offers a save preview only for checked coverage', async () => {
     const user = userEvent.setup()
     const planner = vi.fn().mockResolvedValue(readyPlan())
-    render(<LineupReviewPage matchState={matchState('checked')} onBack={vi.fn()} planner={planner} />)
+    render(<LineupReviewPage matchState={matchState('checked')} planner={planner} />)
 
     await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
     await waitFor(() => expect(screen.getByText('This is only a preview. Nothing has changed, and your current saved lineup stays as it is.')).toBeInTheDocument())
@@ -150,7 +140,6 @@ describe('read-only lineup review', () => {
       <LineupReviewPage
         acceptor={acceptor}
         matchState={matchState('checked')}
-        onBack={vi.fn()}
         onSavedLineupChange={onSavedLineupChange}
         planner={vi.fn().mockResolvedValue(readyPlan())}
       />,
@@ -176,7 +165,6 @@ describe('read-only lineup review', () => {
       <LineupReviewPage
         acceptor={acceptor}
         matchState={matchState('checked')}
-        onBack={vi.fn()}
         planner={vi.fn().mockResolvedValue(readyPlan())}
       />,
     )
@@ -205,7 +193,6 @@ describe('read-only lineup review', () => {
       <LineupReviewPage
         acceptor={acceptor}
         matchState={matchState('checked')}
-        onBack={vi.fn()}
         planner={vi.fn().mockResolvedValue(readyPlan())}
       />,
     )
