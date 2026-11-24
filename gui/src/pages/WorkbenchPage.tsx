@@ -61,7 +61,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
         <div className="next-action-copy">
           <p className="eyebrow">Your next step</p>
           <h2 id="next-action-title">Open Guided Setup</h2>
-          <p>Add, review, or replace one or more playlists and optional <TermCoach term="xmltv-guide" /> files. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.</p>
+          <p>Add, review, or replace one or more playlists and optional <TermCoach term="xmltv-guide" /> files. Your review stays on this computer. Choose which playlists each guide covers.</p>
         </div>
         <button className="button button-primary" type="button" onClick={onOpenSetup}>Open Guided Setup</button>
       </section>
@@ -76,7 +76,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
               : statusUnavailable
                 ? 'ChannelForge status unavailable'
                 : sourceSetConfigured
-                  ? 'Saved source configuration is available'
+                  ? 'Your saved playlists and guides are set up'
                   : <><TermCoach term="m3u-playlist" />s and optional XMLTV guides</>}
           </span>
         </article>
@@ -101,7 +101,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
           {statusPending
             ? 'Waiting for ChannelForge to report the current workspace state.'
             : statusUnavailable
-              ? 'ChannelForge could not report the current workspace state. Check that the local server is running.'
+              ? 'ChannelForge could not report where things stand. Make sure ChannelForge is still running, then reload this page.'
               : lineupAccepted
                 ? 'Your accepted lineup is available. Open Guided Setup to review or replace sources.'
                 : 'There is nothing to review yet because no playlist or guide has been added.'}

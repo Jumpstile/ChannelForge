@@ -215,20 +215,20 @@ describe('display-safe setup selection contract', () => {
   })
 
   it.each([
-    ['missing-playlist', 'Choose and check both files before checking their match.'],
-    ['missing-guide', 'Choose and check both files before checking their match.'],
-    ['playlist-not-ready', 'Choose and check both files before checking their match.'],
-    ['guide-not-ready', 'Choose and check both files before checking their match.'],
-    ['playlist-content-invalid', 'The playlist or guide content needs attention before matching.'],
-    ['guide-content-invalid', 'The playlist or guide content needs attention before matching.'],
-    ['playlist-unavailable', 'The selected playlist or guide cannot be opened.'],
-    ['guide-unavailable', 'The selected playlist or guide cannot be opened.'],
-    ['unsupported-format', 'The guide format cannot be checked. Choose a supported XMLTV guide.'],
-    ['too-large', 'The selected file is too large to check safely.'],
-    ['stale-selection', 'The selected files changed. Check the playlist and guide again.'],
-    ['unmatched-identity', 'The match could not be checked. Try again.'],
-    ['ambiguous-identity', 'The match could not be checked. Try again.'],
-    ['check-unavailable', 'The match could not be checked. Try again.'],
+    ['missing-playlist', 'Pick and check both your playlist and your guide first.'],
+    ['missing-guide', 'Pick and check both your playlist and your guide first.'],
+    ['playlist-not-ready', 'Pick and check both your playlist and your guide first.'],
+    ['guide-not-ready', 'Pick and check both your playlist and your guide first.'],
+    ['playlist-content-invalid', 'Your playlist or guide has a problem. Fix it, then check again.'],
+    ['guide-content-invalid', 'Your playlist or guide has a problem. Fix it, then check again.'],
+    ['playlist-unavailable', 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'],
+    ['guide-unavailable', 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'],
+    ['unsupported-format', 'ChannelForge cannot read this kind of guide. Pick an XMLTV guide.'],
+    ['too-large', 'One of your files is too big for ChannelForge to check.'],
+    ['stale-selection', 'One of your files changed after it was checked. Check the playlist and guide again.'],
+    ['unmatched-identity', 'ChannelForge could not check the match. Try again.'],
+    ['ambiguous-identity', 'ChannelForge could not check the match. Try again.'],
+    ['check-unavailable', 'ChannelForge could not check the match. Try again.'],
   ] as const)('maps the %s reason to fixed copy', (reasonCode, expected) => {
     expect(
       safeMatchMessage({
@@ -241,7 +241,7 @@ describe('display-safe setup selection contract', () => {
         guideOnlyCount: null,
         requiresReview: false,
         reasonCode,
-      }),
-    ).toBe(expected)
+      }
+    )?.whatHappened).toBe(expected)
   })
 })

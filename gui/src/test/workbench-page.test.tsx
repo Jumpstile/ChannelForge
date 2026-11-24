@@ -22,7 +22,7 @@ describe('workbench current-state summary', () => {
     )
 
     expect(await screen.findByText('An accepted lineup is available.')).toBeInTheDocument()
-    expect(screen.getByText('Saved source configuration is available')).toBeInTheDocument()
+    expect(screen.getByText('Your saved playlists and guides are set up')).toBeInTheDocument()
     expect(screen.getByText('Your accepted lineup is available')).toBeInTheDocument()
     expect(screen.getByText('Ready to review')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Saved lineup ready' })).toBeInTheDocument()

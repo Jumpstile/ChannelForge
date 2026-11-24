@@ -3,7 +3,9 @@ import { ArrowLeft, CheckCircle2, X } from 'lucide-react'
 import { acceptSavedLineup, prepareSavedLineupPlan } from '../app/setupPicker'
 import { TermCoach } from '../components/TermCoach'
 import { PageHeader } from '../components/PageHeader'
+import { ErrorNotice } from '../components/ErrorNotice'
 import { StatusBanner } from '../components/StatusBanner'
+import type { FriendlyMessage } from '../app/friendlyError'
 import type { UiStatus } from '../components/StatusBadge'
 import type {
   MatchStatus,
@@ -42,62 +44,63 @@ const bannerStatuses: Record<MatchStatus, UiStatus> = {
 }
 
 function countLabel(value: number | null, noun: string): string {
-  return `${value ?? 0} ${noun}`
+  const count = value ?? 0
+  return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
 
 function reviewCopy(state: PlaylistGuideMatchState): ReviewCopy {
   if (state.status === 'checked') {
     return {
       bannerStatus: bannerStatuses.checked,
-      title: 'Exact coverage found',
-      message: 'Every playlist entry has one exact guide match. Nothing has been saved.',
-      detail: 'This result is ready for a read-only save preview.',
+      title: 'Every channel has a guide match',
+      message: 'Every playlist channel matches exactly one guide channel. Nothing has been saved yet.',
+      detail: 'You can now prepare a preview of your lineup.',
     }
   }
   if (state.status === 'needs-attention') {
     const notices: string[] = []
     if ((state.unmatchedPlaylistCount ?? 0) > 0) {
-      notices.push(`${countLabel(state.unmatchedPlaylistCount, 'playlist entries')} have no guide match`)
+      notices.push(`${countLabel(state.unmatchedPlaylistCount, 'playlist channel')} with no guide`)
     }
     if ((state.guideOnlyCount ?? 0) > 0) {
-      notices.push(`${countLabel(state.guideOnlyCount, 'guide channels')} have no playlist counterpart`)
+      notices.push(`${countLabel(state.guideOnlyCount, 'guide channel')} not in your playlist`)
     }
     return {
       bannerStatus: bannerStatuses['needs-attention'],
-      title: 'Coverage needs attention',
-      message: `${notices.join('. ')}. Review the coverage before saving.`,
-      detail: 'Guide-only coverage is informational, but this state cannot be saved.',
+      title: 'Some channels need attention',
+      message: `Found ${notices.join(' and ')}. Look at the counts below before you save.`,
+      detail: 'Saving is turned off until these counts are sorted out.',
     }
   }
   if (state.status === 'review-needed') {
     return {
       bannerStatus: bannerStatuses['review-needed'],
-      title: 'Review is needed',
-      message: `${countLabel(state.ambiguousCount, 'playlist entries')} have more than one possible guide relationship.`,
-      detail: 'No relationship was selected automatically, and saving is blocked.',
+      title: 'Some channels need your review',
+      message: `${countLabel(state.ambiguousCount, 'playlist channel')} could match more than one guide channel.`,
+      detail: 'ChannelForge did not pick one for you. Saving is turned off until this is sorted out.',
     }
   }
   if (state.status === 'checking') {
     return {
       bannerStatus: bannerStatuses.checking,
-      title: 'Checking coverage',
-      message: 'The local playlist and guide are being compared. No lineup changes are being made.',
-      detail: 'This review will show aggregate counts when the check completes.',
+      title: 'Checking your files',
+      message: 'ChannelForge is comparing your playlist and guide. Nothing is being changed.',
+      detail: 'The counts will show up here when it finishes.',
     }
   }
   if (state.status === 'blocked') {
     return {
       bannerStatus: bannerStatuses.blocked,
-      title: 'Review is blocked',
-      message: 'Matching cannot safely run, or the previous result is no longer current.',
-      detail: 'Return to Guided Setup and check both local files again.',
+      title: 'The check could not finish',
+      message: 'ChannelForge could not safely compare your files, or the last result is out of date.',
+      detail: 'Go back to Guided Setup and check both files again.',
     }
   }
   return {
     bannerStatus: bannerStatuses['not-checked'],
-    title: 'Review is not ready',
-    message: 'Run the local playlist and guide check first.',
-    detail: 'This surface only presents safe aggregate results.',
+    title: 'Not ready yet',
+    message: 'Check your playlist and guide first.',
+    detail: 'This page shows counts only. It does not show your channel details.',
   }
 }
 
@@ -110,29 +113,53 @@ function blockedSaveResult(): SavedLineupResult {
   }
 }
 
-function planMessage(matchState: PlaylistGuideMatchState, plan: SavedLineupPlan | null, saveResult: SavedLineupResult | null): string {
-  if (saveResult?.saveStatus === 'saved') {
-    return 'Saved lineup confirmed. The accepted local state is now available from Saved lineup.'
-  }
+function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult | null): FriendlyMessage | null {
   if (saveResult?.saveStatus === 'stale') {
-    return 'The candidate or accepted parent changed. Nothing was saved. Run the check and prepare a new preview.'
+    return {
+      headline: 'Your lineup was not saved',
+      whatHappened: 'Your files changed while you were working, so ChannelForge stopped. Nothing was saved.',
+      whatToDo: 'Check your files again, then prepare a new preview.',
+      details: { code: saveResult.reasonCode ?? 'stale-candidate', cause: 'The candidate or the saved lineup changed after the preview was made.' },
+    }
   }
   if (saveResult?.saveStatus === 'blocked') {
-    return 'The native acceptance boundary did not save the lineup. Existing accepted state was not changed.'
-  }
-  if (matchState.status !== 'checked') {
-    return 'Saving is blocked until the status is checked with exact coverage.'
-  }
-  if (plan?.planStatus === 'ready') {
-    return 'This is still a candidate preview. Nothing has changed, and the current saved lineup remains unchanged.'
+    return {
+      headline: 'Your lineup was not saved',
+      whatHappened: 'Something stopped the save. Your saved lineup was not changed.',
+      whatToDo: 'Try again. If it keeps happening, open Details and share it when you ask for help.',
+      details: { code: saveResult.reasonCode ?? 'acceptance-failed', cause: 'The save step refused or failed. The existing saved lineup was left as it was.' },
+    }
   }
   if (plan?.planStatus === 'stale') {
-    return 'The candidate is stale. Nothing was saved. Prepare a new preview.'
+    return {
+      headline: 'The preview is out of date',
+      whatHappened: 'Your files changed after the preview was made. Nothing was saved.',
+      whatToDo: 'Prepare a new preview.',
+      details: { code: 'stale-candidate', cause: 'The candidate changed after the preview was made.' },
+    }
   }
   if (plan?.planStatus === 'blocked') {
-    return 'The native save preview is unavailable. Existing accepted state was not changed.'
+    return {
+      headline: 'ChannelForge could not prepare the preview',
+      whatHappened: 'Your saved lineup was not changed.',
+      whatToDo: 'Press Prepare save preview to try again. If it keeps happening, open Details and share it when you ask for help.',
+      details: { code: 'preview-unavailable', cause: 'The save preview step refused or failed before it gave a result.' },
+    }
   }
-  return 'Prepare a read-only save preview before any accepted state can change.'
+  return null
+}
+
+function planMessage(matchState: PlaylistGuideMatchState, plan: SavedLineupPlan | null, saveResult: SavedLineupResult | null): string {
+  if (saveResult?.saveStatus === 'saved') {
+    return 'Your lineup is saved. You can open it from Saved lineup.'
+  }
+  if (matchState.status !== 'checked') {
+    return 'You can save only after every playlist channel has an exact guide match.'
+  }
+  if (plan?.planStatus === 'ready') {
+    return 'This is only a preview. Nothing has changed, and your current saved lineup stays as it is.'
+  }
+  return 'Prepare a preview first. Nothing is saved until you confirm.'
 }
 
 export function LineupReviewPage({
@@ -166,6 +193,7 @@ export function LineupReviewPage({
     onSavedLineupChange?.(nextResult)
   }
   const copy = reviewCopy(matchState)
+  const notice = planNotice(effectivePlan, effectiveSaveResult)
   const metrics = [
     { label: 'Playlist entries', value: matchState.playlistEntryCount },
     { label: 'Guide channels', value: matchState.guideChannelCount },
@@ -253,7 +281,7 @@ export function LineupReviewPage({
             Return to Guided Setup
           </button>
         }
-        description="Understand playlist and guide coverage before preparing or saving a lineup."
+        description="See how well your playlist and guide fit together before you save a lineup."
         eyebrow="Lineup review"
         title="Review playlist and guide coverage"
       />
@@ -281,7 +309,7 @@ export function LineupReviewPage({
             </div>
           ))}
         </div>
-        <p className="lineup-review-note">Matched means one exact playlist-to-guide identity relationship. <TermCoach term="channel-id" />s, program titles, <TermCoach term="stream-url" label="stream URL" />s, and source file details stay hidden.</p>
+        <p className="lineup-review-note">Matched means a playlist channel lines up with exactly one guide channel. <TermCoach term="channel-id" />s, program titles, <TermCoach term="stream-url" label="stream URL" />s, and file details are not shown here.</p>
       </section>
 
       <section className="lineup-review-card saved-lineup-action-card" aria-labelledby="lineup-review-save-title">
@@ -294,7 +322,7 @@ export function LineupReviewPage({
             <h2 id="lineup-review-save-title">Prepare and confirm saving</h2>
           </div>
         </div>
-        <p className="lineup-review-note" role="status" aria-live="polite">{planMessage(matchState, effectivePlan, effectiveSaveResult)}</p>
+        {notice ? <ErrorNotice message={notice} /> : <p className="lineup-review-note" role="status" aria-live="polite">{planMessage(matchState, effectivePlan, effectiveSaveResult)}</p>}
         {planReady ? (
           <div className="saved-lineup-action-row">
             <span className="setup-step-status">Save preview ready</span>
@@ -304,16 +332,16 @@ export function LineupReviewPage({
           </div>
         ) : matchState.status === 'checked' && effectiveSaveResult?.saveStatus !== 'saved' ? (
           <div className="saved-lineup-action-row">
-            <span className="setup-step-status">Accepted state is unchanged</span>
+            <span className="setup-step-status">Your saved lineup is unchanged</span>
             <button className="button button-primary" type="button" onClick={handlePrepare} disabled={planning}>
               {planning ? 'Preparing…' : 'Prepare save preview'}
             </button>
           </div>
         ) : null}
         {effectiveSaveResult?.saveStatus === 'saved' ? (
-          <div className="saved-lineup-success" role="status">Saved lineup is available from the Saved lineup navigation item.</div>
+          <div className="saved-lineup-success" role="status">Your lineup is saved. Open Saved lineup in the menu to see it.</div>
         ) : null}
-        <p className="lineup-review-note">The preview contains aggregate counts only. The native acceptance boundary owns candidate revalidation, staging, journaling, pointer updates, and recovery.</p>
+        <p className="lineup-review-note">The preview shows counts only. When you save, ChannelForge checks everything one last time before it changes your saved lineup.</p>
       </section>
 
       {dialogOpen ? (
@@ -337,10 +365,10 @@ export function LineupReviewPage({
                 <X size={18} aria-hidden="true" />
               </button>
             </div>
-            <p id="saved-lineup-dialog-description">This will ask the native acceptance boundary to revalidate the candidate and accepted parent before changing accepted local state. It will not export, schedule, release, or distribute anything.</p>
+            <p id="saved-lineup-dialog-description">ChannelForge will check your files one more time, then save this lineup on this computer. It will not export, schedule, publish, or share anything.</p>
             <label className="saved-lineup-acknowledgement">
               <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
-              <span>I understand that saving changes the accepted local lineup state.</span>
+              <span>I understand that saving replaces my saved lineup.</span>
             </label>
             <div className="saved-lineup-dialog-actions">
               <button className="button button-secondary" type="button" onClick={closeDialog}>Cancel</button>
