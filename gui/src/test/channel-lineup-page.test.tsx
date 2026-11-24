@@ -157,3 +157,10 @@ describe('Channel lineup page', () => {
     expect(summary).toHaveTextContent('This summary is cut off. It lists 2 of 3 channels')
   })
 })
+
+describe('Channel lineup page description', () => {
+  it('explains what a Group is', () => {
+    render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: 0, items: [] })} onOpenSetup={() => {}} />)
+    expect(screen.getByText(/Group is the heading it is filed under in the playlist/)).toBeVisible()
+  })
+})

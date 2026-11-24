@@ -47,7 +47,8 @@ describe('navigation shell', () => {
     await user.click(screen.getAllByRole('button', { name: /view state gallery/i }).at(-1)!)
     expect(screen.getByRole('heading', { name: 'State gallery' })).toBeInTheDocument()
     expect(screen.getByText('Synthetic data only')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /return to workbench/i }))
+    expect(screen.queryByRole('button', { name: /return to workbench/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Home' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Your lineup workbench' })).toBeInTheDocument()
   })
 

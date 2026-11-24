@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, CheckCircle2, X } from 'lucide-react'
+import { CheckCircle2, X } from 'lucide-react'
 import { acceptSavedLineup, prepareSavedLineupPlan } from '../app/setupPicker'
 import { TermCoach } from '../components/TermCoach'
 import { PageHeader } from '../components/PageHeader'
@@ -18,7 +18,6 @@ import type {
 
 type LineupReviewPageProps = {
   matchState: PlaylistGuideMatchState
-  onBack: () => void
   planner?: SavedLineupPlanner
   acceptor?: SavedLineupAcceptor
   plan?: SavedLineupPlan | null
@@ -164,7 +163,6 @@ function planMessage(matchState: PlaylistGuideMatchState, plan: SavedLineupPlan 
 
 export function LineupReviewPage({
   matchState,
-  onBack,
   planner = prepareSavedLineupPlan,
   acceptor = acceptSavedLineup,
   plan,
@@ -275,12 +273,6 @@ export function LineupReviewPage({
   return (
     <div className="page-stack">
       <PageHeader
-        action={
-          <button className="button button-secondary" type="button" onClick={onBack}>
-            <ArrowLeft size={17} aria-hidden="true" />
-            Return to Guided Setup
-          </button>
-        }
         description="See how well your playlist and guide fit together before you save a lineup."
         eyebrow="Lineup review"
         title="Review playlist and guide coverage"
