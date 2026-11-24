@@ -106,6 +106,7 @@ export type PlaylistContentState = {
   label: string
   detail: string
   entryCount: number | null
+  notice?: FriendlyMessage
 }
 
 export type GuideContentState = {
@@ -114,6 +115,7 @@ export type GuideContentState = {
   detail: string
   channelCount: number | null
   programmeCount: number | null
+  notice?: FriendlyMessage
 }
 
 export type PlaylistGuideMatchState = {
@@ -365,33 +367,50 @@ export function setGuideContentChecking(): GuideContentState {
   }
 }
 
-function guideContentReasonMessage(reasonCode: GuideContentReasonCode | null): string {
+type ContentReason = { plain: string; hint: string }
+
+function contentNotice(what: 'playlist' | 'guide', reasonCode: string | null, reason: ContentReason): FriendlyMessage {
+  const code = reasonCode ?? 'check-unavailable'
+  return {
+    headline: `ChannelForge did not accept this ${what} file`,
+    whatHappened: reason.plain,
+    whatToDo: `Choose a different ${what} file.`,
+    details: { code, cause: `${reason.hint} The check stopped with the reason "${code}".` },
+  }
+}
+
+const guideFormatHint = 'ChannelForge expects an XMLTV guide: an XML file with a <tv> root that lists channels and programs (plain XML/XMLTV, gzip, or a ZIP with one guide).'
+
+function guideContentReason(reasonCode: GuideContentReasonCode | null): ContentReason {
   if (reasonCode === 'missing-root') {
-    return 'Guide content needs attention. The file must contain a <tv> root.'
+    return { plain: 'This file does not look like a TV guide.', hint: `${guideFormatHint} The file must contain a <tv> root.` }
   }
   if (reasonCode === 'empty-guide') {
-    return 'Guide content needs attention. No channel or program entries were found.'
+    return { plain: 'This guide has no channels or programs in it.', hint: `${guideFormatHint} No channel or program entries were found.` }
   }
   if (reasonCode === 'incomplete-channel') {
-    return 'Guide content needs attention. A channel entry is missing its required ID.'
+    return { plain: 'A channel in this guide has no ID.', hint: `${guideFormatHint} A channel entry is missing its required ID.` }
   }
   if (reasonCode === 'incomplete-programme') {
-    return 'Guide content needs attention. A program entry is missing required fields.'
+    return { plain: 'A program in this guide is missing information ChannelForge needs.', hint: `${guideFormatHint} A program entry is missing required fields.` }
   }
   if (reasonCode === 'invalid-encoding') {
-    return 'Guide content needs attention. The file is not valid UTF-8 XMLTV.'
+    return { plain: 'ChannelForge could not read the text in this guide file.', hint: `${guideFormatHint} The file is not valid UTF-8 XMLTV.` }
   }
   if (reasonCode === 'unsupported-format') {
-    return 'ChannelForge could not check the guide content because this is not an XMLTV file. Choose an XMLTV file.'
+    return { plain: 'This is not a kind of guide file ChannelForge can read.', hint: `${guideFormatHint} This is not an XMLTV file.` }
   }
   if (reasonCode === 'too-large') {
-    return 'ChannelForge could not check the guide content because the file is too large. Choose a smaller XMLTV file.'
+    return { plain: 'This guide file is too big for ChannelForge to check.', hint: `${guideFormatHint} The file is too large; choose a smaller XMLTV file.` }
   }
   if (reasonCode === 'malformed-xml') {
-    return 'Guide content needs attention. The file is not a valid XMLTV document.'
+    return { plain: 'This guide file is damaged or not written correctly.', hint: `${guideFormatHint} The file is not a valid XMLTV document.` }
+  }
+  if (reasonCode === 'unreadable') {
+    return { plain: 'ChannelForge could not open this guide file.', hint: `${guideFormatHint} The file could not be read.` }
   }
 
-  return 'ChannelForge could not check the guide content, and could not tell why. Try another file.'
+  return { plain: 'ChannelForge could not check this guide, and could not tell why.', hint: guideFormatHint }
 }
 
 export function guideContentStateFromResult(result: SetupSelectionResult): GuideContentState {
@@ -421,30 +440,43 @@ export function guideContentStateFromResult(result: SetupSelectionResult): Guide
     }
   }
 
+  const reason = guideContentReason(content.reasonCode)
   return {
     status: 'needs-attention',
     label: guideContentLabels['needs-attention'],
-    detail: guideContentReasonMessage(content.reasonCode),
+    detail: reason.plain,
     channelCount: null,
     programmeCount: null,
+    notice: contentNotice('guide', content.reasonCode, reason),
   }
 }
 
-function playlistContentReasonMessage(reasonCode: PlaylistContentReasonCode | null): string {
+const playlistFormatHint = 'ChannelForge expects an M3U playlist: a text file that starts with #EXTM3U and lists channels with a stream address for each (usually .m3u or .m3u8).'
+
+function playlistContentReason(reasonCode: PlaylistContentReasonCode | null): ContentReason {
   if (reasonCode === 'missing-header') {
-    return 'Playlist content needs attention. The file must start with #EXTM3U.'
+    return { plain: 'This file does not look like a channel playlist.', hint: `${playlistFormatHint} This file does not start with #EXTM3U.` }
   }
   if (reasonCode === 'empty-playlist') {
-    return 'Playlist content needs attention. No channel entries found.'
+    return { plain: 'This playlist has no channels in it.', hint: `${playlistFormatHint} No channel entries were found.` }
   }
   if (reasonCode === 'incomplete-entry') {
-    return 'Playlist content needs attention. An entry is missing its stream line.'
+    return { plain: 'A channel in this playlist has no stream address.', hint: `${playlistFormatHint} An entry is missing its stream line.` }
   }
   if (reasonCode === 'orphan-stream-line') {
-    return 'Playlist content needs attention. The file contains an unexpected stream line.'
+    return { plain: 'This playlist has a stream address that does not belong to any channel.', hint: `${playlistFormatHint} The file contains an unexpected stream line.` }
+  }
+  if (reasonCode === 'invalid-encoding') {
+    return { plain: 'ChannelForge could not read the text in this playlist file.', hint: `${playlistFormatHint} The file text is not valid.` }
+  }
+  if (reasonCode === 'too-large') {
+    return { plain: 'This playlist file is too big for ChannelForge to check.', hint: `${playlistFormatHint} The file is larger than ChannelForge will check.` }
+  }
+  if (reasonCode === 'unreadable') {
+    return { plain: 'ChannelForge could not open this playlist file.', hint: `${playlistFormatHint} The file could not be read.` }
   }
 
-  return 'ChannelForge could not check the playlist content, and could not tell why. Try another file.'
+  return { plain: 'ChannelForge could not check this playlist, and could not tell why.', hint: playlistFormatHint }
 }
 
 export function playlistContentStateFromResult(result: SetupSelectionResult): PlaylistContentState {
@@ -469,11 +501,13 @@ export function playlistContentStateFromResult(result: SetupSelectionResult): Pl
     }
   }
 
+  const reason = playlistContentReason(content.reasonCode)
   return {
     status: 'needs-attention',
     label: playlistContentLabels['needs-attention'],
-    detail: playlistContentReasonMessage(content.reasonCode),
+    detail: reason.plain,
     entryCount: null,
+    notice: contentNotice('playlist', content.reasonCode, reason),
   }
 }
 
