@@ -139,6 +139,13 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
                     <p>Logo status: {channel.logoStatus}. Guide state: {channel.guideState}. Attention: {channel.attention.join(', ') || 'none'}.</p>
                   </details>
                 </div>}
+                {channel.logoStatus === 'pinned' && <div className="lineup-channel-pinned">
+                  <p>Logo pinned (will not be replaced)</p>
+                  <details>
+                    <summary>Details</summary>
+                    <p>You pinned this logo. ChannelForge keeps it when the lineup is refreshed. Remove the pin to let ChannelForge choose a logo again.</p>
+                  </details>
+                </div>}
               </li>
             })}
           </ul>

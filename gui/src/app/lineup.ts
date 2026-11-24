@@ -3,7 +3,7 @@ import { failureForStatus, loadFailure, type LoadFailure } from './friendlyError
 export type LineupProgramme = { title: string; startUtc: string; stopUtc: string }
 
 // The only values the lineup route emits. Anything else makes the page fail plainly.
-export type LogoStatus = 'missing' | 'present'
+export type LogoStatus = 'missing' | 'present' | 'pinned'
 export type GuideState = 'none' | 'bound'
 export type AttentionReason = 'no-guide' | 'no-logo'
 
@@ -46,7 +46,7 @@ function readChannel(value: unknown): LineupChannel | null {
   const row = value as Record<string, unknown> | null
   if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') return null
   const attention = readAttention(row.attention)
-  if ((row.logoStatus !== 'missing' && row.logoStatus !== 'present') || (row.guideState !== 'none' && row.guideState !== 'bound') || !attention) return null
+  if ((row.logoStatus !== 'missing' && row.logoStatus !== 'present' && row.logoStatus !== 'pinned') || (row.guideState !== 'none' && row.guideState !== 'bound') || !attention) return null
   const programmes = Array.isArray(row.programmes) ? row.programmes.map(readProgramme) : undefined
   if (programmes?.some((item) => item === null)) return null
   return {

@@ -156,7 +156,7 @@ function Get-ChannelForgeWebLineupProgramme {
 
 # programmeState: current, gap (next exists, nothing airing), stale (guide ended), no-programme (guide id has none), no-guide.
 function Get-ChannelForgeWebLineupItem {
-    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now, [AllowNull()]$Window = $null)
+    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now, [AllowNull()]$Window = $null, [AllowNull()]$PinnedIds = $null)
 
     $current = $null
     $next = $null
@@ -173,7 +173,7 @@ function Get-ChannelForgeWebLineupItem {
         number = $Row.Number
         name = $Row.Name
         group = $Row.Group
-        logoStatus = $Row.LogoStatus
+        logoStatus = if ($null -ne $PinnedIds -and $Row.LogoStatus -ceq 'present' -and $PinnedIds.Contains($Row.GuideKey)) { 'pinned' } else { $Row.LogoStatus }
         guideState = $Row.GuideState
         attention = @($Row.Attention)
         programmeState = $state
@@ -281,7 +281,11 @@ function Get-ChannelForgeWebLineupResponse {
         if ($query.NeedsReview) { $rows = @($rows | Where-Object { $_.Attention.Count -gt 0 }) }
         if ($null -ne $query.Search) { $rows = @($rows | Where-Object { $_.Name.IndexOf($query.Search, [StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
         $now = [datetimeoffset]::FromUnixTimeMilliseconds([datetimeoffset]::UtcNow.ToUnixTimeMilliseconds())
-        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now -Window $query.Window })
+        # Pins live in state\logo-pins.json and change on their own, so they are read per request (never cached with the accepted lineup). A missing or corrupt file means no pin is shown.
+        $pins = Read-ChannelForgeLogoPin -RepositoryRoot $RepositoryRoot
+        $pinnedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        if ($pins.Status -ceq 'Ok') { foreach ($pin in $pins.Pins) { [void]$pinnedIds.Add([string]$pin.TvgId) } }
+        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now -Window $query.Window -PinnedIds $pinnedIds })
         $body = ConvertTo-Json -InputObject ([ordered]@{
                 version = 'lineup-workspace/channel/v1'
                 generation = $projection.GenerationToken
