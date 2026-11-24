@@ -11,8 +11,8 @@ const sources = [{ sourceKey: 'playlist-1', label: 'Playlist 1', url: 'https://e
 describe('browser Guided Setup proposal errors', () => {
   it.each([
     ['package-data-unavailable', 'The installed program is missing files it needs to read your playlist. Your playlist and guide files were not changed.', 'Update ChannelForge.cmd'],
-    ['invalid-playlist', 'One of your playlists is not a valid M3U list.', '.m3u'],
-    ['invalid-guide', 'One of your guides is not a valid XMLTV guide.', 'XMLTV'],
+    ['invalid-playlist', 'One of your playlist files does not look like a channel playlist.', 'different playlist file'],
+    ['invalid-guide', 'One of your guide files does not look like a TV guide.', 'different guide file'],
     ['unsupported-source', 'ChannelForge only accepts a file on this computer', 'https://'],
     ['source-unavailable', 'A playlist or guide web address did not answer.', 'online'],
   ])('shows plain words first and keeps the code in Details for %s', async (code, whatHappened, whatToDo) => {

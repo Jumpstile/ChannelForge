@@ -89,7 +89,7 @@ describe('display-safe setup selection contract', () => {
     expect(attention).toMatchObject({
       status: 'needs-attention',
       label: 'Needs attention',
-      detail: 'Playlist content needs attention. The file contains an unexpected stream line.',
+      detail: 'This playlist has a stream address that does not belong to any channel.',
       entryCount: null,
     })
   })
@@ -139,7 +139,8 @@ describe('display-safe setup selection contract', () => {
     expect(attention).toMatchObject({
       status: 'needs-attention',
       label: 'Needs attention',
-      detail: 'Guide content needs attention. The file is not a valid XMLTV document.',
+      detail: 'This guide file is damaged or not written correctly.',
+      notice: { details: { code: 'malformed-xml' } },
       channelCount: null,
       programmeCount: null,
     })
