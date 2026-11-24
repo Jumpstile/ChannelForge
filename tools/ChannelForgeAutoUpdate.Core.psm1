@@ -189,11 +189,11 @@ function Select-ChannelForgeUpdateAsset {
 
     $asset = @($Release.assets | Where-Object { $_.name -match $Pattern } | Select-Object -First 1)
     if (-not $asset) {
-        throw "Latest release '$($Release.tag_name)' does not contain an asset matching $Pattern"
+        throw "ChannelForge could not find the update file in the latest release, so nothing was changed. Try again later. Details: Latest release '$($Release.tag_name)' does not contain an asset matching $Pattern"
     }
 
     if (-not (Test-ChannelForgeUpdateAssetUrl -Url $asset.browser_download_url -Owner $Owner -Repository $Repository)) {
-        throw "Refusing non-release GitHub asset URL: $($asset.browser_download_url)"
+        throw "The update file is not from the official ChannelForge release page, so it was not downloaded and nothing was changed. Try again later. Details: Refusing non-release GitHub asset URL: $($asset.browser_download_url)"
     }
 
     return $asset
@@ -226,7 +226,7 @@ function Assert-ChannelForgeWritableTarget {
 
     if ($readOnlyFiles.Count -gt 0) {
         $names = ($readOnlyFiles | Select-Object -ExpandProperty FullName) -join ', '
-        throw "Refusing to update: read-only file(s) found at update target -- $names. Remove the read-only attribute (e.g. Set-ItemProperty -LiteralPath '<file>' -Name IsReadOnly -Value `$false) and re-run the update; this updater will not silently clear it."
+        throw "ChannelForge cannot update because some of its files are marked read-only, so nothing was changed. Right-click each listed file, open Properties, clear Read-only, then run Update ChannelForge.cmd again. Details: Refusing to update: read-only file(s) found at update target -- $names."
     }
 }
 
@@ -238,7 +238,7 @@ function New-ChannelForgeUpdateBackup {
     )
 
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
-        throw "Install root does not exist: $Root"
+        throw "ChannelForge could not find the folder it is installed in, so nothing was changed. Run Install ChannelForge.cmd again. Details: Install root does not exist: $Root"
     }
 
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -253,7 +253,7 @@ function New-ChannelForgeUpdateBackup {
     }
 
     if (-not (Test-Path -LiteralPath $backupDir -PathType Container)) {
-        throw "Backup creation failed: $backupDir"
+        throw "ChannelForge could not save a backup of your current version, so nothing was changed. Make sure the disk has free space and you can write to your user folder, then try again. Details: Backup creation failed: $backupDir"
     }
 
     return $backupDir
@@ -273,7 +273,7 @@ function Save-ChannelForgeReleaseAsset {
 
     $downloaded = Get-Item -LiteralPath $tempPath -ErrorAction Stop
     if ($downloaded.Length -le 0) {
-        throw "Downloaded update asset is empty: $tempPath"
+        throw "The update download came back empty, so nothing was changed. Check your internet connection and run Update ChannelForge.cmd again. Details: Downloaded update asset is empty: $tempPath"
     }
 
     return $tempPath
@@ -295,16 +295,16 @@ function Get-ChannelForgePublishedPackageEvidence {
     if ($evidenceAsset.Count -gt 0) {
         $url = [string]$evidenceAsset[0].browser_download_url
         if (-not (Test-ChannelForgeUpdateAssetUrl -Url $url -Owner $Owner -Repository $Repository)) {
-            throw "Refusing non-release GitHub asset URL: $url"
+            throw "The update checksum file is not from the official ChannelForge release page, so nothing was changed. Try again later. Details: Refusing non-release GitHub asset URL: $url"
         }
         $doc = Invoke-RestMethod -Uri $url -UseBasicParsing
         if ($doc -is [string]) { $doc = $doc | ConvertFrom-Json -ErrorAction Stop }
         if ([string]$doc.PackageFilename -cne [string]$Asset.name) {
-            throw 'The published evidence file is for a different package. Update stopped; nothing was changed.'
+            throw 'The update could not be checked because its checksum file belongs to a different download, so nothing was changed. Try again later. Details: The published evidence file is for a different package. Update stopped; nothing was changed.'
         }
         $commit = if ($null -ne $doc.PSObject.Properties['PackageSourceCommitSha']) { [string]$doc.PackageSourceCommitSha } else { '' }
         if ([string]::IsNullOrEmpty($commit)) {
-            throw 'The published evidence file has no source commit. Update stopped; nothing was changed.'
+            throw 'The update could not be checked because its checksum file is incomplete, so nothing was changed. Try again later. Details: The published evidence file has no source commit. Update stopped; nothing was changed.'
         }
         return [pscustomobject]@{ Sha256 = [string]$doc.PackageSha256; SourceCommitSha = $commit }
     }
@@ -325,14 +325,14 @@ function Assert-ChannelForgePackageZipHash {
 
     $expected = if ($null -ne $Published) { ([string]$Published.Sha256).Trim().ToLowerInvariant() } else { '' }
     if ($expected -cnotmatch '^[0-9a-f]{64}$') {
-        throw 'No valid published SHA-256 was found for this release. Update stopped; nothing was changed.'
+        throw 'The update could not be checked because no checksum was published for it, so nothing was changed. Try again later. Details: No valid published SHA-256 was found for this release. Update stopped; nothing was changed.'
     }
     if ((Get-ChannelForgePackageFileHash -Path $ZipPath) -cne $expected) {
-        throw 'The downloaded package does not match the published SHA-256. Update stopped; nothing was changed.'
+        throw 'The downloaded update is damaged or incomplete, so nothing was changed. Run Update ChannelForge.cmd again to download it fresh. Details: The downloaded package does not match the published SHA-256. Update stopped; nothing was changed.'
     }
     $commit = if ($null -ne $Published) { [string]$Published.SourceCommitSha } else { '' }
     if (-not [string]::IsNullOrEmpty($commit) -and $commit -cnotmatch '^[0-9a-f]{40}$') {
-        throw 'The published source commit is not a 40-character hex value. Update stopped; nothing was changed.'
+        throw 'The update could not be checked because its published details are malformed, so nothing was changed. Try again later. Details: The published source commit is not a 40-character hex value. Update stopped; nothing was changed.'
     }
 }
 
@@ -346,7 +346,7 @@ function Assert-ChannelForgePublishedSourceCommit {
     $commit = if ($null -ne $Published) { [string]$Published.SourceCommitSha } else { '' }
     if ([string]::IsNullOrEmpty($commit)) { return }
     if ($commit -cne $ManifestCommitSha.ToLowerInvariant()) {
-        throw 'The published source commit does not match the package manifest. Update stopped; nothing was changed.'
+        throw 'The downloaded update does not match what was published, so nothing was changed. Run Update ChannelForge.cmd again to download it fresh. Details: The published source commit does not match the package manifest. Update stopped; nothing was changed.'
     }
 }
 
@@ -448,21 +448,21 @@ function Test-ChannelForgeWindowsPackage {
 
     $root = [IO.Path]::GetFullPath($PackageRoot).TrimEnd([char]92, [char]47)
     if (-not (Test-Path -LiteralPath $root -PathType Container)) {
-        throw "Package root does not exist: $root"
+        throw "ChannelForge could not find the package folder, so nothing was changed. Download the package again and unzip it fully. Details: Package root does not exist: $root"
     }
     $manifestPath = Join-Path $root 'package-manifest.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-        throw 'Package manifest is missing.'
+        throw 'This download is not a complete ChannelForge package, so nothing was changed. Download the package again and unzip it fully. Details: Package manifest is missing.'
     }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-    if ([string]$manifest.SchemaVersion -ne 'windows-package/v1') { throw 'Unsupported package manifest schema.' }
-    if ([string]$manifest.PackageTarget -ne 'windows-x64-portable-server') { throw 'Unsupported package target.' }
+    if ([string]$manifest.SchemaVersion -ne 'windows-package/v1') { throw 'This package is not a version of ChannelForge that this updater understands, so nothing was changed. Download the latest package and try again. Details: Unsupported package manifest schema.' }
+    if ([string]$manifest.PackageTarget -ne 'windows-x64-portable-server') { throw 'This package is not the Windows version of ChannelForge, so nothing was changed. Download the Windows package and try again. Details: Unsupported package target.' }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.SourceCommitSha)) { throw 'Package source commit is missing.' }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.ChannelForgeVersion)) { throw 'Package version is missing.' }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.BundledPowerShellVersion)) { throw 'Bundled PowerShell version is missing.' }
 
     $files = @($manifest.Files)
-    if ($files.Count -eq 0) { throw 'Package manifest contains no files.' }
+    if ($files.Count -eq 0) { throw 'This download is not a complete ChannelForge package, so nothing was changed. Download the package again and unzip it fully. Details: Package manifest contains no files.' }
     $requiredRuntimeDataFiles = @('data/rules/aliases.json', 'data/lineup/numbering_blocks.json')
     foreach ($relativePath in $requiredRuntimeDataFiles) {
         $requiredPath = Join-Path $root ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
@@ -487,11 +487,11 @@ function Test-ChannelForgeWindowsPackage {
             continue
         }
         $path = Join-Path $root ($relative -replace '/', [IO.Path]::DirectorySeparatorChar)
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Manifest file is missing: $relative" }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "A file is missing from this ChannelForge package, so nothing was changed. Download the package again and unzip it fully. Details: Manifest file is missing: $relative" }
         $item = Get-Item -LiteralPath $path -Force
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Manifest file is a reparse point: $relative" }
-        if ([int64]$item.Length -ne [int64]$entry.ByteLength) { throw "Manifest byte length mismatch: $relative" }
-        if ((Get-ChannelForgePackageFileHash -Path $path) -cne ([string]$entry.Sha256).ToLowerInvariant()) { throw "Manifest hash mismatch: $relative" }
+        if ([int64]$item.Length -ne [int64]$entry.ByteLength) { throw "A file in this ChannelForge package is damaged or incomplete, so nothing was changed. Download the package again and unzip it fully. Details: Manifest byte length mismatch: $relative" }
+        if ((Get-ChannelForgePackageFileHash -Path $path) -cne ([string]$entry.Sha256).ToLowerInvariant()) { throw "A file in this ChannelForge package is damaged or was changed, so nothing was changed. Download the package again and unzip it fully. Details: Manifest hash mismatch: $relative" }
     }
     foreach ($relativePath in $requiredRuntimeDataFiles) {
         if (-not $expected.Contains($relativePath)) {
@@ -508,7 +508,7 @@ function Test-ChannelForgeWindowsPackage {
         if ($AllowProtectedState -and $protected) { continue }
         if (-not $expected.Contains($relative)) {
             if ($AllowUnmanifestedFiles) { continue }
-            throw "Package contains an unmanifested file: $relative"
+            throw "This ChannelForge package has an extra file it should not have, so nothing was changed. Download the package again and unzip it into an empty folder. Details: Package contains an unmanifested file: $relative"
         }
     }
     return [pscustomobject][ordered]@{
