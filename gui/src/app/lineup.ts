@@ -1,4 +1,4 @@
-import { failureForStatus, loadFailure, type LoadFailure } from './friendlyError'
+import { failureForStatus, failureFromError, loadFailure, type LoadFailure } from './friendlyError'
 
 export type LineupProgramme = { title: string; startUtc: string; stopUtc: string }
 
@@ -70,19 +70,19 @@ export async function fetchLineupPage(offset: number, generation: string | null,
   let response: Response
   try {
     response = await request(`/api/lineup/channels${query}`, { method: 'GET', headers: { Accept: 'application/json' } })
-  } catch {
-    return loadFailure('unreachable')
+  } catch (error) {
+    return failureFromError(error, 'unreachable')
   }
   if (response.status === 409) return 'changed'
   if (response.status !== 200) return failureForStatus(response.status)
   try {
     const body = await response.json()
-    if (typeof body?.generation !== 'string' || typeof body?.total !== 'number' || !Array.isArray(body?.items)) return loadFailure('not-understood')
+    if (typeof body?.generation !== 'string' || typeof body?.total !== 'number' || !Array.isArray(body?.items)) return loadFailure('not-understood', 'The answer did not have the expected lineup shape.')
     const items = body.items.map(readChannel)
-    if (items.some((item: LineupChannel | null) => item === null)) return loadFailure('not-understood')
+    if (items.some((item: LineupChannel | null) => item === null)) return loadFailure('not-understood', 'A channel in the answer did not have the expected shape.')
     return { generation: body.generation, total: body.total, items, savedAtUtc: typeof body.savedAtUtc === 'string' ? body.savedAtUtc : null }
-  } catch {
-    return loadFailure('not-understood')
+  } catch (error) {
+    return failureFromError(error, 'not-understood')
   }
 }
 

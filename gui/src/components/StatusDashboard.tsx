@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
 import { ErrorNotice } from './ErrorNotice'
-import { failureKindOf, isLoadFailure, loadFailedMessage, type FriendlyMessage, type LoadFailureKind } from '../app/friendlyError'
+import { failureFromError, failureOf, failureWhy, isLoadFailure, loadFailedMessage, loadFailure, type FriendlyMessage, type LoadFailure } from '../app/friendlyError'
 import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
-const refreshFailedMessage: FriendlyMessage = {
-  headline: 'ChannelForge could not check your sources',
-  whatHappened: 'ChannelForge could not check your saved sources, and could not tell why. Your accepted lineup was not changed.',
-  whatToDo: 'Press Refresh now to try again. If it keeps happening, make sure ChannelForge is still running or open Details.',
-  details: { code: 'source-refresh-failed', cause: 'The request to refresh the saved sources failed or the answer could not be read.' },
+// The plain reason replaces "could not tell why" when the request said why; the raw text stays under Details.
+function refreshFailedMessage(failure: LoadFailure): FriendlyMessage {
+  return {
+    headline: 'ChannelForge could not check your sources',
+    whatHappened: `${failureWhy(failure) ?? 'ChannelForge could not check your saved sources, and could not tell why.'} Your accepted lineup was not changed.`,
+    whatToDo: 'Press Refresh now to try again. If it keeps happening, make sure ChannelForge is still running or open Details.',
+    details: { code: 'source-refresh-failed', message: failure.raw, cause: 'The request to refresh the saved sources failed or the answer could not be read.' },
+  }
 }
 
 // Browser time zone, labeled. An unreadable value is treated as not reported.
@@ -68,7 +71,7 @@ export function StatusDashboard({
 }: StatusDashboardProps) {
   const [state, setState] = useState<DashboardState>('loading')
   const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null)
-  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
+  const [failure, setFailure] = useState<LoadFailure>(loadFailure('unknown'))
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<number | null>(null)
@@ -82,7 +85,7 @@ export function StatusDashboard({
       .then((next) => {
         if (!mounted) return
         if (next === null || isLoadFailure(next)) {
-          setFailure(failureKindOf(next))
+          setFailure(failureOf(next))
           onSnapshotChange?.(null)
           setState('unavailable')
           return
@@ -91,8 +94,9 @@ export function StatusDashboard({
         onSnapshotChange?.(next)
         setState('ready')
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (mounted) {
+          setFailure(failureFromError(error))
           onSnapshotChange?.(null)
           setState('unavailable')
         }
@@ -107,8 +111,8 @@ export function StatusDashboard({
     setRefreshMessage(null)
     setActionError(null)
     const result = await refreshSources()
-    if (result === null) {
-      setActionError(refreshFailedMessage)
+    if (result === null || isLoadFailure(result)) {
+      setActionError(refreshFailedMessage(failureOf(result)))
       setRefreshing(false)
       return
     }

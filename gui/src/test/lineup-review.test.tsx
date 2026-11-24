@@ -232,3 +232,18 @@ describe('read-only lineup review', () => {
     expect(JSON.stringify(state)).not.toMatch(/(?:https?:\/\/|[A-Za-z]:[\\/]|channel-id|programme-title|token|password|secret|credential)/i)
   })
 })
+
+describe('Lineup Review failure reasons', () => {
+  it('keeps the thrown preview error under Details and falls back to the plain text without one', async () => {
+    const user = userEvent.setup()
+    const planner = vi.fn().mockRejectedValueOnce(new Error('planner exploded')).mockRejectedValueOnce('no message')
+    render(<LineupReviewPage matchState={matchState('checked')} planner={planner} />)
+    await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).not.toHaveTextContent('planner exploded')
+    await user.click(within(alert).getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('planner exploded')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('could not tell why'))
+  })
+})

@@ -1,6 +1,6 @@
 import validateOneGuideProjection from './oneGuideProjectionValidator.generated.js'
 
-import { failureForStatus, loadFailure, type LoadFailure } from './friendlyError'
+import { failureForStatus, failureFromError, loadFailure, type LoadFailure } from './friendlyError'
 import type { OneGuideCategory, OneGuideItem, OneGuidePage } from './oneGuideProjection.generated'
 
 export type { OneGuideCategory, OneGuideItem, OneGuideOffering, OneGuidePage } from './oneGuideProjection.generated'
@@ -24,7 +24,7 @@ async function fetchOneGuideList(
   categoryKey?: OneGuideCategory,
   currentAndUpcomingOnly = false,
 ): Promise<OneGuideItem[] | LoadFailure> {
-  const notUnderstood = loadFailure('not-understood')
+  const notUnderstood = loadFailure('not-understood', 'The answer did not have the expected one-guide shape.')
   try {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const items: OneGuideItem[] = []
@@ -39,8 +39,8 @@ async function fetchOneGuideList(
             method: 'GET',
             headers: { Accept: 'application/json' },
           })
-        } catch {
-          return loadFailure('unreachable')
+        } catch (error) {
+          return failureFromError(error, 'unreachable')
         }
         if (response.status === 409 && snapshot !== undefined) {
           generationChanged = true
@@ -69,8 +69,8 @@ async function fetchOneGuideList(
       return snapshot !== undefined && items.length === snapshot.totalCount ? items : notUnderstood
     }
     return loadFailure('changed')
-  } catch {
-    return notUnderstood
+  } catch (error) {
+    return failureFromError(error, 'not-understood')
   }
 }
 
@@ -87,16 +87,16 @@ export async function fetchLiveNowItem(itemId: string, request: typeof fetch = f
   let response: Response
   try {
     response = await request(`/api/one-guide/items/${itemId}`, { method: 'GET', headers: { Accept: 'application/json' } })
-  } catch {
-    return loadFailure('unreachable')
+  } catch (error) {
+    return failureFromError(error, 'unreachable')
   }
   if (response.status !== 200) return failureForStatus(response.status)
   try {
     const page = parsePage(await response.json())
     return page !== null && page.Query === 'Details' && page.Offset === 0 && page.MaximumItems === 100 &&
       page.TotalCount === 1 && !page.ItemsTruncated && page.Items.length === 1 &&
-      page.Items[0].ItemId === itemId ? page.Items[0] : loadFailure('not-understood')
-  } catch {
-    return loadFailure('not-understood')
+      page.Items[0].ItemId === itemId ? page.Items[0] : loadFailure('not-understood', 'The answer did not have the expected one-guide shape.')
+  } catch (error) {
+    return failureFromError(error, 'not-understood')
   }
 }

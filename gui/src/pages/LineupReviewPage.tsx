@@ -112,7 +112,7 @@ function blockedSaveResult(): SavedLineupResult {
   }
 }
 
-function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult | null): FriendlyMessage | null {
+function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult | null, thrown?: string): FriendlyMessage | null {
   if (saveResult?.saveStatus === 'stale') {
     return {
       headline: 'Your lineup was not saved',
@@ -126,7 +126,7 @@ function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult 
       headline: 'Your lineup was not saved',
       whatHappened: 'Something stopped the save. Your saved lineup was not changed.',
       whatToDo: 'Try again. If it keeps happening, open Details and share it when you ask for help.',
-      details: { code: saveResult.reasonCode ?? 'acceptance-failed', cause: 'The save step refused or failed. The existing saved lineup was left as it was.' },
+      details: { code: saveResult.reasonCode ?? 'acceptance-failed', message: thrown, cause: 'The save step refused or failed. The existing saved lineup was left as it was.' },
     }
   }
   if (plan?.planStatus === 'stale') {
@@ -140,9 +140,9 @@ function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult 
   if (plan?.planStatus === 'blocked') {
     return {
       headline: 'ChannelForge could not prepare the preview',
-      whatHappened: 'The preview stopped before it gave a result, and ChannelForge could not tell why. Your saved lineup was not changed.',
+      whatHappened: `The preview stopped before it gave a result${thrown ? '' : ', and ChannelForge could not tell why'}. Your saved lineup was not changed.`,
       whatToDo: 'Press Prepare save preview to try again. If it keeps happening, open Details and share it when you ask for help.',
-      details: { code: 'preview-unavailable', cause: 'The save preview step refused or failed before it gave a result.' },
+      details: { code: 'preview-unavailable', message: thrown, cause: 'The save preview step refused or failed before it gave a result.' },
     }
   }
   return null
@@ -174,6 +174,7 @@ export function LineupReviewPage({
   const [localSaveResult, setLocalSaveResult] = useState<SavedLineupResult | null>(null)
   const effectiveSaveResult = saveResult === undefined ? localSaveResult : saveResult
   const [planning, setPlanning] = useState(false)
+  const [thrown, setThrown] = useState<string | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -191,7 +192,7 @@ export function LineupReviewPage({
     onSavedLineupChange?.(nextResult)
   }
   const copy = reviewCopy(matchState)
-  const notice = planNotice(effectivePlan, effectiveSaveResult)
+  const notice = planNotice(effectivePlan, effectiveSaveResult, thrown)
   const metrics = [
     { label: 'Playlist entries', value: matchState.playlistEntryCount },
     { label: 'Guide channels', value: matchState.guideChannelCount },
@@ -210,8 +211,10 @@ export function LineupReviewPage({
     if (matchState.status !== 'checked' || planning) return
     setPlanning(true)
     try {
+      setThrown(undefined)
       updatePlan(await planner())
-    } catch {
+    } catch (error) {
+      setThrown(error instanceof Error && error.message ? error.message : undefined)
       updatePlan({
         planStatus: 'blocked',
         playlistEntryCount: null,
@@ -240,9 +243,11 @@ export function LineupReviewPage({
     setDialogOpen(false)
     setSaving(true)
     try {
+      setThrown(undefined)
       const result = await acceptor()
       updateSaveResult(result)
-    } catch {
+    } catch (error) {
+      setThrown(error instanceof Error && error.message ? error.message : undefined)
       updateSaveResult(blockedSaveResult())
     } finally {
       setSaving(false)

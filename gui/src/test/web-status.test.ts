@@ -47,9 +47,9 @@ describe('web status client', () => {
     const failedRequest = vi.fn().mockRejectedValue(new Error('network failure'))
     const invalidRequest = vi.fn().mockResolvedValue(response(200, { Status: 'ok', LineupStatus: 'unknown' }))
 
-    await expect(fetchWebStatus(unavailableRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'server-error' })
-    await expect(fetchWebStatus(failedRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'unreachable' })
-    await expect(fetchWebStatus(invalidRequest as unknown as typeof fetch)).resolves.toEqual({ loadFailure: 'not-understood' })
+    await expect(fetchWebStatus(unavailableRequest as unknown as typeof fetch)).resolves.toMatchObject({ loadFailure: 'server-error' })
+    await expect(fetchWebStatus(failedRequest as unknown as typeof fetch)).resolves.toMatchObject({ loadFailure: 'unreachable' })
+    await expect(fetchWebStatus(invalidRequest as unknown as typeof fetch)).resolves.toMatchObject({ loadFailure: 'not-understood' })
   })
 
   it('never makes a state-changing request', async () => {

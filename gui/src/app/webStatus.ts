@@ -1,4 +1,4 @@
-import { failureForStatus, loadFailure, type FriendlyMessage, type LoadFailure } from './friendlyError'
+import { failureForStatus, failureFromError, loadFailure, type FriendlyMessage, type LoadFailure } from './friendlyError'
 
 export type SourcesStatus = 'not-enrolled' | 'saved' | 'up-to-date' | 'changes-found' | 'needs-attention' | 'source-unavailable'
 export type PlaylistStatus = 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable'
@@ -29,7 +29,7 @@ export type SourceRefreshResult = {
   reviewNeededCount: number
 }
 
-export type SourceRefreshAction = () => Promise<SourceRefreshResult | null>
+export type SourceRefreshAction = () => Promise<SourceRefreshResult | LoadFailure | null>
 
 type JsonRecord = Record<string, unknown>
 
@@ -93,8 +93,8 @@ export async function fetchWebStatus(request: typeof fetch = fetch): Promise<Web
       method: 'GET',
       headers: { Accept: 'application/json' },
     })
-  } catch {
-    return loadFailure('unreachable')
+  } catch (error) {
+    return failureFromError(error, 'unreachable')
   }
 
   if (response.status !== 200) return failureForStatus(response.status)
@@ -108,23 +108,23 @@ export async function fetchWebStatus(request: typeof fetch = fetch): Promise<Web
       payload.Message !== 'ChannelForge is running' ||
       payload.ReadOnly !== true
     ) {
-      return loadFailure('not-understood')
+      return loadFailure('not-understood', 'The answer did not have the expected status shape.')
     }
 
-    return normalizeStatus(payload) ?? loadFailure('not-understood')
-  } catch {
-    return loadFailure('not-understood')
+    return normalizeStatus(payload) ?? loadFailure('not-understood', 'The answer did not have the expected status shape.')
+  } catch (error) {
+    return failureFromError(error, 'not-understood')
   }
 }
 
-export async function refreshSavedSources(request: typeof fetch = fetch): Promise<SourceRefreshResult | null> {
+export async function refreshSavedSources(request: typeof fetch = fetch): Promise<SourceRefreshResult | LoadFailure> {
   try {
     const response = await request('/api/sources/refresh', {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: '',
     })
-    if (response.status !== 200) return null
+    if (response.status !== 200) return failureForStatus(response.status)
     const payload: unknown = await response.json()
     if (
       !isJsonRecord(payload) ||
@@ -135,15 +135,15 @@ export async function refreshSavedSources(request: typeof fetch = fetch): Promis
       !Number.isInteger(payload.ReviewNeededCount) ||
       payload.ReviewNeededCount < 0
     ) {
-      return null
+      return loadFailure('not-understood', 'The answer did not have the expected refresh shape.')
     }
     return {
       status: payload.Status,
       reviewNeeded: payload.ReviewNeeded,
       reviewNeededCount: payload.ReviewNeededCount,
     }
-  } catch {
-    return null
+  } catch (error) {
+    return failureFromError(error, 'unreachable')
   }
 }
 
