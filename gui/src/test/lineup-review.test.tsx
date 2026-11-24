@@ -240,7 +240,7 @@ describe('Lineup Review failure reasons', () => {
     render(<LineupReviewPage matchState={matchState('checked')} planner={planner} />)
     await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
     const alert = await screen.findByRole('alert')
-    expect(alert).not.toHaveTextContent('planner exploded')
+    expect(alert).toHaveTextContent('The message says: "planner exploded"')
     await user.click(within(alert).getByRole('button', { name: 'Details' }))
     expect(screen.getByText('planner exploded')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Prepare save preview' }))
