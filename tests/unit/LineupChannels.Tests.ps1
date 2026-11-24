@@ -66,6 +66,24 @@ Describe 'Lineup channels route' {
         $after | Should -Be $before
     }
 
+    It 'shows a pinned logo as pinned, leaks no pin link, and ignores a corrupt pin file' {
+        $root = Join-Path $TestDrive 'lineup-pinned'
+        Initialize-LineupRoot -Root $root
+        Set-ChannelForgeLogoPin -TvgId 'one' -Logo 'https://pin.example/one.png' -RepositoryRoot $root | Out-Null
+
+        $response = Get-LineupResponse -Method GET -Path '/api/lineup/channels' -Root $root
+        $items = ($response.Body | ConvertFrom-Json).items
+        ($items | Where-Object name -eq 'Alpha News').logoStatus | Should -Be 'pinned'
+        ($items | Where-Object name -eq 'Beta Movies').logoStatus | Should -Be 'missing'
+        ($items | Where-Object name -eq 'Gamma Daily').logoStatus | Should -Be 'present'
+        $response.Body | Should -Not -BeLike '*pin.example*'
+
+        $pinFile = Join-Path $root 'state\logo-pins.json'
+        Set-Content -LiteralPath $pinFile -Value '{not json' -Encoding utf8
+        $items = ((Get-LineupResponse -Method GET -Path '/api/lineup/channels' -Root $root).Body | ConvertFrom-Json).items
+        ($items | Where-Object name -eq 'Alpha News').logoStatus | Should -Be 'present'
+    }
+
     It 'filters on the server and pages against one accepted lineup' {
         $root = Join-Path $TestDrive 'lineup-paging'
         Initialize-LineupRoot -Root $root
