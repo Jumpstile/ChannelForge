@@ -4,6 +4,7 @@ import { fetchLineupWindowPage, formatUtcTime } from '../app/lineup'
 import type { LineupChannel, LineupProgramme, LineupWindow, LineupWindowFetcher } from '../app/lineup'
 import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
+import { focusActiveNavItem } from '../components/SideNav'
 import { PageHeader } from '../components/PageHeader'
 
 type TimelineGridPageProps = { fetchPage?: LineupWindowFetcher; now?: () => Date }
@@ -121,11 +122,16 @@ export function TimelineGridPage({ fetchPage = fetchLineupWindowPage, now = curr
     <div className="page-stack timeline-page">
       <PageHeader eyebrow="Decide" title="Timeline" description="See what airs on each saved channel over the next three hours. This page only shows them." />
       {view === undefined ? <p role="status">Loading the timeline…</p> :
-        view === null ? <section className="empty-state">
+        view === null ? <section className="empty-state" onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            focusActiveNavItem()
+          }
+        }}>
+          <ErrorNotice message={loadFailedMessage('the timeline', 'timeline-load-failed', 'Start ChannelForge if it is closed, and make sure you have saved a lineup. Then try again.', failure)} />
           <div className="empty-state-action">
             <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Try again</button>
           </div>
-          <ErrorNotice message={loadFailedMessage('the timeline', 'timeline-load-failed', 'Start ChannelForge if it is closed, and make sure you have saved a lineup. Then try again.', failure)} />
         </section> : view.total === 0 ? <section className="empty-state" aria-live="polite">
           <h2>No channels saved yet</h2><p>Set up a playlist and save your lineup. Your channels will show up here.</p>
         </section> : <>

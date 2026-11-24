@@ -118,3 +118,12 @@ describe('Live Now page', () => {
     expect(fetchItems).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('Live Now load failure order', () => {
+  it('shows the notice before the Retry button', async () => {
+    render(<LiveNowPage fetchItems={async () => null} />)
+    const notice = await screen.findByRole('alert')
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    expect(notice.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { loadFailure } from '../app/friendlyError'
 import { ChannelLineupPage } from '../pages/ChannelLineupPage'
-import type { LineupChannel, LineupFetcher } from '../app/lineup'
+import { fetchLineupPage } from '../app/lineup'
+import type { LineupChannel, LineupFetcher, LineupResult } from '../app/lineup'
 import css from '../styles/global.css?raw'
 
 const channel = (n: number, over: Partial<LineupChannel> = {}): LineupChannel =>
@@ -162,5 +163,34 @@ describe('Channel lineup page description', () => {
   it('explains what a Group is', () => {
     render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: 0, items: [] })} onOpenSetup={() => {}} />)
     expect(screen.getByText(/Group is the heading it is filed under in the playlist/)).toBeVisible()
+  })
+})
+
+describe('Channel lineup page saved date and failure order', () => {
+  const page = (savedAtUtc?: unknown) => async () => ({ generation: 'g', total: 1, items: [channel(1)], savedAtUtc } as LineupResult)
+
+  it('says when the lineup was saved', async () => {
+    render(<ChannelLineupPage fetchPage={page('2026-11-24T15:00:00Z')} onOpenSetup={() => {}} />)
+    await screen.findByText('Test Channel 1')
+    expect(document.body).toHaveTextContent(/Saved on November 2[345], 2026\./)
+  })
+
+  it.each([[null], [undefined], ['not a date']])('shows no date when the saved time is %j', async (value) => {
+    render(<ChannelLineupPage fetchPage={page(value)} onOpenSetup={() => {}} />)
+    await screen.findByText('Test Channel 1')
+    expect(document.body).not.toHaveTextContent('Saved on')
+  })
+
+  it.each([[42, null], ['2026-11-24T15:00:00Z', '2026-11-24T15:00:00Z'], [undefined, null]])('reads the saved time %j as %j and still loads', async (sent, read) => {
+    const body = { generation: 'g', total: 1, items: [], savedAtUtc: sent }
+    const result = await fetchLineupPage(0, null, async () => new Response(JSON.stringify(body)))
+    expect(result).toMatchObject({ total: 1, savedAtUtc: read })
+  })
+
+  it('shows the notice before the Try again button', async () => {
+    render(<ChannelLineupPage fetchPage={async () => null} onOpenSetup={() => {}} />)
+    const notice = await screen.findByRole('alert')
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    expect(notice.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

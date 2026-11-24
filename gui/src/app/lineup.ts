@@ -21,7 +21,8 @@ export type LineupChannel = {
   programmes?: LineupProgramme[]
 }
 
-export type LineupPage = { generation: string; total: number; items: LineupChannel[] }
+// savedAtUtc is when the saved lineup was accepted; null when the server does not say.
+export type LineupPage = { generation: string; total: number; items: LineupChannel[]; savedAtUtc?: string | null }
 
 // 'changed' means the saved lineup changed while paging; the page starts over from the first channels.
 // A LoadFailure says why the read failed; null (for example from a test double) means no reason is known.
@@ -79,7 +80,7 @@ export async function fetchLineupPage(offset: number, generation: string | null,
     if (typeof body?.generation !== 'string' || typeof body?.total !== 'number' || !Array.isArray(body?.items)) return loadFailure('not-understood')
     const items = body.items.map(readChannel)
     if (items.some((item: LineupChannel | null) => item === null)) return loadFailure('not-understood')
-    return { generation: body.generation, total: body.total, items }
+    return { generation: body.generation, total: body.total, items, savedAtUtc: typeof body.savedAtUtc === 'string' ? body.savedAtUtc : null }
   } catch {
     return loadFailure('not-understood')
   }
