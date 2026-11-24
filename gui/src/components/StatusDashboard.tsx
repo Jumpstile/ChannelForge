@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { StatusBanner } from './StatusBanner'
 import { ErrorNotice } from './ErrorNotice'
-import { loadFailedMessage, type FriendlyMessage } from '../app/friendlyError'
+import { failureKindOf, isLoadFailure, loadFailedMessage, type FriendlyMessage, type LoadFailureKind } from '../app/friendlyError'
 import { fetchWebStatus, refreshSavedSources, removeSavedSource, type SourceRefreshAction, type SourceRemoveAction, type SourceRow, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
 const refreshFailedMessage: FriendlyMessage = {
   headline: 'ChannelForge could not check your sources',
-  whatHappened: 'The check did not finish. Your accepted lineup was not changed.',
-  whatToDo: 'Press Refresh now to try again. Make sure ChannelForge is still running.',
+  whatHappened: 'ChannelForge could not check your saved sources, and could not tell why. Your accepted lineup was not changed.',
+  whatToDo: 'Press Refresh now to try again. If it keeps happening, make sure ChannelForge is still running or open Details.',
   details: { code: 'source-refresh-failed', cause: 'The request to refresh the saved sources failed or the answer could not be read.' },
 }
 
@@ -68,6 +68,7 @@ export function StatusDashboard({
 }: StatusDashboardProps) {
   const [state, setState] = useState<DashboardState>('loading')
   const [snapshot, setSnapshot] = useState<WebStatusSnapshot | null>(null)
+  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<number | null>(null)
@@ -80,7 +81,8 @@ export function StatusDashboard({
     void fetchStatus()
       .then((next) => {
         if (!mounted) return
-        if (next === null) {
+        if (next === null || isLoadFailure(next)) {
+          setFailure(failureKindOf(next))
           onSnapshotChange?.(null)
           setState('unavailable')
           return
@@ -112,7 +114,7 @@ export function StatusDashboard({
     }
     setRefreshMessage(result.status === 'UP_TO_DATE' ? 'Sources are up to date.' : 'Changes found. Review before replacing sources.')
     const next = await fetchStatus()
-    if (next !== null) {
+    if (next !== null && !isLoadFailure(next)) {
       setSnapshot(next)
       onSnapshotChange?.(next)
     }
@@ -132,7 +134,7 @@ export function StatusDashboard({
     }
     setRemoveMessage(`Removed "${source.label}". Your other sources were not changed.`)
     const next = await fetchStatus()
-    if (next !== null) {
+    if (next !== null && !isLoadFailure(next)) {
       setSnapshot(next)
       onSnapshotChange?.(next)
     }
@@ -150,7 +152,7 @@ export function StatusDashboard({
   if (state === 'unavailable' || snapshot === null) {
     return (
       <StatusBanner status="Warning" title="ChannelForge status is unavailable">
-        <ErrorNotice message={loadFailedMessage('the status', 'status-unavailable', 'Make sure ChannelForge is still running, then reload this page.')} />
+        <ErrorNotice message={loadFailedMessage('the status', 'status-unavailable', 'Start ChannelForge if it is closed, then reload this page.', failure)} />
         <p><strong>This page only shows information.</strong> It cannot change your lineup yet.</p>
       </StatusBanner>
     )

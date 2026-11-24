@@ -1,3 +1,5 @@
+import { failureForStatus, loadFailure, type LoadFailure } from './friendlyError'
+
 export type LineupProgramme = { title: string; startUtc: string; stopUtc: string }
 
 // The only values the lineup route emits. Anything else makes the page fail plainly.
@@ -22,11 +24,13 @@ export type LineupChannel = {
 export type LineupPage = { generation: string; total: number; items: LineupChannel[] }
 
 // 'changed' means the saved lineup changed while paging; the page starts over from the first channels.
-export type LineupFetcher = (offset: number, generation: string | null) => Promise<LineupPage | 'changed' | null>
+// A LoadFailure says why the read failed; null (for example from a test double) means no reason is known.
+export type LineupResult = LineupPage | 'changed' | LoadFailure | null
+export type LineupFetcher = (offset: number, generation: string | null) => Promise<LineupResult>
 
 // A UTC schedule window of at most three hours, like 2026-01-01T10:00:00Z.
 export type LineupWindow = { from: string; to: string }
-export type LineupWindowFetcher = (offset: number, generation: string | null, window: LineupWindow) => Promise<LineupPage | 'changed' | null>
+export type LineupWindowFetcher = (offset: number, generation: string | null, window: LineupWindow) => Promise<LineupResult>
 
 function readProgramme(value: unknown): LineupProgramme | null {
   const row = value as Partial<LineupProgramme> | null
@@ -59,20 +63,25 @@ function readChannel(value: unknown): LineupChannel | null {
   }
 }
 
-export async function fetchLineupPage(offset: number, generation: string | null, request: typeof fetch = fetch, window?: LineupWindow): Promise<LineupPage | 'changed' | null> {
+export async function fetchLineupPage(offset: number, generation: string | null, request: typeof fetch = fetch, window?: LineupWindow): Promise<LineupResult> {
   let query = generation ? `?limit=100&offset=${offset}&generation=${generation}` : '?limit=100'
   if (window) query += `&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`
+  let response: Response
   try {
-    const response = await request(`/api/lineup/channels${query}`, { method: 'GET', headers: { Accept: 'application/json' } })
-    if (response.status === 409) return 'changed'
-    if (response.status !== 200) return null
+    response = await request(`/api/lineup/channels${query}`, { method: 'GET', headers: { Accept: 'application/json' } })
+  } catch {
+    return loadFailure('unreachable')
+  }
+  if (response.status === 409) return 'changed'
+  if (response.status !== 200) return failureForStatus(response.status)
+  try {
     const body = await response.json()
-    if (typeof body?.generation !== 'string' || typeof body?.total !== 'number' || !Array.isArray(body?.items)) return null
+    if (typeof body?.generation !== 'string' || typeof body?.total !== 'number' || !Array.isArray(body?.items)) return loadFailure('not-understood')
     const items = body.items.map(readChannel)
-    if (items.some((item: LineupChannel | null) => item === null)) return null
+    if (items.some((item: LineupChannel | null) => item === null)) return loadFailure('not-understood')
     return { generation: body.generation, total: body.total, items }
   } catch {
-    return null
+    return loadFailure('not-understood')
   }
 }
 

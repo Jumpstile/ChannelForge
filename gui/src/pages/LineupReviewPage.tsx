@@ -92,7 +92,7 @@ function reviewCopy(state: PlaylistGuideMatchState): ReviewCopy {
     return {
       bannerStatus: bannerStatuses.blocked,
       title: 'The check could not finish',
-      message: 'ChannelForge could not safely compare your files, or the last result is out of date.',
+      message: 'ChannelForge could not compare your playlist and guide. A file may have changed or become unreadable since it was checked, or the last result is out of date.',
       detail: 'Go back to Guided Setup and check both files again.',
     }
   }
@@ -141,7 +141,7 @@ function planNotice(plan: SavedLineupPlan | null, saveResult: SavedLineupResult 
   if (plan?.planStatus === 'blocked') {
     return {
       headline: 'ChannelForge could not prepare the preview',
-      whatHappened: 'Your saved lineup was not changed.',
+      whatHappened: 'The preview stopped before it gave a result, and ChannelForge could not tell why. Your saved lineup was not changed.',
       whatToDo: 'Press Prepare save preview to try again. If it keeps happening, open Details and share it when you ask for help.',
       details: { code: 'preview-unavailable', cause: 'The save preview step refused or failed before it gave a result.' },
     }

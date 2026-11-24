@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNow, fetchLiveNowItem } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
-import { loadFailedMessage } from '../app/friendlyError'
+import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 import { focusActiveNavItem } from '../components/SideNav'
@@ -17,7 +17,8 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
   const [items, setItems] = useState<OneGuideItem[] | null | undefined>(undefined)
   const [selected, setSelected] = useState<OneGuideItem | null>(null)
   const [detailsPending, setDetailsPending] = useState(false)
-  const [detailError, setDetailError] = useState(false)
+  const [detailError, setDetailError] = useState<LoadFailureKind | null>(null)
+  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
   const [retry, setRetry] = useState(0)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
   const returnFocus = useRef<HTMLButtonElement | null>(null)
@@ -28,7 +29,11 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
   useEffect(() => {
     let active = true
     setItems(undefined)
-    void fetchItems().then((result) => { if (active) setItems(result) })
+    void fetchItems().then((result) => {
+      if (!active) return
+      if (result === null || isLoadFailure(result)) setFailure(failureKindOf(result))
+      setItems(result === null || isLoadFailure(result) ? null : result)
+    })
     return () => { active = false }
   }, [fetchItems, retry])
 
@@ -49,14 +54,14 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
     const controller = new AbortController()
     detailsRequest.current = controller
     returnFocus.current = button
-    setDetailError(false)
+    setDetailError(null)
     setDetailsPending(true)
     const detail = await fetchLiveNowItem(item.ItemId, (input, init) => fetch(input, { ...init, signal: controller.signal }))
     if (detailsRequest.current !== controller) return
     detailsRequest.current = null
     setDetailsPending(false)
-    if (detail) setSelected(detail)
-    else setDetailError(true)
+    if (isLoadFailure(detail)) setDetailError(failureKindOf(detail))
+    else setSelected(detail)
   }
 
   const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -106,7 +111,7 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
       {items === undefined ? <p className="live-now-message" role="status">Loading Live Now…</p> :
         items === null ? <section className="live-now-message live-now-error">
           <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
-          <ErrorNotice message={loadFailedMessage('Live Now', 'live-now-load-failed')} />
+          <ErrorNotice message={loadFailedMessage('Live Now', 'live-now-load-failed', undefined, failure)} />
         </section> : items.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>Nothing is on right now</h2><p>Your accepted guide has no programs airing at this time.</p>
         </section> : <>
@@ -124,7 +129,7 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
             </div>)}
           </div>
         </>}
-      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'live-now-detail-failed', 'Choose the program again to retry.')} />}
+      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'live-now-detail-failed', 'Choose the program again to retry.', detailError)} />}
       {selected && <div className="live-now-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetails() }}>
         <section className="live-now-dialog" role="dialog" aria-modal="true" aria-labelledby="live-now-detail-title">
           <button ref={detailBackRef} className="live-now-back" type="button" onClick={closeDetails}><ArrowLeft size={20} aria-hidden="true" /> Back</button>

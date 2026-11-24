@@ -221,14 +221,14 @@ describe('display-safe setup selection contract', () => {
     ['guide-not-ready', 'Pick and check both your playlist and your guide first.'],
     ['playlist-content-invalid', 'Your playlist or guide has a problem. Fix it, then check again.'],
     ['guide-content-invalid', 'Your playlist or guide has a problem. Fix it, then check again.'],
-    ['playlist-unavailable', 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'],
-    ['guide-unavailable', 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'],
+    ['playlist-unavailable', 'ChannelForge could not open your playlist or guide file. Make sure both files are still where you picked them and that you can open them.'],
+    ['guide-unavailable', 'ChannelForge could not open your playlist or guide file. Make sure both files are still where you picked them and that you can open them.'],
     ['unsupported-format', 'ChannelForge cannot read this kind of guide. Pick an XMLTV guide.'],
     ['too-large', 'One of your files is too big for ChannelForge to check.'],
     ['stale-selection', 'One of your files changed after it was checked. Check the playlist and guide again.'],
-    ['unmatched-identity', 'ChannelForge could not check the match. Try again.'],
-    ['ambiguous-identity', 'ChannelForge could not check the match. Try again.'],
-    ['check-unavailable', 'ChannelForge could not check the match. Try again.'],
+    ['unmatched-identity', 'ChannelForge could not check whether your playlist and guide match, and could not tell why. Check both files, then try again, or open Details for the reason code.'],
+    ['ambiguous-identity', 'ChannelForge could not check whether your playlist and guide match, and could not tell why. Check both files, then try again, or open Details for the reason code.'],
+    ['check-unavailable', 'ChannelForge could not check whether your playlist and guide match, and could not tell why. Check both files, then try again, or open Details for the reason code.'],
   ] as const)('maps the %s reason to fixed copy', (reasonCode, expected) => {
     expect(
       safeMatchMessage({

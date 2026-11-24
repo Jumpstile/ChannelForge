@@ -69,7 +69,7 @@ describe('Live Now API client', () => {
   it('fails closed if the category response does not match the requested key', async () => {
     const request = vi.fn().mockResolvedValueOnce(pageResponse(categoryPage([item('a')], 0, 1, 'football')))
 
-    await expect(fetchOneGuideCategory('wrestling', request)).resolves.toBeNull()
+    await expect(fetchOneGuideCategory('wrestling', request)).resolves.toEqual({ loadFailure: 'not-understood' })
   })
 
   it('restarts from the first page when the accepted generation changes with an unchanged count', async () => {
@@ -105,11 +105,12 @@ describe('Live Now API client', () => {
     const missingGeneration = vi.fn().mockResolvedValue(new Response(JSON.stringify(page([item('a')], 0, 1))))
     const unavailable = vi.fn().mockResolvedValue(new Response('{}', { status: 503 }))
 
-    await expect(fetchLiveNow(otherGeneration)).resolves.toBeNull()
-    await expect(fetchLiveNow(otherEvaluation)).resolves.toBeNull()
-    await expect(fetchLiveNow(changedCount)).resolves.toBeNull()
-    await expect(fetchLiveNow(missingGeneration)).resolves.toBeNull()
-    await expect(fetchLiveNow(unavailable)).resolves.toBeNull()
+    await expect(fetchLiveNow(otherGeneration)).resolves.toEqual({ loadFailure: 'not-understood' })
+    await expect(fetchLiveNow(otherEvaluation)).resolves.toEqual({ loadFailure: 'not-understood' })
+    await expect(fetchLiveNow(changedCount)).resolves.toEqual({ loadFailure: 'not-understood' })
+    await expect(fetchLiveNow(missingGeneration)).resolves.toEqual({ loadFailure: 'not-understood' })
+    await expect(fetchLiveNow(unavailable)).resolves.toEqual({ loadFailure: 'server-error' })
+    await expect(fetchLiveNow(vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))).resolves.toEqual({ loadFailure: 'unreachable' })
   })
 
   it('gives up after repeated generation changes', async () => {
@@ -118,7 +119,7 @@ describe('Live Now API client', () => {
       ? pageResponse(page(firstPage, 0, 101))
       : new Response('{}', { status: 409 })))
 
-    await expect(fetchLiveNow(request)).resolves.toBeNull()
+    await expect(fetchLiveNow(request)).resolves.toEqual({ loadFailure: 'changed' })
     expect(request).toHaveBeenCalledTimes(6)
   })
 
@@ -128,7 +129,7 @@ describe('Live Now API client', () => {
       .mockResolvedValueOnce(pageResponse(page(firstPage, 0, 101)))
       .mockResolvedValueOnce(pageResponse(page([item('b')], 100, 101)))
 
-    await expect(fetchLiveNow(request)).resolves.toBeNull()
+    await expect(fetchLiveNow(request)).resolves.toEqual({ loadFailure: 'not-understood' })
     expect(request).toHaveBeenCalledTimes(2)
   })
 
@@ -136,7 +137,7 @@ describe('Live Now API client', () => {
   it('rejects a valid-version response for a different query', async () => {
     const wrongQuery = vi.fn().mockResolvedValue(pageResponse(page([item('a')], 0, 1, 'Details')))
 
-    await expect(fetchLiveNow(wrongQuery)).resolves.toBeNull()
+    await expect(fetchLiveNow(wrongQuery)).resolves.toEqual({ loadFailure: 'not-understood' })
     expect(wrongQuery).toHaveBeenCalledTimes(1)
   })
 
@@ -171,7 +172,7 @@ describe('Live Now API client', () => {
 
     for (const malformed of malformedItems) {
       const response = vi.fn().mockResolvedValue(pageResponse(page([{ ...valid, ...malformed }], 0, 1)))
-      await expect(fetchLiveNow(response)).resolves.toBeNull()
+      await expect(fetchLiveNow(response)).resolves.toEqual({ loadFailure: 'not-understood' })
     }
   })
 
@@ -190,7 +191,7 @@ describe('Live Now API client', () => {
 
     for (const malformed of malformedPages) {
       const response = vi.fn().mockResolvedValue(pageResponse(malformed))
-      await expect(fetchLiveNow(response)).resolves.toBeNull()
+      await expect(fetchLiveNow(response)).resolves.toEqual({ loadFailure: 'not-understood' })
     }
   })
 
@@ -200,7 +201,7 @@ describe('Live Now API client', () => {
 
     await expect(fetchLiveNowItem(id, request)).resolves.toMatchObject({ Title: 'Programme a' })
     expect(request).toHaveBeenCalledWith(`/api/one-guide/items/${id}`, expect.objectContaining({ method: 'GET' }))
-    expect(await fetchLiveNowItem('../private', request)).toBeNull()
+    expect(await fetchLiveNowItem('../private', request)).toEqual({ loadFailure: 'not-understood' })
     expect(request).toHaveBeenCalledTimes(1)
   })
 })

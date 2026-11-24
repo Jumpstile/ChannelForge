@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNowItem, fetchOneGuideCategory } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
-import { loadFailedMessage } from '../app/friendlyError'
+import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 import { focusActiveNavItem } from '../components/SideNav'
@@ -24,7 +24,8 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
   const [items, setItems] = useState<OneGuideItem[] | null | undefined>(undefined)
   const [selected, setSelected] = useState<OneGuideItem | null>(null)
   const [detailsPending, setDetailsPending] = useState(false)
-  const [detailError, setDetailError] = useState(false)
+  const [detailError, setDetailError] = useState<LoadFailureKind | null>(null)
+  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
   const [retry, setRetry] = useState(0)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
   const returnFocus = useRef<HTMLButtonElement | null>(null)
@@ -34,7 +35,11 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
   useEffect(() => {
     let active = true
     setItems(undefined)
-    void fetchItems().then((result) => { if (active) setItems(result) }).catch(() => { if (active) setItems(null) })
+    void fetchItems().then((result) => {
+      if (!active) return
+      if (result === null || isLoadFailure(result)) setFailure(failureKindOf(result))
+      setItems(result === null || isLoadFailure(result) ? null : result)
+    }).catch(() => { if (active) setItems(null) })
     return () => { active = false }
   }, [fetchItems, retry])
 
@@ -55,14 +60,14 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
     const controller = new AbortController()
     detailsRequest.current = controller
     returnFocus.current = button
-    setDetailError(false)
+    setDetailError(null)
     setDetailsPending(true)
     const detail = await fetchLiveNowItem(item.ItemId, (input, init) => fetch(input, { ...init, signal: controller.signal }))
     if (detailsRequest.current !== controller) return
     detailsRequest.current = null
     setDetailsPending(false)
-    if (detail) setSelected(detail)
-    else setDetailError(true)
+    if (isLoadFailure(detail)) setDetailError(failureKindOf(detail))
+    else setSelected(detail)
   }
 
   const visibleItems = items?.filter((item) => item.Status !== 'Past') ?? []
@@ -115,7 +120,7 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
               focusActiveNavItem()
             }
           }}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
-          <ErrorNotice message={loadFailedMessage('Wrestling', 'wrestling-load-failed')} />
+          <ErrorNotice message={loadFailedMessage('Wrestling', 'wrestling-load-failed', undefined, failure)} />
         </section> : visibleItems.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>No wrestling programs are coming up</h2><p>Your accepted guide has no current or future Wrestling programs.</p>
         </section> : <>
@@ -143,7 +148,7 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
             </section>
           })}
         </>}
-      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'wrestling-detail-failed', 'Choose the program again to retry.')} />}
+      {detailError && <ErrorNotice message={loadFailedMessage('the details for that program', 'wrestling-detail-failed', 'Choose the program again to retry.', detailError)} />}
       {selected && <div className="live-now-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetails() }}>
         <section className="live-now-dialog" role="dialog" aria-modal="true" aria-labelledby="wrestling-detail-title">
           <button ref={detailBackRef} className="live-now-back" type="button" onClick={closeDetails}><ArrowLeft size={20} aria-hidden="true" /> Back</button>

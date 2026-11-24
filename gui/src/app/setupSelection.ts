@@ -264,9 +264,9 @@ function matchReasonMessage(reasonCode: MatchReasonCode | null): string {
     return 'Your playlist or guide has a problem. Fix it, then check again.'
   }
   if (reasonCode === 'playlist-unavailable' || reasonCode === 'guide-unavailable') {
-    return 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'
+    return 'ChannelForge could not open your playlist or guide file. Make sure both files are still where you picked them and that you can open them.'
   }
-  return 'ChannelForge could not check the match. Try again.'
+  return 'ChannelForge could not check whether your playlist and guide match, and could not tell why. Check both files, then try again, or open Details for the reason code.'
 }
 
 export function playlistGuideMatchStateFromResult(result: PlaylistGuideMatchResult): PlaylistGuideMatchState {
@@ -382,16 +382,16 @@ function guideContentReasonMessage(reasonCode: GuideContentReasonCode | null): s
     return 'Guide content needs attention. The file is not valid UTF-8 XMLTV.'
   }
   if (reasonCode === 'unsupported-format') {
-    return 'Guide content could not be checked for this file type. Choose an XMLTV file.'
+    return 'ChannelForge could not check the guide content because this is not an XMLTV file. Choose an XMLTV file.'
   }
   if (reasonCode === 'too-large') {
-    return 'Could not check guide content. The file is too large.'
+    return 'ChannelForge could not check the guide content because the file is too large. Choose a smaller XMLTV file.'
   }
   if (reasonCode === 'malformed-xml') {
     return 'Guide content needs attention. The file is not a valid XMLTV document.'
   }
 
-  return 'Could not check guide content. Try another file.'
+  return 'ChannelForge could not check the guide content, and could not tell why. Try another file.'
 }
 
 export function guideContentStateFromResult(result: SetupSelectionResult): GuideContentState {
@@ -444,7 +444,7 @@ function playlistContentReasonMessage(reasonCode: PlaylistContentReasonCode | nu
     return 'Playlist content needs attention. The file contains an unexpected stream line.'
   }
 
-  return 'Could not check playlist content. Try another file.'
+  return 'ChannelForge could not check the playlist content, and could not tell why. Try another file.'
 }
 
 export function playlistContentStateFromResult(result: SetupSelectionResult): PlaylistContentState {
@@ -570,10 +570,10 @@ function safeReasonMessage(kind: SetupSelectionKind, reasonCode: PickerReasonCod
     return `ChannelForge cannot find your ${kind}. It may have been moved or deleted.`
   }
   if (reasonCode === 'not-readable') {
-    return `ChannelForge cannot open your ${kind}.`
+    return `ChannelForge cannot open your ${kind}. It may have been moved, or ChannelForge may not be allowed to read it.`
   }
 
-  return 'ChannelForge could not check that choice.'
+  return `ChannelForge could not check the ${kind} you picked, and could not tell why. Pick it again, or open Details for the reason code.`
 }
 
 export function safePickerMessage(result: SetupSelectionResult): FriendlyMessage | null {

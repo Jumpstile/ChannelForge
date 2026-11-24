@@ -1,4 +1,4 @@
-import type { FriendlyMessage } from './friendlyError'
+import { failureForStatus, loadFailure, type FriendlyMessage, type LoadFailure } from './friendlyError'
 
 export type SourcesStatus = 'not-enrolled' | 'saved' | 'up-to-date' | 'changes-found' | 'needs-attention' | 'source-unavailable'
 export type PlaylistStatus = 'not-enrolled' | 'ready' | 'changes-found' | 'source-unavailable'
@@ -20,7 +20,8 @@ export type WebStatusSnapshot = {
   sources?: SourceRow[]
 }
 
-export type WebStatusFetcher = () => Promise<WebStatusSnapshot | null>
+// A LoadFailure says why the read failed; null (for example from a test double) means no reason is known.
+export type WebStatusFetcher = () => Promise<WebStatusSnapshot | LoadFailure | null>
 
 export type SourceRefreshResult = {
   status: 'UP_TO_DATE' | 'CHANGES_FOUND'
@@ -85,15 +86,20 @@ function normalizeStatus(payload: JsonRecord): WebStatusSnapshot | null {
   }
 }
 
-export async function fetchWebStatus(request: typeof fetch = fetch): Promise<WebStatusSnapshot | null> {
+export async function fetchWebStatus(request: typeof fetch = fetch): Promise<WebStatusSnapshot | LoadFailure> {
+  let response: Response
   try {
-    const response = await request('/api/status', {
+    response = await request('/api/status', {
       method: 'GET',
       headers: { Accept: 'application/json' },
     })
+  } catch {
+    return loadFailure('unreachable')
+  }
 
-    if (response.status !== 200) return null
+  if (response.status !== 200) return failureForStatus(response.status)
 
+  try {
     const payload: unknown = await response.json()
     if (
       !isJsonRecord(payload) ||
@@ -102,12 +108,12 @@ export async function fetchWebStatus(request: typeof fetch = fetch): Promise<Web
       payload.Message !== 'ChannelForge is running' ||
       payload.ReadOnly !== true
     ) {
-      return null
+      return loadFailure('not-understood')
     }
 
-    return normalizeStatus(payload)
+    return normalizeStatus(payload) ?? loadFailure('not-understood')
   } catch {
-    return null
+    return loadFailure('not-understood')
   }
 }
 
