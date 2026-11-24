@@ -9,7 +9,7 @@ export const ErrorNotice = forwardRef<HTMLDivElement, { message: FriendlyMessage
     <div className="setup-picker-error error-notice" ref={ref} role="alert" tabIndex={-1}>
       <p className="error-notice-headline">{headline}</p>
       <p className="error-notice-body">{whatHappened}</p>
-      {details.message && details.message !== whatHappened ? <p className="error-notice-body">ChannelForge also kept a technical message about this. It could not tell what caused it, so the message is under Details.</p> : null}
+      {details.message && details.message !== whatHappened ? <p className="error-notice-body">ChannelForge also kept a technical message about this. It is under Details.</p> : null}
       <p className="error-notice-body"><strong>What to do:</strong> {whatToDo}</p>
       <div>
         <button aria-expanded={open} className="button button-secondary" type="button" onClick={() => setOpen(!open)}>{open ? 'Hide details' : 'Details'}</button>

@@ -90,16 +90,16 @@ describe('fetchLineupPage with a window', () => {
 
   it('fails instead of hiding a program it cannot read', async () => {
     const request = async () => body([{ id: 'a', name: 'A', programmes: [{ title: 'No times' }] }])
-    expect(await fetchLineupPage(0, null, request as unknown as typeof fetch, window)).toEqual({ loadFailure: 'not-understood' })
+    expect(await fetchLineupPage(0, null, request as unknown as typeof fetch, window)).toMatchObject({ loadFailure: 'not-understood' })
   })
 
   it('tells apart a server that is not running, a server error and a value it does not know', async () => {
     const down = async () => { throw new TypeError('Failed to fetch') }
-    expect(await fetchLineupPage(0, null, down as unknown as typeof fetch)).toEqual({ loadFailure: 'unreachable' })
+    expect(await fetchLineupPage(0, null, down as unknown as typeof fetch)).toMatchObject({ loadFailure: 'unreachable' })
     const broken = async () => new Response('', { status: 500 })
-    expect(await fetchLineupPage(0, null, broken as unknown as typeof fetch)).toEqual({ loadFailure: 'server-error' })
+    expect(await fetchLineupPage(0, null, broken as unknown as typeof fetch)).toMatchObject({ loadFailure: 'server-error' })
     const newer = async () => body([{ id: 'a', name: 'A', number: 1, logoStatus: 'blurry', guideState: 'bound', attention: [] }])
-    expect(await fetchLineupPage(0, null, newer as unknown as typeof fetch)).toEqual({ loadFailure: 'not-understood' })
+    expect(await fetchLineupPage(0, null, newer as unknown as typeof fetch)).toMatchObject({ loadFailure: 'not-understood' })
   })
 })
 

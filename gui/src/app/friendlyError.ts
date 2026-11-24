@@ -23,18 +23,22 @@ export function toFriendlyMessage(error: unknown, fallback: FriendlyMessage): Fr
 }
 
 // What the code can tell apart when a read fails. 'unknown' means the caller could not tell why.
+// raw is the real technical text (HTTP status, thrown error message); it only ever appears under Details.
 export type LoadFailureKind = 'unreachable' | 'refused' | 'server-error' | 'not-understood' | 'changed' | 'unknown'
-export type LoadFailure = { loadFailure: LoadFailureKind }
+export type LoadFailure = { loadFailure: LoadFailureKind; raw?: string }
 
-export const loadFailure = (kind: LoadFailureKind): LoadFailure => ({ loadFailure: kind })
+export const loadFailure = (kind: LoadFailureKind, raw?: string): LoadFailure => (raw ? { loadFailure: kind, raw } : { loadFailure: kind })
 export const isLoadFailure = (value: unknown): value is LoadFailure => typeof value === 'object' && value !== null && 'loadFailure' in value
 // A null or missing result carries no reason, so it reads as 'unknown'.
-export const failureKindOf = (value: unknown): LoadFailureKind => (isLoadFailure(value) ? value.loadFailure : 'unknown')
+export const failureOf = (value: unknown): LoadFailure => (isLoadFailure(value) ? value : loadFailure('unknown'))
+// Something was thrown: keep its message as the raw text.
+export const failureFromError = (error: unknown, kind: LoadFailureKind = 'unknown'): LoadFailure => loadFailure(kind, error instanceof Error ? error.message : undefined)
 
 // A non-200 answer: not allowed, a server error, or something this screen has no use for (for example an older server without the route).
 export function failureForStatus(status: number): LoadFailure {
-  if (status === 401 || status === 403) return loadFailure('refused')
-  return loadFailure(status >= 500 ? 'server-error' : 'not-understood')
+  const raw = `HTTP status ${status}`
+  if (status === 401 || status === 403) return loadFailure('refused', raw)
+  return loadFailure(status >= 500 ? 'server-error' : 'not-understood', raw)
 }
 
 const loadFailureText: Record<Exclude<LoadFailureKind, 'unknown'>, { why: string; next: string; cause: string }> = {
@@ -65,14 +69,18 @@ const loadFailureText: Record<Exclude<LoadFailureKind, 'unknown'>, { why: string
   },
 }
 
+// The plain reason for screens that write a message of their own (for example a failed Refresh); null when no reason is known.
+export const failureWhy = (failure: LoadFailure): string | null => (failure.loadFailure === 'unknown' ? null : loadFailureText[failure.loadFailure].why)
+
 // For read-only page loads (GET requests): nothing is written, so "nothing was changed" is true.
 // whatToDo is a hint for 'unreachable' and 'unknown'; every other kind gets its own next step.
-export function loadFailedMessage(what: string, code: string, whatToDo = 'Make sure ChannelForge is still running, then try again.', kind: LoadFailureKind = 'unknown'): FriendlyMessage {
+export function loadFailedMessage(what: string, code: string, whatToDo = 'Make sure ChannelForge is still running, then try again.', failure: LoadFailure = loadFailure('unknown')): FriendlyMessage {
+  const kind = failure.loadFailure
   const known = kind === 'unknown' ? null : loadFailureText[kind]
   return {
     headline: `ChannelForge could not load ${what}`,
     whatHappened: `${known ? known.why : 'ChannelForge could not tell why. Open Details for the technical information.'} This page only reads information, so nothing was changed.`,
     whatToDo: known && kind !== 'unreachable' ? known.next : whatToDo,
-    details: { code, cause: known ? known.cause : 'The request to the local ChannelForge server failed or the answer could not be read, and ChannelForge could not tell which. The server may be stopped, or may be a different version from this page.' },
+    details: { code, message: failure.raw, cause: known ? known.cause : 'The request to the local ChannelForge server failed or the answer could not be read, and ChannelForge could not tell which. The server may be stopped, or may be a different version from this page.' },
   }
 }

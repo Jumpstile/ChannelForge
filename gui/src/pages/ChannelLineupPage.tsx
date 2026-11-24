@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
 import { fetchLineupPage } from '../app/lineup'
 import type { LineupChannel, LineupFetcher, LineupProgramme } from '../app/lineup'
-import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
+import { failureOf, isLoadFailure, loadFailedMessage, loadFailure, type LoadFailure } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { focusActiveNavItem } from '../components/SideNav'
 import { EmptyState } from '../components/EmptyState'
@@ -62,8 +62,8 @@ function PrintSummary({ channels, total }: { channels: LineupChannel[]; total: n
 export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: ChannelLineupPageProps) {
   const [view, setView] = useState<LineupView | null | undefined>(undefined)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [moreFailed, setMoreFailed] = useState<LoadFailureKind | null>(null)
-  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
+  const [moreFailed, setMoreFailed] = useState<LoadFailure | null>(null)
+  const [failure, setFailure] = useState<LoadFailure>(loadFailure('unknown'))
   const [retry, setRetry] = useState(0)
   const [printRequested, setPrintRequested] = useState(false)
 
@@ -73,7 +73,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
     void fetchPage(0, null).then((page) => {
       if (!active) return
       if (page === null || page === 'changed' || isLoadFailure(page)) {
-        setFailure(page === 'changed' ? 'changed' : failureKindOf(page))
+        setFailure(page === 'changed' ? loadFailure('changed') : failureOf(page))
         setView(null)
       } else setView({ channels: page.items, total: page.total, generation: page.generation, savedAtUtc: page.savedAtUtc ?? null })
     })
@@ -93,7 +93,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
     const page = await fetchPage(view.channels.length, view.generation)
     setLoadingMore(false)
     if (page === 'changed') setRetry((value) => value + 1)
-    else if (page === null || isLoadFailure(page)) setMoreFailed(failureKindOf(page))
+    else if (page === null || isLoadFailure(page)) setMoreFailed(failureOf(page))
     else setView({ ...view, channels: [...view.channels, ...page.items], total: page.total, generation: page.generation })
   }
 
@@ -106,7 +106,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
     while (channels.length < view.total) {
       const page = await fetchPage(channels.length, view.generation)
       if (page === 'changed') { setLoadingMore(false); setRetry((value) => value + 1); return }
-      if (page === null || isLoadFailure(page) || page.items.length === 0) { setMoreFailed(failureKindOf(page)); break }
+      if (page === null || isLoadFailure(page) || page.items.length === 0) { setMoreFailed(failureOf(page)); break }
       channels = [...channels, ...page.items]
     }
     setLoadingMore(false)

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { fetchLiveNowItem, fetchOneGuideCategory } from '../app/oneGuide'
 import type { OneGuideFetcher, OneGuideItem } from '../app/oneGuide'
-import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
+import { failureFromError, failureOf, isLoadFailure, loadFailedMessage, loadFailure, type LoadFailure } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { PageHeader } from '../components/PageHeader'
 import { focusActiveNavItem } from '../components/SideNav'
@@ -24,8 +24,8 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
   const [items, setItems] = useState<OneGuideItem[] | null | undefined>(undefined)
   const [selected, setSelected] = useState<OneGuideItem | null>(null)
   const [detailsPending, setDetailsPending] = useState(false)
-  const [detailError, setDetailError] = useState<LoadFailureKind | null>(null)
-  const [failure, setFailure] = useState<LoadFailureKind>('unknown')
+  const [detailError, setDetailError] = useState<LoadFailure | null>(null)
+  const [failure, setFailure] = useState<LoadFailure>(loadFailure('unknown'))
   const [retry, setRetry] = useState(0)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
   const returnFocus = useRef<HTMLButtonElement | null>(null)
@@ -37,9 +37,9 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
     setItems(undefined)
     void fetchItems().then((result) => {
       if (!active) return
-      if (result === null || isLoadFailure(result)) setFailure(failureKindOf(result))
+      if (result === null || isLoadFailure(result)) setFailure(failureOf(result))
       setItems(result === null || isLoadFailure(result) ? null : result)
-    }).catch(() => { if (active) setItems(null) })
+    }).catch((error: unknown) => { if (active) { setFailure(failureFromError(error)); setItems(null) } })
     return () => { active = false }
   }, [fetchItems, retry])
 
@@ -66,7 +66,7 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
     if (detailsRequest.current !== controller) return
     detailsRequest.current = null
     setDetailsPending(false)
-    if (isLoadFailure(detail)) setDetailError(failureKindOf(detail))
+    if (isLoadFailure(detail)) setDetailError(failureOf(detail))
     else setSelected(detail)
   }
 
