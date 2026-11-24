@@ -4,6 +4,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StatusDashboard } from '../components/StatusDashboard'
 import { StepRail } from '../components/StepRail'
+import { TermCoach } from '../components/TermCoach'
 import { fetchWebStatus, type WebStatusFetcher, type WebStatusSnapshot } from '../app/webStatus'
 
 type WorkbenchPageProps = {
@@ -60,7 +61,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
         <div className="next-action-copy">
           <p className="eyebrow">Your next step</p>
           <h2 id="next-action-title">Open Guided Setup</h2>
-          <p>Add, review, or replace one or more playlists and optional XMLTV guides. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.</p>
+          <p>Add, review, or replace one or more playlists and optional <TermCoach term="xmltv-guide" /> files. Your review stays in ChannelForge's server-owned workspace. Choose which playlists each guide covers.</p>
         </div>
         <button className="button button-primary" type="button" onClick={onOpenSetup}>Open Guided Setup</button>
       </section>
@@ -76,7 +77,7 @@ export function WorkbenchPage({ onOpenGallery, onOpenSetup, fetchStatus = fetchW
                 ? 'ChannelForge status unavailable'
                 : sourceSetConfigured
                   ? 'Saved source configuration is available'
-                  : 'M3U playlists and optional XMLTV guides'}
+                  : <><TermCoach term="m3u-playlist" />s and optional XMLTV guides</>}
           </span>
         </article>
         <article className="summary-card">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ArrowLeft, CheckCircle2, X } from 'lucide-react'
 import { acceptSavedLineup, prepareSavedLineupPlan } from '../app/setupPicker'
+import { TermCoach } from '../components/TermCoach'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBanner } from '../components/StatusBanner'
 import type { UiStatus } from '../components/StatusBadge'
@@ -280,7 +281,7 @@ export function LineupReviewPage({
             </div>
           ))}
         </div>
-        <p className="lineup-review-note">Matched means one exact playlist-to-guide identity relationship. Channel IDs, programme titles, stream URLs, and source file details stay hidden.</p>
+        <p className="lineup-review-note">Matched means one exact playlist-to-guide identity relationship. <TermCoach term="channel-id" />s, program titles, <TermCoach term="stream-url" label="stream URL" />s, and source file details stay hidden.</p>
       </section>
 
       <section className="lineup-review-card saved-lineup-action-card" aria-labelledby="lineup-review-save-title">

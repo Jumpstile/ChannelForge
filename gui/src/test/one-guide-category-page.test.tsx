@@ -51,7 +51,7 @@ describe('Wrestling category page', () => {
   it('shows a true empty guide and a plain-language unavailable state with retry', async () => {
     const emptyFetcher: OneGuideFetcher = async () => []
     const empty = render(<OneGuideCategoryPage fetchItems={emptyFetcher} />)
-    expect(await screen.findByRole('heading', { name: 'No wrestling programmes are coming up' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'No wrestling programs are coming up' })).toBeVisible()
     empty.unmount()
 
     const fetchItems = vi.fn<OneGuideFetcher>().mockResolvedValueOnce(null).mockResolvedValueOnce([now])

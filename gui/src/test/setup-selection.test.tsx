@@ -132,7 +132,7 @@ describe('display-safe setup selection contract', () => {
     expect(checked).toEqual({
       status: 'checked',
       label: 'Checked',
-      detail: 'Guide content checked. 2 channels and 4 programmes found.',
+      detail: 'Guide content checked. 2 channels and 4 programs found.',
       channelCount: 2,
       programmeCount: 4,
     })

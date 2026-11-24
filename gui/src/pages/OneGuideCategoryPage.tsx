@@ -117,9 +117,9 @@ export function OneGuideCategoryPage({ fetchItems = fetchWrestling }: { fetchIte
           }}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
           <ErrorNotice message={loadFailedMessage('Wrestling', 'wrestling-load-failed')} />
         </section> : visibleItems.length === 0 ? <section className="live-now-message" aria-live="polite">
-          <h2>No wrestling programmes are coming up</h2><p>Your accepted guide has no current or future Wrestling programmes.</p>
+          <h2>No wrestling programs are coming up</h2><p>Your accepted guide has no current or future Wrestling programs.</p>
         </section> : <>
-          <p className="live-now-count" aria-live="polite">{visibleItems.length} {visibleItems.length === 1 ? 'programme' : 'programmes'} in Wrestling</p>
+          <p className="live-now-count" aria-live="polite">{visibleItems.length} {visibleItems.length === 1 ? 'program' : 'programs'} in Wrestling</p>
           {sections.map((section) => {
             const sectionItems = visibleItems.filter((item) => item.Status === section.status)
             return <section className="category-section" key={section.status} aria-labelledby={`wrestling-${section.status}`}>

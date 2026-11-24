@@ -22,7 +22,7 @@ A successful local or remote XMLTV build reports `XMLTVStatus: GENERATED`, `XMLT
 
 ## Event guides are evidence-backed
 
-XMLTV can describe an event programme, but XMLTV plumbing alone does not prove that a volatile sports or PPV event is correct. ChannelForge's guide-intelligence contract keeps the channel, event title, time, timezone, status, source freshness, confidence, and provenance together as read-only evidence.
+XMLTV can describe an event program (the XMLTV file itself spells the element "programme"), but XMLTV plumbing alone does not prove that a volatile sports or PPV event is correct. ChannelForge's guide-intelligence contract keeps the channel, event title, time, timezone, status, source freshness, confidence, and provenance together as read-only evidence.
 
 Supported evidence types include provider display text, provider M3U metadata, XMLTV, documented AED-derived XMLTV/M3U exports, future schedule sources, and accepted ChannelForge knowledge. An AED-derived export is a bootstrap or migration input, not a second accepted authority. Conflicting times, missing identities, stale guides, and unavailable sources remain review or degraded conditions.
 

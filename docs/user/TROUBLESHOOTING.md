@@ -168,7 +168,7 @@ The lineup review screen is a read-only summary of one local M3U playlist and on
 - **Review needed** means duplicate or non-unique identity relationships prevent safe automatic selection. ChannelForge does not choose an ambiguous relationship automatically.
 - **Blocked** means the files are missing, not ready, unavailable, stale, or unsafe to inspect. Return to Guided Setup and check both files again.
 
-The review reports aggregate counts only. It does not display channel IDs, programme titles, stream URLs, filenames, paths, credentials, or parser errors. Review and plan preparation are read-only; only an acknowledged Save action can request native acceptance.
+The review reports aggregate counts only. It does not display channel IDs, program titles, stream URLs, filenames, paths, credentials, or parser errors. Review and plan preparation are read-only; only an acknowledged Save action can request native acceptance.
 
 ### GUI saved lineup
 
