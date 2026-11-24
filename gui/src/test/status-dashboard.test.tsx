@@ -12,7 +12,7 @@ describe('read-only status dashboard', () => {
     render(<StatusDashboard fetchStatus={fetchStatus} />)
 
     expect(screen.getByRole('heading', { level: 2, name: 'Checking ChannelForge status' })).toBeInTheDocument()
-    expect(screen.getByText(/read-only status/i)).toBeInTheDocument()
+    expect(screen.getByText(/only shows information/i)).toBeInTheDocument()
   })
 
   it('renders the not-accepted status and beginner next action', async () => {
@@ -81,7 +81,9 @@ describe('read-only status dashboard', () => {
     render(<StatusDashboard fetchStatus={unavailable} />)
 
     expect(await screen.findByRole('heading', { level: 2, name: 'ChannelForge status is unavailable' })).toBeInTheDocument()
-    expect(screen.getByText(/could not read the local server status/i)).toBeInTheDocument()
+    expect(screen.getByText(/could not load the status/i)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('status-unavailable')).toBeInTheDocument()
   })
 
   it('renders a safe unavailable state when fetching fails', async () => {
@@ -141,13 +143,23 @@ describe('remove one saved source', () => {
   })
 
   it('shows a plain message and keeps the source when the remove fails', async () => {
-    const removeSource = vi.fn().mockResolvedValue({ ok: false, message: 'ChannelForge could not confirm that the source was removed. Refresh the status to see what is saved before trying again.' })
+    const removeSource = vi.fn().mockResolvedValue({
+      ok: false,
+      message: {
+        headline: 'ChannelForge could not remove this source',
+        whatHappened: 'ChannelForge could not tell whether the source was removed.',
+        whatToDo: 'Press Refresh now to see what is saved, then try again if the source is still there.',
+        details: { code: 'source-remove-failed', cause: 'The request to remove the source failed or the answer could not be read.' },
+      },
+    })
     render(<StatusDashboard fetchStatus={vi.fn().mockResolvedValue(twoSources)} removeSource={removeSource} />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Remove Backup playlist' }))
     await userEvent.click(screen.getByRole('button', { name: 'Yes, remove this source' }))
 
-    expect(await screen.findByText(/could not confirm/)).toBeInTheDocument()
+    expect(await screen.findByText('ChannelForge could not tell whether the source was removed.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getByText('source-remove-failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Backup playlist' })).toBeInTheDocument()
   })
 

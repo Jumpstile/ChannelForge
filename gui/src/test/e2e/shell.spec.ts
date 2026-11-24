@@ -227,7 +227,7 @@ test('opens read-only lineup review after a safe aggregate result', async ({ pag
 
   await expect(page.getByRole('heading', { level: 1, name: 'Review playlist and guide coverage' })).toBeVisible()
   await expect(
-    page.getByRole('region', { name: /Coverage needs/ }).getByText('1 playlist entries have no guide match.', { exact: false }),
+    page.getByRole('region', { name: /Some channels need attention/ }).getByText('1 playlist channel with no guide', { exact: false }),
   ).toBeVisible()
   await expect(page.getByRole('button', { name: /Saved lineup/ })).toBeDisabled()
   for (const action of ['Accept', 'Apply', 'Resolve', 'Save', 'Export', 'Publish']) {
@@ -313,7 +313,7 @@ test('saves a checked lineup only after accessible confirmation', async ({ page 
   await expect(dialog.getByRole('button', { name: 'Save lineup' })).toBeDisabled()
   await dialog.getByRole('checkbox', { name: /understand/i }).check()
   await dialog.getByRole('button', { name: 'Save lineup' }).click()
-  await expect(page.getByText('Saved lineup is available from the Saved lineup navigation item.')).toBeVisible()
+  await expect(page.getByText('Your lineup is saved. Open Saved lineup in the menu to see it.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Saved lineup(?! Next)/ })).toBeEnabled()
   await expect(page.locator('body')).not.toContainText('https://')
   await expect(page.locator('body')).not.toContainText('C:\\')

@@ -1,3 +1,5 @@
+import type { FriendlyMessage } from './friendlyError'
+
 export type SetupSelectionKind = 'workspace' | 'playlist' | 'guide'
 
 export type SetupSelectionStatus = 'not-selected' | 'selected'
@@ -247,24 +249,24 @@ function matchReasonMessage(reasonCode: MatchReasonCode | null): string {
     reasonCode === 'playlist-not-ready' ||
     reasonCode === 'guide-not-ready'
   ) {
-    return 'Choose and check both files before checking their match.'
+    return 'Pick and check both your playlist and your guide first.'
   }
   if (reasonCode === 'stale-selection') {
-    return 'The selected files changed. Check the playlist and guide again.'
+    return 'One of your files changed after it was checked. Check the playlist and guide again.'
   }
   if (reasonCode === 'unsupported-format') {
-    return 'The guide format cannot be checked. Choose a supported XMLTV guide.'
+    return 'ChannelForge cannot read this kind of guide. Pick an XMLTV guide.'
   }
   if (reasonCode === 'too-large') {
-    return 'The selected file is too large to check safely.'
+    return 'One of your files is too big for ChannelForge to check.'
   }
   if (reasonCode === 'playlist-content-invalid' || reasonCode === 'guide-content-invalid') {
-    return 'The playlist or guide content needs attention before matching.'
+    return 'Your playlist or guide has a problem. Fix it, then check again.'
   }
   if (reasonCode === 'playlist-unavailable' || reasonCode === 'guide-unavailable') {
-    return 'The selected playlist or guide cannot be opened.'
+    return 'ChannelForge could not open your playlist or guide. Make sure the files are still there.'
   }
-  return 'The match could not be checked. Try again.'
+  return 'ChannelForge could not check the match. Try again.'
 }
 
 export function playlistGuideMatchStateFromResult(result: PlaylistGuideMatchResult): PlaylistGuideMatchState {
@@ -314,11 +316,15 @@ export function isPlaylistGuideReviewAvailable(state: PlaylistGuideMatchState): 
   return state.status === 'checked' || state.status === 'needs-attention' || state.status === 'review-needed'
 }
 
-export function safeMatchMessage(result: PlaylistGuideMatchResult): string | null {
-  if (result.matchStatus === 'blocked') {
-    return matchReasonMessage(result.reasonCode)
+export function safeMatchMessage(result: PlaylistGuideMatchResult): FriendlyMessage | null {
+  if (result.matchStatus !== 'blocked') return null
+  const code = result.reasonCode ?? 'check-unavailable'
+  return {
+    headline: 'ChannelForge could not check the match',
+    whatHappened: matchReasonMessage(result.reasonCode),
+    whatToDo: 'Check your playlist and guide, then press the check button again.',
+    details: { code, cause: `The playlist and guide match check stopped with the reason "${code}".` },
   }
-  return null
 }
 
 export function createInitialPlaylistContentState(): PlaylistContentState {
@@ -552,28 +558,38 @@ export function applySetupSelectionResult(
 
 function safeReasonMessage(kind: SetupSelectionKind, reasonCode: PickerReasonCode): string {
   if (reasonCode === 'picker-unavailable') {
-    return 'File selection is unavailable right now.'
+    return 'The file chooser is not available right now.'
   }
   if (reasonCode === 'permission-denied' || reasonCode === 'unknown') {
-    return 'Could not complete this selection.'
+    return 'ChannelForge was not allowed to use that choice.'
   }
   if (reasonCode === 'wrong-kind') {
-    return kind === 'workspace' ? 'Choose a folder for the workspace.' : `Choose a file for the ${kind}.`
+    return kind === 'workspace' ? 'That is not a folder. Pick a folder for the workspace.' : `That is not a file. Pick a file for the ${kind}.`
   }
   if (reasonCode === 'not-found') {
-    return `${kindLabels[kind]} is not available.`
+    return `ChannelForge cannot find your ${kind}. It may have been moved or deleted.`
   }
   if (reasonCode === 'not-readable') {
-    return `${kindLabels[kind]} cannot be opened.`
+    return `ChannelForge cannot open your ${kind}.`
   }
 
-  return 'Could not check this selection.'
+  return 'ChannelForge could not check that choice.'
 }
 
-export function safePickerMessage(result: SetupSelectionResult): string | null {
+export function safePickerMessage(result: SetupSelectionResult): FriendlyMessage | null {
   if (result.outcome === 'cancelled') {
-    return 'Selection cancelled.'
+    return {
+      headline: 'Nothing was chosen',
+      whatHappened: 'You closed the chooser without picking anything. Your earlier choices were kept.',
+      whatToDo: 'Press the button and pick again when you are ready.',
+      details: { code: 'cancelled', cause: 'The file chooser was closed before an item was selected.' },
+    }
   }
-
-  return result.reasonCode === null ? null : safeReasonMessage(result.kind, result.reasonCode)
+  if (result.reasonCode === null) return null
+  return {
+    headline: 'That choice did not work',
+    whatHappened: safeReasonMessage(result.kind, result.reasonCode),
+    whatToDo: 'Pick the item again. If it keeps happening, open Details and share it when you ask for help.',
+    details: { code: result.reasonCode, cause: `The ${result.kind} chooser returned the reason "${result.reasonCode}".` },
+  }
 }

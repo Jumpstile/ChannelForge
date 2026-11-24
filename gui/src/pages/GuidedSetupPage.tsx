@@ -131,6 +131,13 @@ const acceptanceFailedMessage: FriendlyMessage = {
   details: { cause: 'An unexpected error stopped the accept step before the server gave a result.' },
 }
 
+const selectionFailedMessage: FriendlyMessage = {
+  headline: 'ChannelForge could not finish that choice',
+  whatHappened: 'Your earlier choice was kept.',
+  whatToDo: 'Pick the item again. If it keeps happening, open Details and share it when you ask for help.',
+  details: { cause: 'An unexpected error stopped the file chooser before it gave an answer.' },
+}
+
 function ProposalCheckRow({ check }: { check: GuidedSetupCheck }) {
   const [open, setOpen] = useState(false)
   const name = check.Kind === 'logos' ? 'Logos' : check.Kind === 'guides' ? 'Guides' : 'Categories'
@@ -413,7 +420,7 @@ export function GuidedSetupPage({
   }
   const [pendingKind, setPendingKind] = useState<SetupSelectionKind | null>(null)
   const [matching, setMatching] = useState(false)
-  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [pickerError, setPickerError] = useState<FriendlyMessage | null>(null)
   const selectionVersion = useRef(0)
   if (!pickerAvailable) return <BrowserGuidedSetupPage sourceSetProposalSubmitter={sourceSetProposalSubmitter} sourceSetAcceptanceSubmitter={sourceSetAcceptanceSubmitter} />
 
@@ -464,7 +471,7 @@ export function GuidedSetupPage({
       } else if (kind === 'guide') {
         setGuideContent(previousGuideContent)
       }
-      setPickerError('ChannelForge could not finish that selection. Your previous selection was kept.')
+      setPickerError(selectionFailedMessage)
     } finally {
       if (operationVersion === selectionVersion.current) {
         setPendingKind(null)
@@ -511,8 +518,8 @@ export function GuidedSetupPage({
   const bannerStatus = pickerAvailable ? 'Not checked' : 'Disabled'
   const bannerTitle = pickerAvailable ? 'Selection available' : 'Preview only'
   const bannerMessage = pickerAvailable
-    ? 'Selection checks confirm only that the item exists, has the expected type, and can be accessed now. Playlist and guide matching runs only after both structural checks pass and reports aggregate counts without changing files.'
-    : 'No workspace, playlist, or guide is selected or checked. These controls do not open files or save changes yet.'
+    ? 'ChannelForge checks that each item you pick exists, is the right kind, and can be opened. When your playlist and guide both pass, you can check how well they match. Your files are not changed.'
+    : 'Nothing is picked or checked yet. These buttons do not open or save anything yet.'
   const playlistContentMessage = pickerAvailable
     ? <>The playlist is checked for safe <TermCoach term="m3u-playlist" /> structure only. <TermCoach term="stream-url" />s are not opened or displayed.</>
     : 'Preview only. Playlist content is not checked here.'
@@ -520,8 +527,8 @@ export function GuidedSetupPage({
     ? <>The guide is checked for safe XMLTV structure only. Plain XML/XMLTV, gzip, and single-guide ZIP content are supported; program titles and <TermCoach term="channel-id" label="channel ID" />s are not displayed.</>
     : 'Preview only. Guide content is not checked here.'
   const progressNote = pickerAvailable
-    ? 'This screen opens a native picker, performs bounded structure checks, and compares one playlist with one guide using exact identity matching only. It does not open stream URLs, import, mutate, or store selected files.'
-    : 'This screen only displays setup state. It does not open, read, or store files.'
+    ? 'ChannelForge checks the files you pick and compares your playlist with your guide. It never opens your streams and never changes or stores your files.'
+    : 'This screen only shows the setup steps. It does not open, read, or store any files.'
   return (
     <div className="page-stack">
       <PageHeader description="Choose a workspace, add your playlist, and add your guide." eyebrow="Guided setup" title="Set up your workspace" />
@@ -530,11 +537,7 @@ export function GuidedSetupPage({
         <p>{bannerMessage}</p>
       </StatusBanner>
 
-      {pickerError ? (
-        <p className="setup-picker-error" role="alert">
-          {pickerError} Try again.
-        </p>
-      ) : null}
+      {pickerError ? <ErrorNotice message={pickerError} /> : null}
 
       <StepRail
         steps={setupSteps.map(({ number, title }) => ({
