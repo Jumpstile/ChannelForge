@@ -109,9 +109,14 @@ export function LiveNowPage({ fetchItems = fetchLiveNow }: LiveNowPageProps) {
     <div className="page-stack live-now-page">
       <PageHeader eyebrow="One Guide" title="Live Now" description="See what is on now from your accepted guide." />
       {items === undefined ? <p className="live-now-message" role="status">Loading Live Now…</p> :
-        items === null ? <section className="live-now-message live-now-error">
-          <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
+        items === null ? <section className="live-now-message live-now-error" onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            focusActiveNavItem()
+          }
+        }}>
           <ErrorNotice message={loadFailedMessage('Live Now', 'live-now-load-failed', undefined, failure)} />
+          <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Retry</button>
         </section> : items.length === 0 ? <section className="live-now-message" aria-live="polite">
           <h2>Nothing is on right now</h2><p>Your accepted guide has no programs airing at this time.</p>
         </section> : <>

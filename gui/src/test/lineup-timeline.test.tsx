@@ -102,3 +102,12 @@ describe('fetchLineupPage with a window', () => {
     expect(await fetchLineupPage(0, null, newer as unknown as typeof fetch)).toEqual({ loadFailure: 'not-understood' })
   })
 })
+
+describe('Timeline load failure order', () => {
+  it('shows the notice before the Try again button', async () => {
+    render(<TimelineGridPage fetchPage={async () => null} now={now} />)
+    const notice = await screen.findByRole('alert')
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    expect(notice.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

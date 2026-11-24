@@ -66,6 +66,28 @@ Describe 'Lineup channels route' {
         $after | Should -Be $before
     }
 
+    It 'says when the lineup was saved, from the accepted state time' {
+        $root = Join-Path $TestDrive 'lineup-saved'
+        Initialize-LineupRoot -Root $root
+
+        $payload = (Get-LineupResponse -Method GET -Path '/api/lineup/channels' -Root $root).Body | ConvertFrom-Json -DateKind String
+        $payload.savedAtUtc | Should -Match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
+        ([datetimeoffset]::Parse($payload.savedAtUtc, [Globalization.CultureInfo]::InvariantCulture) - [datetimeoffset]::UtcNow).Duration() | Should -BeLessThan ([timespan]::FromHours(1))
+    }
+
+    It 'gives no saved date when the accepted state has none' {
+        $result = & (Get-Module ChannelForge) {
+            @(
+                (Get-ChannelForgeWebLineupSavedAt -Snapshot ([pscustomobject]@{ State = [pscustomobject]@{ Object = [pscustomobject]@{ AcceptedAtUtc = '' } } })),
+                (Get-ChannelForgeWebLineupSavedAt -Snapshot ([pscustomobject]@{ State = [pscustomobject]@{ Object = [pscustomobject]@{} } })),
+                (Get-ChannelForgeWebLineupSavedAt -Snapshot ([pscustomobject]@{ State = [pscustomobject]@{ Object = [pscustomobject]@{ AcceptedAtUtc = '2026-11-24T10:00:00Z' } } }))
+            )
+        }
+        $result[0] | Should -BeNullOrEmpty
+        $result[1] | Should -BeNullOrEmpty
+        $result[2] | Should -Be '2026-11-24T10:00:00Z'
+    }
+
     It 'shows a pinned logo as pinned, leaks no pin link, and ignores a corrupt pin file' {
         $root = Join-Path $TestDrive 'lineup-pinned'
         Initialize-LineupRoot -Root $root

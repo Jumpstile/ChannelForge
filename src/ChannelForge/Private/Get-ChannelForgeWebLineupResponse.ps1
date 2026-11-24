@@ -111,6 +111,15 @@ function Get-ChannelForgeWebLineupRows {
     )
 }
 
+# Read-only from the accepted state's existing AcceptedAtUtc; null when it is absent or blank (the page then shows no date).
+function Get-ChannelForgeWebLineupSavedAt {
+    param([AllowNull()]$Snapshot)
+
+    $value = [string]$Snapshot.State.Object.AcceptedAtUtc
+    if ([string]::IsNullOrWhiteSpace($value)) { return $null }
+    return $value
+}
+
 function Get-ChannelForgeWebLineupProjection {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot)
@@ -137,6 +146,7 @@ function Get-ChannelForgeWebLineupProjection {
         Key = $key
         # Opaque snapshot token for paging pins; derived so the accepted pointer hash itself is never exposed.
         GenerationToken = Get-ChannelForgeWebLineupHash "lineup-page-snapshot/v1|$key"
+        SavedAtUtc = Get-ChannelForgeWebLineupSavedAt -Snapshot $snapshot
         Rows = @(Get-ChannelForgeWebLineupRows -Snapshot $snapshot)
         Programmes = Get-ChannelForgeWebLineupProgrammeIndex -Snapshot $snapshot
     }
@@ -289,6 +299,7 @@ function Get-ChannelForgeWebLineupResponse {
         $body = ConvertTo-Json -InputObject ([ordered]@{
                 version = 'lineup-workspace/channel/v1'
                 generation = $projection.GenerationToken
+                savedAtUtc = $projection.SavedAtUtc
                 evaluatedAtUtc = $now.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
                 total = $rows.Count
                 offset = $query.Offset

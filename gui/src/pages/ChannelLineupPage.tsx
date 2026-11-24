@@ -4,13 +4,20 @@ import { fetchLineupPage } from '../app/lineup'
 import type { LineupChannel, LineupFetcher, LineupProgramme } from '../app/lineup'
 import { failureKindOf, isLoadFailure, loadFailedMessage, type LoadFailureKind } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
+import { focusActiveNavItem } from '../components/SideNav'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 
 type ChannelLineupPageProps = { fetchPage?: LineupFetcher; onOpenSetup: () => void }
 
-type LineupView = { channels: LineupChannel[]; total: number; generation: string }
+type LineupView = { channels: LineupChannel[]; total: number; generation: string; savedAtUtc: string | null }
+
+// "Saved on November 24, 2026" in the user's local format; nothing when the date is missing or not a real date.
+const savedOn = (savedAtUtc: string | null | undefined): string => {
+  const date = savedAtUtc ? new Date(savedAtUtc) : null
+  return date && !Number.isNaN(date.getTime()) ? ` Saved on ${date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}.` : ''
+}
 
 const nowAndNext = (current: LineupProgramme | null, next: LineupProgramme | null): string => {
   const parts = [current && `Now: ${current.title}`, next && `Next: ${next.title}`].filter(Boolean)
@@ -68,7 +75,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
       if (page === null || page === 'changed' || isLoadFailure(page)) {
         setFailure(page === 'changed' ? 'changed' : failureKindOf(page))
         setView(null)
-      } else setView({ channels: page.items, total: page.total, generation: page.generation })
+      } else setView({ channels: page.items, total: page.total, generation: page.generation, savedAtUtc: page.savedAtUtc ?? null })
     })
     return () => { active = false }
   }, [fetchPage, retry])
@@ -87,7 +94,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
     setLoadingMore(false)
     if (page === 'changed') setRetry((value) => value + 1)
     else if (page === null || isLoadFailure(page)) setMoreFailed(failureKindOf(page))
-    else setView({ channels: [...view.channels, ...page.items], total: page.total, generation: page.generation })
+    else setView({ ...view, channels: [...view.channels, ...page.items], total: page.total, generation: page.generation })
   }
 
   // Loads every remaining page so the printout holds the whole lineup, then asks for the print dialog.
@@ -112,14 +119,19 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
   return (
     <>
     <div className="page-stack lineup-screen">
-      <PageHeader eyebrow="Decide" title="Your channel lineup" description="The channels you saved, in the order they were saved. A channel's Group is the heading it is filed under in the playlist, such as a category like Movies or Sports. This page only shows them." />
+      <PageHeader eyebrow="Decide" title="Your channel lineup" description={`The channels you saved, in the order they were saved. A channel's Group is the heading it is filed under in the playlist, such as a category like Movies or Sports. This page only shows them.${view ? savedOn(view.savedAtUtc) : ''}`} />
       {view === undefined ? <p role="status">Loading your channels…</p> :
-        view === null ? <section className="empty-state">
+        view === null ? <section className="empty-state" onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            focusActiveNavItem()
+          }
+        }}>
+          <ErrorNotice message={loadFailedMessage('your saved lineup', 'lineup-load-failed', 'Start ChannelForge if it is closed, and make sure you have saved a lineup. Then try again.', failure)} />
           <div className="empty-state-action">
             <button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}><RefreshCw size={18} aria-hidden="true" /> Try again</button>
             {setupButton}
           </div>
-          <ErrorNotice message={loadFailedMessage('your saved lineup', 'lineup-load-failed', 'Start ChannelForge if it is closed, and make sure you have saved a lineup. Then try again.', failure)} />
         </section> : view.total === 0 ? <EmptyState title="No channels saved yet" action={setupButton}>Set up a playlist and save your lineup. Your channels will show up here.</EmptyState> : <>
           <p role="status" aria-live="polite">Showing {view.channels.length} of {view.total} channels</p>
           <ul className="lineup-channel-list" aria-label="Channels in your lineup">
