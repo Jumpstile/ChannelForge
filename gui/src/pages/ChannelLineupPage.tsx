@@ -6,6 +6,7 @@ import { loadFailedMessage } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
+import { StatusBadge } from '../components/StatusBadge'
 
 type ChannelLineupPageProps = { fetchPage?: LineupFetcher; onOpenSetup: () => void }
 
@@ -15,6 +16,12 @@ const nowAndNext = (current: LineupProgramme | null, next: LineupProgramme | nul
   const parts = [current && `Now: ${current.title}`, next && `Next: ${next.title}`].filter(Boolean)
   return parts.join(' · ')
 }
+
+// Plain-words problems for one channel, from the status fields the server returns.
+const channelProblems = (channel: LineupChannel): string[] => [
+  ...(channel.logoStatus === 'missing' ? ['Logo missing'] : []),
+  ...(channel.guideState === 'none' ? ['No program guide linked'] : []),
+]
 
 const groupChannels = (channels: LineupChannel[]): Map<string, LineupChannel[]> => {
   const groups = new Map<string, LineupChannel[]>()
@@ -114,11 +121,20 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
           <ul className="lineup-channel-list" aria-label="Channels in your lineup">
             {view.channels.map((channel) => {
               const airing = nowAndNext(channel.current, channel.next)
-              return <li className="lineup-channel-row" key={channel.id} tabIndex={0} aria-label={`${channel.number ?? 'No number'}, ${channel.name}${channel.group ? `, ${channel.group}` : ''}${airing ? `, ${airing}` : ''}`}>
+              const problems = channelProblems(channel)
+              return <li className="lineup-channel-row" key={channel.id} tabIndex={0} aria-label={`${channel.number ?? 'No number'}, ${channel.name}${channel.group ? `, ${channel.group}` : ''}${airing ? `, ${airing}` : ''}${problems.length ? `, ${problems.join(', ')}` : ''}`}>
                 <span className="lineup-channel-number">{channel.number ?? '—'}</span>
                 <span className="lineup-channel-name">{channel.name}</span>
                 {channel.group && <span className="lineup-channel-group">{channel.group}</span>}
                 {airing && <span className="lineup-channel-airing">{airing}</span>}
+                {problems.length > 0 && <div className="lineup-channel-problems">
+                  {problems.map((text) => <p key={text}><StatusBadge status="Warning" /> {text}</p>)}
+                  <button className="button button-secondary" type="button" onClick={onOpenSetup}>Fix in Guided Setup</button>
+                  <details>
+                    <summary>Details</summary>
+                    <p>Logo status: {channel.logoStatus}. Guide state: {channel.guideState}. Attention: {channel.attention.join(', ') || 'none'}.</p>
+                  </details>
+                </div>}
               </li>
             })}
           </ul>

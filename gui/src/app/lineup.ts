@@ -1,10 +1,18 @@
 export type LineupProgramme = { title: string; startUtc: string; stopUtc: string }
 
+// The only values the lineup route emits. Anything else makes the page fail plainly.
+export type LogoStatus = 'missing' | 'present'
+export type GuideState = 'none' | 'bound'
+export type AttentionReason = 'no-guide' | 'no-logo'
+
 export type LineupChannel = {
   id: string
   number: number | null
   name: string
   group: string
+  logoStatus: LogoStatus
+  guideState: GuideState
+  attention: AttentionReason[]
   current: LineupProgramme | null
   next: LineupProgramme | null
   // Only present when the page was asked for a time window: every accepted program that overlaps it, in start order.
@@ -27,9 +35,14 @@ function readProgramme(value: unknown): LineupProgramme | null {
     : null
 }
 
+const readAttention = (value: unknown): AttentionReason[] | null =>
+  Array.isArray(value) && value.every((item) => item === 'no-guide' || item === 'no-logo') ? (value as AttentionReason[]) : null
+
 function readChannel(value: unknown): LineupChannel | null {
   const row = value as Record<string, unknown> | null
   if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') return null
+  const attention = readAttention(row.attention)
+  if ((row.logoStatus !== 'missing' && row.logoStatus !== 'present') || (row.guideState !== 'none' && row.guideState !== 'bound') || !attention) return null
   const programmes = Array.isArray(row.programmes) ? row.programmes.map(readProgramme) : undefined
   if (programmes?.some((item) => item === null)) return null
   return {
@@ -37,6 +50,9 @@ function readChannel(value: unknown): LineupChannel | null {
     number: typeof row.number === 'number' ? row.number : null,
     name: row.name,
     group: typeof row.group === 'string' ? row.group : '',
+    logoStatus: row.logoStatus,
+    guideState: row.guideState,
+    attention,
     current: readProgramme(row.current),
     next: readProgramme(row.next),
     ...(programmes ? { programmes: programmes as LineupProgramme[] } : {}),
