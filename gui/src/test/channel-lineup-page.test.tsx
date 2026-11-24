@@ -31,6 +31,15 @@ describe('Channel lineup page', () => {
     expect(screen.queryByRole('button', { name: 'Fix in Guided Setup' })).not.toBeInTheDocument()
   })
 
+  it('shows a pinned logo in plain words and does not treat it as a problem', async () => {
+    render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: 1, items: [channel(2, { logoStatus: 'pinned' })] })} onOpenSetup={() => {}} />)
+    const row = await screen.findByRole('listitem')
+    expect(row).toHaveTextContent('Logo pinned (will not be replaced)')
+    expect(screen.getByText('Details')).toBeInTheDocument()
+    expect(row).not.toHaveTextContent('Logo missing')
+    expect(screen.queryByRole('button', { name: 'Fix in Guided Setup' })).not.toBeInTheDocument()
+  })
+
   it('lists channels with number, name, group, and now/next', async () => {
     const fetchPage: LineupFetcher = async () => ({
       generation: 'g', total: 1,
