@@ -11,10 +11,10 @@ $ErrorActionPreference = 'Stop'
 $expectedRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'ChannelForge')).TrimEnd([char]92, [char]47)
 $actualRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd([char]92, [char]47)
 if (-not [string]::Equals($expectedRoot, $actualRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "InstallRoot must be exactly the per-user ChannelForge directory: $expectedRoot"
+    throw "ChannelForge can only be removed from its own folder under your user profile. Run Uninstall ChannelForge.cmd without changing the folder.`nDetails: InstallRoot must be exactly the per-user ChannelForge directory: $expectedRoot"
 }
 if ($PurgeData -and -not $ConfirmPurge) {
-    throw 'PurgeData requires ConfirmPurge. Without both switches, user state is retained.'
+    throw "Your data was not deleted, because the delete was not confirmed. Run Uninstall ChannelForge.cmd and follow the questions on the screen.`nDetails: PurgeData requires ConfirmPurge. Without both switches, user state is retained."
 }
 if (-not (Test-Path -LiteralPath $actualRoot -PathType Container)) {
     Write-Output "ChannelForge is not installed at $actualRoot."
@@ -95,7 +95,7 @@ if ($remaining.Count -eq 0) {
 }
 if ($PurgeData -and -not $WhatIfPreference -and (Test-Path -LiteralPath $actualRoot)) {
     $left = @(Get-ChildItem -LiteralPath $actualRoot -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', '
-    throw "ChannelForge data was not fully removed. These items are still in ${actualRoot}: $left"
+    throw "ChannelForge could not delete all of your data. Some files may be open in another program. Close ChannelForge and other programs, then run Uninstall ChannelForge.cmd again.`nDetails: ChannelForge data was not fully removed. These items are still in ${actualRoot}: $left"
 }
 if ($PurgeData) {
     Write-Output 'ChannelForge application and user data removed.'
