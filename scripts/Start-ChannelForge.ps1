@@ -15,7 +15,7 @@ $moduleManifest = Join-Path $root 'src/ChannelForge/ChannelForge.psd1'
 $index = Join-Path $root 'gui/dist/index.html'
 $missing = @(@($runtime, $serverScript, $moduleManifest, $index) | Where-Object { -not [IO.File]::Exists($_) })
 if ($missing.Count -gt 0) {
-    throw "ChannelForge installation is incomplete. Missing: $($missing -join '; '). Reinstall ChannelForge. Logs are in $(Join-Path $root 'state/runtime')."
+    throw "ChannelForge is missing some of its files, so it cannot start. Run Install ChannelForge.cmd again to fix this.`nDetails: Missing: $($missing -join '; '). Logs are in $(Join-Path $root 'state/runtime')."
 }
 # A packaged install has package-manifest.json. Check only the bundled pwsh.exe
 # (length first, then SHA-256) so a swapped runtime is never started. A developer
@@ -29,7 +29,7 @@ if ([IO.File]::Exists($packageManifest)) {
             $runtimeOk = (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant() -ceq ([string]$entry[0].Sha256).ToLowerInvariant()
         }
     } catch { $runtimeOk = $false }
-    if (-not $runtimeOk) { throw 'The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge.' }
+    if (-not $runtimeOk) { throw "ChannelForge cannot start because its built-in PowerShell was changed or damaged. Run Install ChannelForge.cmd again to fix this.`nDetails: The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge." }
 }
 $runtimeState = Join-Path $root 'state/runtime'
 New-Item -ItemType Directory -Force -Path $runtimeState | Out-Null
@@ -55,7 +55,7 @@ if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
                 exit 0
             }
         } catch { }
-        throw "ChannelForge already has a running server process (PID $existingPid). Stop it before starting on port $Port."
+        throw "ChannelForge looks like it is already running, but it is not answering. Restart your computer, then double-click Start ChannelForge.cmd again.`nDetails: ChannelForge already has a running server process (PID $existingPid). Stop it before starting on port $Port. To stop it without restarting, run scripts\Stop-ChannelForge.ps1."
     }
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
 }
@@ -71,7 +71,7 @@ try {
     $portProbe.Dispose()
 }
 if ($portInUse) {
-    throw "ChannelForge could not start. Port $Port is already in use by another process."
+    throw "ChannelForge could not start because another program is already using port $Port. Close that program, then try again.`nDetails: ChannelForge could not start. Port $Port is already in use by another process."
 }
 
 $arguments = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $serverScript, '-Port', $Port, '-BindAddress', '127.0.0.1')
@@ -92,7 +92,7 @@ if (-not $healthy) {
     if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = 'The server did not answer /health before the startup timeout.' }
-    throw "ChannelForge could not start. $detail Check the logs in $runtimeState."
+    throw "ChannelForge could not start. It did not finish starting in time. Look at the log files in $runtimeState for the reason.`nDetails: $detail"
 }
 if (-not $NoBrowser) { Start-Process $url | Out-Null }
 Write-Output "ChannelForge started: $url"

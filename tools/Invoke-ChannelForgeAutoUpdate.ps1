@@ -51,7 +51,7 @@ function Install-DownloadedUpdate {
                 Expand-Archive -LiteralPath $DownloadedPath -DestinationPath $extractPath -Force
                 $manifestPath = Join-Path $extractPath 'package-manifest.json'
                 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-                    throw 'Windows package manifest is missing.'
+                    throw "This update download is not a complete ChannelForge package, so nothing was changed. Download the update again.`nDetails: Windows package manifest is missing."
                 }
                 $package = Test-ChannelForgeWindowsPackage -PackageRoot $extractPath
                 Assert-ChannelForgePublishedSourceCommit -Published $Published -ManifestCommitSha ([string]$package.Manifest.SourceCommitSha)
@@ -101,7 +101,7 @@ function Invoke-ChannelForgeLocalPackageUpdate {
         $installedText = Get-ChannelForgeLocalVersion -Path $installedVersionFile
         $packageText = [string]$validated.Manifest.ChannelForgeVersion
         if ((ConvertTo-ChannelForgeUpdateVersion -VersionText $packageText) -le (ConvertTo-ChannelForgeUpdateVersion -VersionText $installedText)) {
-            throw "This package ($packageText) is not newer than the installed version ($installedText). Nothing was changed."
+            throw "This package is not newer than the version you already have, so nothing was changed. You do not need to update.`nDetails: This package ($packageText) is not newer than the installed version ($installedText). Nothing was changed."
         }
     }
     if (-not $PSCmdlet.ShouldProcess($InstallRoot, "update ChannelForge to $($validated.Manifest.ChannelForgeVersion)")) { return }
@@ -120,7 +120,7 @@ function Invoke-ChannelForgeLocalPackageUpdate {
             $newRuntime = Join-Path $InstallRoot 'runtime/pwsh/pwsh.exe'
             $newStart = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
             & $newRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $newStart
-            if ($LASTEXITCODE -ne 0) { throw 'Updated ChannelForge failed its startup health check.' }
+            if ($LASTEXITCODE -ne 0) { throw "The updated ChannelForge did not start, so your previous version is being put back. Try Update ChannelForge.cmd again later.`nDetails: Updated ChannelForge failed its startup health check." }
         }
         Write-UpdaterInfo "Update installed successfully: $($validated.Manifest.ChannelForgeVersion)"
     } catch {
@@ -221,7 +221,7 @@ if ($Apply) {
             $newStart = Join-Path $InstallRoot 'scripts/Start-ChannelForge.ps1'
             if ((Test-Path -LiteralPath $newRuntime) -and (Test-Path -LiteralPath $newStart)) {
                 & $newRuntime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $newStart
-                if ($LASTEXITCODE -ne 0) { throw 'Updated ChannelForge failed its startup health check.' }
+                if ($LASTEXITCODE -ne 0) { throw "The updated ChannelForge did not start, so your previous version is being put back. Try Update ChannelForge.cmd again later.`nDetails: Updated ChannelForge failed its startup health check." }
             }
         }
         Write-UpdaterInfo 'Update installed successfully.'

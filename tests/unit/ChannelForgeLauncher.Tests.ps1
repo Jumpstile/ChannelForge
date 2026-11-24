@@ -68,7 +68,7 @@ Describe 'Start-ChannelForge launcher' {
         Remove-Item -LiteralPath (Join-Path $root 'gui\dist\index.html') -Force
         $message = ''
         try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser } catch { $message = $_.Exception.Message }
-        $message | Should -BeLike '*installation is incomplete*'
+        $message | Should -BeLike '*missing some of its files*'
         $message | Should -BeLike '*pwsh.exe*'
         $message | Should -BeLike '*index.html*'
         $message | Should -BeLike '*Logs are in*state*runtime*'
@@ -81,7 +81,7 @@ Describe 'Start-ChannelForge launcher' {
         try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser -HealthTimeoutSeconds 2 } catch { $message = $_.Exception.Message }
         $watch.Stop()
         $message | Should -BeLike '*could not start*did not answer /health*'
-        $message | Should -BeLike '*Check the logs in*state*runtime*'
+        $message | Should -BeLike '*log files in*state*runtime*'
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
         Test-Path -LiteralPath (Join-Path $root 'state\runtime\server.pid') | Should -BeFalse
     }
@@ -109,7 +109,7 @@ Describe 'Start-ChannelForge launcher' {
         Write-RuntimeManifest $root -Sha256 ('0' * 64)
         $message = ''
         try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser } catch { $message = $_.Exception.Message }
-        $message | Should -Be 'The bundled PowerShell does not match this ChannelForge package. Reinstall ChannelForge.'
+        $message | Should -BeLike '*built-in PowerShell was changed or damaged*Details: The bundled PowerShell does not match this ChannelForge package*'
         Test-Path -LiteralPath (Join-Path $root 'state\runtime\server.pid') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $root 'server.args.txt') | Should -BeFalse
     }
@@ -119,6 +119,6 @@ Describe 'Start-ChannelForge launcher' {
         Write-RuntimeManifest $root -ByteLength 1
         $message = ''
         try { & $script:StartPath -InstallRoot $root -Port (Get-FreePort) -NoBrowser } catch { $message = $_.Exception.Message }
-        $message | Should -BeLike 'The bundled PowerShell does not match*'
+        $message | Should -BeLike '*built-in PowerShell was changed or damaged*'
     }
 }

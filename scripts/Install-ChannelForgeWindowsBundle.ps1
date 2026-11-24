@@ -10,11 +10,11 @@ Set-StrictMode -Version Latest
 $package = [IO.Path]::GetFullPath($PackageRoot).TrimEnd([char]92, [char]47)
 $destination = [IO.Path]::GetFullPath($InstallRoot).TrimEnd([char]92, [char]47)
 $tools = Join-Path $package 'tools/ChannelForgeAutoUpdate.Core.psm1'
-if (-not [IO.File]::Exists($tools)) { throw "This folder is not a ChannelForge bundle: $tools" }
+if (-not [IO.File]::Exists($tools)) { throw "This folder does not look like a full ChannelForge download. Download ChannelForge again and unzip it completely, then run Install ChannelForge.cmd.`nDetails: This folder is not a ChannelForge bundle: $tools" }
 Import-Module $tools -Force
 $validated = Test-ChannelForgeWindowsPackage -PackageRoot $package
 if ($destination -cne [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'ChannelForge')).TrimEnd([char]92, [char]47)) {
-    throw 'InstallRoot must be the per-user LocalAppData ChannelForge directory.'
+    throw "ChannelForge can only be installed in its own folder under your user profile. Run Install ChannelForge.cmd without changing the install folder.`nDetails: InstallRoot must be the per-user LocalAppData ChannelForge directory."
 }
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $existingManifest = Join-Path $destination 'package-manifest.json'
@@ -35,6 +35,6 @@ if (-not $SkipStart) {
     $runtime = Join-Path $destination 'runtime/pwsh/pwsh.exe'
     $start = Join-Path $destination 'scripts/Start-ChannelForge.ps1'
     & $runtime -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $start
-    if ($LASTEXITCODE -ne 0) { throw 'ChannelForge installed but could not start.' }
+    if ($LASTEXITCODE -ne 0) { throw "ChannelForge was installed, but it did not start. Double-click Start ChannelForge.cmd to try again. If that fails, look at the log files in the state\runtime folder.`nDetails: ChannelForge installed but could not start." }
 }
 Write-Output "ChannelForge installed at $destination"
