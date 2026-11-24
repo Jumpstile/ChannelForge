@@ -233,8 +233,43 @@ describe('native picker bridge flow', () => {
     await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
     await user.click(screen.getByRole('button', { name: 'Add playlist' }))
 
-    expect(screen.getByText('Playlist content needs attention. The file must start with #EXTM3U.')).toBeInTheDocument()
+    const card = screen.getByRole('heading', { name: 'Add playlist' }).closest('article') as HTMLElement
+    expect(within(card).getByText('This file does not look like a channel playlist.')).toBeInTheDocument()
+    expect(within(within(card).getByRole('alert')).queryByText(/EXTM3U/)).not.toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: 'Details' }))
+    expect(within(card).getByText(/expects an M3U playlist.*does not start with #EXTM3U/)).toBeInTheDocument()
+    expect(within(card).getByText('missing-header')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add guide' })).toBeDisabled()
+  })
+
+  it('shows a plain sentence and its own Details on the guide card only', async () => {
+    const user = userEvent.setup()
+    const picker = vi
+      .fn<SetupPicker>()
+      .mockResolvedValueOnce(selectedResult('workspace'))
+      .mockResolvedValueOnce(selectedResult('playlist'))
+      .mockResolvedValueOnce({
+        kind: 'guide',
+        outcome: 'selected',
+        selectionStatus: 'selected',
+        validationStatus: 'ready-to-inspect',
+        reasonCode: null,
+        guideContent: { contentStatus: 'needs-attention', channelCount: null, programmeCount: null, reasonCode: 'missing-root' },
+      })
+    render(<GuidedSetupPage picker={picker} pickerAvailable />)
+
+    await user.click(screen.getByRole('button', { name: 'Choose workspace' }))
+    await user.click(screen.getByRole('button', { name: 'Add playlist' }))
+    await user.click(screen.getByRole('button', { name: 'Add guide' }))
+
+    const guideCard = screen.getByRole('heading', { name: 'Add guide' }).closest('article') as HTMLElement
+    const playlistCard = screen.getByRole('heading', { name: 'Add playlist' }).closest('article') as HTMLElement
+    expect(within(guideCard).getByText('This file does not look like a TV guide.')).toBeInTheDocument()
+    expect(within(within(guideCard).getByRole('alert')).queryByText(/XMLTV/)).not.toBeInTheDocument()
+    expect(within(playlistCard).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    await user.click(within(guideCard).getByRole('button', { name: 'Details' }))
+    expect(within(guideCard).getByText(/expects an XMLTV guide.*<tv> root/)).toBeInTheDocument()
+    expect(within(guideCard).getByText('missing-root')).toBeInTheDocument()
   })
 
   it('shows checking while a fake picker is pending', async () => {

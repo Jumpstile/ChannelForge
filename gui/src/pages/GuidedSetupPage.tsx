@@ -589,8 +589,10 @@ export function GuidedSetupPage({
                 {selectionKind === 'playlist' ? <span>{playlistContentMessage}</span> : null}
                 {selectionKind === 'guide' ? <span>{guideContentMessage}</span> : null}
                 <span>{selection.detail}</span>
-                {selectionKind === 'playlist' && (selection.status === 'selected' || isPending) ? <span>{playlistContent.detail}</span> : null}
-                {selectionKind === 'guide' && (selection.status === 'selected' || isPending) ? <span>{guideContent.detail}</span> : null}
+                {selectionKind === 'playlist' && (selection.status === 'selected' || isPending) && !playlistContent.notice ? <span>{playlistContent.detail}</span> : null}
+                {selectionKind === 'guide' && (selection.status === 'selected' || isPending) && !guideContent.notice ? <span>{guideContent.detail}</span> : null}
+                {selectionKind === 'playlist' && selection.status === 'selected' && playlistContent.notice ? <ErrorNotice message={playlistContent.notice} /> : null}
+                {selectionKind === 'guide' && selection.status === 'selected' && guideContent.notice ? <ErrorNotice message={guideContent.notice} /> : null}
               </div>
               <div className="setup-step-footer">
                 <span className="setup-step-status">{pickerAvailable ? 'Selection enabled' : 'Preview only'}</span>
