@@ -24,6 +24,7 @@ import { LineupReviewPage } from './pages/LineupReviewPage'
 import { SavedLineupPage } from './pages/SavedLineupPage'
 import { StateGalleryPage } from './pages/StateGalleryPage'
 import { WorkbenchPage } from './pages/WorkbenchPage'
+import { TimelineGridPage } from './pages/TimelineGridPage'
 
 type AppProps = {
   picker?: SetupPicker
@@ -99,6 +100,8 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
         <LiveNowPage />
       ) : activePage === 'wrestling' ? (
         <OneGuideCategoryPage />
+      ) : activePage === 'timeline' ? (
+        <TimelineGridPage />
       ) : activePage === 'channels' ? (
         <ChannelLineupPage onOpenSetup={() => setActivePage('setup')} />
       ) : activePage === 'learn' ? (

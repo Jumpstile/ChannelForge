@@ -252,6 +252,21 @@ a { color: var(--cf-color-brand); }
 .lineup-channel-row { display: grid; grid-template-columns: 4rem 1fr; gap: var(--cf-space-1) var(--cf-space-3); padding: var(--cf-space-3); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
 .lineup-channel-number { font-weight: var(--cf-font-weight-semibold); }
 .lineup-channel-group, .lineup-channel-airing { grid-column: 2; color: var(--cf-color-ink-muted); }
+.timeline-modes { display: flex; flex-wrap: wrap; gap: var(--cf-space-2); }
+.timeline-modes [aria-pressed="true"] { border-color: var(--cf-color-brand); box-shadow: inset 0 0 0 1px var(--cf-color-brand); font-weight: var(--cf-font-weight-semibold); }
+.timeline-scroll { overflow-x: auto; border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
+.timeline-grid { min-width: 44rem; }
+.timeline-row { display: grid; grid-template-columns: 10rem 1fr; gap: var(--cf-space-3); padding: var(--cf-space-2) var(--cf-space-3); border-bottom: 1px solid var(--cf-color-border); }
+.timeline-label { font-weight: var(--cf-font-weight-semibold); overflow-wrap: anywhere; }
+.timeline-track { position: relative; min-height: 4rem; margin: 0; padding: 0; list-style: none; }
+.timeline-axis .timeline-track { min-height: 1.5rem; }
+.timeline-tick { position: absolute; top: 0; color: var(--cf-color-ink-muted); }
+.timeline-block { position: absolute; top: 0; bottom: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--cf-space-1); overflow: hidden; padding: var(--cf-space-1) var(--cf-space-2); border: 1px solid var(--cf-color-border-brand); border-left: 4px solid var(--cf-color-brand); border-radius: var(--cf-radius-sm); background: var(--cf-color-brand-wash-strong); color: var(--cf-color-ink); }
+.timeline-block-title { font-weight: var(--cf-font-weight-semibold); overflow-wrap: anywhere; }
+.timeline-block-time, .timeline-empty { color: var(--cf-color-ink-muted); }
+.timeline-list-channel h2 { margin: 0 0 var(--cf-space-1); font-size: 1.125em; }
+.timeline-list-channel ol { margin: 0 0 var(--cf-space-4); padding-left: var(--cf-space-6); }
+.timeline-list-time { font-weight: var(--cf-font-weight-semibold); }
 .lineup-print { display: none; }
 @media print {
   body { min-width: 0; background: #ffffff; }

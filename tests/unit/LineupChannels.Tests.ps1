@@ -94,4 +94,30 @@ Describe 'Lineup channels route' {
         }
         (Get-LineupResponse -Method DELETE -Path '/api/lineup/channels' -Root $root).StatusCode | Should -Be 405
     }
+
+    It 'adds programmes for an optional UTC window and leaves the default response alone' {
+        $root = Join-Path $TestDrive 'lineup-window'
+        Initialize-LineupRoot -Root $root -GuideText (Get-LineupGuideText)
+        $fmt = { param($m) [datetimeoffset]::UtcNow.AddMinutes($m).ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture) }
+        $all = (Get-LineupResponse -Method GET -Path "/api/lineup/channels?from=$(& $fmt 0)&to=$(& $fmt 180)" -Root $root).Body | ConvertFrom-Json
+        $later = (Get-LineupResponse -Method GET -Path "/api/lineup/channels?from=$(& $fmt 70)&to=$(& $fmt 100)" -Root $root).Body | ConvertFrom-Json
+        $paged = (Get-LineupResponse -Method GET -Path "/api/lineup/channels?limit=1&offset=1&generation=$($all.generation)&from=$(& $fmt 0)&to=$(& $fmt 180)" -Root $root).Body | ConvertFrom-Json
+        $default = (Get-LineupResponse -Method GET -Path '/api/lineup/channels' -Root $root).Body
+
+        ($all.items | Where-Object name -eq 'Alpha News').programmes.title | Should -Be @('Live Show', 'Next Show')
+        ($all.items | Where-Object name -eq 'Beta Movies').programmes | Should -HaveCount 0
+        ($all.items | Where-Object name -eq 'Gamma Daily').programmes | Should -HaveCount 0
+        ($later.items | Where-Object name -eq 'Alpha News').programmes.title | Should -Be 'Next Show'
+        $paged.items.name | Should -Be @($all.items)[1].name
+        $default | Should -Not -Match '"programmes"'
+    }
+
+    It 'rejects a window that is incomplete, backwards, empty, longer than 3 hours, or not UTC' {
+        $root = Join-Path $TestDrive 'lineup-window-errors'
+        Initialize-LineupRoot -Root $root
+        foreach ($bad in 'from=2026-01-01T00:00:00Z', 'to=2026-01-01T00:00:00Z', 'from=2026-01-01T01:00:00Z&to=2026-01-01T00:00:00Z', 'from=2026-01-01T00:00:00Z&to=2026-01-01T00:00:00Z', 'from=2026-01-01T00:00:00Z&to=2026-01-01T03:00:01Z', 'from=2026-01-01T00:00:00%2B01:00&to=2026-01-01T01:00:00Z', 'from=yesterday&to=now') {
+            (Get-LineupResponse -Method GET -Path "/api/lineup/channels?$bad" -Root $root).StatusCode | Should -Be 400
+        }
+        (Get-LineupResponse -Method GET -Path '/api/lineup/channels?from=2026-01-01T00:00:00Z&to=2026-01-01T03:00:00Z' -Root $root).StatusCode | Should -Be 200
+    }
 }
