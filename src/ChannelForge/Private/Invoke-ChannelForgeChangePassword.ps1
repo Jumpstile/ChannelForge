@@ -1,0 +1,47 @@
+function Invoke-ChannelForgeChangePassword {
+    <#
+    .SYNOPSIS
+        Changes the admin password for a signed-in browser, then ends every other session.
+    .DESCRIPTION
+        A wrong current password gets the same plain refusal as sign-in and counts as a wrong try in the limiter.
+        A bad new password keeps the old one. Nothing secret is echoed or logged.
+    #>
+    param(
+        [Parameter(Mandatory)][hashtable]$Store,
+        [AllowNull()][AllowEmptyString()][string]$Token,
+        [System.IO.Stream]$BodyStream = $null,
+        [long]$ContentLength = -1,
+        [Parameter(Mandatory)][string]$ConfigRoot,
+        [hashtable]$Limiter = $null,
+        [string]$SourceAddress = '',
+        [datetime]$Now = [datetime]::UtcNow
+    )
+    $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
+    if ($null -ne $waitResponse) { return $waitResponse }
+    $current = $null
+    $new = $null
+    try {
+        $bytes = Read-ChannelForgeWebRequestBody -Stream $BodyStream -ContentLength $ContentLength -MaxBytes 4096
+        $body = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop
+        $current = [string]$body.currentPassword
+        $new = [string]$body.newPassword
+    }
+    catch { $current = $null }
+
+    $record = (Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Record
+    if (-not (Test-ChannelForgeAdminPassword -Password $current -Record $record)) {
+        if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
+    }
+    if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
+    $rule = Test-ChannelForgeAdminPasswordRule -Password $new
+    if (-not $rule.Ok) {
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 400 -Body @{ Error = 'password-rule'; Message = $rule.Reason }
+    }
+    $saved = Write-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot -Record (New-ChannelForgeAdminPasswordRecord -Password $new)
+    if (-not $saved.Success) {
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 500 -Body @{ Error = 'password-not-saved'; Message = 'The password could not be saved. Check that ChannelForge can write to its settings folder. Your old password still works.' }
+    }
+    Remove-ChannelForgeOtherWebSession -Store $Store -Token $Token
+    return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Changed = $true }
+}

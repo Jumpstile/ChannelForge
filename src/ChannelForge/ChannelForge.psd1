@@ -143,6 +143,7 @@ FunctionsToExport = @(
     'Set-ChannelForgeUserChannelNumber'
     'New-ChannelForgeWebServer'
     'Start-ChannelForgeWebServer'
+    'Reset-ChannelForgeAdminPassword'
 )
 
 # Cmdlets to export from this module. None: ChannelForge is a script module
