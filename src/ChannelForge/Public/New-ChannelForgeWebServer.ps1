@@ -14,7 +14,9 @@ function New-ChannelForgeWebServer {
 
         [switch]$RequireSignIn,
 
-        [string]$ConfigRoot = ''
+        [string]$ConfigRoot = '',
+
+        [string[]]$AllowedHost = @()
     )
 
     if ($RequireSignIn -and [string]::IsNullOrWhiteSpace($ConfigRoot)) {
@@ -40,5 +42,6 @@ function New-ChannelForgeWebServer {
         ConfigRoot    = $ConfigRoot
         Sessions      = @{}
         Setup         = @{}
+        AllowedHost   = @($AllowedHost)
     }
 }

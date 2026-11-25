@@ -23,6 +23,7 @@ BeforeAll {
     function Invoke-TestRequest {
         param([int]$Port, [string]$Path, [string]$Method = 'GET', [string]$Body = $null, [string]$Cookie = '')
         $headers = @{}
+        if ($Method -ne 'GET') { $headers['Origin'] = "http://127.0.0.1:$Port" }
         if ($Cookie) { $headers['Cookie'] = $Cookie }
         $arguments = @{ Uri = "http://127.0.0.1:$Port$Path"; Method = $Method; Headers = $headers; SkipHttpErrorCheck = $true }
         if ($null -ne $Body) { $arguments.Body = $Body; $arguments.ContentType = 'application/json' }

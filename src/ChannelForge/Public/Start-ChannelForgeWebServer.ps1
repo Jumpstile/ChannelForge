@@ -14,9 +14,11 @@ function Start-ChannelForgeWebServer {
 
         [switch]$RequireSignIn,
 
-        [string]$ConfigRoot = ''
+        [string]$ConfigRoot = '',
+
+        [string[]]$AllowedHost = @()
     )
-    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot -RequireSignIn:$RequireSignIn -ConfigRoot $ConfigRoot
+    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot -RequireSignIn:$RequireSignIn -ConfigRoot $ConfigRoot -AllowedHost $AllowedHost
     try {
         $server.Listener.Start()
         $server.Started = $true
@@ -44,7 +46,11 @@ function Start-ChannelForgeWebServer {
                 $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')
                 $gateResponse = $null
                 if ($server.RequireSignIn) {
-                    $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -RequestHost $context.Request.Url.Host -Method $context.Request.HttpMethod -Path $requestPathAndQuery -CookieHeader $context.Request.Headers['Cookie'] -BodyStream $context.Request.InputStream -ContentLength $context.Request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
+                    $request = $context.Request
+                    $gateResponse = Get-ChannelForgeWebRequestRefusal -Method $request.HttpMethod -Port $server.Port -AllowedHost $server.AllowedHost -Scheme $request.Url.Scheme -HostHeader $request.Headers['Host'] -Origin $request.Headers['Origin'] -Referer $request.Headers['Referer'] -ContentType $request.ContentType
+                    if ($null -eq $gateResponse) {
+                        $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -RequestHost $request.Url.Host -Method $request.HttpMethod -Path $requestPathAndQuery -CookieHeader $request.Headers['Cookie'] -BodyStream $request.InputStream -ContentLength $request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
+                    }
                 }
                 if ($null -ne $gateResponse) {
                     $response = $gateResponse
