@@ -38,6 +38,8 @@ function Get-ChannelForgeWebSignInResponse {
         [hashtable]$Setup = @{},
         [string]$RequestHost = '',
         [switch]$Secure,
+        [hashtable]$Limiter = $null,
+        [string]$SourceAddress = '',
         [datetime]$Now = [datetime]::UtcNow
     )
 
@@ -49,6 +51,8 @@ function Get-ChannelForgeWebSignInResponse {
     switch ($requestPath) {
         '/api/auth/sign-in' {
             if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
+            $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
+            if ($null -ne $waitResponse) { return $waitResponse }
             $password = $null
             try {
                 $bytes = Read-ChannelForgeWebRequestBody -Stream $BodyStream -ContentLength $ContentLength -MaxBytes 4096
@@ -57,8 +61,10 @@ function Get-ChannelForgeWebSignInResponse {
             catch { $password = $null }
             $record = (Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Record
             if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record)) {
+                if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
                 return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
             }
+            if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
             $newToken = New-ChannelForgeWebSession -Store $Store -Now $Now
             return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
         }
@@ -76,7 +82,7 @@ function Get-ChannelForgeWebSignInResponse {
     if ($signedIn) { return $null }
 
     if ($requestPath -in @('/first-run', '/first-run/submit') -and (Test-ChannelForgeSetupState -ConfigRoot $ConfigRoot)) {
-        return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Secure:$Secure -Now $Now
+        return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Limiter $Limiter -SourceAddress $SourceAddress -Secure:$Secure -Now $Now
     }
     if ($requestPath -eq '/health') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Status = 'ok' } }
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-required'; Message = 'Sign in is required.' }

@@ -74,8 +74,12 @@ function Invoke-ChannelForgeFirstRunSubmit {
         [long]$ContentLength = -1,
         [Parameter(Mandatory)][string]$ConfigRoot,
         [Parameter(Mandatory)][string]$CookieFormat,
+        [hashtable]$Limiter = $null,
+        [string]$SourceAddress = '',
         [datetime]$Now = [datetime]::UtcNow
     )
+    $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
+    if ($null -ne $waitResponse) { return $waitResponse }
     $code = $null
     $password = $null
     try {
@@ -87,8 +91,10 @@ function Invoke-ChannelForgeFirstRunSubmit {
     catch { $code = $null }
 
     if (-not (Test-ChannelForgeSetupCode -Setup $Setup -Code $code -Now $Now)) {
+        if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'setup-code-failed'; Message = 'That setup code did not work.' }
     }
+    if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
     $rule = Test-ChannelForgeAdminPasswordRule -Password $password
     if (-not $rule.Ok) {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 400 -Body @{ Error = 'password-rule'; Message = $rule.Reason }
@@ -119,13 +125,15 @@ function Get-ChannelForgeFirstRunResponse {
         [Parameter(Mandatory)][string]$ConfigRoot,
         [Parameter(Mandatory)][string]$CookieFormat,
         [string]$RequestHost = '',
+        [hashtable]$Limiter = $null,
+        [string]$SourceAddress = '',
         [switch]$Secure,
         [datetime]$Now = [datetime]::UtcNow
     )
     $methodName = $Method.ToUpperInvariant()
     if ($RequestPath -eq '/first-run/submit') {
         if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
-        return Invoke-ChannelForgeFirstRunSubmit -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $CookieFormat -Now $Now
+        return Invoke-ChannelForgeFirstRunSubmit -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $CookieFormat -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }
     if ($methodName -ne 'GET') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only GET requests are supported.' } -ExtraHeaders @{ Allow = 'GET' } }
     # The start guard calls a loopback address Ready; anything else in setup state is a network address.
