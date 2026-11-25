@@ -22,6 +22,11 @@ function Start-ChannelForgeWebServer {
         $server.Started = $true
         Write-Host "ChannelForge is running at $($server.Prefix)"
         Write-Host 'Open Guided Setup to begin.'
+        if ($server.RequireSignIn -and (Test-ChannelForgeSetupState -ConfigRoot $server.ConfigRoot)) {
+            # The one place the setup code is shown. It is kept nowhere else and is never written to a file.
+            Write-Host "First-time setup: open $($server.Prefix)first-run and type this one-time setup code: $(New-ChannelForgeSetupCode -Setup $server.Setup)"
+            Write-Host "The code works once and stops working after $([int](Get-ChannelForgeSetupCodeLifetime).TotalMinutes) minutes. Start the server again for a new one."
+        }
 
         while ($server.Listener.IsListening) {
             $context = $null
@@ -39,7 +44,7 @@ function Start-ChannelForgeWebServer {
                 $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')
                 $gateResponse = $null
                 if ($server.RequireSignIn) {
-                    $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Method $context.Request.HttpMethod -Path $requestPathAndQuery -CookieHeader $context.Request.Headers['Cookie'] -BodyStream $context.Request.InputStream -ContentLength $context.Request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
+                    $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -RequestHost $context.Request.Url.Host -Method $context.Request.HttpMethod -Path $requestPathAndQuery -CookieHeader $context.Request.Headers['Cookie'] -BodyStream $context.Request.InputStream -ContentLength $context.Request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
                 }
                 if ($null -ne $gateResponse) {
                     $response = $gateResponse
