@@ -255,6 +255,13 @@ function Get-ChannelForgeGuidedSetupAcceptanceResponse {
         }
         catch { $enrollmentMessage += ' The acceptance record could not be saved.' }
 
+        try {
+            $evidence = New-ChannelForgeMatchEvidence -CandidateManifest $candidate.Manifest -Accepted $accepted -M3UBytes $candidate.M3UBytes
+            $keepIds = @([string]$accepted.GenerationId, $(if ($null -ne $current) { [string]$current.Manifest.Object.GenerationId }))
+            Write-ChannelForgeMatchEvidence -RepositoryRoot $RepositoryRoot -Evidence $evidence -KeepGenerationId $keepIds
+        }
+        catch { $enrollmentMessage += ' The match details could not be saved.' }
+
         $acceptedSession = [ordered]@{}
         foreach ($property in @($session.PSObject.Properties)) { $acceptedSession[$property.Name] = $property.Value }
         $acceptedSession.Status = 'Accepted'
