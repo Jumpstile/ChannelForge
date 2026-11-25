@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Printer, RefreshCw } from 'lucide-react'
-import { fetchLineupPage } from '../app/lineup'
-import type { LineupChannel, LineupFetcher, LineupProgramme } from '../app/lineup'
+import { fetchLineupPage, matchReasonText, NO_EXPLANATION, NO_MATCH_DETAILS } from '../app/lineup'
+import type { LineupChannel, LineupFetcher, LineupProgramme, MatchEvidence } from '../app/lineup'
 import { failureOf, isLoadFailure, loadFailedMessage, loadFailure, type LoadFailure } from '../app/friendlyError'
 import { ErrorNotice } from '../components/ErrorNotice'
 import { focusActiveNavItem } from '../components/SideNav'
@@ -56,6 +56,24 @@ function PrintSummary({ channels, total }: { channels: LineupChannel[]; total: n
         </div>
       ))}
     </section>
+  )
+}
+
+// Provider text (guide ID, guide source) is shown as plain React text only, cut with a visible ellipsis when long.
+const cut = (value: string, max = 80): string => (value.length > max ? `${value.slice(0, max)}…` : value)
+
+// One plain line about the saved guide match, with the technical values in a Details fold. A channel with no saved evidence still gets a line when other channels have it.
+function GuideReason({ evidence }: { evidence: MatchEvidence | undefined }) {
+  return (
+    <div className="lineup-channel-guide">
+      <p>{evidence ? matchReasonText(evidence.reasonCode) : NO_EXPLANATION}</p>
+      {evidence && <details>
+        <summary>Details</summary>
+        <p>Reason: {cut(evidence.reasonCode)}</p>
+        <p>Guide ID: {evidence.guideId ? cut(evidence.guideId) : 'none'}</p>
+        <p>Guide source: {evidence.guideSourceId ? cut(evidence.guideSourceId) : 'none'}</p>
+      </details>}
+    </div>
   )
 }
 
@@ -115,6 +133,8 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
   }
 
   const setupButton = <button className="button button-primary" type="button" onClick={onOpenSetup}>Go to Setup</button>
+  // Match details are all-or-nothing for a lineup in practice: with none on any loaded channel, say so once instead of on every row.
+  const hasEvidence = view ? view.channels.some((channel) => channel.matchEvidence !== undefined) : false
 
   return (
     <>
@@ -134,6 +154,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
           </div>
         </section> : view.total === 0 ? <EmptyState title="No channels saved yet" action={setupButton}>Set up a playlist and save your lineup. Your channels will show up here.</EmptyState> : <>
           <p role="status" aria-live="polite">Showing {view.channels.length} of {view.total} channels</p>
+          {!hasEvidence && <p className="lineup-match-note">{NO_MATCH_DETAILS}</p>}
           <ul className="lineup-channel-list" aria-label="Channels in your lineup">
             {view.channels.map((channel) => {
               const airing = nowAndNext(channel.current, channel.next)
@@ -143,6 +164,7 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
                 <span className="lineup-channel-name">{channel.name}</span>
                 {channel.group && <span className="lineup-channel-group">{channel.group}</span>}
                 {airing && <span className="lineup-channel-airing">{airing}</span>}
+                {hasEvidence && <GuideReason evidence={channel.matchEvidence} />}
                 {problems.length > 0 && <div className="lineup-channel-problems">
                   {problems.map((text) => <p key={text}><StatusBadge status="Warning" /> {text}</p>)}
                   <button className="button button-secondary" type="button" onClick={onOpenSetup}>Fix in Guided Setup</button>

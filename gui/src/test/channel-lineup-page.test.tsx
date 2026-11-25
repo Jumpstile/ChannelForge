@@ -194,3 +194,75 @@ describe('Channel lineup page saved date and failure order', () => {
     expect(notice.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
+
+describe('Saved match reason', () => {
+  const evidence = (reasonCode: string, over: Partial<NonNullable<LineupChannel['matchEvidence']>> = {}) => ({ reasonCode, status: 'ExactBound', guideId: 'espn.us', guideSourceId: 'main-guide', ...over })
+  const show = (items: LineupChannel[]) => render(<ChannelLineupPage fetchPage={async () => ({ generation: 'g', total: items.length, items })} onOpenSetup={() => {}} />)
+
+  it.each([
+    ['ExactOrdinalMatch', "Guide: Matched. This channel's guide ID was found exactly once in your guide file, so its programs are shown."],
+    ['MissingM3UId', 'Guide: No guide found. The playlist gave this channel no guide ID, so it has no program list.'],
+    ['NoXMLTVMatch', "Guide: No guide found. This channel's guide ID is not in your guide file, so it has no program list."],
+    ['AmbiguousXMLTVCandidates', 'Guide: Needs a choice. More than one guide channel looked right, so ChannelForge did not guess.'],
+    ['DuplicateXMLTVId', 'Guide: Needs a choice. More than one guide channel looked right, so ChannelForge did not guess.'],
+    ['M3UIdentityCollision', 'Guide: Needs a choice. More than one guide channel looked right, so ChannelForge did not guess.'],
+    ['ConflictingIdentity', 'Guide: Needs a choice. More than one guide channel looked right, so ChannelForge did not guess.'],
+    ['SomethingNewLater', 'No explanation saved for this channel.'],
+    ['toString', 'No explanation saved for this channel.'],
+  ])('says %s in plain words', async (code, sentence) => {
+    show([channel(1, { matchEvidence: evidence(code) })])
+    const row = await screen.findByRole('listitem')
+    expect(row).toHaveTextContent(sentence)
+    expect(screen.queryByText(/Match details are not available/)).not.toBeInTheDocument()
+  })
+
+  it('shows one calm page note, not one per channel, when no channel has match details', async () => {
+    show([channel(1), channel(2)])
+    await screen.findByText('Test Channel 1')
+    expect(screen.getAllByText('Match details are not available for this lineup. Your lineup and guide are not affected.')).toHaveLength(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Guide: ')
+  })
+
+  it('keeps the technical values in a Details fold and shows provider text as plain text, cut when long', async () => {
+    const longId = `<b>tricky</b>${'x'.repeat(300)}`
+    show([channel(1, { matchEvidence: evidence('ExactOrdinalMatch', { guideId: longId, guideSourceId: 'Main guide' }) })])
+    const row = await screen.findByRole('listitem')
+    expect(row.querySelector('details > summary')).toHaveTextContent('Details')
+    const details = row.querySelector('details') as HTMLElement
+    expect(details).toHaveTextContent('Reason: ExactOrdinalMatch')
+    expect(details).toHaveTextContent('Guide source: Main guide')
+    expect(details.querySelector('b')).toBeNull()
+    expect(details).toHaveTextContent(/Guide ID: <b>tricky<\/b>x+…/)
+    expect(details.textContent).not.toContain('x'.repeat(100))
+  })
+
+  it('says none for a missing guide ID and source, and still explains a channel that has no saved details when others do', async () => {
+    show([channel(1, { matchEvidence: evidence('MissingM3UId', { guideId: null, guideSourceId: null }) }), channel(2)])
+    const rows = await screen.findAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('Guide ID: none')
+    expect(rows[0]).toHaveTextContent('Guide source: none')
+    expect(rows[1]).toHaveTextContent('No explanation saved for this channel.')
+    expect(rows[1].querySelector('details')).toBeNull()
+  })
+
+  it('reads match details from the server and never fails the page on odd ones', async () => {
+    const item = (id: string, matchEvidence: unknown) => ({ id, number: 1, name: id, group: '', logoStatus: 'present', guideState: 'bound', attention: [], current: null, next: null, ...(matchEvidence === undefined ? {} : { matchEvidence }) })
+    const body = {
+      generation: 'g', total: 5,
+      items: [
+        item('a', { reasonCode: 'ExactOrdinalMatch', status: 'ExactBound', guideId: 'one', guideSourceId: 's', futureField: 1 }),
+        item('b', { reasonCode: 'BrandNewCode', guideId: 7 }),
+        item('c', 'text'),
+        item('d', { status: 'ExactBound' }),
+        item('e', undefined),
+      ],
+    }
+    const result = await fetchLineupPage(0, null, async () => new Response(JSON.stringify(body)))
+    expect(result).toMatchObject({ total: 5 })
+    const items = (result as { items: LineupChannel[] }).items
+    expect(items[0].matchEvidence).toEqual({ reasonCode: 'ExactOrdinalMatch', status: 'ExactBound', guideId: 'one', guideSourceId: 's' })
+    expect(items[1].matchEvidence).toEqual({ reasonCode: 'BrandNewCode', status: '', guideId: null, guideSourceId: null })
+    expect(items.slice(2).map((entry) => entry.matchEvidence)).toEqual([undefined, undefined, undefined])
+  })
+})
