@@ -9,7 +9,9 @@ BeforeAll {
         $launcher = Join-Path $Root "server-$Port.ps1"
         $extra = if ($SignIn) { " -RequireSignIn -ConfigRoot '$Config'" } else { '' }
         @("Import-Module '$script:ModulePath' -Force", "Start-ChannelForgeWebServer -Port $Port -RepositoryRoot '$Root'$extra") | Set-Content -LiteralPath $launcher
-        $process = Start-Process -FilePath ((Get-Command pwsh).Source) -ArgumentList @('-NoProfile', '-File', $launcher) -WorkingDirectory $script:RepoRoot -PassThru -RedirectStandardOutput $LogPath -RedirectStandardError "$LogPath.err"
+        $startArguments = @{ FilePath = (Get-Command pwsh).Source; ArgumentList = @('-NoProfile', '-File', $launcher); WorkingDirectory = $script:RepoRoot; PassThru = $true }
+        if (-not [string]::IsNullOrWhiteSpace($LogPath)) { $startArguments.RedirectStandardOutput = $LogPath; $startArguments.RedirectStandardError = "$LogPath.err" }
+        $process = Start-Process @startArguments
         for ($attempt = 0; $attempt -lt 100; $attempt++) {
             if ($process.HasExited) { break }
             $tcp = [Net.Sockets.TcpClient]::new()
@@ -41,9 +43,12 @@ BeforeAll {
     } $script:Config $script:Password
     $script:OnPort = 18871
     $script:OffPort = 18872
-    $script:OnLog = Join-Path $TestDrive 'on.log'
+    # The sign-in server's log files live outside the test folder so cleanup of the test folder can never be blocked by them.
+    $script:LogDir = Join-Path ([IO.Path]::GetTempPath()) ('cf-signin-test-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
+    $script:OnLog = Join-Path $script:LogDir 'on.log'
     $script:OnServer = Start-TestServer -Port $script:OnPort -Root $script:Root -Config $script:Config -SignIn -LogPath $script:OnLog
-    $script:OffServer = Start-TestServer -Port $script:OffPort -Root $script:Root -Config $script:Config -LogPath (Join-Path $TestDrive 'off.log')
+    $script:OffServer = Start-TestServer -Port $script:OffPort -Root $script:Root -Config $script:Config
 }
 
 AfterAll {
@@ -51,6 +56,9 @@ AfterAll {
         if ($null -ne $server -and -not $server.HasExited) { $server.Kill() }
         # Wait until each server has really stopped so its log files are released before the test folder is removed.
         if ($null -ne $server) { $server.WaitForExit(10000) | Out-Null; $server.Dispose() }
+    }
+    if ($script:LogDir -and (Test-Path -LiteralPath $script:LogDir)) {
+        try { Remove-Item -LiteralPath $script:LogDir -Recurse -Force -ErrorAction Stop } catch { Write-Verbose 'Test log folder could not be removed yet.' }
     }
 }
 
