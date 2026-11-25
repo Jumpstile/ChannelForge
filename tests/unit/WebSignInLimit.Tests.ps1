@@ -50,8 +50,8 @@ BeforeAll {
         param($Config, $Password)
         Write-ChannelForgeAdminPasswordFile -ConfigRoot $Config -Record (New-ChannelForgeAdminPasswordRecord -Password $Password -Iterations 1000) | Out-Null
     } $script:SignInConfig $script:Password
-    $script:SignInPort = 18875
-    $script:SetupPort = 18876
+    $script:SignInPort = 18877
+    $script:SetupPort = 18878
     $script:LogDir = Join-Path ([IO.Path]::GetTempPath()) ('cf-limit-test-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
     $script:SignInServer = Start-TestServer -Port $script:SignInPort -Root $script:Root -Config $script:SignInConfig -LogPath (Join-Path $script:LogDir 'signin.log')
