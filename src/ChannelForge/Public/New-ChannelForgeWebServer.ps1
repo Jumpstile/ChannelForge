@@ -39,5 +39,6 @@ function New-ChannelForgeWebServer {
         RequireSignIn = [bool]$RequireSignIn
         ConfigRoot    = $ConfigRoot
         Sessions      = @{}
+        Setup         = @{}
     }
 }

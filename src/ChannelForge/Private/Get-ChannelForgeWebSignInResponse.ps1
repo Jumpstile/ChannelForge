@@ -35,6 +35,8 @@ function Get-ChannelForgeWebSignInResponse {
         [System.IO.Stream]$BodyStream = $null,
         [long]$ContentLength = -1,
         [Parameter(Mandatory)][string]$ConfigRoot,
+        [hashtable]$Setup = @{},
+        [string]$RequestHost = '',
         [switch]$Secure,
         [datetime]$Now = [datetime]::UtcNow
     )
@@ -73,7 +75,9 @@ function Get-ChannelForgeWebSignInResponse {
     }
     if ($signedIn) { return $null }
 
-    # Slice 4 adds the first-run page here; until then nothing else is open without a session.
+    if ($requestPath -in @('/first-run', '/first-run/submit') -and (Test-ChannelForgeSetupState -ConfigRoot $ConfigRoot)) {
+        return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Secure:$Secure -Now $Now
+    }
     if ($requestPath -eq '/health') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Status = 'ok' } }
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-required'; Message = 'Sign in is required.' }
 }
