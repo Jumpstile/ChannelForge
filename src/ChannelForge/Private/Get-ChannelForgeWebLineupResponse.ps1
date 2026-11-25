@@ -144,6 +144,11 @@ function Get-ChannelForgeWebLineupProjection {
     }
     $script:ChannelForgeLineupProjectionCache = [pscustomobject]@{
         Key = $key
+        GenerationId = [string]$pointer.Object.GenerationId
+        AcceptedStateHash = [string]$pointer.Object.AcceptedStateHash
+        AcceptedOutputManifestHash = [string]$pointer.Object.AcceptedOutputManifestHash
+        # Filled by Get-ChannelForgeWebLineupEvidence only when the saved evidence is good; the file never changes for one generation.
+        Evidence = $null
         # Opaque snapshot token for paging pins; derived so the accepted pointer hash itself is never exposed.
         GenerationToken = Get-ChannelForgeWebLineupHash "lineup-page-snapshot/v1|$key"
         SavedAtUtc = Get-ChannelForgeWebLineupSavedAt -Snapshot $snapshot
@@ -151,6 +156,27 @@ function Get-ChannelForgeWebLineupProjection {
         Programmes = Get-ChannelForgeWebLineupProgrammeIndex -Snapshot $snapshot
     }
     return $script:ChannelForgeLineupProjectionCache
+}
+
+# Row id -> matchEvidence for rows that join the saved evidence by 1-based position AND name. Missing, corrupt or other-lineup evidence gives an empty map (no row shows evidence).
+function Get-ChannelForgeWebLineupEvidence {
+    param([Parameter(Mandatory)][string]$RepositoryRoot, [Parameter(Mandatory)]$Projection)
+
+    if ($null -ne $Projection.Evidence) { return $Projection.Evidence }
+    $read = Read-ChannelForgeMatchEvidence -RepositoryRoot $RepositoryRoot -GenerationId $Projection.GenerationId -AcceptedStateHash $Projection.AcceptedStateHash -AcceptedOutputManifestHash $Projection.AcceptedOutputManifestHash
+    $map = @{}
+    if ($read.Status -cne 'Ok') { return $map }
+    $byOrdinal = @{}
+    foreach ($entry in $read.Entries) { if ($entry.outputOrdinal -is [long] -or $entry.outputOrdinal -is [int]) { $byOrdinal[[long]$entry.outputOrdinal] = $entry } }
+    for ($position = 1; $position -le $Projection.Rows.Count; $position++) {
+        $row = $Projection.Rows[$position - 1]
+        $entry = $byOrdinal[[long]$position]
+        if ($null -ne $entry -and $entry.channelName -is [string] -and $entry.channelName -ceq $row.Name) {
+            $map[$row.Id] = [ordered]@{ reasonCode = $entry.reasonCode; status = $entry.status; guideId = $entry.guideId; guideSourceId = $entry.guideSourceId }
+        }
+    }
+    $Projection.Evidence = $map
+    return $map
 }
 
 function Get-ChannelForgeWebLineupProgramme {
@@ -166,7 +192,7 @@ function Get-ChannelForgeWebLineupProgramme {
 
 # programmeState: current, gap (next exists, nothing airing), stale (guide ended), no-programme (guide id has none), no-guide.
 function Get-ChannelForgeWebLineupItem {
-    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now, [AllowNull()]$Window = $null, [AllowNull()]$PinnedIds = $null)
+    param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)]$ProgrammeIndex, [Parameter(Mandatory)][datetimeoffset]$Now, [AllowNull()]$Window = $null, [AllowNull()]$PinnedIds = $null, [AllowNull()]$Evidence = $null)
 
     $current = $null
     $next = $null
@@ -190,6 +216,8 @@ function Get-ChannelForgeWebLineupItem {
         current = Get-ChannelForgeWebLineupProgramme $current
         next = Get-ChannelForgeWebLineupProgramme $next
     }
+    # Additive and optional: only a row that joined the saved evidence carries it.
+    if ($null -ne $Evidence -and $Evidence.ContainsKey($Row.Id)) { $item.matchEvidence = $Evidence[$Row.Id] }
     # Only a from/to request adds programmes (every accepted programme that overlaps the window); the default response is unchanged.
     if ($null -ne $Window) {
         $item.programmes = @($list | Where-Object { $_.Start -lt $Window.To -and $_.End -gt $Window.From } | ForEach-Object { Get-ChannelForgeWebLineupProgramme $_ })
@@ -295,7 +323,8 @@ function Get-ChannelForgeWebLineupResponse {
         $pins = Read-ChannelForgeLogoPin -RepositoryRoot $RepositoryRoot
         $pinnedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         if ($pins.Status -ceq 'Ok') { foreach ($pin in $pins.Pins) { [void]$pinnedIds.Add([string]$pin.TvgId) } }
-        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now -Window $query.Window -PinnedIds $pinnedIds })
+        $evidence = Get-ChannelForgeWebLineupEvidence -RepositoryRoot $RepositoryRoot -Projection $projection
+        $items = @($rows | Select-Object -Skip $query.Offset -First $query.Limit | ForEach-Object { Get-ChannelForgeWebLineupItem -Row $_ -ProgrammeIndex $projection.Programmes -Now $now -Window $query.Window -PinnedIds $pinnedIds -Evidence $evidence })
         $body = ConvertTo-Json -InputObject ([ordered]@{
                 version = 'lineup-workspace/channel/v1'
                 generation = $projection.GenerationToken

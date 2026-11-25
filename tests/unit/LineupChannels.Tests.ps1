@@ -10,8 +10,43 @@ BeforeAll {
         } $Method $Path $Root $BodyBytes $ContentType $ContentLength
     }
 
+    function Get-LineupItems {
+        param([Parameter(Mandatory)][string]$Root)
+        return @(((Get-LineupResponse -Method GET -Path '/api/lineup/channels' -Root $Root).Body | ConvertFrom-Json).items)
+    }
+
+    # The projection (and its evidence) is cached per accepted generation; drop it so the next request reads the evidence file again.
+    function Clear-LineupCache { & (Get-Module ChannelForge) { $script:ChannelForgeLineupProjectionCache = $null } }
+
+    # The accepted merged.m3u rows as the route reads them. Their guide keys are an independent check on which evidence a row must get.
+    function Get-AcceptedRows {
+        param([Parameter(Mandatory)][string]$Root)
+        return @(& (Get-Module ChannelForge) { param($Root) Get-ChannelForgeWebLineupRows -Snapshot (Get-ChannelForgeWebCurrentAcceptedSnapshot -RepositoryRoot $Root) } $Root)
+    }
+
+    function Get-EvidenceFile {
+        param([Parameter(Mandatory)][string]$Root)
+        return (Get-ChildItem -LiteralPath (Join-Path $Root 'state\accepted-evidence') -Filter '*.json').FullName
+    }
+
+    # Rewrites the evidence file with a valid hash after $Change edits the parsed document.
+    function Set-EvidenceFile {
+        param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][scriptblock]$Change)
+        $file = Get-EvidenceFile -Root $Root
+        $document = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
+        & $Change $document
+        $document.evidenceHash = & (Get-Module ChannelForge) {
+            param($Document)
+            $projection = [ordered]@{}
+            foreach ($property in $Document.PSObject.Properties) { if ($property.Name -cne 'evidenceHash') { $projection[$property.Name] = $property.Value } }
+            Get-ChannelForgeDomainHash -Domain 'match-evidence/v1' -InputObject $projection
+        } $document
+        Set-Content -LiteralPath $file -Value ($document | ConvertTo-Json -Depth 6) -Encoding utf8
+        Clear-LineupCache
+    }
+
     function Initialize-LineupRoot {
-        param([Parameter(Mandatory)][string]$Root, [string]$GuideText = '')
+        param([Parameter(Mandatory)][string]$Root, [string]$GuideText = '', [string]$PlaylistText = '')
         $playlist = @(
             '#EXTM3U'
             '#EXTINF:-1 tvg-id="one" tvg-logo="https://logo.example/one.png?token=logo-secret" tvg-chno="5" group-title="News",Alpha News'
@@ -21,6 +56,7 @@ BeforeAll {
             '#EXTINF:-1 tvg-id="three" tvg-logo="https://logo.example/three.png" group-title="News",Gamma Daily'
             'https://stream.example/live/three.m3u8?token=stream-secret'
         ) -join "`n"
+        if ($PlaylistText) { $playlist = $PlaylistText }
         $payload = [ordered]@{ schemaVersion = 1; m3u = [ordered]@{ contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($playlist + "`n")) } }
         if ($GuideText) { $payload.xmltv = [ordered]@{ contentBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($GuideText)) } }
         $body = [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 4))
@@ -159,5 +195,83 @@ Describe 'Lineup channels route' {
             (Get-LineupResponse -Method GET -Path "/api/lineup/channels?$bad" -Root $root).StatusCode | Should -Be 400
         }
         (Get-LineupResponse -Method GET -Path '/api/lineup/channels?from=2026-01-01T00:00:00Z&to=2026-01-01T03:00:00Z' -Root $root).StatusCode | Should -Be 200
+    }
+
+    It 'adds the saved match reason to each channel that joins the evidence, and nothing else changes' {
+        $root = Join-Path $TestDrive 'lineup-evidence'
+        Initialize-LineupRoot -Root $root -GuideText (Get-LineupGuideText)
+        $with = Get-LineupItems -Root $root
+        $alpha = $with | Where-Object name -eq 'Alpha News'
+        $alpha.matchEvidence.reasonCode | Should -Be 'ExactOrdinalMatch'
+        $alpha.matchEvidence.status | Should -Be 'ExactBound'
+        $alpha.matchEvidence.guideId | Should -Be 'one'
+        $alpha.matchEvidence.guideSourceId | Should -Not -BeNullOrEmpty
+        ($with | Where-Object name -eq 'Beta Movies').matchEvidence.reasonCode | Should -Be 'MissingM3UId'
+        ($with | Where-Object name -eq 'Gamma Daily').matchEvidence.reasonCode | Should -Be 'NoXMLTVMatch'
+
+        Remove-Item -LiteralPath (Get-EvidenceFile -Root $root)
+        Clear-LineupCache
+        $without = Get-LineupItems -Root $root
+        $without | ForEach-Object { $_.PSObject.Properties.Name | Should -Not -Contain 'matchEvidence' }
+        foreach ($item in $with) { $item.PSObject.Properties.Remove('matchEvidence') }
+        ($with | ConvertTo-Json -Depth 6 -Compress) | Should -BeExactly ($without | ConvertTo-Json -Depth 6 -Compress)
+    }
+
+    It 'omits matchEvidence for every row when the file is corrupt or belongs to another generation' {
+        $root = Join-Path $TestDrive 'lineup-evidence-bad'
+        Initialize-LineupRoot -Root $root
+        $file = Get-EvidenceFile -Root $root
+        $good = Get-Content -LiteralPath $file -Raw
+
+        Set-Content -LiteralPath $file -Value '{not json' -Encoding utf8
+        Clear-LineupCache
+        (Get-LineupItems -Root $root) | ForEach-Object { $_.PSObject.Properties.Name | Should -Not -Contain 'matchEvidence' }
+
+        Set-Content -LiteralPath $file -Value ($good -replace '"generationId":\s*"[0-9a-f]{64}"', ('"generationId": "' + ('a' * 64) + '"')) -Encoding utf8
+        Clear-LineupCache
+        (Get-LineupItems -Root $root) | ForEach-Object { $_.PSObject.Properties.Name | Should -Not -Contain 'matchEvidence' }
+
+        Set-Content -LiteralPath $file -Value $good -Encoding utf8
+        Clear-LineupCache
+        (Get-LineupItems -Root $root) | ForEach-Object { $_.PSObject.Properties.Name | Should -Contain 'matchEvidence' }
+    }
+
+    It 'omits matchEvidence only for a row whose name differs or whose position is out of range' {
+        $root = Join-Path $TestDrive 'lineup-evidence-join'
+        Initialize-LineupRoot -Root $root
+        $middle = (Get-LineupItems -Root $root)[1].matchEvidence
+        $rows = Get-AcceptedRows -Root $root
+        [string]$middle.guideId | Should -BeExactly $rows[1].GuideKey
+        Set-EvidenceFile -Root $root -Change { param($d) $d.entries[0].channelName = 'Renamed'; $d.entries[2].outputOrdinal = 99 }
+        $items = Get-LineupItems -Root $root
+        $items[0].PSObject.Properties.Name | Should -Not -Contain 'matchEvidence'
+        $items[1].matchEvidence.reasonCode | Should -Be $middle.reasonCode
+        [string]$items[1].matchEvidence.guideId | Should -BeExactly $rows[1].GuideKey
+        $items[2].PSObject.Properties.Name | Should -Not -Contain 'matchEvidence'
+    }
+
+    It 'joins rows that share a display name to their own evidence' {
+        $root = Join-Path $TestDrive 'lineup-evidence-duplicate'
+        $playlist = @(
+            '#EXTM3U'
+            '#EXTINF:-1 tvg-id="one" group-title="News",Same Name'
+            'https://stream.example/live/one.m3u8'
+            '#EXTINF:-1 group-title="News",Same Name'
+            'https://stream.example/live/two.m3u8'
+            '#EXTINF:-1 tvg-id="gone" group-title="News",Same Name'
+            'https://stream.example/live/three.m3u8'
+        ) -join "`n"
+        Initialize-LineupRoot -Root $root -GuideText (Get-LineupGuideText) -PlaylistText $playlist
+        $items = Get-LineupItems -Root $root
+        $items.name | Should -Be @('Same Name', 'Same Name', 'Same Name')
+        # Row order comes from the accepted merged.m3u, not the playlist order; each row's own guide ID (read from that file) must match its evidence.
+        $rows = Get-AcceptedRows -Root $root
+        @($rows.GuideKey | Sort-Object) | Should -Be @('', 'gone', 'one')
+        for ($i = 0; $i -lt 3; $i++) {
+            [string]$items[$i].matchEvidence.guideId | Should -BeExactly $rows[$i].GuideKey
+        }
+        ($items | Where-Object { $_.matchEvidence.guideId -eq 'one' }).matchEvidence.reasonCode | Should -Be 'ExactOrdinalMatch'
+        ($items | Where-Object { $_.matchEvidence.guideId -eq 'gone' }).matchEvidence.reasonCode | Should -Be 'NoXMLTVMatch'
+        ($items | Where-Object { [string]::IsNullOrEmpty($_.matchEvidence.guideId) }).matchEvidence.reasonCode | Should -Be 'MissingM3UId'
     }
 }
