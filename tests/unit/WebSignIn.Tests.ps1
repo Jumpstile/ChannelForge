@@ -49,6 +49,8 @@ BeforeAll {
 AfterAll {
     foreach ($server in @($script:OnServer, $script:OffServer)) {
         if ($null -ne $server -and -not $server.HasExited) { $server.Kill() }
+        # Wait until each server has really stopped so its log files are released before the test folder is removed.
+        if ($null -ne $server) { $server.WaitForExit(10000) | Out-Null; $server.Dispose() }
     }
 }
 
