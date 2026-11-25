@@ -42,6 +42,7 @@ function New-ChannelForgeWebServer {
         ConfigRoot    = $ConfigRoot
         Sessions      = @{}
         Setup         = @{}
+        Limiter       = (New-ChannelForgeSignInLimiter)
         AllowedHost   = @($AllowedHost)
     }
 }

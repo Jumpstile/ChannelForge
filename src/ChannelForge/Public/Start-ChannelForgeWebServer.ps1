@@ -49,7 +49,8 @@ function Start-ChannelForgeWebServer {
                     $request = $context.Request
                     $gateResponse = Get-ChannelForgeWebRequestRefusal -Method $request.HttpMethod -Port $server.Port -AllowedHost $server.AllowedHost -Scheme $request.Url.Scheme -HostHeader $request.Headers['Host'] -Origin $request.Headers['Origin'] -Referer $request.Headers['Referer'] -ContentType $request.ContentType
                     if ($null -eq $gateResponse) {
-                        $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -RequestHost $request.Url.Host -Method $request.HttpMethod -Path $requestPathAndQuery -CookieHeader $request.Headers['Cookie'] -BodyStream $request.InputStream -ContentLength $request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
+                        # The peer address, never a header: X-Forwarded-For can be forged.
+                        $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -Limiter $server.Limiter -SourceAddress $request.RemoteEndPoint.Address.ToString() -RequestHost $request.Url.Host -Method $request.HttpMethod -Path $requestPathAndQuery -CookieHeader $request.Headers['Cookie'] -BodyStream $request.InputStream -ContentLength $request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
                     }
                 }
                 if ($null -ne $gateResponse) {
