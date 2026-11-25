@@ -10,8 +10,16 @@ function New-ChannelForgeWebServer {
         [ValidateNotNullOrEmpty()]
         [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot),
 
-        [string]$StaticRoot = ''
+        [string]$StaticRoot = '',
+
+        [switch]$RequireSignIn,
+
+        [string]$ConfigRoot = ''
     )
+
+    if ($RequireSignIn -and [string]::IsNullOrWhiteSpace($ConfigRoot)) {
+        throw [System.ArgumentException]::new('Sign-in required mode needs a ConfigRoot that holds the admin password file.')
+    }
 
     $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
     $staticRoot = [IO.Path]::GetFullPath($staticRoot)
@@ -28,5 +36,8 @@ function New-ChannelForgeWebServer {
         StaticRoot    = $staticRoot
         Listener      = $listener
         Started       = $false
+        RequireSignIn = [bool]$RequireSignIn
+        ConfigRoot    = $ConfigRoot
+        Sessions      = @{}
     }
 }

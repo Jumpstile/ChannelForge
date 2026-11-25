@@ -10,9 +10,13 @@ function Start-ChannelForgeWebServer {
         [ValidateNotNullOrEmpty()]
         [string]$RepositoryRoot = (Get-ChannelForgeWebRepositoryRoot),
 
-        [string]$StaticRoot = ''
+        [string]$StaticRoot = '',
+
+        [switch]$RequireSignIn,
+
+        [string]$ConfigRoot = ''
     )
-    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot
+    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot -RequireSignIn:$RequireSignIn -ConfigRoot $ConfigRoot
     try {
         $server.Listener.Start()
         $server.Started = $true
@@ -33,7 +37,14 @@ function Start-ChannelForgeWebServer {
                 $requestPath = $context.Request.Url.AbsolutePath
                 $requestPathAndQuery = $context.Request.Url.PathAndQuery
                 $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')
-                if ($isBodyPost) {
+                $gateResponse = $null
+                if ($server.RequireSignIn) {
+                    $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Method $context.Request.HttpMethod -Path $requestPathAndQuery -CookieHeader $context.Request.Headers['Cookie'] -BodyStream $context.Request.InputStream -ContentLength $context.Request.ContentLength64 -ConfigRoot $server.ConfigRoot -Secure:($server.Prefix -like 'https:*')
+                }
+                if ($null -ne $gateResponse) {
+                    $response = $gateResponse
+                }
+                elseif ($isBodyPost) {
                     try {
                         $bodyBytes = Read-ChannelForgeWebRequestBody -Stream $context.Request.InputStream -ContentLength $context.Request.ContentLength64
                         $response = Get-ChannelForgeWebResponse `
