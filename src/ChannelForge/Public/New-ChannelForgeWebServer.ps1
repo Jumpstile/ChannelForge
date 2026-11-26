@@ -30,7 +30,7 @@ function New-ChannelForgeWebServer {
         throw [System.ArgumentException]::new("ChannelForge will only listen on the network with sign-in turned on and a config folder set.$reason")
     }
 
-    $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
+    $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Get-ChannelForgeWebDefaultStaticRoot -RepositoryRoot $RepositoryRoot } else { $StaticRoot }
     $staticRoot = [IO.Path]::GetFullPath($staticRoot)
 
     $listenHost = if ($BindAddress -in @('0.0.0.0', '::', '[::]')) { '+' } elseif ($BindAddress.Contains(':') -and -not $BindAddress.StartsWith('[')) { "[$BindAddress]" } else { $BindAddress }

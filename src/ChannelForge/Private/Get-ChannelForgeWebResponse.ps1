@@ -58,6 +58,17 @@ function Get-ChannelForgeWebStaticContentType {
     }
 }
 
+function Get-ChannelForgeWebDefaultStaticRoot {
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    return Join-Path (Join-Path $RepositoryRoot 'gui') 'dist'
+}
+
+function Get-ChannelForgeWebPathComparison {
+    if ([IO.Path]::DirectorySeparatorChar -eq [char]92) { return [StringComparison]::OrdinalIgnoreCase }
+    return [StringComparison]::Ordinal
+}
+
 function Get-ChannelForgeWebStaticFileResponse {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -72,12 +83,12 @@ function Get-ChannelForgeWebStaticFileResponse {
         $rootItem = Get-Item -LiteralPath $StaticRoot -Force
 
         $repositoryRootFullPath = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([char]92, [char]47)
-        $allowedStaticRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRootFullPath 'gui\dist')).TrimEnd([char]92, [char]47)
+        $allowedStaticRoot = [IO.Path]::GetFullPath((Get-ChannelForgeWebDefaultStaticRoot -RepositoryRoot $repositoryRootFullPath)).TrimEnd([char]92, [char]47)
         $staticRootFullPath = [IO.Path]::GetFullPath($StaticRoot).TrimEnd([char]92, [char]47)
         $allowedPrefix = "$allowedStaticRoot$([IO.Path]::DirectorySeparatorChar)"
         if (
             $staticRootFullPath -ne $allowedStaticRoot -and
-            -not $staticRootFullPath.StartsWith($allowedPrefix, [StringComparison]::OrdinalIgnoreCase)
+            -not $staticRootFullPath.StartsWith($allowedPrefix, (Get-ChannelForgeWebPathComparison))
         ) { return $null }
         if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return $null }
 
@@ -104,9 +115,9 @@ function Get-ChannelForgeWebStaticFileResponse {
         }
 
         $rootFullPath = $staticRootFullPath
-        $candidatePath = [IO.Path]::GetFullPath((Join-Path $rootFullPath ($relativePath -replace '/', '\')))
+        $candidatePath = [IO.Path]::GetFullPath((Join-Path $rootFullPath ($relativePath -replace '/', [string][IO.Path]::DirectorySeparatorChar)))
         $rootPrefix = "$rootFullPath$([IO.Path]::DirectorySeparatorChar)"
-        if (-not $candidatePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+        if (-not $candidatePath.StartsWith($rootPrefix, (Get-ChannelForgeWebPathComparison))) { return $null }
         if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf)) { return $null }
 
         $fileItem = Get-Item -LiteralPath $candidatePath -Force
@@ -184,7 +195,7 @@ function Get-ChannelForgeWebResponse {
         [long]$ContentLength = -1
     )
 
-    $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
+    $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Get-ChannelForgeWebDefaultStaticRoot -RepositoryRoot $RepositoryRoot } else { $StaticRoot }
 
     $commonHeaders = [ordered]@{
         'Cache-Control'            = 'no-store'
