@@ -5,13 +5,17 @@ export const appearanceChoices: readonly Appearance[] = ['light', 'dark', 'syste
 
 const darkQuery = '(prefers-color-scheme: dark)'
 
-export function readAppearance(): Appearance {
+function storedAppearance(): Appearance | null {
   try {
     const saved = window.localStorage.getItem(appearanceStorageKey)
-    return appearanceChoices.find((choice) => choice === saved) ?? 'system'
+    return appearanceChoices.find((choice) => choice === saved) ?? null
   } catch {
-    return 'system'
+    return null
   }
+}
+
+export function readAppearance(): Appearance {
+  return storedAppearance() ?? 'system'
 }
 
 export function saveAppearance(choice: Appearance): void {
@@ -38,4 +42,41 @@ export function watchSystemAppearance(): () => void {
   const onChange = () => applyAppearance(readAppearance())
   query.addEventListener('change', onChange)
   return () => query.removeEventListener('change', onChange)
+}
+
+const settingsHeaders = { Accept: 'application/json', 'Content-Type': 'application/json' }
+
+function isAppearance(value: unknown): value is Appearance {
+  return appearanceChoices.some((choice) => choice === value)
+}
+
+/** Saves the choice on the server. Returns false when the server could not keep it. */
+export async function saveServerAppearance(choice: Appearance, request: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const response = await request('/api/settings', { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ appearance: choice }) })
+    return response.status === 200
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Asks the server for the saved choice. The server value wins and the local value is only a cache.
+ * A server with nothing saved gets the valid local value once. An unreachable server never blocks: the local value (or System) is used.
+ */
+export async function syncAppearance(request: typeof fetch = fetch): Promise<Appearance> {
+  const local = readAppearance()
+  try {
+    const response = await request('/api/settings', { method: 'GET', headers: { Accept: 'application/json' } })
+    if (response.status !== 200) return local
+    const body = (await response.json()) as { appearance?: unknown; saved?: unknown }
+    if (body.saved === true && isAppearance(body.appearance)) {
+      saveAppearance(body.appearance)
+      return body.appearance
+    }
+    if (body.saved === false && storedAppearance() !== null) await saveServerAppearance(local, request)
+  } catch {
+    // Unreachable or unreadable answer: keep the local value.
+  }
+  return local
 }
