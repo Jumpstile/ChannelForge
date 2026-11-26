@@ -37,7 +37,7 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 
 ## Windows server install contract
 
-- Run as a Windows service, or as a scheduled task at startup. Owner decision needed: start method. Options: Windows service only; scheduled task only; service with scheduled task as fallback. Recommendation: service, with a scheduled task fallback when the user cannot install a service.
+- Run as a scheduled task at start-up, as `NT AUTHORITY\LOCAL SERVICE`, not as a service wrapper. The install and uninstall scripts (`scripts\Install-ChannelForgeServerTask.ps1`, `scripts\Uninstall-ChannelForgeServerTask.ps1`) are written, with tests that mock every system call. They have not been hand-tested on a real machine. See `docs/user/Server-At-Startup.md`.
 - Port: one TCP port, default 47850, configurable (`-Port` on `scripts\Start-ChannelForgeServer.ps1`). The default bind is loopback. Network access is `-BindAddress`, allowed only with sign-in and a config folder. Firewall rule is opt-in and only added when the user turns on network access.
 - Data folder: `%ProgramData%\ChannelForge` for the server install, same layout as the Docker `/data`. The portable bundle keeps `%LOCALAPPDATA%`.
 - Service account: least privilege, read/write only to the data folder.

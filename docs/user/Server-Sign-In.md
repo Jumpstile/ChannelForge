@@ -12,7 +12,7 @@ A server can be reached by other devices. Sign-in keeps people on your network f
 - Email recovery. There is no "forgot password" email.
 - Sessions that survive a restart. When the server restarts, everyone signs in again.
 - HTTPS inside ChannelForge. Use a reverse proxy for HTTPS.
-- A Windows server installer. The sign-in code exists, but it is not packaged yet. A Docker image can be built from the repository; see `Server-Docker.md`.
+- A graphical Windows server installer. Scripts that start the server at Windows start-up are written but not yet tried on a real machine; see `Server-At-Startup.md`. A Docker image can be built from the repository; see `Server-Docker.md`.
 
 ## First start and the one-time setup code
 
@@ -28,6 +28,7 @@ A server can be reached by other devices. Sign-in keeps people on your network f
 The script stops if you leave out `-ConfigRoot`. The server also refuses a network address unless sign-in is on and a config folder is set.
 
 To run the server in Docker, see `Server-Docker.md`.
+To run the server at Windows start-up, see `Server-At-Startup.md`.
 
 The setup code only proves that you can reach the server machine. Keep the console private until setup is done.
 
