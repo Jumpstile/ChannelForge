@@ -31,14 +31,14 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 - First start (sign-in): with no admin password, the container starts in setup state, serves only the first-run page and health, and prints a one-time setup code to the container log.
 - No password, setup code or hash is in the image or in an environment variable. The hash lives in `/data` config.
 - Password reset: stop the container, run the reset command against the same volume, start again.
-- Bind: inside the container the server binds all interfaces, so login is required (see below). Without a configured login the container refuses to start in that mode.
+- Bind: inside the container the server binds all interfaces (`scripts\Start-ChannelForgeServer.ps1 -BindAddress 0.0.0.0`), so login is required (see below). Without sign-in and a config folder the server refuses to start in that mode. The launcher always turns sign-in on.
 - Upgrade: stop, pull the new image, start with the same volume. The engine migrates state on start (ADR-0009). It keeps a copy of the pre-migration state and refuses to start if migration fails, leaving `/data` untouched.
 - Backup: stop the container or use the engine's quiesce command, copy `/data`. Restore is copy back. Cache may be left out. The `/data` backup contains the password hash. Protect backups like the volume.
 
 ## Windows server install contract
 
 - Run as a Windows service, or as a scheduled task at startup. Owner decision needed: start method. Options: Windows service only; scheduled task only; service with scheduled task as fallback. Recommendation: service, with a scheduled task fallback when the user cannot install a service.
-- Port: one TCP port, default 8080, configurable. Firewall rule is opt-in and only added when the user turns on network access.
+- Port: one TCP port, default 8080, configurable (`-Port` on `scripts\Start-ChannelForgeServer.ps1`). The default bind is loopback. Network access is `-BindAddress`, allowed only with sign-in and a config folder. Firewall rule is opt-in and only added when the user turns on network access.
 - Data folder: `%ProgramData%\ChannelForge` for the server install, same layout as the Docker `/data`. The portable bundle keeps `%LOCALAPPDATA%`.
 - Service account: least privilege, read/write only to the data folder.
 - First start, storage and reset: with no admin password, the server starts in setup state, serves only the first-run page and health, and prints a one-time setup code on the console. The hash lives in `%ProgramData%\ChannelForge` config, readable only by the service account and administrators. No password, setup code or hash is in the install files or an environment variable. A forgotten password is reset with the administrator-only reset command, then the server is restarted for a new code.

@@ -4,7 +4,7 @@ function Start-ChannelForgeWebServer {
         [ValidateRange(1024, 65535)]
         [int]$Port = 8765,
 
-        [ValidateSet('127.0.0.1', '[::1]')]
+        [ValidateNotNullOrEmpty()]
         [string]$BindAddress = '127.0.0.1',
 
         [ValidateNotNullOrEmpty()]

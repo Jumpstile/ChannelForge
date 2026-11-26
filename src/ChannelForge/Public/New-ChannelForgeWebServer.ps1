@@ -4,7 +4,7 @@ function New-ChannelForgeWebServer {
         [ValidateRange(1024, 65535)]
         [int]$Port = 8765,
 
-        [ValidateSet('127.0.0.1', '[::1]')]
+        [ValidateNotNullOrEmpty()]
         [string]$BindAddress = '127.0.0.1',
 
         [ValidateNotNullOrEmpty()]
@@ -23,10 +23,18 @@ function New-ChannelForgeWebServer {
         throw [System.ArgumentException]::new('Sign-in required mode needs a ConfigRoot that holds the admin password file.')
     }
 
+    # Loopback is always allowed. Any other address needs sign-in and a config folder, and the start guard must agree.
+    $guard = if ($ConfigRoot) { Get-ChannelForgeStartGuard -Address $BindAddress -ConfigRoot $ConfigRoot -AllowSetupMode } else { $null }
+    if ($BindAddress.Trim().Trim('[', ']') -notin @('127.0.0.1', '::1', 'localhost') -and -not ($RequireSignIn -and $guard.State -in @('Ready', 'SetupRequired'))) {
+        $reason = if ($guard -and $guard.Reason) { " $($guard.Reason)" } else { '' }
+        throw [System.ArgumentException]::new("ChannelForge will only listen on the network with sign-in turned on and a config folder set.$reason")
+    }
+
     $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Join-Path $RepositoryRoot 'gui\dist' } else { $StaticRoot }
     $staticRoot = [IO.Path]::GetFullPath($staticRoot)
 
-    $prefix = "http://$BindAddress`:$Port/"
+    $listenHost = if ($BindAddress -in @('0.0.0.0', '::', '[::]')) { '+' } elseif ($BindAddress.Contains(':') -and -not $BindAddress.StartsWith('[')) { "[$BindAddress]" } else { $BindAddress }
+    $prefix = "http://$listenHost`:$Port/"
     $listener = [System.Net.HttpListener]::new()
     [void]$listener.Prefixes.Add($prefix)
 
