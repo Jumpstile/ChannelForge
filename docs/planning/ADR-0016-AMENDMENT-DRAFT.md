@@ -21,6 +21,7 @@ ADR-0016 serves the web UI and API from the engine. The server today binds loopb
    A forgotten password is reset only on the server machine. The reset removes the hash and does not touch lineups, accepted state or outputs.
 
    Sign-in failures are rate limited with growing delay and no permanent lock-out. The failure message is uniform.
+
 4. The accepted-generation authority, redaction rules and mutation boundaries from ADR-0016 do not change.
 5. The set-top-box layer is optional and never a dependency of the guide builder.
 6. The portable Windows bundle stays loopback-only with no sign-in.
