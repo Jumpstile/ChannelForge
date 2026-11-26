@@ -99,3 +99,27 @@ function Get-ChannelForgeSignInUser {
     if ($store.Status -ne 'Ok') { return $null }
     return @($store.Users | Where-Object { $_.Role -ceq 'admin' -and -not $_.Disabled })[0]
 }
+
+function Find-ChannelForgeSignInUser {
+    <#
+    .SYNOPSIS
+        The enabled user for a sign-in name (case-insensitive), or $null. With no name, the one enabled user when there is exactly one.
+    #>
+    param([Parameter(Mandatory)][string]$ConfigRoot, [AllowNull()][AllowEmptyString()][string]$Name)
+    $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
+    if ($store.Status -ne 'Ok') { return $null }
+    $enabled = @($store.Users | Where-Object { -not $_.Disabled })
+    if ([string]::IsNullOrWhiteSpace($Name)) { return $(if ($enabled.Count -eq 1) { $enabled[0] } else { $null }) }
+    return @($enabled | Where-Object { $_.Name -ieq $Name.Trim() })[0]
+}
+
+function Get-ChannelForgeDummyPasswordRecord {
+    # A throwaway record nobody can match, so an unknown name still costs one real password check. Built once per iteration count.
+    param([int]$Iterations = 600000)
+    if ($null -eq $script:ChannelForgeDummyRecords) { $script:ChannelForgeDummyRecords = @{} }
+    if (-not $script:ChannelForgeDummyRecords.ContainsKey($Iterations)) {
+        $unused = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+        $script:ChannelForgeDummyRecords[$Iterations] = New-ChannelForgeAdminPasswordRecord -Password $unused -Iterations $Iterations
+    }
+    return $script:ChannelForgeDummyRecords[$Iterations]
+}
