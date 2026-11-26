@@ -43,7 +43,7 @@ function Start-ChannelForgeWebServer {
             try {
                 $requestPath = $context.Request.Url.AbsolutePath
                 $requestPathAndQuery = $context.Request.Url.PathAndQuery
-                $isBodyPost = $context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')
+                $isBodyPost = ($context.Request.HttpMethod.ToUpperInvariant() -eq 'POST' -and $requestPath.ToLowerInvariant() -in @('/api/guided-setup/proposal', '/api/guided-setup/accept', '/api/sources/refresh', '/api/sources/remove')) -or ($context.Request.HttpMethod.ToUpperInvariant() -eq 'PUT' -and $requestPath.ToLowerInvariant() -eq '/api/settings')
                 $gateResponse = $null
                 if ($server.RequireSignIn) {
                     $request = $context.Request
@@ -66,7 +66,8 @@ function Start-ChannelForgeWebServer {
                             -StaticRoot $server.StaticRoot `
                             -BodyBytes $bodyBytes `
                             -ContentType $context.Request.ContentType `
-                            -ContentLength $context.Request.ContentLength64
+                            -ContentLength $context.Request.ContentLength64 `
+                            -ConfigRoot $server.ConfigRoot
                     }
                     catch [System.InvalidOperationException] {
                         $headers = [ordered]@{ 'Cache-Control' = 'no-store'; 'X-Content-Type-Options' = 'nosniff' }
@@ -78,7 +79,7 @@ function Start-ChannelForgeWebServer {
                     }
                 }
                 else {
-                    $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPathAndQuery -RepositoryRoot $server.RepositoryRoot -StaticRoot $server.StaticRoot
+                    $response = Get-ChannelForgeWebResponse -Method $context.Request.HttpMethod -Path $requestPathAndQuery -RepositoryRoot $server.RepositoryRoot -StaticRoot $server.StaticRoot -ConfigRoot $server.ConfigRoot
                 }
                 Write-ChannelForgeWebResponse -Context $context -Response $response
             }
