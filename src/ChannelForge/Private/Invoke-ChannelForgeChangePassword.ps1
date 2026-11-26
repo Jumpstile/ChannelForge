@@ -28,8 +28,8 @@ function Invoke-ChannelForgeChangePassword {
     }
     catch { $current = $null }
 
-    $record = (Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Record
-    if (-not (Test-ChannelForgeAdminPassword -Password $current -Record $record)) {
+    $user = Get-ChannelForgeSignInUser -ConfigRoot $ConfigRoot
+    if (-not (Test-ChannelForgeAdminPassword -Password $current -Record $user.Password)) {
         if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
     }
@@ -38,7 +38,7 @@ function Invoke-ChannelForgeChangePassword {
     if (-not $rule.Ok) {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 400 -Body @{ Error = 'password-rule'; Message = $rule.Reason }
     }
-    $saved = Write-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot -Record (New-ChannelForgeAdminPasswordRecord -Password $new)
+    $saved = Set-ChannelForgeUserPassword -ConfigRoot $ConfigRoot -UserId $user.Id -PasswordRecord (New-ChannelForgeAdminPasswordRecord -Password $new)
     if (-not $saved.Success) {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 500 -Body @{ Error = 'password-not-saved'; Message = 'The password could not be saved. Check that ChannelForge can write to its settings folder. Your old password still works.' }
     }

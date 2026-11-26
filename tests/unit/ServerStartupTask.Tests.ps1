@@ -11,14 +11,14 @@ BeforeAll {
     )
     $script:Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $private = Join-Path $script:Root 'src\ChannelForge\Private'
-    foreach ($name in 'Test-ChannelForgeElevated', 'Read-ChannelForgeAdminPasswordFile', 'Get-ChannelForgeStartGuard', 'Initialize-ChannelForgeServerTask') {
+    foreach ($name in 'ConvertTo-ChannelForgeCanonicalJson', 'Invoke-ChannelForgeSourceEnrollment', 'Test-ChannelForgeElevated', 'Read-ChannelForgeAdminPasswordFile', 'Write-ChannelForgeAdminPasswordFile', 'Remove-ChannelForgeAdminPasswordFile', 'Read-ChannelForgeUserStore', 'Write-ChannelForgeUserStore', 'Get-ChannelForgeStartGuard', 'Initialize-ChannelForgeServerTask') {
         . (Join-Path $private ($name + '.ps1'))
     }
     function New-DataRoot {
         param([switch]$WithPassword)
         $d = Join-Path $TestDrive ('data-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $d | Out-Null
-        if ($WithPassword) { [IO.File]::WriteAllText((Join-Path $d 'admin-password.json'), '{"Schema":1,"Salt":"c2FsdA==","Hash":"aGFzaA=="}') }
+        if ($WithPassword) { [IO.File]::WriteAllText((Join-Path $d 'users.json'), ('{"Schema":1,"Users":[{"Id":"' + ('a' * 32) + '","Name":"admin","Role":"admin","Password":{"Schema":1,"Algorithm":"PBKDF2-SHA256","Iterations":1000,"Salt":"' + [Convert]::ToBase64String([byte[]]::new(16)) + '","Hash":"' + [Convert]::ToBase64String([byte[]]::new(32)) + '"},"MustChange":false,"Disabled":false,"CreatedUtc":"2026-01-01T00:00:00Z"}]}')) }
         $d
     }
 }
@@ -127,7 +127,7 @@ Describe 'Server start-up task install' {
     It 'writes only an install record next to the password file, with no secret in it' {
         $d = New-DataRoot -WithPassword
         Install-ChannelForgeServerTask -Root 'C:\CF' -BindAddress 0.0.0.0 -AllowedHost 10.0.0.5 -DataRoot $d 3>$null | Out-Null
-        (Get-ChildItem -LiteralPath $d -File).Name | Sort-Object | Should -Be @('admin-password.json', 'server-install.json')
+        (Get-ChildItem -LiteralPath $d -File).Name | Sort-Object | Should -Be @('server-install.json', 'users.json')
         $text = Get-Content -LiteralPath (Join-Path $d 'server-install.json') -Raw
         $text | Should -Not -Match 'Hash|Salt|setup code|password'
         $script:Xml | Should -Not -Match 'Hash|Salt|setup code'
@@ -151,7 +151,7 @@ Describe 'Server start-up task uninstall' {
         Should -Invoke Unregister-ChannelForgeServerTask -Times 1
         Should -Invoke Invoke-ChannelForgeNetsh -Times 1 -ParameterFilter { $Argument -contains 'delete' -and $Argument -contains 'url=http://+:47850/' }
         $script:Removed | Should -Be 'ChannelForge Server (TCP 47850)'
-        Test-Path -LiteralPath (Join-Path $script:D 'admin-password.json') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:D 'users.json') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $script:D 'server-install.json') | Should -BeFalse
     }
     It 'removes nothing it did not add when the record says loopback only' {
@@ -170,7 +170,7 @@ Describe 'Server start-up task uninstall' {
     It 'will not erase a folder that has no install record' {
         Remove-Item -LiteralPath (Join-Path $script:D 'server-install.json')
         { Uninstall-ChannelForgeServerTask -DataRoot $script:D -RemoveData -Force } | Should -Throw '*no ChannelForge install record*'
-        Test-Path -LiteralPath (Join-Path $script:D 'admin-password.json') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:D 'users.json') | Should -BeTrue
     }
     It 'refuses without an administrator window' {
         Mock Test-ChannelForgeElevated { $false }

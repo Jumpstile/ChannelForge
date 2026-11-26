@@ -51,7 +51,7 @@ BeforeAll {
     $script:SetupLog = Join-Path $script:LogDir 'setup.log'
     $script:SetupServer = Start-TestServer -Port $script:SetupPort -Root $script:Root -Config $script:Config -LogPath $script:SetupLog
     $script:Code = Get-TestSetupCode -LogPath $script:SetupLog
-    $script:PasswordFile = Join-Path $script:Config 'admin-password.json'
+    $script:PasswordFile = Join-Path $script:Config 'users.json'
     # Mode off: a plain server with no sign-in.
     $offLauncher = Join-Path $script:Root 'off.ps1'
     function Wait-TestPort {
@@ -146,7 +146,7 @@ Describe 'Setup state' {
         $everything | Should -Not -Match ([regex]::Escape($script:GoodPassword))
         $everything | Should -Not -Match ([regex]::Escape(($cookie -split '=')[1]))
         $record = Get-Content -Raw -LiteralPath $script:PasswordFile | ConvertFrom-Json
-        $everything | Should -Not -Match ([regex]::Escape($record.Hash))
+        $everything | Should -Not -Match ([regex]::Escape($record.Users[0].Password.Hash))
         # The code is printed once on the console only; no other output holds it.
         ([regex]::Matches((Get-Content -Raw -LiteralPath $script:SetupLog), [regex]::Escape($script:Code))).Count | Should -Be 1
     }
@@ -196,6 +196,6 @@ Describe 'Setup code rules' {
         $result.Status | Should -Be 500
         $result.Message | Should -Match 'could not be saved'
         $result.Used | Should -BeFalse
-        Test-Path -LiteralPath (Join-Path $TestDrive 'blocker\admin-password.json') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $TestDrive 'blocker\users.json') | Should -BeFalse
     }
 }

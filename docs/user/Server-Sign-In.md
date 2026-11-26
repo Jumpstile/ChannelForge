@@ -63,7 +63,13 @@ You need access to the server machine. There is no way to do this from another d
 4. Restart the server. It prints a new setup code.
 5. Do the first-start steps again.
 
-The reset removes only the password file. Your lineups, accepted state and outputs are not touched.
+The reset removes only the sign-in files (`users.json` and the old `admin-password.json`). Your lineups, accepted state and outputs are not touched. A leftover `admin-password.json.migrated` file is not touched; see the next section.
+
+## Where the password is kept
+
+The program keeps the sign-in data in one file, `users.json`, in your config folder. It holds one user, named `admin`, and a hash of the password. It never holds the password itself. Do not edit it by hand. If the file is damaged, the server refuses to start and does not change the file.
+
+If you used an older version, the program upgrades by itself the first time the server starts or someone signs in. It copies your password to `users.json`, so your current password keeps working and you do nothing. Then it renames the old file to `admin-password.json.migrated`. Keep that file as a safety copy, or delete it once you are happy. If both files exist, `users.json` is used and the old file is ignored.
 
 ## Wrong tries and the slow-down
 
@@ -71,7 +77,7 @@ After 5 wrong passwords in a row, the server makes you wait before the next try.
 
 ## Backups
 
-A backup of the config folder contains the password hash. The hash is not the password, but protect the backup like the server.
+A backup of the config folder contains the password hash in `users.json` (and in `admin-password.json.migrated` after an upgrade). The hash is not the password, but protect the backup like the server.
 
 ## The portable Windows bundle
 

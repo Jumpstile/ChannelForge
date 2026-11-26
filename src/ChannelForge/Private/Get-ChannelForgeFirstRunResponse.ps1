@@ -99,14 +99,15 @@ function Invoke-ChannelForgeFirstRunSubmit {
     if (-not $rule.Ok) {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 400 -Body @{ Error = 'password-rule'; Message = $rule.Reason }
     }
-    $saved = Write-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot -Record (New-ChannelForgeAdminPasswordRecord -Password $password)
+    $user = New-ChannelForgeUserRecord -Name 'admin' -Role 'admin' -PasswordRecord (New-ChannelForgeAdminPasswordRecord -Password $password)
+    $saved = Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($user)
     if (-not $saved.Success) {
         # The file did not exist a moment ago, so a file left by a failed permission step is ours to remove.
-        if ($saved.Category -eq 'PermissionFailed') { Remove-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot | Out-Null }
+        if ($saved.Category -eq 'PermissionFailed') { Remove-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot -FileName 'users.json' | Out-Null }
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 500 -Body @{ Error = 'password-not-saved'; Message = 'The password could not be saved. Check that ChannelForge can write to its settings folder. The setup code was not used, so you can try again.' }
     }
     $Setup.Used = $true
-    $token = New-ChannelForgeWebSession -Store $Store -Now $Now
+    $token = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($CookieFormat -f $token) }
 }
 
