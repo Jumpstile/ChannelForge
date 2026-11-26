@@ -54,11 +54,11 @@ function Set-ChannelForgeUserPassword {
     #>
     param(
         [Parameter(Mandatory)][string]$ConfigRoot,
-        [Parameter(Mandatory)][string]$UserId,
+        [Parameter(Mandatory)][string]$TargetId,
         [Parameter(Mandatory)]$PasswordRecord
     )
     $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
-    $target = @($store.Users | Where-Object { $_.Id -ceq $UserId })[0]
+    $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
     if ($store.Status -ne 'Ok' -or $null -eq $target) { return [pscustomobject]@{ Success = $false; Category = 'WriteFailed' } }
     $target.Password = $PasswordRecord
     return Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users)
