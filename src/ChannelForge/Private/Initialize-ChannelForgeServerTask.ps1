@@ -38,7 +38,7 @@ function Assert-ChannelForgeServerProgramFolder {
     $everyone = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')
     foreach ($e in @($Entry | Where-Object { $_.Type -eq 'Allow' -and $_.Sid -in $everyone })) {
         if (([int]$e.Rights -band $writeBits) -ne 0) {
-            throw 'Ordinary users can change the files in the ChannelForge folder. The start-up account would run whatever they put there. Move the ChannelForge folder to C:\Program Files\ChannelForge (or lock down its permissions) and run this again.'
+            throw 'Ordinary users can change the files in the ChannelForge folder. The start-up account would run whatever they put there. Move the ChannelForge folder into the Program Files folder (or lock down its permissions) and run this again.'
         }
     }
 }
@@ -165,7 +165,7 @@ function Install-ChannelForgeServerTask {
     )
     if (-not (Test-ChannelForgeElevated)) { throw 'This needs an administrator window. Open PowerShell as administrator and run it again.' }
     if ($BindAddress -notmatch '^[A-Za-z0-9.:\[\]-]+$' -or ($AllowedHost -and $AllowedHost -notmatch '^[A-Za-z0-9.:\[\]-]+$')) { throw 'The address or allowed host has characters that are not allowed.' }
-    if ($Root -match '^[A-Za-z]:\\Users\\') { throw 'ChannelForge is in a user folder, which the start-up account cannot read. Move the ChannelForge folder to a place like C:\ChannelForge and run this again.' }
+    if ($Root -match '^[A-Za-z]:\\Users\\') { throw 'ChannelForge is in a user folder, which the start-up account cannot read. Move the ChannelForge folder into the Program Files folder and run this again.' }
     Assert-ChannelForgeServerProgramFolder -Entry @(Get-ChannelForgeServerDataAccess -Path $Root)
     $runtime = Get-ChannelForgeServerRuntimePath
     if (-not $runtime) { throw 'PowerShell 7 (pwsh) was not found. Install PowerShell 7 and run this again.' }
