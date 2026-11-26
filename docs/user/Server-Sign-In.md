@@ -18,7 +18,7 @@ A server can be reached by other devices. Sign-in keeps people on your network f
 
 1. Open PowerShell in the ChannelForge folder.
 2. Run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot <folder>`. Pick a folder to keep your settings in. The program makes it if it is missing. Sign-in is always on with this script.
-3. To let other devices reach the server, add `-BindAddress 0.0.0.0` and `-AllowedHost <address>`. Use the name or address you will type in the browser, for example `-AllowedHost 192.168.1.20`. The server refuses any other name. On Windows, listening on the network needs an administrator window. Add `-Port <number>` to change the port. The default port is 8080.
+3. To let other devices reach the server, add `-BindAddress 0.0.0.0` and `-AllowedHost <address>`. Use the name or address you will type in the browser, for example `-AllowedHost 192.168.1.20`. The server refuses any other name. On Windows, listening on the network needs an administrator window. Add `-Port <number>` to change the port. The default port is 47850.
 4. Look at the console. It prints a one-time setup code and the first-run page address.
 5. Open the first-run page.
 6. Type the setup code. It works once. It stops working after 15 minutes.

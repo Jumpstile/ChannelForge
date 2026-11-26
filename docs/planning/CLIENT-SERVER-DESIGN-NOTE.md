@@ -25,7 +25,7 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 ## Docker contract
 
 - Image: one image with the pinned PowerShell runtime, the module and `gui\dist`. No secrets in the image.
-- Port: one TCP port, default 8080 inside the container. The host maps it.
+- Port: one TCP port, default 47850 inside the container. The host maps it.
 - Data volume: one mount at `/data`. It holds config, source cache, immutable generations, accepted pointers, reports, logs and outputs, using the same boundaries as ADR-0009. Nothing durable lives outside `/data`.
 - First start: empty `/data` creates the folders and starts in setup state. No lineup is accepted automatically.
 - First start (sign-in): with no admin password, the container starts in setup state, serves only the first-run page and health, and prints a one-time setup code to the container log.
@@ -38,7 +38,7 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 ## Windows server install contract
 
 - Run as a Windows service, or as a scheduled task at startup. Owner decision needed: start method. Options: Windows service only; scheduled task only; service with scheduled task as fallback. Recommendation: service, with a scheduled task fallback when the user cannot install a service.
-- Port: one TCP port, default 8080, configurable (`-Port` on `scripts\Start-ChannelForgeServer.ps1`). The default bind is loopback. Network access is `-BindAddress`, allowed only with sign-in and a config folder. Firewall rule is opt-in and only added when the user turns on network access.
+- Port: one TCP port, default 47850, configurable (`-Port` on `scripts\Start-ChannelForgeServer.ps1`). The default bind is loopback. Network access is `-BindAddress`, allowed only with sign-in and a config folder. Firewall rule is opt-in and only added when the user turns on network access.
 - Data folder: `%ProgramData%\ChannelForge` for the server install, same layout as the Docker `/data`. The portable bundle keeps `%LOCALAPPDATA%`.
 - Service account: least privilege, read/write only to the data folder.
 - First start, storage and reset: with no admin password, the server starts in setup state, serves only the first-run page and health, and prints a one-time setup code on the console. The hash lives in `%ProgramData%\ChannelForge` config, readable only by the service account and administrators. No password, setup code or hash is in the install files or an environment variable. A forgotten password is reset with the administrator-only reset command, then the server is restarted for a new code.

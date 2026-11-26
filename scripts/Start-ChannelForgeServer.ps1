@@ -4,7 +4,7 @@ param(
     [string]$ConfigRoot,
 
     [ValidateRange(1024, 65535)]
-    [int]$Port = 8080,
+    [int]$Port = 47850,
 
     [ValidateNotNullOrEmpty()]
     [string]$BindAddress = '127.0.0.1',
