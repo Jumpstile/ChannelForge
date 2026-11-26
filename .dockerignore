@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+gui/node_modules
+gui/dist
+gui/src-tauri/target
+data
+output
+state
+backups
+tests
+docs
+*.log
+*.env
+data/secrets.json
