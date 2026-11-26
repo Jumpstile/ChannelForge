@@ -28,9 +28,12 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 - Port: one TCP port, default 8080 inside the container. The host maps it.
 - Data volume: one mount at `/data`. It holds config, source cache, immutable generations, accepted pointers, reports, logs and outputs, using the same boundaries as ADR-0009. Nothing durable lives outside `/data`.
 - First start: empty `/data` creates the folders and starts in setup state. No lineup is accepted automatically.
+- First start (sign-in): with no admin password, the container starts in setup state, serves only the first-run page and health, and prints a one-time setup code to the container log.
+- No password, setup code or hash is in the image or in an environment variable. The hash lives in `/data` config.
+- Password reset: stop the container, run the reset command against the same volume, start again.
 - Bind: inside the container the server binds all interfaces, so login is required (see below). Without a configured login the container refuses to start in that mode.
 - Upgrade: stop, pull the new image, start with the same volume. The engine migrates state on start (ADR-0009). It keeps a copy of the pre-migration state and refuses to start if migration fails, leaving `/data` untouched.
-- Backup: stop the container or use the engine's quiesce command, copy `/data`. Restore is copy back. Cache may be left out.
+- Backup: stop the container or use the engine's quiesce command, copy `/data`. Restore is copy back. Cache may be left out. The `/data` backup contains the password hash. Protect backups like the volume.
 
 ## Windows server install contract
 
@@ -38,6 +41,7 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 - Port: one TCP port, default 8080, configurable. Firewall rule is opt-in and only added when the user turns on network access.
 - Data folder: `%ProgramData%\ChannelForge` for the server install, same layout as the Docker `/data`. The portable bundle keeps `%LOCALAPPDATA%`.
 - Service account: least privilege, read/write only to the data folder.
+- First start, storage and reset: with no admin password, the server starts in setup state, serves only the first-run page and health, and prints a one-time setup code on the console. The hash lives in `%ProgramData%\ChannelForge` config, readable only by the service account and administrators. No password, setup code or hash is in the install files or an environment variable. A forgotten password is reset with the administrator-only reset command, then the server is restarted for a new code.
 - Upgrade and backup: same rules as Docker.
 
 ## Login design options
@@ -49,7 +53,7 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 
 Recommended minimum: option A first, built so the session carries a user id (always "owner" at first). Option B can then be added without changing the API shape. Viewer-only access is added with B.
 
-Owner decision needed: login model. Options: A, B, A then B. Recommendation: A then B.
+Owner decision recorded (Nov 24, 2026, issue 150): option A, one shared admin password, with the session carrying a user id (always `admin` at first) so B can follow.
 
 Rules for either option:
 
@@ -58,7 +62,7 @@ Rules for either option:
 - Never put a password or secret in the repo, the image, an environment variable that gets logged, or a report.
 - Sessions: random token, HttpOnly, SameSite=Strict cookie, expiry, server-side revoke.
 - Failed logins are rate limited. Logs say "login failed" and a time, nothing more.
-- First start on a network bind: owner password is set in the first-run flow on loopback, or through a one-time setup code printed to the local console. Owner decision needed: options are one-time code, or password in a file the admin creates. Recommendation: one-time code.
+- First start on a network bind: the password is set through a one-time setup code printed to the local console. Owner decision recorded: one-time code, not a password file.
 
 ## What changes for a non-loopback bind
 
