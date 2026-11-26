@@ -55,13 +55,18 @@ function Get-ChannelForgeWebSignInResponse {
             $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
             if ($null -ne $waitResponse) { return $waitResponse }
             $password = $null
+            $name = $null
             try {
                 $bytes = Read-ChannelForgeWebRequestBody -Stream $BodyStream -ContentLength $ContentLength -MaxBytes 4096
-                $password = [string]([Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop).password
+                $body = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop
+                $password = [string]$body.password
+                $name = [string]$body.name
             }
             catch { $password = $null }
-            $user = Get-ChannelForgeSignInUser -ConfigRoot $ConfigRoot
-            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $user.Password)) {
+            $user = Find-ChannelForgeSignInUser -ConfigRoot $ConfigRoot -Name $name
+            # An unknown or disabled name still gets one password check, so timing does not show which names exist.
+            $record = if ($null -ne $user) { $user.Password } else { Get-ChannelForgeDummyPasswordRecord }
+            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record) -or $null -eq $user) {
                 if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
                 return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
             }
