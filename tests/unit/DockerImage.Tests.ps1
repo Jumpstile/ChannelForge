@@ -9,9 +9,12 @@ Describe 'Docker image files' {
     It 'runs as a non-root user' {
         $script:Dockerfile | Should -Match '(?m)^USER channelforge\s*$'
     }
-    It 'pins both base images to an exact version' {
+    It 'pins the base images and installs PowerShell 7.6 from a checked download' {
         $script:Dockerfile | Should -Match '(?m)^FROM node:22\.?[\w.-]*\s+AS gui'
-        $script:Dockerfile | Should -Match '(?m)^FROM mcr\.microsoft\.com/powershell:7\.6\.4-'
+        $script:Dockerfile | Should -Match '(?m)^FROM ubuntu:24\.04\s*$'
+        $script:Dockerfile | Should -Match '(?m)^ARG PWSH_VERSION=7\.6\.\d+\s*$'
+        $script:Dockerfile | Should -Match '(?m)^ARG PWSH_SHA256=[0-9A-Fa-f]{64}\s*$'
+        $script:Dockerfile | Should -Match 'sha256sum -c'
     }
     It 'exposes port 47850 only and keeps data in /data' {
         $script:Dockerfile | Should -Match '(?m)^EXPOSE 47850\s*$'

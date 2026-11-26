@@ -11,7 +11,30 @@ This page is for the person who runs ChannelForge as a server in a Docker contai
 5. Read the one-time setup code: `docker logs channelforge`.
 6. Open `http://192.168.1.20:47850` in a browser, type the setup code, and choose your password.
 
-If the container stops at once and says it cannot write to the data folder, the folder you mounted at `/data` is read-only or belongs to someone else. Mount a folder the container user can write to.
+If the container stops at once and says it cannot write to the data folder, the folder you mounted at `/data` is read-only or belongs to someone else. Mount a folder the container user can write to. The container user has the number 10001, so on a Linux host run `chown 10001:10001` on the folder you mount.
+
+The build downloads PowerShell 7.6 from its official release page and checks the download against its published SHA-256 before using it, so the computer that builds the image needs internet access.
+
+## Run it as a Compose stack (for example OpenMediaVault)
+
+If you manage your containers with Docker Compose, use a file like this. Replace the folder on the left of `:/data` with a folder owned by user 10001, and list the names you will type in the browser.
+
+```yaml
+services:
+  channelforge:
+    image: channelforge:latest
+    container_name: channelforge
+    restart: unless-stopped
+    ports:
+      - "47850:47850"
+    volumes:
+      - /path/to/channelforge/data:/data
+    environment:
+      - TZ=America/New_York
+      - CHANNELFORGE_ALLOWED_HOST=192.168.1.20,myserver
+```
+
+Build the `channelforge:latest` image first (step 2 above), then start the stack. The setup code is in the container log.
 
 ## Plain HTTP
 
