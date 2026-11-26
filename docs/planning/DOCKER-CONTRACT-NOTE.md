@@ -1,10 +1,10 @@
 # Docker contract note (draft)
 
-This is a proposed deployment contract, not implemented behavior. Verified inputs: `docs/planning/CLIENT-SERVER-DESIGN-NOTE.md` specifies one container, TCP port 47850, `/data`, and server-mode setup; the owner decisions in `docs/planning/SERVER-AUTH-DESIGN-NOTE.md` sections 5-8 select shared-password sign-in and related rules. No Docker implementation or image was verified.
+This is a proposed deployment contract. The image files now exist (`docker/Dockerfile`, `docker/entrypoint.ps1`, `docs/user/Server-Docker.md`); the image is not published and has not been verified by a real container run. Verified inputs: `docs/planning/CLIENT-SERVER-DESIGN-NOTE.md` specifies one container, TCP port 47850, `/data`, and server-mode setup; the owner decisions in `docs/planning/SERVER-AUTH-DESIGN-NOTE.md` sections 5-8 select shared-password sign-in and related rules.
 
 ## Container boundary
 
-- One container exposes one TCP port, default 47850. The host maps this port; container listens on all interfaces and requires sign-in.
+- One container exposes one TCP port, 47850. The host maps this port; container listens on all interfaces and requires sign-in.
 - Mount persistent `/data` for config, cache, generations, accepted pointers, reports, logs, outputs, and the password hash. Back up and protect it; the hash is sensitive. Cache may be omitted from backup.
 - Mount a server-side import folder read-only into the container. The browser sends no local file path; imports resolve within this mounted folder. Exact mount path is NOT DECIDED.
 - No durable state or secret belongs in the image. Keep the same `/data` volume for upgrades.

@@ -24,8 +24,8 @@ One engine, one API, one accepted-generation authority in every mode (ADR-0016).
 
 ## Docker contract
 
-- Image: one image with the pinned PowerShell runtime, the module and `gui\dist`. No secrets in the image.
-- Port: one TCP port, default 47850 inside the container. The host maps it.
+- Image: one image with the pinned PowerShell runtime, the module and `gui\dist`. No secrets in the image. Built: `docker/Dockerfile` and `docker/entrypoint.ps1` exist. Not published, and not yet verified by a real container run.
+- Port: one TCP port, 47850 inside the container. The host maps it.
 - Data volume: one mount at `/data`. It holds config, source cache, immutable generations, accepted pointers, reports, logs and outputs, using the same boundaries as ADR-0009. Nothing durable lives outside `/data`.
 - First start: empty `/data` creates the folders and starts in setup state. No lineup is accepted automatically.
 - First start (sign-in): with no admin password, the container starts in setup state, serves only the first-run page and health, and prints a one-time setup code to the container log.
