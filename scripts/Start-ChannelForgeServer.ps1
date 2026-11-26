@@ -21,6 +21,10 @@ New-Item -ItemType Directory -Force -Path $ConfigRoot | Out-Null
 $modulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'src/ChannelForge/ChannelForge.psd1'
 Import-Module $modulePath -Force
 
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'src/ChannelForge/Private/Get-ChannelForgeNetworkHttpWarning.ps1')
+$httpWarning = Get-ChannelForgeNetworkHttpWarning -BindAddress $BindAddress
+if ($httpWarning) { Write-Warning $httpWarning }
+
 $serverArgs = @{ Port = $Port; BindAddress = $BindAddress; ConfigRoot = $ConfigRoot; RequireSignIn = $true }
 if ($StaticRoot) { $serverArgs.StaticRoot = $StaticRoot }
 if (@($AllowedHost).Count -gt 0) { $serverArgs.AllowedHost = @($AllowedHost) }
