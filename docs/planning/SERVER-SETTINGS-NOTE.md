@@ -1,6 +1,6 @@
 # Design note: server-side appearance setting (149 follow-up)
 
-This is a design note. It adds no code and no tests. Nothing was run. The browser code was read: `gui/src/app/appearance.ts` stores `light`, `dark` or `system` in `localStorage` under the key `channelforge.appearance`, and falls back to `system`.
+This note started as a design. The appearance setting now exists (see Status). The browser code stores `light`, `dark` or `system` in `localStorage` under the key `channelforge.appearance`, and falls back to `system`; that value is now a cache.
 
 ## Problem
 
@@ -42,3 +42,13 @@ Owner decision needed: whether the browser should ever delete the local value. O
 ## Not done here
 
 No code, no route, no file format beyond the fields above.
+
+## Status (149 follow-up)
+
+Built:
+
+- Engine: `settings.json` in the server config folder (`-ConfigRoot`), or `state\config` under the install when none is given. Fields: `schema` (1) and `appearance`. Written with the temp-file-then-replace helper. An unreadable file means defaults, a plain message, and the file is renamed aside (`settings.json.bad-<time>`), never deleted.
+- API: `GET /api/settings` and `PUT /api/settings`. Only `appearance` is accepted; anything else returns `invalid-settings`. The body is limited to 1 KB. With sign-in on, the same host, origin and session checks as other routes apply.
+- Browser: owner choices applied. One shared server-wide setting for now (per-user comes with named users). The browser keeps its value as a cache only and the server value wins. If the server has nothing saved, the browser sends its valid local value once.
+
+Still open: per-user override; including `settings.json` in the backup described in CLIENT-SERVER-DESIGN-NOTE.md.
