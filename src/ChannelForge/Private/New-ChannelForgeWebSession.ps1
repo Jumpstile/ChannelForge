@@ -79,3 +79,15 @@ function Remove-ChannelForgeWebSession {
     if ([string]::IsNullOrEmpty($Token)) { return }
     $Store.Remove((Get-ChannelForgeWebSessionKey -Token $Token))
 }
+
+function Remove-ChannelForgeOtherWebSession {
+    # Ends every session except the one for this token.
+    param(
+        [Parameter(Mandatory)][hashtable]$Store,
+        [AllowNull()][AllowEmptyString()][string]$Token
+    )
+    $keep = if ([string]::IsNullOrEmpty($Token)) { '' } else { Get-ChannelForgeWebSessionKey -Token $Token }
+    foreach ($key in @($Store.Keys)) {
+        if ($key -ne $keep) { $Store.Remove($key) }
+    }
+}
