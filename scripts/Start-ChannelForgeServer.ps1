@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($ConfigRoot)) { throw 'ChannelForge needs a config folder to run as a server. Use -ConfigRoot <folder>.' }
 New-Item -ItemType Directory -Force -Path $ConfigRoot | Out-Null
-$modulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\ChannelForge\ChannelForge.psd1'
+$modulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'src/ChannelForge/ChannelForge.psd1'
 Import-Module $modulePath -Force
 
 $serverArgs = @{ Port = $Port; BindAddress = $BindAddress; ConfigRoot = $ConfigRoot; RequireSignIn = $true }
