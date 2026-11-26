@@ -192,7 +192,8 @@ function Get-ChannelForgeWebResponse {
         [string]$StaticRoot = '',
         [byte[]]$BodyBytes = $null,
         [string]$ContentType = '',
-        [long]$ContentLength = -1
+        [long]$ContentLength = -1,
+        [string]$ConfigRoot = ''
     )
 
     $staticRoot = if ([string]::IsNullOrWhiteSpace($StaticRoot)) { Get-ChannelForgeWebDefaultStaticRoot -RepositoryRoot $RepositoryRoot } else { $StaticRoot }
@@ -269,6 +270,10 @@ function Get-ChannelForgeWebResponse {
             return New-ChannelForgeWebProposalErrorResponse -StatusCode 400 -ErrorCode 'request-length-mismatch' -Message 'The proposal request length does not match its body.' -Headers $commonHeaders
         }
         return Get-ChannelForgeGuidedSetupProposalResponse -BodyBytes $BodyBytes -RepositoryRoot $RepositoryRoot -Headers $commonHeaders -ContentType $requestContentType
+    }
+
+    if ($requestPath.ToLowerInvariant() -eq '/api/settings') {
+        return Get-ChannelForgeWebSettingsResponse -Method $methodName -Folder (Get-ChannelForgeSettingsFolder -RepositoryRoot $RepositoryRoot -ConfigRoot $ConfigRoot) -Headers $commonHeaders -BodyBytes $BodyBytes -ContentType $requestContentType -ContentLength $ContentLength
     }
 
     if ($methodName -notin @('GET', 'HEAD')) {
