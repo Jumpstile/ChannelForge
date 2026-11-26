@@ -80,6 +80,20 @@ Describe 'Sign-in mode on' {
         $response.Content | Should -Not -Match 'LineupStatus'
     }
 
+    It 'never shows status data on the page route when no built page exists, and serves a built page without a session' {
+        $unbuilt = Invoke-TestRequest -Port $script:OnPort -Path '/'
+        $unbuilt.StatusCode | Should -Be 401
+        $unbuilt.Content | Should -Not -Match 'Guidance|NextAction|LineupStatus'
+        $dist = Join-Path $script:Root 'gui\dist'
+        New-Item -ItemType Directory -Force -Path $dist | Out-Null
+        Set-Content -LiteralPath (Join-Path $dist 'index.html') -Value '<!doctype html><title>page-shell-marker</title>'
+        try {
+            (Invoke-TestRequest -Port $script:OnPort -Path '/').Content | Should -Match 'page-shell-marker'
+            (Invoke-TestRequest -Port $script:OnPort -Path '/api/status').StatusCode | Should -Be 401
+        }
+        finally { Remove-Item -LiteralPath $dist -Recurse -Force }
+    }
+
     It 'serves the health route without sign-in and without data' {
         $response = Invoke-TestRequest -Port $script:OnPort -Path '/health'
         $response.StatusCode | Should -Be 200

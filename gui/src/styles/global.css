@@ -284,3 +284,9 @@ a { color: var(--cf-color-brand); }
   .lineup-print ul { margin: 0; padding: 0; list-style: none; }
   .lineup-print li { padding: 2pt 0; border-bottom: 1px solid #cccccc; break-inside: avoid; }
 }
+.auth-frame { min-height: 100vh; }
+.auth-card { display: grid; gap: var(--cf-space-4); max-width: 28rem; padding: var(--cf-space-4); border: 1px solid var(--cf-color-border); border-radius: var(--cf-radius-md); background: var(--cf-color-surface); }
+.auth-field { display: grid; gap: var(--cf-space-2); }
+.auth-field input { padding: var(--cf-space-2) var(--cf-space-3); border: 1px solid var(--cf-color-border-strong); border-radius: var(--cf-radius-sm); background: var(--cf-color-surface); color: var(--cf-color-ink); }
+.auth-rules { margin: 0; padding-left: var(--cf-space-5, 1.25rem); }
+.auth-warning { margin: 0; padding: var(--cf-space-3) var(--cf-space-4); border: 2px solid var(--cf-color-error); border-radius: var(--cf-radius-md); background: var(--cf-color-error-surface); color: var(--cf-color-ink); }

@@ -8,7 +8,6 @@ A server can be reached by other devices. Sign-in keeps people on your network f
 
 ## Not built yet
 
-- Sign-in and change-password screens. The server has the sign-in and change-password requests, but no page sends them yet. Only the first-run page exists.
 - Named users and roles. There is one shared admin password.
 - Email recovery. There is no "forgot password" email.
 - Sessions that survive a restart. When the server restarts, everyone signs in again.
@@ -42,9 +41,14 @@ Plain HTTP can be read by anyone on the network. A password typed over plain HTT
 
 ## Changing the password
 
-There is no screen for this yet. The server can do it, but no page sends the request. For now, the only way to set a new password is the reset in the next section.
+1. Sign in. Press "Change password" at the top of the page.
+2. Type your current password.
+3. Type your new password twice. It must have at least 12 characters, and easy common passwords are refused.
+4. Press "Change password".
 
-When a screen is added, it will ask for your current password and a new one, and it will sign out every other browser.
+Every other browser that was signed in is signed out. The browser you used stays signed in. If you type the current password wrong too many times, the program asks you to wait before the next try.
+
+You sign out with the "Sign out" button at the top of the page. If you open ChannelForge over plain HTTP from another computer, the page shows a warning.
 
 ## Forgot the password
 

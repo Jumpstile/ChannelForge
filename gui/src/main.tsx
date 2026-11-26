@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
+import { AuthGate } from './components/AuthGate'
 import { applyAppearance, readAppearance, watchSystemAppearance } from './app/appearance'
 import { applyTextSize, readTextSize } from './app/textSize'
 import './styles/global.css'
@@ -17,6 +17,6 @@ applyTextSize(readTextSize())
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <AuthGate />
   </StrictMode>,
 )

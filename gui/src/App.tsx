@@ -25,6 +25,8 @@ import { SavedLineupPage } from './pages/SavedLineupPage'
 import { StateGalleryPage } from './pages/StateGalleryPage'
 import { WorkbenchPage } from './pages/WorkbenchPage'
 import { TimelineGridPage } from './pages/TimelineGridPage'
+import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import type { AccountControls } from './app/AppShell'
 
 type AppProps = {
   picker?: SetupPicker
@@ -32,9 +34,11 @@ type AppProps = {
   planner?: SavedLineupPlanner
   acceptor?: SavedLineupAcceptor
   pickerAvailable?: boolean
+  // Present only when the server requires sign-in and this browser is signed in.
+  account?: AccountControls
 }
 
-function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable }: AppProps = {}) {
+function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable, account }: AppProps = {}) {
   const [activePage, setCurrentPage] = useState<NavigationId>('workbench')
   const [history, setHistory] = useState<NavigationId[]>([])
   const [matchState, setMatchState] = useState<PlaylistGuideMatchState>(createInitialPlaylistGuideMatchState)
@@ -93,8 +97,10 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   }
 
   return (
-    <AppShell activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate} onHome={handleHome} onBack={handleBack}>
-      {activePage === 'gallery' ? (
+    <AppShell account={account} activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate} onHome={handleHome} onBack={handleBack}>
+      {activePage === 'account' && account ? (
+        <ChangePasswordPage changePassword={account.changePassword} />
+      ) : activePage === 'gallery' ? (
         <StateGalleryPage />
       ) : activePage === 'live-now' ? (
         <LiveNowPage />

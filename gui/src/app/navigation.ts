@@ -1,4 +1,4 @@
-export type NavigationId = 'workbench' | 'live-now' | 'wrestling' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'channels' | 'timeline' | 'schedule' | 'learn' | 'gallery'
+export type NavigationId = 'workbench' | 'live-now' | 'wrestling' | 'setup' | 'sources' | 'validation' | 'build' | 'accepted' | 'channels' | 'timeline' | 'schedule' | 'learn' | 'gallery' | 'account'
 
 export type NavigationItem = {
   id: NavigationId
