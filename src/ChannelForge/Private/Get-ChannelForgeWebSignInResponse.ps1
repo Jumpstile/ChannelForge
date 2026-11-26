@@ -40,6 +40,7 @@ function Get-ChannelForgeWebSignInResponse {
         [switch]$Secure,
         [hashtable]$Limiter = $null,
         [string]$SourceAddress = '',
+        [string]$StaticIndexPath = '',
         [datetime]$Now = [datetime]::UtcNow
     )
 
@@ -88,6 +89,10 @@ function Get-ChannelForgeWebSignInResponse {
     if ($requestPath -in @('/first-run', '/first-run/submit') -and (Test-ChannelForgeSetupState -ConfigRoot $ConfigRoot)) {
         return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Limiter $Limiter -SourceAddress $SourceAddress -Secure:$Secure -Now $Now
     }
+    # The page that shows the sign-in form must load without a session. Only a built page shell and its program files pass.
+    # With no built page the server would fall back to a status placeholder, so that stays behind sign-in.
+    $hasBuiltPage = -not [string]::IsNullOrWhiteSpace($StaticIndexPath) -and (Test-Path -LiteralPath $StaticIndexPath -PathType Leaf)
+    if ($hasBuiltPage -and $methodName -eq 'GET' -and ($requestPath -in @('/', '/index.html') -or $requestPath.StartsWith('/assets/'))) { return $null }
     if ($requestPath -eq '/health') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Status = 'ok' } }
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-required'; Message = 'Sign in is required.' }
 }
