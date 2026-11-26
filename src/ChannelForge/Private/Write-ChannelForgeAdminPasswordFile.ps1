@@ -1,7 +1,7 @@
 function Write-ChannelForgeAdminPasswordFile {
     <#
     .SYNOPSIS
-        Saves the admin password record as admin-password.json in the config folder.
+        Saves a protected sign-in file (default admin-password.json; users.json for the user store) in the config folder.
     .DESCRIPTION
         Reuses the engine's temp-file-then-replace writer. Returns Success and Category
         ('None', 'WriteFailed' or 'PermissionFailed'). The record is never printed.
@@ -9,10 +9,11 @@ function Write-ChannelForgeAdminPasswordFile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ConfigRoot,
-        [Parameter(Mandatory)]$Record
+        [Parameter(Mandatory)]$Record,
+        [ValidateSet('admin-password.json', 'users.json')][string]$FileName = 'admin-password.json'
     )
 
-    $path = Join-Path $ConfigRoot 'admin-password.json'
+    $path = Join-Path $ConfigRoot $FileName
     try {
         $bytes = [System.Text.UTF8Encoding]::new($false, $true).GetBytes((ConvertTo-ChannelForgeCanonicalJson -InputObject $Record))
         Write-ChannelForgeSourceEnrollmentAtomicBytes -Path $path -Bytes $bytes -AllowedRoot $ConfigRoot

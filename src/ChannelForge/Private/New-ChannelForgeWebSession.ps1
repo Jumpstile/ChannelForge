@@ -37,15 +37,16 @@ function Remove-ChannelForgeExpiredWebSession {
 function New-ChannelForgeWebSession {
     <#
     .SYNOPSIS
-        Starts an in-memory session for the admin user and returns its random token.
+        Starts an in-memory session for a user (the admin when no id is given) and returns its random token.
     #>
     param(
         [Parameter(Mandatory)][hashtable]$Store,
+        [string]$UserId = 'admin',
         [datetime]$Now = [datetime]::UtcNow
     )
     Remove-ChannelForgeExpiredWebSession -Store $Store -Now $Now
     $token = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-    $Store[(Get-ChannelForgeWebSessionKey -Token $token)] = [pscustomobject]@{ UserId = 'admin'; CreatedUtc = $Now; LastSeenUtc = $Now }
+    $Store[(Get-ChannelForgeWebSessionKey -Token $token)] = [pscustomobject]@{ UserId = $UserId; CreatedUtc = $Now; LastSeenUtc = $Now }
     return $token
 }
 

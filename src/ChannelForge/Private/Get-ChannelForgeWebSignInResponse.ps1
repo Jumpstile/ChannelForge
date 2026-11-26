@@ -60,13 +60,13 @@ function Get-ChannelForgeWebSignInResponse {
                 $password = [string]([Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop).password
             }
             catch { $password = $null }
-            $record = (Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Record
-            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record)) {
+            $user = Get-ChannelForgeSignInUser -ConfigRoot $ConfigRoot
+            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $user.Password)) {
                 if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
                 return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
             }
             if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
-            $newToken = New-ChannelForgeWebSession -Store $Store -Now $Now
+            $newToken = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
             return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
         }
         '/api/auth/sign-out' {
