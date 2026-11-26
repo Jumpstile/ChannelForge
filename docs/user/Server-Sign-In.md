@@ -17,12 +17,16 @@ A server can be reached by other devices. Sign-in keeps people on your network f
 
 ## First start and the one-time setup code
 
-1. Start the server with sign-in turned on (`Start-ChannelForgeWebServer -RequireSignIn -ConfigRoot <folder>`).
-2. Look at the server console. It prints a one-time setup code.
-3. Open the first-run page that the console names.
-4. Type the setup code. It works once. It stops working after 15 minutes.
-5. Choose your password and type it twice.
-6. If the code stopped working, restart the server. It prints a new one.
+1. Open PowerShell in the ChannelForge folder.
+2. Run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot <folder>`. Pick a folder to keep your settings in. The program makes it if it is missing. Sign-in is always on with this script.
+3. To let other devices reach the server, add `-BindAddress 0.0.0.0` and `-AllowedHost <address>`. Use the name or address you will type in the browser, for example `-AllowedHost 192.168.1.20`. The server refuses any other name. On Windows, listening on the network needs an administrator window. Add `-Port <number>` to change the port. The default port is 8080.
+4. Look at the console. It prints a one-time setup code and the first-run page address.
+5. Open the first-run page.
+6. Type the setup code. It works once. It stops working after 15 minutes.
+7. Choose your password and type it twice.
+8. If the code stopped working, stop the script and run it again. It prints a new code.
+
+The script stops if you leave out `-ConfigRoot`. The server also refuses a network address unless sign-in is on and a config folder is set.
 
 The setup code only proves that you can reach the server machine. Keep the console private until setup is done.
 
