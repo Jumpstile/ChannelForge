@@ -38,7 +38,7 @@ Sessions exist in memory only. A server restart signs everyone out; session stat
 
 Only an Admin can add, change, disable or delete users, reset a password, or read the audit trail. The Users API is `GET` and `POST /api/users`, `PUT` and `DELETE /api/users/{id}` and `POST /api/users/{id}/reset-password`. For add, delete and reset, the Admin types their own password again in the request. A wrong try counts as a wrong sign-in try. The server refuses to delete, disable or demote the last enabled Admin.
 
-An Admin chooses the starting or temporary password and gives it to the person by hand. The account is marked "must change". The server does not yet force that change: the marker is stored and shown, and the person is asked in the guide to change the password at once. Enforcing it is not built.
+An Admin chooses the starting or temporary password and gives it to the person by hand. The account is marked "must change". The server enforces it: a person with that mark may only choose a new password, read the session state, or sign out. Every other `/api/` request is refused with a plain message and the code `must-change-password`. The page shell and its program files still load, so the Change password form can show. The sign-in and session answers carry `MustChange` so the page can show that step first. Choosing a new password clears the mark; the new password must differ from the temporary one. The server reads the current record on every request, so an Admin reset takes effect on a live session at once. These refusals are not written to the audit log one by one. The browser sign-in page sends no user name yet, so this path works in the browser only while the server has one enabled user.
 
 ### Wrong tries
 

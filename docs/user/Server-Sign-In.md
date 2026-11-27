@@ -19,7 +19,6 @@ Every person has exactly one role. There are no other roles. The server checks t
 ## Not built yet
 
 - The Users screen and the Audit screen. Today an Admin adds and changes people through the Users API (see "Adding a person" below). The program does not show them in the page yet.
-- Making a person change a temporary password. The program marks the account, but it does not force the change yet. Ask the person to press "Change password" right away.
 - Choosing your user name on the first-run page. The first user is always named `admin`. An Admin can rename it later through the Users API.
 - Email recovery. There is no "forgot password" email.
 - Sessions that survive a restart. When the server restarts, everyone signs in again.
@@ -74,7 +73,7 @@ Invoke-RestMethod "$base/api/users" -Method Post @options -WebSession $session -
 
 The role is `admin`, `editor` or `viewer`. The name has 3 to 32 letters, numbers, dots, dashes or underscores. The first password follows the same rules as any password: at least 12 characters, not a very common one. The answer shows the new person, with an `Id`. It never shows a password.
 
-Give the first password to the person yourself, by voice or on paper. Ask them to sign in and press "Change password" at once.
+Give the first password to the person yourself, by voice or on paper. When they sign in, the page asks them to choose a new password first. Until they do, the server refuses everything except choosing a new password and signing out; the page itself still loads. Today the browser sign-in page has no name box, so it can sign in only when the server has one enabled user.
 
 Other things an Admin can do with the same `$options` and `$session`. Each person is found by their `Id`.
 
@@ -103,7 +102,7 @@ There are two ways. Pick the first if another Admin can sign in.
 
 ### Way 1: another Admin resets it
 
-The other Admin uses the reset line in "Adding a person". It sets a temporary password. The old password stops working at once. The person signs in with the temporary password and presses "Change password".
+The other Admin uses the reset line in "Adding a person". It sets a temporary password. The old password stops working at once, and a person who is signed in must choose a new password before anything else works. The person signs in with the temporary password and the page asks for a new password.
 
 ### Way 2: on the server machine
 

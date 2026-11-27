@@ -87,7 +87,7 @@ function Get-ChannelForgeWebSignInResponse {
             if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Name $name }
             $newToken = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
             Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Actor $user -RemoteAddress $SourceAddress -Now $Now
-            return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
+            return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true; MustChange = [bool]$user.MustChange } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
         }
         '/api/auth/sign-out' {
             if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
@@ -108,16 +108,17 @@ function Get-ChannelForgeWebSignInResponse {
     }
     $signedIn = $null -ne $user
     if ($requestPath -eq '/api/auth/session' -and $methodName -eq 'GET') {
-        return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $signedIn }
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $signedIn; MustChange = ($signedIn -and [bool]$user.MustChange) }
     }
     if ($signedIn -and $requestPath -eq '/api/auth/change-password') {
         if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
         return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -UserId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }
     if ($signedIn) {
-        $refusal = Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath
+        $refusal = Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath -MustChange:([bool]$user.MustChange)
         if ($null -ne $refusal) {
-            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'role-check' -Result refused -Actor $user -Reason "$($user.Role) may not $methodName $requestPath" -RemoteAddress $SourceAddress -Now $Now
+            # A must-change refusal is not audited per request; that would flood the log.
+            if (-not $user.MustChange) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'role-check' -Result refused -Actor $user -Reason "$($user.Role) may not $methodName $requestPath" -RemoteAddress $SourceAddress -Now $Now }
             return $refusal
         }
         if ($requestPath -eq '/api/audit') { return Invoke-ChannelForgeAuditApi -Path $Path -ConfigRoot $ConfigRoot }
