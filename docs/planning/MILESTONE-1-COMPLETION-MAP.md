@@ -181,7 +181,7 @@ Open issues: #28, #29, #30, #32, #38, #40, #41, #59, #121, #175, #191.
   - Expert regex/date/time overrides with one compile path.
   - Typed input domain (channel name vs stream name) for lifecycle rules.
   - Weekday default and tolerance, explicit time-presence provenance (a parsed 00:00 is not "no clock").
-  - AED JSON import. Blocked: no real export fixture. Do not guess the schema.
+  - AED JSON import. Defaults export: done as a read-only import (`Read-ChannelForgeAedDefaults`), not yet wired into the event-pattern model. Per-group AED settings are not exported or supported yet.
   - Cross-day programme id and event-day timezone policy.
   - Schedule corroboration adapters.
 - **Later milestone or rejected:**
@@ -315,7 +315,7 @@ Open issues: #28, #29, #30, #32, #38, #40, #41, #59, #121, #175, #191.
 - 40-D Source-readiness summary; 40-E XZ input.
 - 41-C Last-known-good logo; 41-E tv-logos source; 41-F programme icon evidence.
 - 59 beyond A, B, C: nothing.
-- 121 AED import (blocked on fixture), cross-day policy, corroboration adapters.
+- 121 AED per-group import (the defaults export is done), cross-day policy, corroboration adapters.
 - 175 step 9 other adapters (official feed/iCal), step 10 enrichment.
 - 191-D logo data beyond 41-A; 191-E wrestling adapter.
 
@@ -334,7 +334,7 @@ Open issues: #28, #29, #30, #32, #38, #40, #41, #59, #121, #175, #191.
    - #40 after 40-A and 40-B. Move the rest to a later milestone.
    - #41 after 41-A, 41-B, 41-D. Move the rest.
    - #59 after 59-A, 59-B, 59-C. It is report-only by owner decision.
-   - #121 after 121-A to 121-C. Move AED import (needs fixture) and the rest.
+   - #121 after 121-A to 121-C. Move per-group AED import and the rest.
    - #175 after 175-1, 175-3 and 29-C. Move step 10.
    - #191 after 191-A, 191-B, 191-C and 41-A. Move wrestling adapters and liveness checks.
 
@@ -347,4 +347,4 @@ Fewest steps if the owner wants even less: skip Wave 4's 29-C and 32-C, and clos
 3. **AEW:** the October comment on #191 names it as a first adapter. Recommendation: owner decision stands, AEW is out. Also decide whether the generic `aew` word in the event-pattern code stays. Recommendation: leave it.
 4. **XMLTV tags (40-C):** if the check shows tags are lost, may the published guide gain them? Recommendation: only if the raw digest projections are untouched; otherwise skip.
 5. **Logo data (41-A):** which hosts are approved after the `-WhatIf` run? Owner action, no recommendation without the licence text.
-6. **AED import (121):** supply a real export fixture, or move to a later milestone. Recommendation: later milestone.
+6. **AED import (121):** the defaults export is now a read-only import. Per-group AED settings need a real export. Recommendation: later milestone.

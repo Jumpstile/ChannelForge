@@ -25,7 +25,7 @@ A supported integration should prefer normal filesystem artifacts that IPTVBoss 
 
 Do not screen-scrape the IPTVBoss GUI and do not depend on undocumented application databases, private storage schemas, or internal AED files merely because they happen to be visible in a container volume.
 
-ChannelForge now has a read-only native event-pattern candidate model for supplied examples and Stage A evidence. A documented IPTVBoss AED import/export format may later be translated into that structured model; until a real documented export fixture is available, do not infer its schema or depend on private storage. AED-derived XMLTV remains a safe interoperability boundary.
+ChannelForge now has a read-only native event-pattern candidate model for supplied examples and Stage A evidence. The documented IPTVBoss defaults export (Settings > AED Defaults > Export Defaults) is supported as a read-only import: `Read-ChannelForgeAedDefaults` checks it against `schemas/aed-defaults.schema.json` and does not feed it into the event-pattern model yet. Per-group AED settings are not exported or supported yet; do not infer their format or depend on private storage. AED-derived XMLTV remains a safe interoperability boundary.
 
 ## Recommended deployment relationship
 
