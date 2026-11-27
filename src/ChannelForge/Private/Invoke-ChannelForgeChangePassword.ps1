@@ -14,7 +14,8 @@ function Invoke-ChannelForgeChangePassword {
         [Parameter(Mandatory)][string]$ConfigRoot,
         [hashtable]$Limiter = $null,
         [string]$SourceAddress = '',
-        [datetime]$Now = [datetime]::UtcNow
+        [datetime]$Now = [datetime]::UtcNow,
+        [Parameter(Mandatory)][string]$UserId
     )
     $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
     if ($null -ne $waitResponse) { return $waitResponse }
@@ -28,7 +29,7 @@ function Invoke-ChannelForgeChangePassword {
     }
     catch { $current = $null }
 
-    $user = Get-ChannelForgeSignInUser -ConfigRoot $ConfigRoot
+    $user = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $UserId
     if (-not (Test-ChannelForgeAdminPassword -Password $current -Record $user.Password)) {
         if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
@@ -42,6 +43,8 @@ function Invoke-ChannelForgeChangePassword {
     if (-not $saved.Success) {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 500 -Body @{ Error = 'password-not-saved'; Message = 'The password could not be saved. Check that ChannelForge can write to its settings folder. Your old password still works.' }
     }
-    Remove-ChannelForgeOtherWebSession -Store $Store -Token $Token
+    $fresh = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $UserId
+    $session = Get-ChannelForgeWebSession -Store $Store -Token $Token -Now $Now
+    if ($null -ne $fresh -and $null -ne $session) { Update-ChannelForgeWebSessionPasswordStamp -Session $session -User $fresh -Now $Now }
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Changed = $true }
 }

@@ -85,7 +85,8 @@ function Get-ChannelForgeWebSignInResponse {
     $user = $null
     if ($null -ne $session) {
         $user = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $session.UserId
-        # A disabled, deleted or unreadable user is signed out on the next request.
+        # A disabled, deleted or unreadable user, or a session older than the last password change, is signed out on the next request.
+        if ($null -ne $user -and (Test-ChannelForgeWebSessionBeforePasswordChange -Session $session -User $user)) { $user = $null }
         if ($null -eq $user) { Remove-ChannelForgeWebSession -Store $Store -Token $token }
     }
     $signedIn = $null -ne $user
@@ -94,7 +95,7 @@ function Get-ChannelForgeWebSignInResponse {
     }
     if ($signedIn -and $requestPath -eq '/api/auth/change-password') {
         if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
-        return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
+        return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -UserId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }
     if ($signedIn) {
         $refusal = Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath
