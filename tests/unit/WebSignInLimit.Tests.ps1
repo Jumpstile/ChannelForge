@@ -76,7 +76,7 @@ Describe 'Repeated wrong passwords' {
         (Send-SignIn -Password $script:Password).StatusCode | Should -Be 200
     }
 
-    It 'starts a wait on the 5th wrong try, refuses even the right password, then recovers' {
+    It 'starts a wait on the 5th wrong try and refuses even the right password' {
         1..5 | ForEach-Object { (Send-SignIn -Password 'wrong-password').StatusCode | Should -Be 401 }
         $refused = Send-SignIn -Password 'wrong-password'
         $refused.StatusCode | Should -Be 429
@@ -86,10 +86,7 @@ Describe 'Repeated wrong passwords' {
         $correct = Send-SignIn -Password $script:Password
         $correct.StatusCode | Should -Be 429
         $correct.Content | Should -Not -Match $script:Password
-        Start-Sleep -Milliseconds 1500
-        (Send-SignIn -Password $script:Password).StatusCode | Should -Be 200
-        # The count was cleared, so a wrong try is an ordinary 401 again.
-        (Send-SignIn -Password 'wrong-password').StatusCode | Should -Be 401
+        # With no name typed, the 5 wrong tries also start the 60 second name wait; recovery is tested in WebSignInNameLimit.
     }
 }
 

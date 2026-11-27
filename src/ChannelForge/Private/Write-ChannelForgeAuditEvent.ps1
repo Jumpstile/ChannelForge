@@ -64,8 +64,7 @@ function Write-ChannelForgeAuditEvent {
         $path = Get-ChannelForgeAuditPath -ConfigRoot $ConfigRoot
         Assert-ChannelForgeSourceEnrollmentDirectory -Path $ConfigRoot -Create | Out-Null
         Assert-ChannelForgeSourceEnrollmentPath -Path $path -AllowedRoot $ConfigRoot -AllowMissingLeaf | Out-Null
-        $stream = [System.IO.FileStream]::new($path, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-        try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+        Add-ChannelForgeAuditBytes -Path $path -Bytes $bytes
         if ($null -eq $script:ChannelForgeAuditAppends) { $script:ChannelForgeAuditAppends = @{} }
         $count = 1 + [int]$script:ChannelForgeAuditAppends[$path]
         $script:ChannelForgeAuditAppends[$path] = $count
@@ -140,4 +139,20 @@ function Invoke-ChannelForgeAuditApi {
         $events.Add($entry)
     }
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Events = $events.ToArray() }
+}
+
+function Add-ChannelForgeAuditBytes {
+    # Appends bytes to the file. A last line cut off by a crash gets its newline first, so the new event is not glued to it.
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][byte[]]$Bytes)
+    $stream = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
+    try {
+        $null = $stream.Seek(0, [System.IO.SeekOrigin]::End)
+        if ($stream.Length -gt 0) {
+            $null = $stream.Seek(-1, [System.IO.SeekOrigin]::End)
+            if ($stream.ReadByte() -ne 10) { $stream.WriteByte(10) }
+        }
+        $stream.Write($Bytes, 0, $Bytes.Length)
+        $stream.Flush($true)
+    }
+    finally { $stream.Dispose() }
 }

@@ -11,12 +11,14 @@ function Get-ChannelForgeSignInLimitSettings {
         GlobalCapSeconds       = 30    # longest wait for everyone; short so the real admin is never shut out for long
         QuietResetSeconds      = 900   # no wrong tries for this long: the counts start over
         MaxTrackedAddresses    = 1000  # the oldest address is forgotten past this
+        NameWaitSeconds        = 60    # a name that reached FailureThreshold wrong tries waits this long, from any address
+        MaxTrackedNames        = 1000  # the oldest name is forgotten past this
     }
 }
 
 function New-ChannelForgeSignInLimiter {
     # Memory only. A restart clears it.
-    return @{ Addresses = @{}; GlobalFailures = 0; GlobalNextUtc = [datetime]::MinValue; GlobalLastUtc = [datetime]::MinValue }
+    return @{ Addresses = @{}; Names = @{}; GlobalFailures = 0; GlobalNextUtc = [datetime]::MinValue; GlobalLastUtc = [datetime]::MinValue }
 }
 
 function Get-ChannelForgeSignInDelaySeconds {
@@ -76,13 +78,57 @@ function Register-ChannelForgeSignInFailure {
     $Limiter.GlobalNextUtc = $Now.AddSeconds((Get-ChannelForgeSignInDelaySeconds -Failures $Limiter.GlobalFailures -Threshold $Settings.GlobalFailureThreshold -Settings $Settings -CapSeconds $Settings.GlobalCapSeconds))
 }
 
-function Clear-ChannelForgeSignInFailure {
-    # A correct password or setup code: forget this address and the global count.
+function Get-ChannelForgeSignInNameKey {
+    # Names are compared the same way as Find-ChannelForgeSignInUser: trimmed, case-insensitive.
+    param([AllowNull()][AllowEmptyString()][string]$Name)
+    return ([string]$Name).Trim().ToLowerInvariant()
+}
+
+function Register-ChannelForgeSignInNameFailure {
+    # One wrong try for this name, known or not. At the threshold the name waits NameWaitSeconds. Memory only.
     param(
         [Parameter(Mandatory)][hashtable]$Limiter,
-        [string]$Address = ''
+        [AllowNull()][AllowEmptyString()][string]$Name,
+        [datetime]$Now = [datetime]::UtcNow,
+        [hashtable]$Settings = (Get-ChannelForgeSignInLimitSettings)
+    )
+    $key = Get-ChannelForgeSignInNameKey -Name $Name
+    $entry = $Limiter.Names[$key]
+    if ($null -ne $entry -and ($Now - $entry.LastUtc).TotalSeconds -gt $Settings.QuietResetSeconds) { $entry.Failures = 0 }
+    if ($null -eq $entry) {
+        if ($Limiter.Names.Count -ge $Settings.MaxTrackedNames) {
+            $oldest = $Limiter.Names.GetEnumerator() | Sort-Object { $_.Value.LastUtc } | Select-Object -First 1
+            $Limiter.Names.Remove($oldest.Key)
+        }
+        $entry = @{ Failures = 0; NextUtc = [datetime]::MinValue; LastUtc = $Now }
+        $Limiter.Names[$key] = $entry
+    }
+    $entry.Failures++
+    $entry.LastUtc = $Now
+    if ($entry.Failures -ge $Settings.FailureThreshold) { $entry.NextUtc = $Now.AddSeconds($Settings.NameWaitSeconds) }
+}
+
+function Get-ChannelForgeSignInNameWaitSeconds {
+    # Whole seconds this name must still wait, or 0.
+    param(
+        [Parameter(Mandatory)][hashtable]$Limiter,
+        [AllowNull()][AllowEmptyString()][string]$Name,
+        [datetime]$Now = [datetime]::UtcNow
+    )
+    $entry = $Limiter.Names[(Get-ChannelForgeSignInNameKey -Name $Name)]
+    if ($null -eq $entry -or $entry.NextUtc -le $Now) { return 0 }
+    return [int][Math]::Ceiling(($entry.NextUtc - $Now).TotalSeconds)
+}
+
+function Clear-ChannelForgeSignInFailure {
+    # A correct password or setup code: forget this address, this name (when given) and the global count.
+    param(
+        [Parameter(Mandatory)][hashtable]$Limiter,
+        [string]$Address = '',
+        [AllowNull()][string]$Name = $null
     )
     $Limiter.Addresses.Remove($Address)
+    if ($null -ne $Name) { $Limiter.Names.Remove((Get-ChannelForgeSignInNameKey -Name $Name)) }
     $Limiter.GlobalFailures = 0
     $Limiter.GlobalNextUtc = [datetime]::MinValue
 }
