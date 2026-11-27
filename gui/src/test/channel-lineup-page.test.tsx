@@ -98,11 +98,65 @@ describe('Channel lineup page', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 2 channels')
     await user.tab()
     await user.tab()
+    await user.tab()
+    await user.tab()
     expect(screen.getByRole('button', { name: 'Show more channels' })).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(await screen.findByText('Test Channel 2')).toBeVisible()
     expect(fetchPage).toHaveBeenLastCalledWith(1, 'g')
     expect(screen.queryByRole('button', { name: 'Show more channels' })).not.toBeInTheDocument()
+  })
+
+  describe('search and group picker', () => {
+    const named = (n: number, name: string, group: string) => channel(n, { name, group })
+    const page = (items: LineupChannel[], total = items.length): LineupFetcher => async () => ({ generation: 'g', total, items })
+    const lineup = [named(1, 'Sports One', 'Sports'), named(2, 'Sports Two', 'Sports'), named(3, 'Movie Night', 'Movies')]
+
+    it('finds channels by name, ignoring case and extra spaces', async () => {
+      const user = userEvent.setup()
+      render(<ChannelLineupPage fetchPage={page(lineup)} onOpenSetup={() => {}} />)
+      await screen.findByText('Movie Night')
+      await user.type(screen.getByRole('searchbox', { name: 'Search by channel name' }), '  SPORTS   two ')
+      expect(screen.getByText('Sports Two')).toBeVisible()
+      expect(screen.queryByText('Sports One')).not.toBeInTheDocument()
+      expect(screen.queryByText('Movie Night')).not.toBeInTheDocument()
+    })
+
+    it('says nothing matches and clears the search', async () => {
+      const user = userEvent.setup()
+      render(<ChannelLineupPage fetchPage={page(lineup)} onOpenSetup={() => {}} />)
+      await screen.findByText('Movie Night')
+      await user.type(screen.getByRole('searchbox'), 'zzz')
+      expect(screen.getByText('No channels match')).toBeVisible()
+      await user.click(screen.getByRole('button', { name: 'Clear search and group' }))
+      expect(screen.getByText('Movie Night')).toBeVisible()
+      expect(screen.getByText('Sports One')).toBeVisible()
+    })
+
+    it('shows one group from the picker, with counts, using the keyboard', async () => {
+      const user = userEvent.setup()
+      render(<ChannelLineupPage fetchPage={page(lineup)} onOpenSetup={() => {}} />)
+      await screen.findByText('Movie Night')
+      expect(screen.getByRole('option', { name: 'Sports (2)' })).toBeInTheDocument()
+      await user.tab()
+      await user.tab()
+      expect(screen.getByRole('combobox', { name: 'Group' })).toHaveFocus()
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Group' }), 'Movies')
+      expect(screen.getByText('Movie Night')).toBeVisible()
+      expect(screen.queryByText('Sports One')).not.toBeInTheDocument()
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Group' }), '')
+      expect(screen.getByText('Sports One')).toBeVisible()
+    })
+
+    it('says when not all channels are loaded and offers Show more channels', async () => {
+      const user = userEvent.setup()
+      render(<ChannelLineupPage fetchPage={page(lineup, 5)} onOpenSetup={() => {}} />)
+      await screen.findByText('Movie Night')
+      expect(screen.queryByText(/Not all channels are loaded yet/)).not.toBeInTheDocument()
+      await user.type(screen.getByRole('searchbox'), 'night')
+      expect(screen.getByText(/Not all channels are loaded yet \(3 of 5\)/)).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Show more channels' })).toBeEnabled()
+    })
   })
 
   it('is an enabled navigation entry', async () => {
