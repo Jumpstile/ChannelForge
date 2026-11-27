@@ -16,7 +16,9 @@ function New-ChannelForgeWebServer {
 
         [string]$ConfigRoot = '',
 
-        [string[]]$AllowedHost = @()
+        [string[]]$AllowedHost = @(),
+
+        [string]$ImportRoot = ''
     )
 
     if ($RequireSignIn -and [string]::IsNullOrWhiteSpace($ConfigRoot)) {
@@ -52,5 +54,6 @@ function New-ChannelForgeWebServer {
         Setup         = @{}
         Limiter       = (New-ChannelForgeSignInLimiter)
         AllowedHost   = @($AllowedHost)
+        ImportRoot    = $ImportRoot
     }
 }

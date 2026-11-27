@@ -41,6 +41,7 @@ function Get-ChannelForgeWebSignInResponse {
         [hashtable]$Limiter = $null,
         [string]$SourceAddress = '',
         [string]$StaticIndexPath = '',
+        [string]$ImportRoot = '',
         [datetime]$Now = [datetime]::UtcNow
     )
 
@@ -122,6 +123,7 @@ function Get-ChannelForgeWebSignInResponse {
             return $refusal
         }
         if ($requestPath -eq '/api/audit') { return Invoke-ChannelForgeAuditApi -Path $Path -ConfigRoot $ConfigRoot }
+        if ($requestPath -eq '/api/import-guides') { return Invoke-ChannelForgeImportGuideApi -Session $session -ImportRoot $ImportRoot -Now $Now }
         if ($requestPath -eq '/api/settings/me') { return Invoke-ChannelForgeMySettingsApi -Method $methodName -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -SourceAddress $SourceAddress -Now $Now }
         if ($requestPath -notlike '/api/users*') { return $null }
         return Invoke-ChannelForgeUsersApi -Method $methodName -Path $requestPath -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now

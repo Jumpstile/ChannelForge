@@ -16,9 +16,11 @@ function Start-ChannelForgeWebServer {
 
         [string]$ConfigRoot = '',
 
-        [string[]]$AllowedHost = @()
+        [string[]]$AllowedHost = @(),
+
+        [string]$ImportRoot = ''
     )
-    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot -RequireSignIn:$RequireSignIn -ConfigRoot $ConfigRoot -AllowedHost $AllowedHost
+    $server = New-ChannelForgeWebServer -Port $Port -BindAddress $BindAddress -RepositoryRoot $RepositoryRoot -StaticRoot $StaticRoot -RequireSignIn:$RequireSignIn -ConfigRoot $ConfigRoot -AllowedHost $AllowedHost -ImportRoot $ImportRoot
     try {
         $server.Listener.Start()
         $server.Started = $true
@@ -51,7 +53,7 @@ function Start-ChannelForgeWebServer {
                     $gateResponse = Get-ChannelForgeWebRequestRefusal -Method $request.HttpMethod -Port $server.Port -AllowedHost $server.AllowedHost -Scheme $request.Url.Scheme -HostHeader $request.Headers['Host'] -Origin $request.Headers['Origin'] -Referer $request.Headers['Referer'] -ContentType $request.ContentType
                     if ($null -eq $gateResponse) {
                         # The peer address, never a header: X-Forwarded-For can be forged.
-                        $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -Limiter $server.Limiter -SourceAddress $request.RemoteEndPoint.Address.ToString() -RequestHost $request.Url.Host -Method $request.HttpMethod -Path $requestPathAndQuery -CookieHeader $request.Headers['Cookie'] -BodyStream $request.InputStream -ContentLength $request.ContentLength64 -ConfigRoot $server.ConfigRoot -StaticIndexPath (Join-Path $server.StaticRoot 'index.html') -Secure:($server.Prefix -like 'https:*')
+                        $gateResponse = Get-ChannelForgeWebSignInResponse -Store $server.Sessions -Setup $server.Setup -Limiter $server.Limiter -SourceAddress $request.RemoteEndPoint.Address.ToString() -RequestHost $request.Url.Host -Method $request.HttpMethod -Path $requestPathAndQuery -CookieHeader $request.Headers['Cookie'] -BodyStream $request.InputStream -ContentLength $request.ContentLength64 -ConfigRoot $server.ConfigRoot -StaticIndexPath (Join-Path $server.StaticRoot 'index.html') -ImportRoot $server.ImportRoot -Secure:($server.Prefix -like 'https:*')
                     }
                 }
                 if ($null -ne $gateResponse) {

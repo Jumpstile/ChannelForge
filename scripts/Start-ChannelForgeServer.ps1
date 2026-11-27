@@ -11,7 +11,9 @@ param(
 
     [string]$StaticRoot = '',
 
-    [string[]]$AllowedHost = @()
+    [string[]]$AllowedHost = @(),
+
+    [string]$ImportRoot = ''
 )
 
 # Server launcher: sign-in is always required. The server prints the one-time setup code itself.
@@ -28,4 +30,5 @@ if ($httpWarning) { Write-Warning $httpWarning }
 $serverArgs = @{ Port = $Port; BindAddress = $BindAddress; ConfigRoot = $ConfigRoot; RequireSignIn = $true }
 if ($StaticRoot) { $serverArgs.StaticRoot = $StaticRoot }
 if (@($AllowedHost).Count -gt 0) { $serverArgs.AllowedHost = @($AllowedHost) }
+if ($ImportRoot) { $serverArgs.ImportRoot = $ImportRoot }
 Start-ChannelForgeWebServer @serverArgs
