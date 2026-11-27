@@ -66,7 +66,8 @@ function Set-ChannelForgeUserPassword {
     $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
     if ($store.Status -ne 'Ok' -or $null -eq $target) { return [pscustomobject]@{ Success = $false; Category = 'WriteFailed' } }
     $target.Password = $PasswordRecord
-    $target.PasswordChangedUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss\Z', [System.Globalization.CultureInfo]::InvariantCulture)
+    # Full precision: a session started in the same second as the change must still be told apart from it.
+    $target.PasswordChangedUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss.fffffff\Z', [System.Globalization.CultureInfo]::InvariantCulture)
     if ($MustChange) { $target.MustChange = $true }
     return Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users)
 }

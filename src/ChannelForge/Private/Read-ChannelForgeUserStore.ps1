@@ -44,7 +44,7 @@ function Test-ChannelForgeUserStoreDocument {
             if ($user.Role -isnot [string] -or $user.Role -cnotin @('admin', 'editor', 'viewer')) { return $false }
             if ($user.MustChange -isnot [bool] -or $user.Disabled -isnot [bool]) { return $false }
             foreach ($stamp in $keys[6..($keys.Count - 1)]) {
-                if ($user.$stamp -isnot [string] -or $user.$stamp -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\z') { return $false }
+                if ($user.$stamp -isnot [string] -or $user.$stamp -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,7})?Z\z') { return $false }
             }
             if (-not (Test-ChannelForgePasswordRecordShape -Record $user.Password)) { return $false }
         }

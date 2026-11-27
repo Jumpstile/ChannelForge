@@ -81,14 +81,16 @@ function Remove-ChannelForgeWebSession {
     $Store.Remove((Get-ChannelForgeWebSessionKey -Token $Token))
 }
 
-function Remove-ChannelForgeOtherWebSession {
-    # Ends every session except the one for this token.
-    param(
-        [Parameter(Mandatory)][hashtable]$Store,
-        [AllowNull()][AllowEmptyString()][string]$Token
-    )
-    $keep = if ([string]::IsNullOrEmpty($Token)) { '' } else { Get-ChannelForgeWebSessionKey -Token $Token }
-    foreach ($key in @($Store.Keys)) {
-        if ($key -ne $keep) { $Store.Remove($key) }
-    }
+function Test-ChannelForgeWebSessionBeforePasswordChange {
+    # True when the user's password changed after this session began.
+    param([Parameter(Mandatory)]$Session, [Parameter(Mandatory)]$User)
+    $changed = [datetime]::Parse([string]$User.PasswordChangedUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal)
+    return $changed -gt $Session.CreatedUtc.ToUniversalTime()
+}
+
+function Update-ChannelForgeWebSessionPasswordStamp {
+    # The session that just changed its own password stays valid: it starts again from the new password time.
+    param([Parameter(Mandatory)]$Session, [Parameter(Mandatory)]$User, [datetime]$Now = [datetime]::UtcNow)
+    $changed = [datetime]::Parse([string]$User.PasswordChangedUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal)
+    $Session.CreatedUtc = if ($Now.ToUniversalTime() -gt $changed) { $Now.ToUniversalTime() } else { $changed }
 }
