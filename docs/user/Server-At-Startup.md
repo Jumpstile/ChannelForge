@@ -44,9 +44,8 @@ The server speaks plain HTTP. Anyone on the network can read what you type. Put 
 ## Forgot the password
 
 1. Open an administrator window and stop the task as above.
-2. Run `Reset-ChannelForgeAdminPassword -ConfigRoot C:\ProgramData\ChannelForge`.
-3. Run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot C:\ProgramData\ChannelForge` once. Type the new code on the first-run page and set a new password. Press Ctrl+C.
-4. Start the task as above.
+2. Run `Reset-ChannelForgeAdminPassword -ConfigRoot C:\ProgramData\ChannelForge -Name <the Admin name>`. It shows a temporary password once.
+3. Start the task as above, sign in with that name and the temporary password, and choose a new password. To remove every user and start over instead, add `-RemoveAllSignInData` and instead of this step run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot C:\ProgramData\ChannelForge` once, type the new code on the first-run page and press Ctrl+C.
 
 ## Uninstall
 

@@ -54,13 +54,14 @@ function Set-ChannelForgeUserPassword {
     .SYNOPSIS
         Replaces one user's password record in users.json and stamps PasswordChangedUtc. Same Success and Category answer as Write-ChannelForgeUserStore.
     .DESCRIPTION
-        With -MustChange the user must pick a new password at next sign-in (an Admin reset).
+        With -MustChange the user must pick a new password at next sign-in (an Admin reset). With -Enable a disabled user is enabled again (console recovery).
     #>
     param(
         [Parameter(Mandatory)][string]$ConfigRoot,
         [Parameter(Mandatory)][string]$TargetId,
         [Parameter(Mandatory)]$PasswordRecord,
-        [switch]$MustChange
+        [switch]$MustChange,
+        [switch]$Enable
     )
     $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
     $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
@@ -69,6 +70,7 @@ function Set-ChannelForgeUserPassword {
     # Full precision: a session started in the same second as the change must still be told apart from it.
     $target.PasswordChangedUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss.fffffff\Z', [System.Globalization.CultureInfo]::InvariantCulture)
     if ($MustChange) { $target.MustChange = $true }
+    if ($Enable) { $target.Disabled = $false }
     return Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users)
 }
 

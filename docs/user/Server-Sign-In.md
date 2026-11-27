@@ -58,12 +58,14 @@ You sign out with the "Sign out" button at the top of the page. If you open Chan
 You need access to the server machine. There is no way to do this from another device.
 
 1. Open an administrator window on the server machine.
-2. Run `Reset-ChannelForgeAdminPassword -ConfigRoot <the same config folder>`.
+2. Run `Reset-ChannelForgeAdminPassword -ConfigRoot <the same config folder> -Name <the Admin name>`. With only one Admin you can leave out `-Name`. With several Admins the command stops and lists their names; run it again with one of them.
 3. Confirm when it asks.
-4. Restart the server. It prints a new setup code.
-5. Do the first-start steps again.
+4. The command shows a temporary password once. Write it down; it is not saved anywhere.
+5. Open ChannelForge in the browser and sign in with that name and the temporary password. The page then makes you choose a new password. You do not need to restart the server.
 
-The reset removes only the sign-in files (`users.json` and the old `admin-password.json`). Your lineups, accepted state and outputs are not touched. A leftover `admin-password.json.migrated` file is not touched; see the next section.
+This changes only that Admin. If the Admin was disabled, it is enabled again, and any browser that was signed in as that Admin is signed out. Other users, lineups, accepted state and outputs are not touched.
+
+To remove every user and start over, run `Reset-ChannelForgeAdminPassword -ConfigRoot <the same config folder> -RemoveAllSignInData`, confirm, and restart the server. It prints a new setup code and you do the first-start steps again. This removes only `users.json`, `admin-password.json` and `admin-password.json.migrated`. Settings, lineups, accepted state and outputs are not touched.
 
 ## Where the password is kept
 

@@ -8,7 +8,7 @@ function Remove-ChannelForgeAdminPasswordFile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ConfigRoot,
-        [ValidateSet('admin-password.json', 'users.json')][string]$FileName = 'admin-password.json'
+        [ValidateSet('admin-password.json', 'users.json', 'admin-password.json.migrated')][string]$FileName = 'admin-password.json'
     )
 
     $path = Join-Path $ConfigRoot $FileName
