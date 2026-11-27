@@ -64,7 +64,7 @@ Describe 'Role check on every route' {
 
     It 'refuses a route that is not in the table, even for an admin' {
         $ids = Set-TestUsers @{ admin = 'admin' }
-        foreach ($route in @(@('GET', '/api/users'), @('POST', '/api/brand-new-route'), @('DELETE', '/api/settings/me'), @('PATCH', '/api/status'))) {
+        foreach ($route in @(@('GET', '/api/users/me'), @('POST', '/api/brand-new-route'), @('DELETE', '/api/settings/me'), @('PATCH', '/api/status'))) {
             (Invoke-TestGate -Store @{} -UserId $ids['admin'] -Method $route[0] -Path $route[1]).StatusCode | Should -Be 403
         }
     }

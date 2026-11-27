@@ -9,6 +9,7 @@ function New-ChannelForgeUserRecord {
         [Parameter(Mandatory)]$PasswordRecord,
         [bool]$MustChange = $false
     )
+    $now = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss\Z', [System.Globalization.CultureInfo]::InvariantCulture)
     return [pscustomobject][ordered]@{
         Id         = [System.Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)).ToLowerInvariant()
         Name       = $Name
@@ -22,7 +23,8 @@ function New-ChannelForgeUserRecord {
         }
         MustChange = $MustChange
         Disabled   = $false
-        CreatedUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss\Z', [System.Globalization.CultureInfo]::InvariantCulture)
+        CreatedUtc = $now
+        PasswordChangedUtc = $now
     }
 }
 
@@ -50,18 +52,41 @@ function Write-ChannelForgeUserStore {
 function Set-ChannelForgeUserPassword {
     <#
     .SYNOPSIS
-        Replaces one user's password record in users.json. Same Success and Category answer as Write-ChannelForgeUserStore.
+        Replaces one user's password record in users.json and stamps PasswordChangedUtc. Same Success and Category answer as Write-ChannelForgeUserStore.
+    .DESCRIPTION
+        With -MustChange the user must pick a new password at next sign-in (an Admin reset).
     #>
     param(
         [Parameter(Mandatory)][string]$ConfigRoot,
         [Parameter(Mandatory)][string]$TargetId,
-        [Parameter(Mandatory)]$PasswordRecord
+        [Parameter(Mandatory)]$PasswordRecord,
+        [switch]$MustChange
     )
     $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
     $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
     if ($store.Status -ne 'Ok' -or $null -eq $target) { return [pscustomobject]@{ Success = $false; Category = 'WriteFailed' } }
     $target.Password = $PasswordRecord
+    $target.PasswordChangedUtc = [datetime]::UtcNow.ToString('yyyy-MM-dd\THH:mm:ss\Z', [System.Globalization.CultureInfo]::InvariantCulture)
+    if ($MustChange) { $target.MustChange = $true }
     return Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users)
+}
+
+function Invoke-ChannelForgeUserStoreLocked {
+    <#
+    .SYNOPSIS
+        Runs the script block while holding one lock per config folder, so two changes to users.json never interleave.
+    .DESCRIPTION
+        The block does its own read, check and write. The lock can be taken again by the same thread, so the block may call
+        Set-ChannelForgeUserPassword. Returns whatever the block returns.
+    #>
+    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][scriptblock]$Action)
+    $key = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes([System.IO.Path]::GetFullPath($ConfigRoot).ToLowerInvariant()))).Substring(0, 16)
+    $mutex = [System.Threading.Mutex]::new($false, "Local\ChannelForgeUsers-$key")
+    try {
+        try { $null = $mutex.WaitOne() } catch [System.Threading.AbandonedMutexException] { $null = $_ }
+        try { return & $Action } finally { $mutex.ReleaseMutex() }
+    }
+    finally { $mutex.Dispose() }
 }
 
 function Invoke-ChannelForgeUserStoreUpgrade {

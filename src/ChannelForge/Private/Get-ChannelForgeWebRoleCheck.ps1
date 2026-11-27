@@ -13,6 +13,8 @@ function Get-ChannelForgeWebRouteRoleTable {
         @{ Pattern = '^/api/sources/(refresh|remove)$'; Methods = '*'; Role = 'editor' }
         @{ Pattern = '^/api/settings$'; Methods = @('GET', 'HEAD'); Role = 'viewer' }
         @{ Pattern = '^/api/settings$'; Methods = '*'; Role = 'admin' }
+        @{ Pattern = '^/api/users$'; Methods = '*'; Role = 'admin' }
+        @{ Pattern = '^/api/users/[0-9a-f]{32}(/reset-password)?$'; Methods = '*'; Role = 'admin' }
         # The page shell and its program files. Everything under /api/ that is not listed above stays refused.
         @{ Pattern = '^/(?!api/)'; Methods = @('GET', 'HEAD'); Role = 'viewer' }
     )
