@@ -96,7 +96,11 @@ function Get-ChannelForgeWebSignInResponse {
         if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
         return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }
-    if ($signedIn) { return Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath }
+    if ($signedIn) {
+        $refusal = Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath
+        if ($null -ne $refusal -or $requestPath -notlike '/api/users*') { return $refusal }
+        return Invoke-ChannelForgeUsersApi -Method $methodName -Path $requestPath -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
+    }
 
     if ($requestPath -in @('/first-run', '/first-run/submit') -and (Test-ChannelForgeSetupState -ConfigRoot $ConfigRoot)) {
         return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Limiter $Limiter -SourceAddress $SourceAddress -Secure:$Secure -Now $Now

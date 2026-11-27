@@ -67,7 +67,7 @@ The reset removes only the sign-in files (`users.json` and the old `admin-passwo
 
 ## Where the password is kept
 
-The program keeps the sign-in data in one file, `users.json`, in your config folder. It holds one user, named `admin`, and a hash of the password. It never holds the password itself. Do not edit it by hand. If the file is damaged, the server refuses to start and does not change the file.
+The program keeps the sign-in data in one file, `users.json`, in your config folder. At first it holds one user, named `admin`, and a hash of the password. An Admin can add more users later; each one has a hash too. It never holds a password itself. Do not edit it by hand. If the file is damaged, the server refuses to start and does not change the file.
 
 If you used an older version, the program upgrades by itself the first time the server starts or someone signs in. It copies your password to `users.json`, so your current password keeps working and you do nothing. Then it renames the old file to `admin-password.json.migrated`. Keep that file as a safety copy, or delete it once you are happy. If both files exist, `users.json` is used and the old file is ignored.
 

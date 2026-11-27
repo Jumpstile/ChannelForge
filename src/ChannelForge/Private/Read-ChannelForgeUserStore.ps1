@@ -35,12 +35,17 @@ function Test-ChannelForgeUserStoreDocument {
         $ids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         foreach ($user in $Document.Users) {
-            if (-not (Test-ChannelForgeExactKeys -Object $user -Keys @('Id', 'Name', 'Role', 'Password', 'MustChange', 'Disabled', 'CreatedUtc'))) { return $false }
+            $keys = @('Id', 'Name', 'Role', 'Password', 'MustChange', 'Disabled', 'CreatedUtc')
+            # PasswordChangedUtc is optional so a schema-1 file written before it existed still reads.
+            if ($null -ne $user.PSObject.Properties['PasswordChangedUtc']) { $keys += 'PasswordChangedUtc' }
+            if (-not (Test-ChannelForgeExactKeys -Object $user -Keys $keys)) { return $false }
             if ($user.Id -isnot [string] -or $user.Id -cnotmatch '^[0-9a-f]{32}\z' -or -not $ids.Add($user.Id)) { return $false }
             if ($user.Name -isnot [string] -or $user.Name -cnotmatch '^[A-Za-z0-9._-]{3,32}\z' -or -not $names.Add($user.Name)) { return $false }
             if ($user.Role -isnot [string] -or $user.Role -cnotin @('admin', 'editor', 'viewer')) { return $false }
             if ($user.MustChange -isnot [bool] -or $user.Disabled -isnot [bool]) { return $false }
-            if ($user.CreatedUtc -isnot [string] -or $user.CreatedUtc -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\z') { return $false }
+            foreach ($stamp in $keys[6..($keys.Count - 1)]) {
+                if ($user.$stamp -isnot [string] -or $user.$stamp -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\z') { return $false }
+            }
             if (-not (Test-ChannelForgePasswordRecordShape -Record $user.Password)) { return $false }
         }
         return $true
@@ -65,7 +70,13 @@ function Read-ChannelForgeUserStoreFile {
         }
         $text = [System.Text.UTF8Encoding]::new($false, $true).GetString([System.IO.File]::ReadAllBytes($Path))
         $document = $text | ConvertFrom-Json -DateKind String -ErrorAction Stop
-        if (Test-ChannelForgeUserStoreDocument -Document $document) { return [pscustomobject]@{ Status = 'Ok'; Users = @($document.Users) } }
+        if (Test-ChannelForgeUserStoreDocument -Document $document) {
+            # A record from before PasswordChangedUtc existed reads as changed when it was created.
+            foreach ($user in $document.Users) {
+                if ($null -eq $user.PSObject.Properties['PasswordChangedUtc']) { $user | Add-Member -NotePropertyName PasswordChangedUtc -NotePropertyValue $user.CreatedUtc }
+            }
+            return [pscustomobject]@{ Status = 'Ok'; Users = @($document.Users) }
+        }
     }
     catch { $null = $_ }
     return [pscustomobject]@{ Status = 'Corrupt'; Users = @() }
