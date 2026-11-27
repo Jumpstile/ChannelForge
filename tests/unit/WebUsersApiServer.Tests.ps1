@@ -53,8 +53,16 @@ BeforeAll {
 
 AfterAll {
     if ($null -ne $script:Process) {
-        if (-not $script:Process.HasExited) { $script:Process.Kill() }
+        if (-not $script:Process.HasExited) { $script:Process.Kill($true) }
         $script:Process.WaitForExit(10000) | Out-Null
+        $script:Process.Dispose()
+        # Windows can hold the log files for a moment after the process ends; wait until they open.
+        foreach ($log in 'out.log', 'err.log') {
+            $path = Join-Path $script:Root $log
+            for ($try = 0; $try -lt 50 -and (Test-Path -LiteralPath $path); $try++) {
+                try { [IO.File]::Open($path, 'Open', 'ReadWrite', 'None').Dispose(); break } catch { Start-Sleep -Milliseconds 100 }
+            }
+        }
     }
 }
 
