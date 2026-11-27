@@ -112,6 +112,7 @@ function Invoke-ChannelForgeUserStoreUpgrade {
             $old = Join-Path $ConfigRoot 'admin-password.json'
             # A rename that fails leaves the old file in place; users.json wins from now on, so that is harmless.
             try { [System.IO.File]::Move($old, "$old.migrated") } catch { $null = $_ }
+            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'upgrade-from-admin-password' -Actor ([pscustomobject]@{ Id = ''; Name = 'system' }) -Target $user -Reason 'admin-password.json moved to users.json'
             return $read
         }
     }
