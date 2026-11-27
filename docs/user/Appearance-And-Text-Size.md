@@ -56,6 +56,6 @@ Changing the look does not change your lineups or guides.
 
 If nothing is saved anywhere, the text size is **Normal** and the appearance is **System**.
 
-Later, each person who signs in may get their own look. For now there is one shared choice.
+When sign-in is on, each person can also have their own look. ChannelForge keeps it in a separate file, `user-settings.json`, next to `users.json`, so a settings problem can never touch your passwords. A person's own choice wins. If they have none, the shared choice above is used, and if there is none either, **System**. Every role (Viewer, Editor and Admin) can change only its own look. Only an Admin can change the shared one. If `user-settings.json` cannot be read, ChannelForge uses the shared look. The unreadable file is moved aside, never deleted, the next time a look is saved. Deleting a user removes that user's saved look. The page itself does not show this choice yet; it is available through `GET` and `PUT /api/settings/me`.
 
 Check [Current Limitations](CURRENT_LIMITATIONS.md) for what works today.

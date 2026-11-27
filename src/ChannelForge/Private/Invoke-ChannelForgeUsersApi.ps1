@@ -189,7 +189,10 @@ function Remove-ChannelForgeUserFromRequest {
             return New-ChannelForgeUsersApiError -StatusCode 409 -Code 'last-admin' -Message 'There must always be at least one active Admin.'
         }
         $saved = Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users | Where-Object { $_.Id -cne $TargetId })
-        if ($saved.Success) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'user-deleted' -Actor $Actor -Target $target -RemoteAddress $SourceAddress }
+        if ($saved.Success) {
+            Remove-ChannelForgeUserSettingsEntry -ConfigRoot $ConfigRoot -UserId $TargetId
+            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'user-deleted' -Actor $Actor -Target $target -RemoteAddress $SourceAddress
+        }
         New-ChannelForgeUsersApiSaveResult -Saved $saved -StatusCode 200 -Body @{ Deleted = $true }
     }
 }

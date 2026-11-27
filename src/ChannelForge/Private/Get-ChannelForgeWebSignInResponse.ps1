@@ -121,6 +121,7 @@ function Get-ChannelForgeWebSignInResponse {
             return $refusal
         }
         if ($requestPath -eq '/api/audit') { return Invoke-ChannelForgeAuditApi -Path $Path -ConfigRoot $ConfigRoot }
+        if ($requestPath -eq '/api/settings/me') { return Invoke-ChannelForgeMySettingsApi -Method $methodName -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -SourceAddress $SourceAddress -Now $Now }
         if ($requestPath -notlike '/api/users*') { return $null }
         return Invoke-ChannelForgeUsersApi -Method $methodName -Path $requestPath -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }

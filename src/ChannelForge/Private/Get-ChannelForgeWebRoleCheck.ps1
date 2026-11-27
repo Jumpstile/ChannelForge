@@ -12,6 +12,8 @@ function Get-ChannelForgeWebRouteRoleTable {
         @{ Pattern = '^/api/guided-setup/(proposal|accept)$'; Methods = '*'; Role = 'editor' }
         @{ Pattern = '^/api/sources/(refresh|remove)$'; Methods = '*'; Role = 'editor' }
         @{ Pattern = '^/api/settings$'; Methods = @('GET', 'HEAD'); Role = 'viewer' }
+        # Every role changes only its own settings: the user comes from the session, never from the request.
+        @{ Pattern = '^/api/settings/me$'; Methods = @('GET', 'HEAD', 'PUT'); Role = 'viewer' }
         @{ Pattern = '^/api/settings$'; Methods = '*'; Role = 'admin' }
         @{ Pattern = '^/api/users$'; Methods = '*'; Role = 'admin' }
         @{ Pattern = '^/api/users/[0-9a-f]{32}(/reset-password)?$'; Methods = '*'; Role = 'admin' }
