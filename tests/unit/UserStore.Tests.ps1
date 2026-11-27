@@ -133,7 +133,7 @@ Describe 'Console reset with users.json' {
         Copy-Item -LiteralPath (Join-Path $config 'admin-password.json.migrated') -Destination (Join-Path $config 'admin-password.json')
         Set-Content -LiteralPath (Join-Path $config 'lineup.json') -Value '{"keep":true}'
         Mock -ModuleName ChannelForge Test-ChannelForgeElevated { $true }
-        (Reset-ChannelForgeAdminPassword -ConfigRoot $config -Confirm:$false).Reset | Should -BeTrue
+        (Reset-ChannelForgeAdminPassword -ConfigRoot $config -RemoveAllSignInData -Confirm:$false).Reset | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $config 'users.json') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $config 'admin-password.json') | Should -BeFalse
         (Read-Store $config).Status | Should -Be 'Missing'
