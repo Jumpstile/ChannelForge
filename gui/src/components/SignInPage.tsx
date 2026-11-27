@@ -8,7 +8,7 @@ import type { FriendlyMessage } from '../app/friendlyError'
 
 type SignInPageProps = {
   signIn: (password: string) => Promise<SignInResult>
-  onSignedIn: () => void
+  onSignedIn: (mustChange?: boolean) => void
   httpWarning: boolean
 }
 
@@ -38,7 +38,7 @@ export function SignInPage({ signIn, onSignedIn, httpWarning }: SignInPageProps)
     setFailure(null)
     const result = await signIn(typed)
     setBusy(false)
-    if (result.kind === 'ok') return onSignedIn()
+    if (result.kind === 'ok') return onSignedIn(result.mustChange)
     if (result.kind === 'wrong') setWrong(true)
     else if (result.kind === 'wait') {
       setWaitLeft(result.seconds)

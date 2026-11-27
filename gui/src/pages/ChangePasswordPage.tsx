@@ -6,9 +6,10 @@ import { PageHeader } from '../components/PageHeader'
 
 type ChangePasswordPageProps = {
   changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>
+  mustChange?: boolean
 }
 
-export function ChangePasswordPage({ changePassword }: ChangePasswordPageProps) {
+export function ChangePasswordPage({ changePassword, mustChange }: ChangePasswordPageProps) {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -53,6 +54,7 @@ export function ChangePasswordPage({ changePassword }: ChangePasswordPageProps) 
   return (
     <div className="page-stack">
       <PageHeader eyebrow="Account" title="Change password" description="Choose a new password for ChannelForge." />
+      {mustChange ? <p role="status">You are using a temporary password. Choose a new password before you continue.</p> : null}
       <ul className="auth-rules">
         <li>Use at least {minimumPasswordLength} characters.</li>
         <li>Easy, common passwords are refused.</li>

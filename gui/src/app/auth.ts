@@ -2,9 +2,9 @@ import { failureFromError, type FriendlyMessage } from './friendlyError'
 
 // The browser asks the server whether sign-in is required. Sign-in mode off answers 404, so nothing changes there.
 // Any other answer (including a server that cannot be reached) is treated as "not required": the server still enforces its own rules.
-export type AuthState = { required: false } | { required: true; signedIn: boolean }
+export type AuthState = { required: false } | { required: true; signedIn: boolean; mustChange?: boolean }
 
-export type SignInResult = { kind: 'ok' } | { kind: 'wrong' } | { kind: 'wait'; seconds: number } | { kind: 'failed'; message: FriendlyMessage }
+export type SignInResult = { kind: 'ok'; mustChange?: boolean } | { kind: 'wrong' } | { kind: 'wait'; seconds: number } | { kind: 'failed'; message: FriendlyMessage }
 export type ChangePasswordResult = { kind: 'ok' } | { kind: 'wait'; seconds: number } | { kind: 'failed'; message: FriendlyMessage }
 
 export type AuthApi = {
@@ -37,6 +37,16 @@ function retryAfterSeconds(response: Response): number {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 30
 }
 
+// A temporary password may only be used to choose a new one. Only a true answer is carried, so a plain sign-in looks as before.
+async function readMustChange(response: Response): Promise<{ mustChange?: true }> {
+  try {
+    const body: unknown = await response.json()
+    return typeof body === 'object' && body !== null && (body as Record<string, unknown>).MustChange === true ? { mustChange: true } : {}
+  } catch {
+    return {}
+  }
+}
+
 function postJson(path: string, body: unknown, request: typeof fetch): Promise<Response> {
   return request(path, {
     method: 'POST',
@@ -51,7 +61,8 @@ export async function fetchAuthState(request: typeof fetch = fetch): Promise<Aut
     if (response.status !== 200) return { required: false }
     const body: unknown = await response.json()
     if (typeof body === 'object' && body !== null && typeof (body as Record<string, unknown>).SignedIn === 'boolean') {
-      return { required: true, signedIn: (body as Record<string, boolean>).SignedIn }
+      const mustChange = (body as Record<string, unknown>).MustChange === true
+      return { required: true, signedIn: (body as Record<string, boolean>).SignedIn, ...(mustChange ? { mustChange } : {}) }
     }
   } catch {
     // Fall through: no usable answer means the page behaves as it does with sign-in off.
@@ -66,7 +77,7 @@ function failedMessage(headline: string, whatHappened: string, whatToDo: string,
 export async function signIn(password: string, request: typeof fetch = fetch): Promise<SignInResult> {
   try {
     const response = await postJson('/api/auth/sign-in', { password }, request)
-    if (response.status === 200) return { kind: 'ok' }
+    if (response.status === 200) return { kind: 'ok', ...(await readMustChange(response)) }
     if (response.status === 401) return { kind: 'wrong' }
     if (response.status === 429) return { kind: 'wait', seconds: retryAfterSeconds(response) }
     const answer = await readAnswer(response)

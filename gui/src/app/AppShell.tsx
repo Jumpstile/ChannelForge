@@ -13,6 +13,8 @@ import type { ChangePasswordResult } from './auth'
 export type AccountControls = {
   changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>
   httpWarning: boolean
+  // True while the person is on a temporary password and may only choose a new one.
+  mustChange?: boolean
   onSignOut: () => void
   signOutFailed: boolean
 }

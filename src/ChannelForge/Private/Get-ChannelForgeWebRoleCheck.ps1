@@ -46,12 +46,17 @@ function Get-ChannelForgeWebRoleRefusal {
     <#
     .SYNOPSIS
         Returns a 403 response when the role may not use this route, else $null. An unknown role or route is refused.
+        With -MustChange every /api/ route is refused until the person has chosen a new password; the page shell and program files still load so the Change password form can show. The sign-in, session, sign-out and change-password routes never reach this check.
     #>
     param(
         [AllowNull()][string]$Role,
         [Parameter(Mandatory)][string]$Method,
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Path
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [switch]$MustChange
     )
+    if ($MustChange -and $Path.ToLowerInvariant().StartsWith('/api/')) {
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 403 -Body @{ Error = 'not-allowed'; Code = 'must-change-password'; Message = 'You must choose a new password first. Use Change password, then try again.' }
+    }
     $rank = @{ viewer = 1; editor = 2; admin = 3 }
     $needed = Get-ChannelForgeWebRouteMinimumRole -Method $Method -Path $Path
     if ($null -ne $needed -and $null -ne $Role -and $rank.ContainsKey($Role) -and $rank[$Role] -ge $rank[$needed]) { return $null }
