@@ -99,7 +99,7 @@ Describe 'Sign-in leak check' {
     }
 
     It 'keeps the passwords and the setup code out of the password file' {
-        $text = [IO.File]::ReadAllText((Join-Path $script:Config 'admin-password.json'))
+        $text = [IO.File]::ReadAllText((Join-Path $script:Config 'users.json'))
         foreach ($secret in @($script:Password, $script:NewPassword, $script:Code)) { $text.Contains($secret) | Should -BeFalse }
     }
 

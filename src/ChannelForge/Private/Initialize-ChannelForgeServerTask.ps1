@@ -183,10 +183,10 @@ function Install-ChannelForgeServerTask {
 
     Set-ChannelForgeServerDataAcl -Path $DataRoot
     Assert-ChannelForgeServerDataAccess -Entry @(Get-ChannelForgeServerDataAccess -Path $DataRoot)
-    if ((Read-ChannelForgeAdminPasswordFile -ConfigRoot $DataRoot).Status -eq 'Missing') {
+    if ((Read-ChannelForgeUserStore -ConfigRoot $DataRoot).Status -eq 'Missing') {
         Invoke-ChannelForgeServerFirstRun -Runtime $runtime -Root $Root -DataRoot $DataRoot -Port $Port
     }
-    if ((Read-ChannelForgeAdminPasswordFile -ConfigRoot $DataRoot).Status -ne 'Ok') { throw 'Sign-in is not set up, so the start-up task was not registered. Run this again and finish first-time setup.' }
+    if ((Read-ChannelForgeUserStore -ConfigRoot $DataRoot).Status -ne 'Ok') { throw 'Sign-in is not set up, so the start-up task was not registered. Run this again and finish first-time setup.' }
 
     $old = Read-ChannelForgeServerRecord -DataRoot $DataRoot
     if ($old) { Remove-ChannelForgeServerNetwork -Record $old }

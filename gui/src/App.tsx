@@ -39,7 +39,7 @@ type AppProps = {
 }
 
 function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acceptSavedLineup, pickerAvailable, account }: AppProps = {}) {
-  const [activePage, setCurrentPage] = useState<NavigationId>('workbench')
+  const [activePage, setCurrentPage] = useState<NavigationId>(account?.mustChange ? 'account' : 'workbench')
   const [history, setHistory] = useState<NavigationId[]>([])
   const [matchState, setMatchState] = useState<PlaylistGuideMatchState>(createInitialPlaylistGuideMatchState)
   const [savedPlan, setSavedPlan] = useState<SavedLineupPlan | null>(null)
@@ -99,7 +99,7 @@ function App({ picker, matcher, planner = prepareSavedLineupPlan, acceptor = acc
   return (
     <AppShell account={account} activePage={activePage} navigationAvailability={{ build: reviewAvailable, accepted: savedLineupAvailable }} onNavigate={handleNavigate} onHome={handleHome} onBack={handleBack}>
       {activePage === 'account' && account ? (
-        <ChangePasswordPage changePassword={account.changePassword} />
+        <ChangePasswordPage changePassword={account.changePassword} mustChange={account.mustChange} />
       ) : activePage === 'gallery' ? (
         <StateGalleryPage />
       ) : activePage === 'live-now' ? (

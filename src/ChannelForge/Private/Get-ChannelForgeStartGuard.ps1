@@ -4,10 +4,10 @@ function Get-ChannelForgeStartGuard {
         Decides whether the server may listen on an address. Never throws; never returns secrets.
     .DESCRIPTION
         Loopback (localhost, 127.x.x.x, ::1) is always Ready, with no password needed.
-        Any other address needs a good admin password file in the config folder.
+        Any other address needs a good sign-in file in the config folder (users.json, or an old admin-password.json that is upgraded first).
         With no password, the result is Refused, or SetupRequired when -AllowSetupMode is given
         (the caller then serves only the first-run page and a data-free health check).
-        A corrupt password file is always Refused and is never touched.
+        A corrupt sign-in file is always Refused and is never touched.
         Returns State ('Ready', 'SetupRequired' or 'Refused') and a plain Reason.
     #>
     [CmdletBinding()]
@@ -25,7 +25,7 @@ function Get-ChannelForgeStartGuard {
     }
 
     $refusal = 'ChannelForge will not listen on the network without a password. Run first-time setup, or turn off network access.'
-    switch ((Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Status) {
+    switch ((Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot).Status) {
         'Ok' { return [pscustomobject]@{ State = 'Ready'; Reason = '' } }
         'Corrupt' { return [pscustomobject]@{ State = 'Refused'; Reason = "The saved password file is damaged. $refusal" } }
         default {

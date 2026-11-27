@@ -39,6 +39,9 @@ const groupChannels = (channels: LineupChannel[]): Map<string, LineupChannel[]> 
   return groups
 }
 
+// Lowercase, with extra spaces removed, so "  sports   one " finds "Sports One".
+const squash = (text: string): string => text.trim().replace(/\s+/g, ' ').toLowerCase()
+
 // Print-only summary. Hidden on screen; the print stylesheet shows it and hides the rest of the page.
 function PrintSummary({ channels, total }: { channels: LineupChannel[]; total: number }) {
   const printed = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -84,6 +87,8 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
   const [failure, setFailure] = useState<LoadFailure>(loadFailure('unknown'))
   const [retry, setRetry] = useState(0)
   const [printRequested, setPrintRequested] = useState(false)
+  const [query, setQuery] = useState('')
+  const [group, setGroup] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -133,6 +138,11 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
   }
 
   const setupButton = <button className="button button-primary" type="button" onClick={onOpenSetup}>Go to Setup</button>
+  const groups = view ? groupChannels(view.channels) : new Map<string, LineupChannel[]>()
+  const needle = squash(query)
+  const shown = view ? view.channels.filter((channel) => (group === null || (channel.group || 'No group') === group) && squash(channel.name).includes(needle)) : []
+  const filtering = needle !== '' || group !== null
+  const clearFilters = () => { setQuery(''); setGroup(null) }
   // Match details are all-or-nothing for a lineup in practice: with none on any loaded channel, say so once instead of on every row.
   const hasEvidence = view ? view.channels.some((channel) => channel.matchEvidence !== undefined) : false
 
@@ -153,10 +163,19 @@ export function ChannelLineupPage({ fetchPage = fetchLineupPage, onOpenSetup }: 
             {setupButton}
           </div>
         </section> : view.total === 0 ? <EmptyState title="No channels saved yet" action={setupButton}>Set up a playlist and save your lineup. Your channels will show up here.</EmptyState> : <>
-          <p role="status" aria-live="polite">Showing {view.channels.length} of {view.total} channels</p>
+          <div className="lineup-filters">
+            <label>Search by channel name <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+            <label>Group <select value={group ?? ''} onChange={(event) => setGroup(event.target.value === '' ? null : event.target.value)}>
+              <option value="">All groups ({view.channels.length})</option>
+              {[...groups].map(([name, items]) => <option key={name} value={name}>{name} ({items.length})</option>)}
+            </select></label>
+          </div>
+          <p role="status" aria-live="polite">{filtering ? `Found ${shown.length} of ${view.channels.length} loaded channels` : `Showing ${view.channels.length} of ${view.total} channels`}</p>
+          {filtering && view.channels.length < view.total && <p className="lineup-match-note">Not all channels are loaded yet ({view.channels.length} of {view.total}), so search and groups only look at the loaded ones. Press Show more channels to load the rest.</p>}
+          {filtering && shown.length === 0 && <EmptyState title="No channels match" action={<button className="button button-secondary" type="button" onClick={clearFilters}>Clear search and group</button>}>Nothing in the loaded channels matches. Clear the search and group to see every channel again.</EmptyState>}
           {!hasEvidence && <p className="lineup-match-note">{NO_MATCH_DETAILS}</p>}
           <ul className="lineup-channel-list" aria-label="Channels in your lineup">
-            {view.channels.map((channel) => {
+            {shown.map((channel) => {
               const airing = nowAndNext(channel.current, channel.next)
               const problems = channelProblems(channel)
               return <li className="lineup-channel-row" key={channel.id} tabIndex={0} aria-label={`${channel.number ?? 'No number'}, ${channel.name}${channel.group ? `, ${channel.group}` : ''}${airing ? `, ${airing}` : ''}${problems.length ? `, ${problems.join(', ')}` : ''}`}>

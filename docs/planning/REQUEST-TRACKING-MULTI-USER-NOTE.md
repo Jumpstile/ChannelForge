@@ -4,6 +4,8 @@ Design note only. No code and no tests. Written Nov 23, 2026. Nothing was run.
 
 Owner decision (Nov 23, 2026): request tracking stays in scope for a client/server product that may have several users.
 
+The named users and roles design is in docs/planning/NAMED-USERS-AND-ROLES-DESIGN-NOTE.md.
+
 A request is a user asking for a change, for example "add this channel" or "fix this guide". Tracking follows each request from ask to answer.
 
 ## Dependency on the login design

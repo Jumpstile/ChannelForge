@@ -36,34 +36,26 @@ ChannelForge has this control. It is in the same top bar. Find the box called **
 
 If you never pick, ChannelForge uses **System**.
 
-## Where your choice is saved today
+## Where your choices are saved
 
-Your choices are saved in this browser only. They are not saved in ChannelForge itself.
+**Appearance** (Light, Dark or System) is saved by ChannelForge itself, on the computer where ChannelForge runs. It is the same for everyone who opens that ChannelForge. If you open it in a different browser or on a different device, you see the same look.
 
-- If you open ChannelForge in a different browser, it starts fresh.
-- If you use a different computer, it starts fresh.
-- If you clear your browser's saved site data, your choices are lost.
-- If your browser blocks saving, your choice still works until you close the page.
+Your browser also keeps a copy. The copy only helps the page open in the right look without a flash of the wrong one. If the two ever differ, ChannelForge's saved choice wins.
 
-When you start fresh, the text size is **Normal** and the appearance is **System**.
+- The first time, if ChannelForge has nothing saved yet, your browser sends the choice it already has, one time.
+- If ChannelForge cannot be reached, the page still opens and uses the copy in your browser, or **System**.
+- If ChannelForge cannot save your choice, it tells you in plain words. The choice still works in this browser until you close the page. Press **Details** for the technical text.
+- ChannelForge never deletes a saved-settings file it cannot read. It uses **System** and keeps the unreadable file next to the new one.
 
-## Planned: saving on the server
+Changing the look does not change your lineups or guides.
 
-**This is planned. It is not available yet.**
+**Text size** is still saved in this browser only. A different browser or computer starts at **Normal**.
 
-The plan is for ChannelForge to be a client and server program. The server is the part that runs the engine. Your browser is the client.
+- If you clear your browser's saved site data, your text size is lost.
+- If your browser blocks saving, your text size still works until you close the page.
 
-The decision is to save appearance on the server. Then your choice would follow you to a new browser or computer. Today, it is saved in the browser only.
+If nothing is saved anywhere, the text size is **Normal** and the appearance is **System**.
 
-The plan says what would happen when the server version exists:
+When sign-in is on, each person can also have their own look. ChannelForge keeps it in a separate file, `user-settings.json`, next to `users.json`, so a settings problem can never touch your passwords. A person's own choice wins. If they have none, the shared choice above is used, and if there is none either, **System**. Every role (Viewer, Editor and Admin) can change only its own look. Only an Admin can change the shared one. If `user-settings.json` cannot be read, ChannelForge uses the shared look. The unreadable file is moved aside, never deleted, the next time a look is saved. Deleting a user removes that user's saved look. The page itself does not show this choice yet; it is available through `GET` and `PUT /api/settings/me`.
 
-- Your browser would ask the server for your appearance.
-- If the server has nothing saved yet, your browser would send the choice it already has, one time.
-- If the server and the browser disagree, the server wins.
-- If the server cannot be reached, the page would still open and use the choice saved in the browser.
-
-Still undecided: whether the server setting is shared by everyone or kept for each person. The current suggestion is shared first.
-
-The plan notes only name appearance (light, dark, system) for the server. They do not say text size will move there.
-
-Plans can change. Check [Current Limitations](CURRENT_LIMITATIONS.md) for what works today.
+Check [Current Limitations](CURRENT_LIMITATIONS.md) for what works today.

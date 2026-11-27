@@ -3,7 +3,7 @@ BeforeAll {
     $PrivateDir = Join-Path $RepoRoot 'src\ChannelForge\Private'
     . (Join-Path $PrivateDir 'ConvertTo-ChannelForgeCanonicalJson.ps1')
     . (Join-Path $PrivateDir 'Invoke-ChannelForgeSourceEnrollment.ps1')
-    foreach ($name in 'New-ChannelForgeAdminPasswordRecord', 'Write-ChannelForgeAdminPasswordFile', 'Read-ChannelForgeAdminPasswordFile', 'Get-ChannelForgeStartGuard') {
+    foreach ($name in 'New-ChannelForgeAdminPasswordRecord', 'Write-ChannelForgeAdminPasswordFile', 'Read-ChannelForgeAdminPasswordFile', 'Remove-ChannelForgeAdminPasswordFile', 'Read-ChannelForgeUserStore', 'Write-ChannelForgeUserStore', 'Write-ChannelForgeAuditEvent', 'Get-ChannelForgeStartGuard') {
         . (Join-Path $PrivateDir ($name + '.ps1'))
     }
     $script:Base = Join-Path ([System.IO.Path]::GetTempPath()) ('cf-guard-' + [guid]::NewGuid().ToString('N'))

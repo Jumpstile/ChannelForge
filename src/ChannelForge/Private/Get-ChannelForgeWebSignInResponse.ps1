@@ -53,38 +53,79 @@ function Get-ChannelForgeWebSignInResponse {
         '/api/auth/sign-in' {
             if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
             $waitResponse = Get-ChannelForgeSignInWaitResponse -Limiter $Limiter -Address $SourceAddress -Now $Now
-            if ($null -ne $waitResponse) { return $waitResponse }
+            if ($null -ne $waitResponse) {
+                Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Result refused -Actor (Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot) -Reason 'too many tries, waiting' -RemoteAddress $SourceAddress -Now $Now
+                return $waitResponse
+            }
             $password = $null
+            $name = $null
             try {
                 $bytes = Read-ChannelForgeWebRequestBody -Stream $BodyStream -ContentLength $ContentLength -MaxBytes 4096
-                $password = [string]([Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop).password
+                $body = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop
+                $password = [string]$body.password
+                $name = [string]$body.name
             }
             catch { $password = $null }
-            $record = (Read-ChannelForgeAdminPasswordFile -ConfigRoot $ConfigRoot).Record
-            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record)) {
-                if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
+            $nameWait = if ($null -ne $Limiter) { Get-ChannelForgeSignInNameWaitSeconds -Limiter $Limiter -Name $name -Now $Now } else { 0 }
+            if ($nameWait -gt 0) {
+                Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Result refused -Actor (Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -Name $name) -Reason 'too many tries for this name' -RemoteAddress $SourceAddress -Now $Now
+                return New-ChannelForgeWebSignInJsonResponse -StatusCode 429 -Body @{ Error = 'too-many-tries'; Message = 'Too many tries. Please wait and try again.' } -ExtraHeaders @{ 'Retry-After' = [string]$nameWait }
+            }
+            $user = Find-ChannelForgeSignInUser -ConfigRoot $ConfigRoot -Name $name
+            # An unknown or disabled name still gets one password check, so timing does not show which names exist.
+            $record = if ($null -ne $user) { $user.Password } else { Get-ChannelForgeDummyPasswordRecord }
+            if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record) -or $null -eq $user) {
+                if ($null -ne $Limiter) {
+                    Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now
+                    Register-ChannelForgeSignInNameFailure -Limiter $Limiter -Name $name -Now $Now
+                }
+                $who = if ($null -ne $user) { $user } else { Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -Name $name }
+                $why = if ($null -ne $user) { 'wrong password' } elseif ($who.Name -ne 'unknown') { 'user is disabled' } else { 'unknown name' }
+                Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Result refused -Actor $who -Reason $why -RemoteAddress $SourceAddress -Now $Now
                 return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
             }
-            if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
-            $newToken = New-ChannelForgeWebSession -Store $Store -Now $Now
-            return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
+            if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Name $name }
+            $newToken = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
+            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Actor $user -RemoteAddress $SourceAddress -Now $Now
+            return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true; MustChange = [bool]$user.MustChange } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }
         }
         '/api/auth/sign-out' {
             if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
+            $outSession = Get-ChannelForgeWebSession -Store $Store -Token $token -Now $Now
+            if ($null -ne $outSession) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-out' -Actor (Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -UserId $outSession.UserId) -RemoteAddress $SourceAddress -Now $Now }
             Remove-ChannelForgeWebSession -Store $Store -Token $token
             return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $false } -ExtraHeaders @{ 'Set-Cookie' = (($cookieBase -f '') + '; Max-Age=0') }
         }
     }
 
-    $signedIn = $null -ne (Get-ChannelForgeWebSession -Store $Store -Token $token -Now $Now)
+    $session = Get-ChannelForgeWebSession -Store $Store -Token $token -Now $Now
+    $user = $null
+    if ($null -ne $session) {
+        $user = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $session.UserId
+        # A disabled, deleted or unreadable user, or a session older than the last password change, is signed out on the next request.
+        if ($null -ne $user -and (Test-ChannelForgeWebSessionBeforePasswordChange -Session $session -User $user)) { $user = $null }
+        if ($null -eq $user) { Remove-ChannelForgeWebSession -Store $Store -Token $token }
+    }
+    $signedIn = $null -ne $user
     if ($requestPath -eq '/api/auth/session' -and $methodName -eq 'GET') {
-        return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $signedIn }
+        return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $signedIn; MustChange = ($signedIn -and [bool]$user.MustChange) }
     }
     if ($signedIn -and $requestPath -eq '/api/auth/change-password') {
         if ($methodName -ne 'POST') { return New-ChannelForgeWebSignInJsonResponse -StatusCode 405 -Body @{ Error = 'method-not-allowed'; Message = 'Only POST requests are supported.' } -ExtraHeaders @{ Allow = 'POST' } }
-        return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
+        return Invoke-ChannelForgeChangePassword -Store $Store -Token $token -UserId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
     }
-    if ($signedIn) { return $null }
+    if ($signedIn) {
+        $refusal = Get-ChannelForgeWebRoleRefusal -Role $user.Role -Method $methodName -Path $requestPath -MustChange:([bool]$user.MustChange)
+        if ($null -ne $refusal) {
+            # A must-change refusal is not audited per request; that would flood the log.
+            if (-not $user.MustChange) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'role-check' -Result refused -Actor $user -Reason "$($user.Role) may not $methodName $requestPath" -RemoteAddress $SourceAddress -Now $Now }
+            return $refusal
+        }
+        if ($requestPath -eq '/api/audit') { return Invoke-ChannelForgeAuditApi -Path $Path -ConfigRoot $ConfigRoot }
+        if ($requestPath -eq '/api/settings/me') { return Invoke-ChannelForgeMySettingsApi -Method $methodName -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -SourceAddress $SourceAddress -Now $Now }
+        if ($requestPath -notlike '/api/users*') { return $null }
+        return Invoke-ChannelForgeUsersApi -Method $methodName -Path $requestPath -ActorId $user.Id -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -Limiter $Limiter -SourceAddress $SourceAddress -Now $Now
+    }
 
     if ($requestPath -in @('/first-run', '/first-run/submit') -and (Test-ChannelForgeSetupState -ConfigRoot $ConfigRoot)) {
         return Get-ChannelForgeFirstRunResponse -Method $methodName -RequestPath $requestPath -Store $Store -Setup $Setup -BodyStream $BodyStream -ContentLength $ContentLength -ConfigRoot $ConfigRoot -CookieFormat $cookieBase -RequestHost $RequestHost -Limiter $Limiter -SourceAddress $SourceAddress -Secure:$Secure -Now $Now

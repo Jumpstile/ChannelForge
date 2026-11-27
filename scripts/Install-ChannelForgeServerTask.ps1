@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $private = Join-Path $root 'src\ChannelForge\Private'
-foreach ($name in 'Test-ChannelForgeElevated', 'Read-ChannelForgeAdminPasswordFile', 'Get-ChannelForgeStartGuard', 'Initialize-ChannelForgeServerTask') {
+foreach ($name in 'ConvertTo-ChannelForgeCanonicalJson', 'Invoke-ChannelForgeSourceEnrollment', 'Test-ChannelForgeElevated', 'Read-ChannelForgeAdminPasswordFile', 'Write-ChannelForgeAdminPasswordFile', 'Remove-ChannelForgeAdminPasswordFile', 'Read-ChannelForgeUserStore', 'Write-ChannelForgeUserStore', 'Get-ChannelForgeStartGuard', 'Initialize-ChannelForgeServerTask') {
     . (Join-Path $private ($name + '.ps1'))
 }
 Install-ChannelForgeServerTask -Root $root -Port $Port -BindAddress $BindAddress -AllowedHost $AllowedHost -DataRoot $DataRoot -WhatIf:$WhatIfPreference
