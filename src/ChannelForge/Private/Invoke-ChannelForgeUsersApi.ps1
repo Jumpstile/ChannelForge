@@ -94,7 +94,7 @@ function Get-ChannelForgeUsersApiStoreProblem {
 }
 
 function Add-ChannelForgeUserFromRequest {
-    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)]$Body)
+    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)]$Body, $Actor = $null, [string]$SourceAddress = '')
     $name = Get-ChannelForgeUsersApiText -Body $Body -Field 'name'
     $role = Get-ChannelForgeUsersApiText -Body $Body -Field 'role'
     $temporary = Get-ChannelForgeUsersApiText -Body $Body -Field 'temporaryPassword'
@@ -110,12 +110,13 @@ function Add-ChannelForgeUserFromRequest {
         if ($nameProblem -ne '') { return New-ChannelForgeUsersApiError -StatusCode 400 -Code 'name-invalid' -Message $nameProblem }
         $user = New-ChannelForgeUserRecord -Name $name -Role $role -PasswordRecord $record -MustChange $true
         $saved = Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @(@($store.Users) + $user)
+        if ($saved.Success) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'user-added' -Actor $Actor -Target $user -Reason "role $role" -RemoteAddress $SourceAddress }
         New-ChannelForgeUsersApiSaveResult -Saved $saved -StatusCode 201 -Body @{ User = (ConvertTo-ChannelForgeUserView -Record $user) }
     }
 }
 
 function Update-ChannelForgeUserFromRequest {
-    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId, [Parameter(Mandatory)]$Body)
+    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId, [Parameter(Mandatory)]$Body, $Actor = $null, [string]$SourceAddress = '')
     $name = Get-ChannelForgeUsersApiText -Body $Body -Field 'name'
     $role = Get-ChannelForgeUsersApiText -Body $Body -Field 'role'
     $hasDisabled = $null -ne $Body.PSObject.Properties['disabled']
@@ -139,18 +140,24 @@ function Update-ChannelForgeUserFromRequest {
         $newRole = if ($null -ne $role) { $role } else { $target.Role }
         $newDisabled = if ($hasDisabled) { $disabled } else { $target.Disabled }
         if ((Test-ChannelForgeLastActiveAdmin -Users @($store.Users) -Target $target) -and ($newRole -cne 'admin' -or $newDisabled)) {
+            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'last-admin' -Result refused -Actor $Actor -Target $target -Reason 'change refused: last active Admin' -RemoteAddress $SourceAddress
             return New-ChannelForgeUsersApiError -StatusCode 409 -Code 'last-admin' -Message 'There must always be at least one active Admin.'
         }
+        $changes = @()
+        if ($null -ne $name -and $name -cne $target.Name) { $changes += "name $($target.Name) to $name" }
+        if ($newRole -cne $target.Role) { $changes += "role $($target.Role) to $newRole" }
+        if ($newDisabled -ne $target.Disabled) { $changes += $(if ($newDisabled) { 'disabled' } else { 'enabled' }) }
         if ($null -ne $name) { $target.Name = $name }
         $target.Role = $newRole
         $target.Disabled = $newDisabled
         $saved = Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users)
+        if ($saved.Success) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'user-changed' -Actor $Actor -Target $target -Reason ($changes -join ', ') -RemoteAddress $SourceAddress }
         New-ChannelForgeUsersApiSaveResult -Saved $saved -StatusCode 200 -Body @{ User = (ConvertTo-ChannelForgeUserView -Record $target) }
     }
 }
 
 function Reset-ChannelForgeUserFromRequest {
-    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId, [Parameter(Mandatory)]$Body)
+    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId, [Parameter(Mandatory)]$Body, $Actor = $null, [string]$SourceAddress = '')
     $temporary = Get-ChannelForgeUsersApiText -Body $Body -Field 'temporaryPassword'
     $rule = Test-ChannelForgeAdminPasswordRule -Password $temporary
     if (-not $rule.Ok) { return New-ChannelForgeUsersApiError -StatusCode 400 -Code 'password-rule' -Message $rule.Reason }
@@ -159,14 +166,16 @@ function Reset-ChannelForgeUserFromRequest {
         $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
         $problem = Get-ChannelForgeUsersApiStoreProblem -Store $store
         if ($null -ne $problem) { return $problem }
-        if (@($store.Users | Where-Object { $_.Id -ceq $TargetId }).Count -eq 0) { return New-ChannelForgeUsersApiError -StatusCode 404 -Code 'user-not-found' -Message 'That user was not found.' }
+        $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
+        if ($null -eq $target) { return New-ChannelForgeUsersApiError -StatusCode 404 -Code 'user-not-found' -Message 'That user was not found.' }
         $saved = Set-ChannelForgeUserPassword -ConfigRoot $ConfigRoot -TargetId $TargetId -PasswordRecord $record -MustChange
+        if ($saved.Success) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'password-reset' -Actor $Actor -Target $target -RemoteAddress $SourceAddress }
         New-ChannelForgeUsersApiSaveResult -Saved $saved -StatusCode 200 -Body @{ Reset = $true }
     }
 }
 
 function Remove-ChannelForgeUserFromRequest {
-    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId)
+    param([Parameter(Mandatory)][string]$ConfigRoot, [Parameter(Mandatory)][string]$TargetId, $Actor = $null, [string]$SourceAddress = '')
     return Invoke-ChannelForgeUserStoreLocked -ConfigRoot $ConfigRoot -Action {
         $store = Read-ChannelForgeUserStore -ConfigRoot $ConfigRoot
         $problem = Get-ChannelForgeUsersApiStoreProblem -Store $store
@@ -174,9 +183,11 @@ function Remove-ChannelForgeUserFromRequest {
         $target = @($store.Users | Where-Object { $_.Id -ceq $TargetId })[0]
         if ($null -eq $target) { return New-ChannelForgeUsersApiError -StatusCode 404 -Code 'user-not-found' -Message 'That user was not found.' }
         if (Test-ChannelForgeLastActiveAdmin -Users @($store.Users) -Target $target) {
+            Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'last-admin' -Result refused -Actor $Actor -Target $target -Reason 'delete refused: last active Admin' -RemoteAddress $SourceAddress
             return New-ChannelForgeUsersApiError -StatusCode 409 -Code 'last-admin' -Message 'There must always be at least one active Admin.'
         }
         $saved = Write-ChannelForgeUserStore -ConfigRoot $ConfigRoot -User @($store.Users | Where-Object { $_.Id -cne $TargetId })
+        if ($saved.Success) { Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'user-deleted' -Actor $Actor -Target $target -RemoteAddress $SourceAddress }
         New-ChannelForgeUsersApiSaveResult -Saved $saved -StatusCode 200 -Body @{ Deleted = $true }
     }
 }
@@ -224,10 +235,11 @@ function Invoke-ChannelForgeUsersApi {
         if ($null -ne $refusal) { return $refusal }
     }
     if ($null -eq $body) { return New-ChannelForgeUsersApiError -StatusCode 400 -Code 'invalid-request' -Message 'The request was not understood. Nothing was changed.' }
+    $actor = Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -UserId $ActorId
     switch ($verb) {
-        'POST /' { return Add-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -Body $body }
-        'PUT /id' { return Update-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId -Body $body }
-        'DELETE /id' { return Remove-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId }
-        'POST /id/reset' { return Reset-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId -Body $body }
+        'POST /' { return Add-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -Body $body -Actor $actor -SourceAddress $SourceAddress }
+        'PUT /id' { return Update-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId -Body $body -Actor $actor -SourceAddress $SourceAddress }
+        'DELETE /id' { return Remove-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId -Actor $actor -SourceAddress $SourceAddress }
+        'POST /id/reset' { return Reset-ChannelForgeUserFromRequest -ConfigRoot $ConfigRoot -TargetId $targetId -Body $body -Actor $actor -SourceAddress $SourceAddress }
     }
 }

@@ -107,6 +107,7 @@ function Invoke-ChannelForgeFirstRunSubmit {
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 500 -Body @{ Error = 'password-not-saved'; Message = 'The password could not be saved. Check that ChannelForge can write to its settings folder. The setup code was not used, so you can try again.' }
     }
     $Setup.Used = $true
+    Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'first-run-admin-created' -Actor $user -Target $user -RemoteAddress $SourceAddress -Now $Now
     $token = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($CookieFormat -f $token) }
 }

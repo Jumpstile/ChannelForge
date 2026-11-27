@@ -32,6 +32,7 @@ function Invoke-ChannelForgeChangePassword {
     $user = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $UserId
     if (-not (Test-ChannelForgeAdminPassword -Password $current -Record $user.Password)) {
         if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
+        Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'change-password' -Result refused -Actor $user -Reason 'wrong current password' -RemoteAddress $SourceAddress -Now $Now
         return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
     }
     if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
@@ -46,5 +47,6 @@ function Invoke-ChannelForgeChangePassword {
     $fresh = Get-ChannelForgeWebSessionUser -ConfigRoot $ConfigRoot -UserId $UserId
     $session = Get-ChannelForgeWebSession -Store $Store -Token $Token -Now $Now
     if ($null -ne $fresh -and $null -ne $session) { Update-ChannelForgeWebSessionPasswordStamp -Session $session -User $fresh -Now $Now }
+    Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'change-password' -Actor $user -Target $user -RemoteAddress $SourceAddress -Now $Now
     return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ Changed = $true }
 }

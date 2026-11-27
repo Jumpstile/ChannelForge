@@ -22,6 +22,7 @@ function Start-ChannelForgeWebServer {
     try {
         $server.Listener.Start()
         $server.Started = $true
+        if ($server.RequireSignIn) { Invoke-ChannelForgeAuditTrim -ConfigRoot $server.ConfigRoot }
         Write-Host "ChannelForge is running at $($server.Prefix)"
         Write-Host 'Open Guided Setup to begin.'
         if ($server.RequireSignIn -and (Test-ChannelForgeSetupState -ConfigRoot $server.ConfigRoot)) {
