@@ -45,7 +45,13 @@ The server speaks plain HTTP. Anyone on the network can read what you type. Put 
 
 1. Open an administrator window and stop the task as above.
 2. Run `Reset-ChannelForgeAdminPassword -ConfigRoot C:\ProgramData\ChannelForge -Name <the Admin name>`. It shows a temporary password once.
-3. Start the task as above, sign in with that name and the temporary password, and choose a new password. To remove every user and start over instead, add `-RemoveAllSignInData` and instead of this step run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot C:\ProgramData\ChannelForge` once, type the new code on the first-run page and press Ctrl+C.
+3. Start the task as above, sign in with that name and the temporary password, and press "Change password".
+
+To remove every user and start over instead:
+
+1. Stop the task as above. Run the reset command with `-RemoveAllSignInData` instead of `-Name`, and confirm.
+2. Run `scripts\Start-ChannelForgeServer.ps1 -ConfigRoot C:\ProgramData\ChannelForge` once. Type the new code on the first-run page and choose a password. Then press Ctrl+C.
+3. Start the task as above.
 
 ## Uninstall
 

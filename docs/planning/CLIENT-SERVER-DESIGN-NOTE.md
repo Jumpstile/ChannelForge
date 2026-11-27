@@ -72,7 +72,7 @@ Rules for either option:
 - Plain HTTP on a network is a risk. Recommend HTTPS through a reverse proxy, or a built-in certificate option. Owner decision needed: options are built-in TLS, reverse proxy documented only, or both. Recommendation: reverse proxy documented first.
 - Redaction rules do not relax. Secrets and private paths stay out of responses.
 - Default stays loopback. Network access is an explicit setting.
-- See ADR-0016-AMENDMENT-DRAFT.md for the safety checks.
+- See docs/adr/0016-amendment-server-sign-in.md for the safety checks.
 
 ## Not verified
 
