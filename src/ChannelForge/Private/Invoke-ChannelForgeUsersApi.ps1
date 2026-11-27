@@ -74,6 +74,8 @@ function Confirm-ChannelForgeUsersApiAdmin {
     $typed = Get-ChannelForgeUsersApiText -Body $Body -Field 'adminPassword'
     if ($null -eq $actor -or -not (Test-ChannelForgeAdminPassword -Password $typed -Record $actor.Password)) {
         if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
+        $who = if ($null -ne $actor) { $actor } else { Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -UserId $ActorId }
+        Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'admin-password-wrong' -Result refused -Actor $who -Reason 'own password typed wrong' -RemoteAddress $SourceAddress -Now $Now
         return New-ChannelForgeUsersApiError -StatusCode 403 -Code 'admin-password-wrong' -Message 'Your own password did not work. Nothing was changed.'
     }
     if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }

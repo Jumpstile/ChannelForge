@@ -66,17 +66,25 @@ function Get-ChannelForgeWebSignInResponse {
                 $name = [string]$body.name
             }
             catch { $password = $null }
+            $nameWait = if ($null -ne $Limiter) { Get-ChannelForgeSignInNameWaitSeconds -Limiter $Limiter -Name $name -Now $Now } else { 0 }
+            if ($nameWait -gt 0) {
+                Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Result refused -Actor (Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -Name $name) -Reason 'too many tries for this name' -RemoteAddress $SourceAddress -Now $Now
+                return New-ChannelForgeWebSignInJsonResponse -StatusCode 429 -Body @{ Error = 'too-many-tries'; Message = 'Too many tries. Please wait and try again.' } -ExtraHeaders @{ 'Retry-After' = [string]$nameWait }
+            }
             $user = Find-ChannelForgeSignInUser -ConfigRoot $ConfigRoot -Name $name
             # An unknown or disabled name still gets one password check, so timing does not show which names exist.
             $record = if ($null -ne $user) { $user.Password } else { Get-ChannelForgeDummyPasswordRecord }
             if (-not (Test-ChannelForgeAdminPassword -Password $password -Record $record) -or $null -eq $user) {
-                if ($null -ne $Limiter) { Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now }
+                if ($null -ne $Limiter) {
+                    Register-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Now $Now
+                    Register-ChannelForgeSignInNameFailure -Limiter $Limiter -Name $name -Now $Now
+                }
                 $who = if ($null -ne $user) { $user } else { Get-ChannelForgeAuditPerson -ConfigRoot $ConfigRoot -Name $name }
                 $why = if ($null -ne $user) { 'wrong password' } elseif ($who.Name -ne 'unknown') { 'user is disabled' } else { 'unknown name' }
                 Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Result refused -Actor $who -Reason $why -RemoteAddress $SourceAddress -Now $Now
                 return New-ChannelForgeWebSignInJsonResponse -StatusCode 401 -Body @{ Error = 'sign-in-failed'; Message = 'That password did not work.' }
             }
-            if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress }
+            if ($null -ne $Limiter) { Clear-ChannelForgeSignInFailure -Limiter $Limiter -Address $SourceAddress -Name $name }
             $newToken = New-ChannelForgeWebSession -Store $Store -UserId $user.Id -Now $Now
             Write-ChannelForgeAuditEvent -ConfigRoot $ConfigRoot -EventName 'sign-in' -Actor $user -RemoteAddress $SourceAddress -Now $Now
             return New-ChannelForgeWebSignInJsonResponse -StatusCode 200 -Body @{ SignedIn = $true } -ExtraHeaders @{ 'Set-Cookie' = ($cookieBase -f $newToken) }

@@ -75,6 +75,8 @@ If you used an older version, the program upgrades by itself the first time the 
 
 After 5 wrong passwords in a row, the server makes you wait before the next try. The wait doubles each time, up to 15 minutes. Then it stops growing. You are never locked out for good. The right password works once the wait is over. The message is always the same, so it never tells a stranger what was wrong.
 
+Each user name also has its own count. After 5 wrong passwords for one name, that name waits 60 seconds, whatever address the tries come from, and even the right password is refused until the 60 seconds end. A name that does not exist is counted the same way and gets the same answer, so nobody can tell which names exist. This wait is kept in memory only. It lasts 60 seconds at most and a restart clears it, so wrong tries can never lock out the last Admin for good. A right sign-in after the wait clears that name's count.
+
 ## Audit trail
 
 When sign-in is on, the server writes one line per event to `audit.jsonl` in your config folder: sign-ins (right and wrong), sign-outs, password changes, and every change to users. Each line says when, who, what, from which address, and whether it worked. It never holds a password, setup code or session. The file keeps the last 12 months or the newest 5,000 lines, whichever is smaller. If the file cannot be written, the server shows one warning and carries on. An Admin can read it at `/api/audit`, newest first. A screen for it comes later.
