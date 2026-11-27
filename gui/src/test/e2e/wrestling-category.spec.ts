@@ -39,6 +39,11 @@ test('opens the read-only Wrestling hub and navigates its status sections with t
   await page.route('**/api/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
+    // At start the app asks whether sign-in is required and for the saved look. This server has sign-in off and nothing saved, so the page opens as before.
+    if (url.pathname === '/api/auth/session' || url.pathname === '/api/settings') {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+      return
+    }
     apiRequests.push(`${request.method()} ${url.pathname}${url.search}`)
     if (url.pathname === '/api/status') {
       await route.fulfill({

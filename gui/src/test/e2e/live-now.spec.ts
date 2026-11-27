@@ -57,6 +57,11 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
   await page.route('**/api/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
+    // At start the app asks whether sign-in is required and for the saved look. This server has sign-in off and nothing saved, so the page opens as before.
+    if (url.pathname === '/api/auth/session' || url.pathname === '/api/settings') {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+      return
+    }
     apiRequests.push(`${request.method()} ${url.pathname}${url.search}`)
     expect(request.method()).toBe('GET')
 
@@ -87,6 +92,8 @@ test('renders the paged Live Now view, supports keyboard details, and stays read
   })
 
   await page.goto('/')
+  // The page shows nothing until the startup sign-in check has answered, so wait for the menu before using the keys.
+  await expect(page.getByRole('button', { name: 'Workbench' })).toBeVisible()
   await page.evaluate(() => performance.mark('live-now-navigation-start'))
   // Remote D-pad path from launch: first arrow lands on the active page, Down reaches Live Now, OK opens it.
   await page.keyboard.press('ArrowDown')
