@@ -46,7 +46,7 @@ function New-ChannelForgeWebSession {
     )
     Remove-ChannelForgeExpiredWebSession -Store $Store -Now $Now
     $token = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-    $Store[(Get-ChannelForgeWebSessionKey -Token $token)] = [pscustomobject]@{ UserId = $UserId; CreatedUtc = $Now; LastSeenUtc = $Now }
+    $Store[(Get-ChannelForgeWebSessionKey -Token $token)] = [pscustomobject]@{ UserId = $UserId; CreatedUtc = $Now; LastSeenUtc = $Now; Handles = @{} }
     return $token
 }
 
