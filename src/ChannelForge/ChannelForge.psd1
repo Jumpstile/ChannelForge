@@ -133,6 +133,7 @@ FunctionsToExport = @(
     'Get-ChannelForgePreflightReport'
     'Get-ChannelForgeOneGuide'
     'Get-ChannelForgeWebStatus'
+    'Read-ChannelForgeAedDefaults'
     'Read-ChannelForgeEpgSource'
     'Read-ChannelForgeProvider'
     'Resolve-ChannelForgeAlias'
